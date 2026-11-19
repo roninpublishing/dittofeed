@@ -22,10 +22,18 @@ import config from "./config";
 
 export async function buildWorker(otel?: OpenTelemetry) {
   Runtime.install({ logger: workerLogger });
+  const { temporalAddress, temporalApiKey, temporalNamespace } = backendConfig();
 
   const [connection, workflowClient] = await Promise.all([
     NativeConnection.connect({
-      address: backendConfig().temporalAddress,
+      address: temporalAddress,
+      ...(temporalApiKey
+        ? {
+            tls: true,
+            apiKey: temporalApiKey,
+            metadata: { "temporal-namespace": temporalNamespace },
+          }
+        : {}),
     }),
     connectWorkflowCLient(),
   ]);

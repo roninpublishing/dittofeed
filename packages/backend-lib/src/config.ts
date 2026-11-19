@@ -29,6 +29,7 @@ const BaseRawConfigProps = {
   databaseNameSuffix: Type.Optional(Type.String()),
   writeMode: Type.Optional(WriteMode),
   temporalAddress: Type.Optional(Type.String()),
+  temporalApiKey: Type.Optional(Type.String()),
   temporalConnectionTimeout: Type.Optional(
     Type.String({ format: "naturalNumber" }),
   ),
@@ -346,6 +347,7 @@ export type Config = Overwrite<
     signoutRedirectUrl: string;
     startOtel: boolean;
     temporalAddress: string;
+    temporalApiKey?: string;
     temporalNamespace: string;
     temporalConnectionTimeout?: number;
     telnyxWebhookRetentionDays: number;
@@ -691,6 +693,7 @@ function parseRawConfig(rawConfig: RawConfig): Config {
     nodeEnv,
     writeMode,
     temporalAddress: defaultTemporalAddress(rawConfig.temporalAddress),
+    temporalApiKey: rawConfig.temporalApiKey,
     databaseUrl,
     database,
     clickhouseDatabase,

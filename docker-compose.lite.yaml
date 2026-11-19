@@ -4,7 +4,7 @@ x-database-credentials: &database-credentials
   DATABASE_PASSWORD: ${DATABASE_PASSWORD:-password}
 x-clickhouse-credentials: &clickhouse-credentials
   CLICKHOUSE_USER: ${CLICKHOUSE_USER:-dittofeed}
-  CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password}
+  CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Set a strong CLICKHOUSE_PASSWORD in a private env file}
 x-backend-app-env: &backend-app-env
   <<: [*clickhouse-credentials, *database-credentials]
   NODE_ENV: production
@@ -131,10 +131,6 @@ services:
           memory: ${CLICKHOUSE_CONTAINER_MEM_LIMIT:-2048}m
     environment:
       <<: *clickhouse-credentials
-    ports:
-      - "8123:8123"
-      - "9000:9000"
-      - "9009:9009"
     volumes:
       - clickhouse_lib:/var/lib/clickhouse
       - clickhouse_log:/var/log/clickhouse-server

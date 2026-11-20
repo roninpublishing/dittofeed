@@ -9,8 +9,8 @@ To get started with Dittofeed, you'll need do the following:
 3. Integrate a messaging channel.
 4. Create a user journey.
 
-Currently, we recommend that users self-host with docker compose, and ingest
-data from segment. We currently support email messaging via sendgrid.
+You can self-host with Docker Compose and ingest user data through Dittofeed's
+REST API or native SDKs. Configure an email provider such as SendGrid to send messages.
 
 <CardGroup cols={2}>
   <Card
@@ -24,8 +24,8 @@ data from segment. We currently support email messaging via sendgrid.
     First, deploy your Dittofeed instance on Render.
 
   </Card>
-  <Card title="Using Segment.io as an event Source" icon="pipe-section" color="#0285c7" href="/integrations/sources/segment">
-    Second, send Dittofeed your user data via Segment.io.
+  <Card title="Using Dittofeed's REST API" icon="server" color="#0285c7" href="/integrations/sources/api">
+    Second, send Dittofeed your user traits and events directly.
   </Card>
   <Card title="Using SendGrid to send Emails" icon="envelope" color="#16a34a" href="/integrations/channels/sendgrid">
     Third, configure SendGrid to send emails.

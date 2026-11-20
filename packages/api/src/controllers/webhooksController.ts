@@ -4,7 +4,6 @@ import { SpanStatusCode } from "@opentelemetry/api";
 import { Type } from "@sinclair/typebox";
 import { canWorkspaceReceiveEvents } from "backend-lib/src/auth";
 import backendConfig from "backend-lib/src/config";
-import { generateDigest } from "backend-lib/src/crypto";
 import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import {
@@ -26,12 +25,11 @@ import {
   ResendEvent,
   SendgridEvent,
 } from "backend-lib/src/types";
-import { insertUserEvents } from "backend-lib/src/userEvents";
 import { createHmac } from "crypto";
 import { and, eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { fastifyRawBody } from "fastify-raw-body";
-import { SecretNames, WORKSPACE_ID_HEADER } from "isomorphic-lib/src/constants";
+import { SecretNames } from "isomorphic-lib/src/constants";
 import {
   jsonParseSafe,
   schemaValidateWithErr,
@@ -40,13 +38,9 @@ import {
   MailChimpSecret,
   PostMarkSecret,
   ResendSecret,
-  WorkspaceId,
 } from "isomorphic-lib/src/types";
 import * as R from "remeda";
 import { Webhook } from "svix";
-
-import { getWorkspaceId } from "../workspace";
-
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export default async function webhookController(fastify: FastifyInstance) {
@@ -516,85 +510,6 @@ export default async function webhookController(fastify: FastifyInstance) {
 
       await submitMailChimpEvents({
         events: parsedEvents,
-      });
-
-      return reply.status(200).send();
-    },
-  );
-
-  fastify.withTypeProvider<TypeBoxTypeProvider>().post(
-    "/segment",
-    {
-      schema: {
-        description:
-          "Used to consume segment.io webhook payloads. Must be exposed publicly to the internet.",
-        tags: ["Webhooks"],
-        body: Type.Object(
-          {
-            messageId: Type.String(),
-            timestamp: Type.String(),
-          },
-          { additionalProperties: true },
-        ),
-        headers: Type.Object({
-          "x-signature": Type.String(),
-          [WORKSPACE_ID_HEADER]: Type.Optional(WorkspaceId),
-        }),
-      },
-    },
-    async (request, reply) => {
-      const workspaceIdResult = await getWorkspaceId(request);
-      if (workspaceIdResult.isErr()) {
-        return reply.status(400).send();
-      }
-      const workspaceId = workspaceIdResult.value;
-      if (!workspaceId) {
-        return reply.status(400).send({
-          error: "Missing workspaceId. Try setting the df-workspace-id header.",
-        });
-      }
-      const config = await db().query.segmentIoConfiguration.findFirst({
-        where: eq(schema.segmentIoConfiguration.workspaceId, workspaceId),
-        with: {
-          workspace: true,
-        },
-      });
-
-      if (!config) {
-        return reply.status(503).send();
-      }
-
-      if (!request.rawBody || typeof request.rawBody !== "string") {
-        // Should always be defined
-        return reply.status(500).send();
-      }
-
-      const { sharedSecret } = config;
-      const signature = request.headers["x-signature"];
-
-      const digest = generateDigest({
-        rawBody: request.rawBody,
-        sharedSecret,
-      });
-
-      if (signature !== digest) {
-        return reply.status(401).send();
-      }
-
-      if (!canWorkspaceReceiveEvents({ workspace: config.workspace })) {
-        return reply.status(401).send({
-          message: "Workspace not eligible.",
-        });
-      }
-
-      await insertUserEvents({
-        workspaceId,
-        userEvents: [
-          {
-            messageId: request.body.messageId,
-            messageRaw: request.rawBody,
-          },
-        ],
       });
 
       return reply.status(200).send();

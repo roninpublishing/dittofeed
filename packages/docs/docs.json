@@ -81,7 +81,6 @@
               {
                 "group": "Data Source Types",
                 "pages": [
-                  "integrations/sources/segment",
                   "integrations/sources/api",
                   "integrations/sources/polytomic"
                 ]
@@ -226,7 +225,6 @@
               "api-reference/endpoints/apps/screen",
               "api-reference/auto/public-apps/post-apipublicappsgroup",
               "api-reference/endpoints/apps/batch",
-              "api-reference/endpoints/webhooks/segment",
               "api-reference/auto/content/get-apiadmincontenttemplates",
               "api-reference/auto/content/put-apiadmincontenttemplates",
               "api-reference/auto/content/delete-apiadmincontenttemplates",

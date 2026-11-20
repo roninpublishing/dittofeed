@@ -174,21 +174,6 @@ export const UserEvent = Type.Object({
 
 export type UserEvent = Static<typeof UserEvent>;
 
-export const SegmentIOIdentifyEvent = Type.Object({
-  traits: Type.Record(Type.String(), Type.Any()),
-});
-
-export const SegmentIOTrackEvent = Type.Object({
-  properties: Type.Record(Type.String(), Type.Any()),
-});
-
-export const SegmentIOEvent = Type.Union([
-  SegmentIOIdentifyEvent,
-  SegmentIOTrackEvent,
-]);
-
-export type SegmentIOEvent = Static<typeof SegmentIOEvent>;
-
 export const KafkaSaslMechanism = Type.Union([
   Type.Literal("plain"),
   Type.Literal("scram-sha-256"),

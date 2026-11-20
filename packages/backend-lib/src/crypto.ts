@@ -2,19 +2,6 @@ import * as crypto from "crypto";
 
 import { JSONValue } from "./types";
 
-export function generateDigest({
-  sharedSecret,
-  rawBody,
-}: {
-  sharedSecret: string;
-  rawBody: string;
-}) {
-  return crypto
-    .createHmac("sha1", sharedSecret)
-    .update(rawBody, "utf-8")
-    .digest("hex");
-}
-
 export function verifyTimestampedSignature({
   publicKey,
   payload,

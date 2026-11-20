@@ -33,9 +33,6 @@ export const initializeStore = (preloadedState: PreloadedState = {}) =>
         secretAvailability: [],
         member: null,
         memberRoles: [],
-        dataSourceConfigurations: {
-          type: CompletionStatus.NotStarted,
-        },
         defaultEmailProvider: null,
         drawerOpen: true,
         emailProviders: [],
@@ -487,27 +484,6 @@ export const initializeStore = (preloadedState: PreloadedState = {}) =>
               }
             }
             state.emailProviders.push(emailProvider);
-            return state;
-          }),
-        upsertDataSourceConfiguration: (dataSourceConfiguration) =>
-          set((state) => {
-            let { dataSourceConfigurations } = state;
-
-            if (dataSourceConfigurations.type !== CompletionStatus.Successful) {
-              dataSourceConfigurations = {
-                type: CompletionStatus.Successful,
-                value: [],
-              };
-              state.dataSourceConfigurations = dataSourceConfigurations;
-            }
-
-            for (const existingProvider of dataSourceConfigurations.value) {
-              if (dataSourceConfiguration.id === existingProvider.id) {
-                Object.assign(existingProvider, dataSourceConfiguration);
-                return state;
-              }
-            }
-            dataSourceConfigurations.value.push(dataSourceConfiguration);
             return state;
           }),
         upsertJourney: (journey) =>

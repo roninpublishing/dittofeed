@@ -17,7 +17,7 @@
 
 [Dittofeed](https://dittofeed.com) is an omni-channel customer engagement platform. Send broadcasts or create automated user journeys to message users via email, mobile push notifications, and webhooks. We're an open source, dev-friendly alternative to platforms like OneSignal, Customer.io, and Segment Engage.
 
-- 1️⃣ Connect user data via Segment, Reverse ETL, or the Dittofeed API ⛓️
+- 1️⃣ Connect user data via Reverse ETL or the Dittofeed API ⛓️
 - 2️⃣ Create highly customizable user segments with multiple operators 🧍🏽‍♀️🧍🏻‍♂️🧍🏾
 - 3️⃣ Design messaging templates using HTML/MJML, or our low-code editor 👨🏻‍🎨
 - 4️⃣ Send one-off broadcasts or automated event-based journeys with an easy-to-use GUI interface 🛩️

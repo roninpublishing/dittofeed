@@ -6,7 +6,6 @@ import {
   AdminApiKeyResource,
   BroadcastResource,
   ChannelType,
-  DataSourceConfigurationResource,
   DefaultEmailProviderResource,
   DelayUiNodeProps,
   DelayUiNodeVariant,
@@ -163,10 +162,6 @@ export type AppState = {
   secretAvailability: SecretAvailabilityResource[];
   defaultEmailProvider: DefaultEmailProviderResource | null;
   emailProviders: PersistedEmailProvider[];
-  dataSourceConfigurations: RequestStatus<
-    DataSourceConfigurationResource[],
-    Error
-  >;
   integrations: IntegrationResource[];
   sourceControlProvider?: SourceControlProviderEnum;
   viewDraft: boolean;
@@ -192,9 +187,6 @@ export type DeleteJourney = (segmentId: string) => void;
 export interface AppActions {
   toggleDrawer: () => void;
   upsertEmailProvider: (emailProvider: PersistedEmailProvider) => void;
-  upsertDataSourceConfiguration: (
-    dataSource: DataSourceConfigurationResource,
-  ) => void;
   upsertTemplate: (message: MessageTemplateResource) => void;
   upsertBroadcast: (message: BroadcastResource) => void;
   deleteMessage: (id: string) => void;

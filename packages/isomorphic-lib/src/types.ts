@@ -1944,36 +1944,6 @@ export type UpsertEmailProviderResource = Static<
   typeof UpsertEmailProviderResource
 >;
 
-export enum DataSourceVariantType {
-  SegmentIO = "SegmentIO",
-}
-
-export const SegmentIODataSource = Type.Object({
-  type: Type.Literal(DataSourceVariantType.SegmentIO),
-  sharedSecret: Type.String(),
-});
-
-export const DataSourceConfigurationVariant = Type.Union([SegmentIODataSource]);
-
-export const DataSourceConfigurationResource = Type.Object({
-  id: Type.String(),
-  workspaceId: Type.String(),
-  variant: DataSourceConfigurationVariant,
-});
-
-export type DataSourceConfigurationResource = Static<
-  typeof DataSourceConfigurationResource
->;
-
-export const UpsertDataSourceConfigurationResource = Type.Omit(
-  DataSourceConfigurationResource,
-  ["id"],
-);
-
-export type UpsertDataSourceConfigurationResource = Static<
-  typeof UpsertDataSourceConfigurationResource
->;
-
 export type DeepPartial<T> = T extends object
   ? {
       [P in keyof T]?: DeepPartial<T[P]>;
@@ -5535,31 +5505,6 @@ export const DuplicateResourceResponse = Type.Object({
 
 export type DuplicateResourceResponse = Static<
   typeof DuplicateResourceResponse
->;
-
-export const ListDataSourceConfigurationRequest = Type.Object({
-  workspaceId: Type.String(),
-});
-
-export type ListDataSourceConfigurationRequest = Static<
-  typeof ListDataSourceConfigurationRequest
->;
-
-export const ListDataSourceConfigurationResponse = Type.Object({
-  dataSourceConfigurations: Type.Array(Type.Enum(DataSourceVariantType)),
-});
-
-export type ListDataSourceConfigurationResponse = Static<
-  typeof ListDataSourceConfigurationResponse
->;
-
-export const DeleteDataSourceConfigurationRequest = Type.Object({
-  workspaceId: Type.String(),
-  type: Type.Enum(DataSourceVariantType),
-});
-
-export type DeleteDataSourceConfigurationRequest = Static<
-  typeof DeleteDataSourceConfigurationRequest
 >;
 
 export const SearchDeliveriesRequest = Type.Object({

@@ -120,33 +120,6 @@ export const workspace = pgTable(
   ],
 );
 
-export const segmentIoConfiguration = pgTable(
-  "SegmentIOConfiguration",
-  {
-    id: uuid().primaryKey().defaultRandom().notNull(),
-    workspaceId: uuid().notNull(),
-    sharedSecret: text().notNull(),
-    createdAt: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
-    updatedAt: timestamp({ precision: 3, mode: "date" })
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [
-    uniqueIndex("SegmentIOConfiguration_workspaceId_key").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"),
-    ),
-    foreignKey({
-      columns: [table.workspaceId],
-      foreignColumns: [workspace.id],
-      name: "SegmentIOConfiguration_workspaceId_fkey",
-    })
-      .onUpdate("cascade")
-      .onDelete("cascade"),
-  ],
-);
-
 export const userProperty = pgTable(
   "UserProperty",
   {

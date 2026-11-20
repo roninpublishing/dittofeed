@@ -135,14 +135,20 @@ describe("When the bookmark button is clicked", () => {
 ```
 
 ```javascript src/bookmarkButton.tsx
+import { DittofeedSdk } from '@dittofeed/sdk-web';
+
+// Initialize the Web SDK with your workspace write key before rendering.
 export default function BookmarkButton() {
   return <button onClick={() =>
-    // Dittofeed's API is Segment and Rudderstack compatible
-    analytics.track('Article Bookmarked', {
-      title: 'Snow Fall',
-      subtitle: 'The Avalanche at Tunnel Creek',
-      author: 'John Branch'
-    })  
+    DittofeedSdk.track({
+      userId: 'user-1',
+      event: 'Article Bookmarked',
+      properties: {
+        title: 'Snow Fall',
+        subtitle: 'The Avalanche at Tunnel Creek',
+        author: 'John Branch'
+      }
+    })
   }>
     Bookmark
   </button>

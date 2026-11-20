@@ -6,7 +6,6 @@ import {
   InfoOutlined,
   Key,
   Mail,
-  SimCardDownload,
   Webhook,
 } from "@mui/icons-material";
 import { LoadingButton } from "@mui/lab";
@@ -43,7 +42,6 @@ import {
 import { emailProviderLabel } from "isomorphic-lib/src/email";
 import {
   CompletionStatus,
-  DataSourceVariantType,
   DefaultEmailProviderResource,
   EmailProviderType,
   EmptyResponse,
@@ -63,7 +61,6 @@ import AdminApiKeyTable from "../components/adminApiKeyTable";
 import DashboardHead from "../components/dashboardHead";
 import Fields from "../components/form/Fields";
 import {
-  FieldComponents,
   SecretField,
   TextField as TextFieldComponent,
 } from "../components/form/types";
@@ -249,7 +246,6 @@ export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
   });
 
 const settingsSectionIds = {
-  segmentSource: "segment-source",
   emailChannel: "email-channel",
   webhookChannel: "webhook-channel",
   subscription: "subscriptions",
@@ -262,21 +258,6 @@ const settingsSectionIds = {
 
 function getMenuItems(authMode: string | undefined): MenuItemGroup[] {
   const baseMenuItems: MenuItemGroup[] = [
-    {
-      id: "data-sources",
-      title: "Data Sources",
-      type: "group",
-      children: [
-        {
-          id: "data-sources-segment-io",
-          title: "Segment",
-          type: "item",
-          url: `/settings#${settingsSectionIds.segmentSource}`,
-          icon: SimCardDownload,
-          description: "",
-        },
-      ],
-    },
     {
       id: "message-channels",
       title: "Messaging Channels",
@@ -389,214 +370,6 @@ function SettingsLayout(
         {...props}
       />
     </>
-  );
-}
-
-function SegmentIoConfig() {
-  const [isEnabled, setIsEnabled] = useState(false);
-  const [sharedSecret, setSharedSecret] = useState("");
-  const [secretExists, setSecretExists] = useState(false);
-  const { apiBase, workspace } = useAppStorePick(["apiBase", "workspace"]);
-  const queryClient = useQueryClient();
-
-  const workspaceId =
-    workspace.type === CompletionStatus.Successful ? workspace.value.id : null;
-
-  // Fetch existing segment configuration
-  const segmentConfigQuery = useQuery({
-    queryKey: ["segmentConfig", workspaceId],
-    queryFn: async () => {
-      if (!workspaceId) return null;
-
-      const response = await axios.get(
-        `${apiBase}/api/settings/data-sources?workspaceId=${workspaceId}`,
-      );
-
-      return response.data;
-    },
-    enabled: !!workspaceId,
-  });
-
-  // Update isEnabled when the query data changes
-  useEffect(() => {
-    if (segmentConfigQuery.data) {
-      const segmentEnabled =
-        segmentConfigQuery.data.dataSourceConfigurations?.includes(
-          DataSourceVariantType.SegmentIO,
-        );
-      setIsEnabled(!!segmentEnabled);
-      setSecretExists(!!segmentEnabled);
-    }
-  }, [segmentConfigQuery.data]);
-
-  // Mutation to update segment configuration
-  const segmentConfigMutation = useMutation({
-    mutationFn: async () => {
-      if (!workspaceId) return null;
-
-      // Determine what shared secret value to send
-      let sharedSecretValue: string | undefined;
-
-      // If there's no new value entered and a secret already exists,
-      // send undefined to keep existing value
-      if (!sharedSecret && secretExists) {
-        sharedSecretValue = undefined;
-      } else {
-        // Otherwise send the new value
-        sharedSecretValue = sharedSecret;
-      }
-
-      const body = {
-        workspaceId,
-        variant: {
-          type: DataSourceVariantType.SegmentIO,
-          sharedSecret: sharedSecretValue,
-        },
-      };
-
-      return axios.put(`${apiBase}/api/settings/data-sources`, body);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["segmentConfig", workspaceId],
-      });
-      enqueueSnackbar("Segment configuration updated successfully", {
-        variant: "success",
-        autoHideDuration: 3000,
-        anchorOrigin: noticeAnchorOrigin,
-      });
-    },
-    onError: (error) => {
-      enqueueSnackbar(
-        `Failed to update Segment configuration: ${error instanceof Error ? error.message : "Unknown error"}`,
-        {
-          variant: "error",
-          autoHideDuration: 10000,
-          anchorOrigin: noticeAnchorOrigin,
-        },
-      );
-    },
-  });
-
-  // Mutation to delete segment configuration
-  const deleteSegmentConfigMutation = useMutation({
-    mutationFn: async () => {
-      if (!workspaceId) return null;
-
-      return axios.delete(
-        `${apiBase}/api/settings/data-sources?workspaceId=${workspaceId}&type=${DataSourceVariantType.SegmentIO}`,
-      );
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["segmentConfig", workspaceId],
-      });
-      enqueueSnackbar("Segment integration disabled successfully", {
-        variant: "success",
-        autoHideDuration: 3000,
-        anchorOrigin: noticeAnchorOrigin,
-      });
-    },
-    onError: (error) => {
-      enqueueSnackbar(
-        `Failed to disable Segment integration: ${error instanceof Error ? error.message : "Unknown error"}`,
-        {
-          variant: "error",
-          autoHideDuration: 10000,
-          anchorOrigin: noticeAnchorOrigin,
-        },
-      );
-    },
-  });
-
-  const handleSubmit = () => {
-    if (isEnabled) {
-      segmentConfigMutation.mutate();
-    } else {
-      deleteSegmentConfigMutation.mutate();
-    }
-  };
-
-  const isPending =
-    segmentConfigMutation.isPending || deleteSegmentConfigMutation.isPending;
-
-  const saveButtonDisabled =
-    isPending || (isEnabled && !secretExists && !sharedSecret);
-
-  return (
-    <Stack spacing={3}>
-      <SectionHeader
-        id={settingsSectionIds.segmentSource}
-        title="Data Sources"
-        description="Integrations for submitting data to your workspace."
-      />
-      <Fields
-        sections={[
-          {
-            id: "data-sources-section-1",
-            fieldGroups: [
-              {
-                id: "segment-io-fields",
-                name: "Segment.io",
-                fields: [
-                  {
-                    id: "enable-segment-io",
-                    type: "toggle",
-                    fieldProps: {
-                      labelProps: {
-                        label: "Enable",
-                      },
-                      switchProps: {
-                        checked: isEnabled,
-                        disabled: segmentConfigQuery.isPending,
-                        onChange: (_, checked) => {
-                          setIsEnabled(checked);
-                        },
-                      },
-                    },
-                  },
-                  ...(isEnabled
-                    ? // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-                      ([
-                        {
-                          id: "shared-secret",
-                          type: "text",
-                          fieldProps: {
-                            label: "Shared Secret",
-                            placeholder: secretExists ? "••••••••••" : "",
-                            helperText:
-                              secretExists && !sharedSecret
-                                ? "Secret is already configured. Enter a new value to change it."
-                                : "Secret for validating signed request bodies from segment.",
-                            onChange: (e) => {
-                              setSharedSecret(e.target.value);
-                            },
-                            value: sharedSecret,
-                          },
-                        },
-                      ] as FieldComponents[])
-                    : []),
-                ],
-              },
-            ],
-          },
-        ]}
-      >
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={saveButtonDisabled}
-          sx={{
-            alignSelf: {
-              xs: "start",
-              sm: "end",
-            },
-          }}
-        >
-          Save
-        </Button>
-      </Fields>
-    </Stack>
   );
 }
 
@@ -1681,7 +1454,6 @@ function SettingsContents() {
   }
   return (
     <>
-      <SegmentIoConfig />
       <MessageChannelsConfig />
       <AuthenticationSettings />
       <SubscriptionManagementSettings />

@@ -1,26 +1,18 @@
 /* eslint-disable arrow-body-style */
 import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
-import { Type } from "@sinclair/typebox";
 import { getOrCreateWriteKey, getWriteKeys } from "backend-lib/src/auth";
 import { db, upsert } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import { upsertEmailProvider } from "backend-lib/src/messaging/email";
 import { and, eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
-import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import {
   BadRequestResponse,
-  DataSourceConfigurationResource,
-  DataSourceVariantType,
   DefaultEmailProviderResource,
-  DeleteDataSourceConfigurationRequest,
   DeleteWriteKeyResource,
   EmptyResponse,
-  ListDataSourceConfigurationRequest,
-  ListDataSourceConfigurationResponse,
   ListWriteKeyRequest,
   ListWriteKeyResource,
-  UpsertDataSourceConfigurationResource,
   UpsertDefaultEmailProviderRequest,
   UpsertEmailProviderRequest,
   UpsertWriteKeyResource,
@@ -29,116 +21,6 @@ import {
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export default async function settingsController(fastify: FastifyInstance) {
-  fastify.withTypeProvider<TypeBoxTypeProvider>().get(
-    "/data-sources",
-    {
-      schema: {
-        description: "Get data source settings",
-        tags: ["Settings"],
-        querystring: ListDataSourceConfigurationRequest,
-        response: {
-          200: ListDataSourceConfigurationResponse,
-        },
-      },
-    },
-    async (request, reply) => {
-      const segmentIoConfiguration =
-        await db().query.segmentIoConfiguration.findFirst({
-          where: eq(
-            schema.segmentIoConfiguration.workspaceId,
-            request.query.workspaceId,
-          ),
-        });
-      const existingDatasources: DataSourceVariantType[] = [];
-      if (segmentIoConfiguration) {
-        existingDatasources.push(DataSourceVariantType.SegmentIO);
-      }
-      return reply.status(200).send({
-        dataSourceConfigurations: existingDatasources,
-      });
-    },
-  );
-  fastify.withTypeProvider<TypeBoxTypeProvider>().put(
-    "/data-sources",
-    {
-      schema: {
-        description: "Create or update data source settings",
-        tags: ["Settings"],
-        body: UpsertDataSourceConfigurationResource,
-        response: {
-          200: DataSourceConfigurationResource,
-          400: Type.Object({
-            error: Type.String(),
-          }),
-        },
-      },
-    },
-    async (request, reply) => {
-      const { workspaceId, variant } = request.body;
-
-      let resource: DataSourceConfigurationResource;
-      switch (variant.type) {
-        case DataSourceVariantType.SegmentIO: {
-          if (!variant.sharedSecret) {
-            return reply.status(400).send({
-              error:
-                "Invalid payload. Segment variant musti included sharedSecret value.",
-            });
-          }
-          const { id } = await upsert({
-            table: schema.segmentIoConfiguration,
-            values: {
-              workspaceId,
-              sharedSecret: variant.sharedSecret,
-            },
-            target: [schema.segmentIoConfiguration.workspaceId],
-            set: {
-              sharedSecret: variant.sharedSecret,
-            },
-          }).then(unwrap);
-
-          resource = {
-            id,
-            workspaceId,
-            variant: {
-              type: variant.type,
-              sharedSecret: variant.sharedSecret,
-            },
-          };
-        }
-      }
-
-      return reply.status(200).send(resource);
-    },
-  );
-
-  fastify.withTypeProvider<TypeBoxTypeProvider>().delete(
-    "/data-sources",
-    {
-      schema: {
-        description: "Delete data source settings",
-        tags: ["Settings"],
-        querystring: DeleteDataSourceConfigurationRequest,
-        response: {
-          204: EmptyResponse,
-        },
-      },
-    },
-    async (request, reply) => {
-      const { workspaceId, type } = request.query;
-      switch (type) {
-        case DataSourceVariantType.SegmentIO: {
-          await db()
-            .delete(schema.segmentIoConfiguration)
-            .where(eq(schema.segmentIoConfiguration.workspaceId, workspaceId));
-          break;
-        }
-      }
-      return reply.status(204).send();
-    },
-  );
-
-
   fastify.withTypeProvider<TypeBoxTypeProvider>().put(
     "/email-providers/default",
     {

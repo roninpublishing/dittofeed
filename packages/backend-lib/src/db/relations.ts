@@ -16,7 +16,6 @@ import {
   secret,
   segment,
   segmentAssignment,
-  segmentIoConfiguration,
   subscriptionGroup,
   userProperty,
   userPropertyAssignment,
@@ -29,18 +28,7 @@ import {
   writeKey,
 } from "./schema";
 
-export const segmentIoConfigurationRelations = relations(
-  segmentIoConfiguration,
-  ({ one }) => ({
-    workspace: one(workspace, {
-      fields: [segmentIoConfiguration.workspaceId],
-      references: [workspace.id],
-    }),
-  }),
-);
-
 export const workspaceRelations = relations(workspace, ({ many }) => ({
-  segmentIoConfigurations: many(segmentIoConfiguration),
   userProperties: many(userProperty),
   userPropertyAssignments: many(userPropertyAssignment),
   emailProviders: many(emailProvider),

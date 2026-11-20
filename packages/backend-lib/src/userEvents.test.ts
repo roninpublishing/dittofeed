@@ -2,7 +2,6 @@ import { randomUUID } from "crypto";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 
 import { submitBatch } from "../test/testEvents";
-import { segmentIdentifyEvent } from "./segmentIO";
 import { EventType, Workspace } from "./types";
 import {
   findIdentifyTraits,
@@ -26,26 +25,34 @@ describe("userEvents", () => {
 
   describe("findAllUserTraits", () => {
     beforeEach(async () => {
+      const messageId1 = randomUUID();
+      const messageId2 = randomUUID();
       await insertUserEvents({
         workspaceId: workspace.id,
         events: [
           {
-            messageId: randomUUID(),
-            messageRaw: segmentIdentifyEvent({
+            messageId: messageId1,
+            messageRaw: {
+              type: EventType.Identify,
+              messageId: messageId1,
+              userId: randomUUID(),
               traits: {
                 status: "onboarding",
                 name: "max",
               },
-            }),
+            },
           },
           {
-            messageId: randomUUID(),
-            messageRaw: segmentIdentifyEvent({
+            messageId: messageId2,
+            messageRaw: {
+              type: EventType.Identify,
+              messageId: messageId2,
+              userId: randomUUID(),
               traits: {
                 status: "onboarding",
                 height: "73",
               },
-            }),
+            },
           },
         ],
       });

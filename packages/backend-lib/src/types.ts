@@ -39,7 +39,6 @@ import {
   secret as dbSecret,
   segment as dbSegment,
   segmentAssignment as dbSegmentAssignment,
-  smsProvider as dbSmsProvider,
   subscriptionGroup as dbSubscriptionGroup,
   subscriptionManagementTemplate as dbSubscriptionManagementTemplate,
   userJourneyEvent as dbUserJourneyEvent,
@@ -93,8 +92,6 @@ export type Journey = InferSelectModel<typeof dbJourney>;
 export type Integration = InferSelectModel<typeof dbIntegration>;
 
 export type EmailProvider = InferSelectModel<typeof dbEmailProvider>;
-
-export type SmsProvider = InferSelectModel<typeof dbSmsProvider>;
 
 export type MessageTemplate = InferSelectModel<typeof dbMessageTemplate>;
 
@@ -243,35 +240,6 @@ export const OpenIdProfile = Type.Object({
 
 export type OpenIdProfile = Static<typeof OpenIdProfile>;
 
-export enum TwilioMessageStatus {
-  Queued = "queued",
-  Sending = "sending",
-  Sent = "sent",
-  Failed = "failed",
-  Delivered = "delivered",
-  Undelivered = "undelivered",
-  Receiving = "receiving",
-  Received = "received",
-  Accepted = "accepted",
-  Scheduled = "scheduled",
-  Read = "read",
-  PartiallyDelivered = "partially_delivered",
-  Canceled = "canceled",
-}
-
-export const TwilioEventSms = Type.Object({
-  SmsSid: Type.String(),
-  MessagingServiceSid: Type.String(),
-  SmsStatus: Type.Enum(TwilioMessageStatus),
-  Body: Type.Optional(Type.String()),
-  To: Type.String(),
-  MessageSid: Type.String(),
-  AccountSid: Type.String(),
-  From: Type.String(),
-  ApiVersion: Type.String(),
-});
-
-export type TwilioInboundSchema = Static<typeof TwilioEventSms>;
 
 export enum AmazonSesNotificationType {
   Bounce = "Bounce",

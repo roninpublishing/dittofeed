@@ -259,7 +259,6 @@ export default function SubscriptionGroupConfig() {
               value={editedSubscriptionGroup.channel}
             >
               <MenuItem value={ChannelType.Email}>Email</MenuItem>
-              <MenuItem value={ChannelType.Sms}>SMS</MenuItem>
               <MenuItem value={ChannelType.Webhook}>Webhook</MenuItem>
             </Select>
           </FormControl>

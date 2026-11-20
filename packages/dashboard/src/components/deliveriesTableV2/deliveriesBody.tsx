@@ -81,7 +81,6 @@ import EmailPreviewHeader from "../emailPreviewHeader";
 import { GreyButton } from "../greyButtonStyle";
 import EmailPreviewBody from "../messages/emailPreview";
 import { WebhookPreviewBody } from "../messages/webhookPreview";
-import SmsPreviewBody from "../smsPreviewBody";
 import TemplatePreview from "../templatePreview";
 import { DEFAULT_ALLOWED_COLUMNS } from "./constants";
 
@@ -104,8 +103,6 @@ function humanizeChannel(channel: ChannelType): string {
   switch (channel) {
     case ChannelType.Email:
       return "Email";
-    case ChannelType.Sms:
-      return "SMS";
     case ChannelType.Webhook:
       return "Webhook";
     case ChannelType.MobilePush:
@@ -329,15 +326,6 @@ interface EmailDelivery extends BaseDelivery {
   snippet: string;
 }
 
-interface SmsDelivery extends BaseDelivery {
-  channel: typeof ChannelType.Sms;
-  from?: undefined;
-  to: string;
-  subject?: undefined;
-  replyTo?: undefined;
-  snippet: string;
-}
-
 interface WebhookDelivery extends BaseDelivery {
   channel: typeof ChannelType.Webhook;
   from?: undefined;
@@ -347,7 +335,7 @@ interface WebhookDelivery extends BaseDelivery {
   snippet?: undefined;
 }
 
-type Delivery = EmailDelivery | SmsDelivery | WebhookDelivery;
+type Delivery = EmailDelivery | WebhookDelivery;
 
 const DeliveriesCountResponseSchema = Type.Object({
   count: Type.Number(),
@@ -791,15 +779,6 @@ export function useDeliveryBodyState({
             replyTo: variant.replyTo,
           };
           break;
-        case ChannelType.Sms:
-          delivery = {
-            ...baseDelivery,
-            channel: ChannelType.Sms,
-            body: variant.body,
-            snippet: variant.body,
-            to: variant.to,
-          };
-          break;
         case ChannelType.Webhook:
           delivery = {
             ...baseDelivery,
@@ -1053,10 +1032,6 @@ export function DeliveriesBody({
             <EmailPreviewBody body={previewObject.body} />
           </Box>
         );
-        break;
-      case ChannelType.Sms:
-        previewHeader = null;
-        previewBody = <SmsPreviewBody body={previewObject.body} />;
         break;
       case ChannelType.Webhook:
         previewHeader = null;

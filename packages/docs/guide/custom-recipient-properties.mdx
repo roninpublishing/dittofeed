@@ -5,7 +5,7 @@ description: "Send messages to alternative contact methods or third parties."
 
 ## Overview
 
-By default, Dittofeed sends emails to the user's `email` property and SMS messages to their `phone` property. You can configure templates to send to a different user property instead. This is useful for two scenarios:
+By default, Dittofeed sends emails to the user's `email` property. You can configure templates to send to a different user property instead. This is useful for two scenarios:
 
 1. **Alternative contact methods**: A user has multiple emails (personal, work) and you want to choose which one to use
 2. **Third-party notifications**: Send messages to someone other than the user (e.g., their manager)
@@ -14,7 +14,7 @@ By default, Dittofeed sends emails to the user's `email` property and SMS messag
 
 ### 1. Create a User Property for the Recipient
 
-Create a user property to store the recipient's contact information (e.g., `managerEmail` or `workPhone`).
+Create a user property to store the recipient's contact information (e.g., `managerEmail` or `workEmail`).
 
 ### 2. Submit the Recipient's Contact Information
 
@@ -33,7 +33,7 @@ Include the recipient property in your identify events:
 
 ### 3. Configure the Template
 
-1. Open your email or SMS template in the dashboard
+1. Open your email template in the dashboard
 2. Click the "Options" button
 3. Select the desired user property from the "Recipient User Property" dropdown
 4. Save the template
@@ -42,7 +42,6 @@ Include the recipient property in your identify events:
 
 Users may have multiple contact methods. For example:
 - `email` (personal) and `workEmail` (work)
-- `phone` (personal) and `workPhone` (work)
 
 You can create templates that send to the alternative property. Unsubscribe links work normally - the user controls their own subscription.
 

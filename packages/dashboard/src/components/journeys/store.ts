@@ -775,12 +775,6 @@ function journeyDefinitionFromStateBranch(
             templateId: uiNode.templateId,
             providerOverride: uiNode.providerOverride,
           };
-        } else if (uiNode.channel === ChannelType.Sms) {
-          variant = {
-            type: uiNode.channel,
-            templateId: uiNode.templateId,
-            providerOverride: uiNode.providerOverride,
-          };
         } else {
           variant = {
             type: uiNode.channel,
@@ -1664,15 +1658,6 @@ export function journeyBranchToState(
               ...baseMessageNode,
               channel: ChannelType.Email,
               providerOverride: node.variant.providerOverride,
-            };
-            break;
-          }
-          case ChannelType.Sms: {
-            messageNode = {
-              ...baseMessageNode,
-              channel: ChannelType.Sms,
-              providerOverride: node.variant.providerOverride ?? undefined,
-              senderOverride: node.variant.senderOverride ?? undefined,
             };
             break;
           }

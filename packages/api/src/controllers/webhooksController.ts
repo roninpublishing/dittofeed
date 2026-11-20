@@ -16,7 +16,6 @@ import { submitMailChimpEvents } from "backend-lib/src/destinations/mailchimp";
 import { submitPostmarkEvents } from "backend-lib/src/destinations/postmark";
 import { submitResendEvents } from "backend-lib/src/destinations/resend";
 import { handleSendgridEvents } from "backend-lib/src/destinations/sendgrid";
-import { submitTwilioEvents } from "backend-lib/src/destinations/twilio";
 import logger from "backend-lib/src/logger";
 import { withSpan } from "backend-lib/src/openTelemetry";
 import {
@@ -26,7 +25,6 @@ import {
   PostMarkEvent,
   ResendEvent,
   SendgridEvent,
-  TwilioEventSms,
 } from "backend-lib/src/types";
 import { insertUserEvents } from "backend-lib/src/userEvents";
 import { createHmac } from "crypto";
@@ -42,17 +40,13 @@ import {
   MailChimpSecret,
   PostMarkSecret,
   ResendSecret,
-  TwilioSecret,
-  TwilioWebhookRequest,
   WorkspaceId,
 } from "isomorphic-lib/src/types";
 import * as R from "remeda";
 import { Webhook } from "svix";
-import { validateRequest } from "twilio";
 
 import { getWorkspaceId } from "../workspace";
 
-const TWILIO_CONFIG_ERR_MSG = "Twilio configuration not found";
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export default async function webhookController(fastify: FastifyInstance) {
@@ -524,92 +518,6 @@ export default async function webhookController(fastify: FastifyInstance) {
         events: parsedEvents,
       });
 
-      return reply.status(200).send();
-    },
-  );
-
-  fastify.withTypeProvider<TypeBoxTypeProvider>().post(
-    "/twilio",
-    {
-      schema: {
-        description: "Used to consume Twilio webhook payloads.",
-        tags: ["Webhooks"],
-        headers: Type.Object({
-          "x-twilio-signature": Type.String(),
-        }),
-        body: TwilioEventSms,
-        querystring: TwilioWebhookRequest,
-      },
-    },
-    async (request, reply) => {
-      const { workspaceId, userId, subscriptionGroupId, ...tags } =
-        request.query;
-
-      const twilioSecretModel = await db().query.secret.findFirst({
-        where: and(
-          eq(schema.secret.workspaceId, workspaceId),
-          eq(schema.secret.name, SecretNames.Twilio),
-        ),
-        with: {
-          workspace: true,
-        },
-      });
-
-      const twilioSecretResult = schemaValidateWithErr(
-        twilioSecretModel?.configValue,
-        TwilioSecret,
-      );
-      if (twilioSecretResult.isErr()) {
-        return reply.status(503).send({
-          message: TWILIO_CONFIG_ERR_MSG,
-        });
-      }
-      const twilioSecret = twilioSecretResult.value;
-      if (
-        !twilioSecret.authToken ||
-        !twilioSecret.accountSid ||
-        !twilioSecret.messagingServiceSid
-      ) {
-        return reply.status(503).send({
-          message: TWILIO_CONFIG_ERR_MSG,
-        });
-      }
-
-      const verified = validateRequest(
-        twilioSecret.authToken,
-        request.headers["x-twilio-signature"],
-        `${backendConfig().dashboardUrl}${request.url}`,
-        request.body,
-      );
-
-      if (!verified) {
-        logger().error(
-          {
-            workspaceId,
-          },
-          "Invalid signature for twilio webhook.",
-        );
-        return reply.status(401).send({
-          message: "Invalid signature.",
-        });
-      }
-
-      if (
-        !twilioSecretModel?.workspace ||
-        !canWorkspaceReceiveEvents({ workspace: twilioSecretModel.workspace })
-      ) {
-        return reply.status(401).send({
-          message: "Workspace not eligible.",
-        });
-      }
-
-      await submitTwilioEvents({
-        ...tags,
-        workspaceId,
-        userId,
-        TwilioEvent: request.body,
-        subscriptionGroupId,
-      });
       return reply.status(200).send();
     },
   );

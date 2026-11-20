@@ -97,6 +97,52 @@ describe("journeys with wait-for nodes", () => {
       }),
     );
   });
+  it("rejects a persisted removed channel before sending preceding email nodes", async () => {
+    senderMock.mockClear();
+    const definition = {
+      entryNode: {
+        type: JourneyNodeType.SegmentEntryNode,
+        segment: randomUUID(),
+        child: "email",
+      },
+      exitNode: { type: JourneyNodeType.ExitNode },
+      nodes: [
+        {
+          id: "email",
+          type: JourneyNodeType.MessageNode,
+          variant: { type: ChannelType.Email, templateId: randomUUID() },
+          child: "retired",
+        },
+        {
+          id: "retired",
+          type: JourneyNodeType.MessageNode,
+          // An old workflow payload is not validated by current native schemas.
+          variant: { type: "Sms", templateId: randomUUID() },
+          child: JourneyNodeType.ExitNode,
+        },
+      ],
+    } as unknown as JourneyDefinition;
+    const handle = await getTestEnv().client.workflow.start(userJourneyWorkflow, {
+      workflowId: `retired-channel-${randomUUID()}`,
+      taskQueue: "default",
+      args: [{
+        journeyId: randomUUID(),
+        workspaceId: workspace.id,
+        userId: randomUUID(),
+        definition,
+        version: UserJourneyWorkflowVersion.V2,
+      }],
+    });
+
+    await expect(handle.result()).rejects.toMatchObject({
+      cause: {
+        type: "UnsupportedMessageChannel",
+        nonRetryable: true,
+      },
+    });
+    expect(senderMock).not.toHaveBeenCalled();
+  });
+
   describe("when a journey a user already is in the segment being waited for, and when they satisfy the wait-for condition after entering they should also be sent to the message node", () => {
     let journey: Journey;
     let journeyDefinition: JourneyDefinition;

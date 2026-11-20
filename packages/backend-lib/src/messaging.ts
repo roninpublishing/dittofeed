@@ -29,11 +29,9 @@ import { MESSAGE_METADATA_FIELDS } from "./constants";
 import { db, TxQueryError, txQueryResult } from "./db";
 import {
   defaultEmailProvider as dbDefaultEmailProvider,
-  defaultSmsProvider as dbDefaultSmsProvider,
   emailProvider as dbEmailProvider,
   messageTemplate as dbMessageTemplate,
   secret as dbSecret,
-  smsProvider as dbSmsProvider,
   subscriptionGroup as dbSubscriptionGroup,
   userProperty as dbUserProperty,
   workspace as dbWorkspace,
@@ -49,16 +47,10 @@ import {
   sendMail as sendMailResend,
 } from "./destinations/resend";
 import { sendMail as sendMailSendgrid } from "./destinations/sendgrid";
-import { sendSms as sendSmsSignalWire } from "./destinations/signalwire";
 import {
   sendMail as sendMailSmtp,
   SendSmtpMailParams,
 } from "./destinations/smtp";
-import {
-  Sender as TwilioSender,
-  sendSms as sendSmsTwilio,
-  TwilioAuth,
-} from "./destinations/twilio";
 import {
   getAndRefreshGmailAccessToken,
   sendGmailEmail,
@@ -111,17 +103,9 @@ import {
   NonRetryableMessageSendFailure,
   ParsedWebhookBody,
   Secret,
-  SignalWireSecret,
-  SignalWireSenderOverrideType,
-  SmsProvider,
-  SmsProviderOverride,
-  SmsProviderSecret,
-  SmsProviderType,
   SubscriptionChange,
   SubscriptionGroupType,
   TrackData,
-  TwilioSecret,
-  TwilioSenderOverrideType,
   UpsertMessageTemplateResource,
   UpsertMessageTemplateValidationError,
   UpsertMessageTemplateValidationErrorType,
@@ -132,6 +116,7 @@ import {
 import { UserPropertyAssignments } from "./userProperties";
 import { getUsers } from "./users";
 import { isWorkspaceOccupantType } from "./workspaceOccupantSettings";
+import { hasRetiredSmsChannel } from "./smsCutover";
 
 export function enrichMessageTemplate({
   id,
@@ -241,13 +226,12 @@ export async function upsertMessageTemplate(
     });
   }
 
-  // Validate identifierKey if specified for Email/SMS templates only
+  // Validate identifierKey if specified for email templates.
   // Webhook templates already had identifierKey support and use built-in properties like "id"
   const definitionToValidate = data.definition ?? data.draft;
   if (
     definitionToValidate &&
-    (definitionToValidate.type === ChannelType.Email ||
-      definitionToValidate.type === ChannelType.Sms) &&
+    definitionToValidate.type === ChannelType.Email &&
     "identifierKey" in definitionToValidate &&
     definitionToValidate.identifierKey
   ) {
@@ -400,7 +384,16 @@ export async function findMessageTemplates({
   const messageTemplates = await db().query.messageTemplate.findMany({
     where: and(...conditions),
   });
-  return messageTemplates.map((mt) => unwrap(enrichMessageTemplate(mt)));
+  return messageTemplates.flatMap((mt) => {
+    if (hasRetiredSmsChannel(mt.definition) || hasRetiredSmsChannel(mt.draft)) {
+      logger().warn(
+        { templateId: mt.id, workspaceId },
+        "Excluding retired SMS template; resolve it before cutover",
+      );
+      return [];
+    }
+    return [unwrap(enrichMessageTemplate(mt))];
+  });
 }
 
 async function getSendMessageModels({
@@ -528,12 +521,6 @@ export interface SendMessageParametersEmail extends SendMessageParametersBase {
   providerOverride?: EmailProviderTypeSchema;
 }
 
-export type SendMessageParametersSms = SendMessageParametersBase &
-  SmsProviderOverride & {
-    channel: (typeof ChannelType)["Sms"];
-    disableCallback?: boolean;
-  };
-
 export interface SendMessageParametersMobilePush
   extends SendMessageParametersBase {
   channel: (typeof ChannelType)["MobilePush"];
@@ -547,7 +534,6 @@ export interface SendMessageParametersWebhook
 
 export type SendMessageParameters =
   | SendMessageParametersEmail
-  | SendMessageParametersSms
   | SendMessageParametersWebhook
   | SendMessageParametersMobilePush;
 
@@ -599,65 +585,6 @@ function renderValues<T extends TemplateDictionary<T>>({
 
   const coercedResult = result as { [K in keyof T]: string };
   return ok(coercedResult);
-}
-
-async function getSmsProviderForWorkspace({
-  providerOverride,
-  workspaceId,
-}: {
-  workspaceId: string;
-  providerOverride?: SmsProviderType;
-}): Promise<(SmsProvider & { secret: Secret | null }) | null> {
-  if (providerOverride) {
-    const provider = await db().query.smsProvider.findFirst({
-      where: and(
-        eq(dbSmsProvider.workspaceId, workspaceId),
-        eq(dbSmsProvider.type, providerOverride),
-      ),
-      with: {
-        secret: true,
-      },
-    });
-    return provider ?? null;
-  }
-  const defaultProvider = await db().query.defaultSmsProvider.findFirst({
-    where: eq(dbDefaultSmsProvider.workspaceId, workspaceId),
-    with: {
-      smsProvider: {
-        with: {
-          secret: true,
-        },
-      },
-    },
-  });
-  return defaultProvider?.smsProvider ?? null;
-}
-
-async function getSmsProvider({
-  providerOverride,
-  workspaceId,
-}: {
-  workspaceId: string;
-  providerOverride?: SmsProviderType;
-}): Promise<(SmsProvider & { secret: Secret | null }) | null> {
-  const provider = await getSmsProviderForWorkspace({
-    workspaceId,
-    providerOverride,
-  });
-  if (provider) {
-    return provider;
-  }
-  const workspace = await db().query.workspace.findFirst({
-    where: eq(dbWorkspace.id, workspaceId),
-  });
-  const parentWorkspaceId = workspace?.parentWorkspaceId;
-  if (!parentWorkspaceId) {
-    return null;
-  }
-  return getSmsProviderForWorkspace({
-    workspaceId: parentWorkspaceId,
-    providerOverride,
-  });
 }
 
 function getMessageFileId({
@@ -1785,391 +1712,6 @@ export async function sendEmail({
   }
 }
 
-export async function sendSms(
-  params: Omit<SendMessageParametersSms, "channel">,
-): Promise<BackendMessageSendResult> {
-  const {
-    workspaceId,
-    templateId,
-    userPropertyAssignments,
-    subscriptionGroupDetails,
-    useDraft,
-    providerOverride,
-    userId,
-    messageTags,
-    disableCallback = false,
-    isPreview,
-  } = params;
-  const [getSendModelsResult, smsProvider] = await Promise.all([
-    getSendMessageModels({
-      workspaceId,
-      templateId,
-      channel: ChannelType.Sms,
-      useDraft,
-      subscriptionGroupDetails,
-    }),
-    getSmsProvider({
-      workspaceId,
-      // Provider override has to be nullable to be compatible with JSON schema
-      providerOverride: providerOverride ?? undefined,
-    }),
-  ]);
-  if (getSendModelsResult.isErr()) {
-    return err(getSendModelsResult.error);
-  }
-  const { messageTemplateDefinition } = getSendModelsResult.value;
-
-  if (!smsProvider?.secret) {
-    return err({
-      type: InternalEventType.BadWorkspaceConfiguration,
-      variant: {
-        type: BadWorkspaceConfigurationType.MessageServiceProviderNotFound,
-      },
-    });
-  }
-  const smsConfig = smsProvider.secret.configValue;
-
-  const parsedConfigResult = schemaValidateWithErr(
-    smsConfig,
-    SmsProviderSecret,
-  );
-  if (parsedConfigResult.isErr()) {
-    return err({
-      type: InternalEventType.BadWorkspaceConfiguration,
-      variant: {
-        type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-        message: parsedConfigResult.error.message,
-      },
-    });
-  }
-
-  if (messageTemplateDefinition.type !== ChannelType.Sms) {
-    return err({
-      type: InternalEventType.BadWorkspaceConfiguration,
-      variant: {
-        type: BadWorkspaceConfigurationType.MessageTemplateMisconfigured,
-        message: "message template is not an sms template",
-      },
-    });
-  }
-  const identifierKey =
-    messageTemplateDefinition.identifierKey ??
-    CHANNEL_IDENTIFIERS[ChannelType.Sms];
-
-  const renderedValuesResult = renderValues({
-    userProperties: userPropertyAssignments,
-    identifierKey,
-    subscriptionGroupId: subscriptionGroupDetails?.id,
-    workspaceId,
-    tags: messageTags,
-    isPreview,
-    templates: {
-      body: {
-        contents: messageTemplateDefinition.body,
-      },
-    },
-  });
-
-  if (renderedValuesResult.isErr()) {
-    const { error, field } = renderedValuesResult.error;
-    return err({
-      type: InternalEventType.BadWorkspaceConfiguration,
-      variant: {
-        type: BadWorkspaceConfigurationType.MessageTemplateRenderError,
-        field,
-        error,
-      },
-    });
-  }
-
-  const rawIdentifier = userPropertyAssignments[identifierKey];
-  let identifier: string | null;
-  switch (typeof rawIdentifier) {
-    case "string":
-      identifier = rawIdentifier;
-      break;
-    // in the case of e.g. a phone number, convert to string
-    case "number":
-      identifier = String(rawIdentifier);
-      break;
-    default:
-      identifier = null;
-      break;
-  }
-
-  if (!identifier) {
-    return err({
-      type: InternalEventType.MessageSkipped,
-      variant: {
-        type: MessageSkippedType.MissingIdentifier,
-        identifierKey,
-      },
-    });
-  }
-  const { body } = renderedValuesResult.value;
-  const to = identifier;
-
-  switch (smsProvider.type) {
-    case SmsProviderType.Twilio: {
-      const configResult = schemaValidateWithErr(
-        parsedConfigResult.value,
-        TwilioSecret,
-      );
-      if (configResult.isErr()) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: configResult.error.message,
-          },
-        });
-      }
-
-      const {
-        accountSid,
-        authToken,
-        messagingServiceSid,
-        apiKeySid,
-        apiKeySecret,
-      } = configResult.value;
-
-      if (!accountSid) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: `missing accountSid in sms provider config`,
-          },
-        });
-      }
-      let auth: TwilioAuth;
-      if (apiKeySid && apiKeySecret) {
-        auth = {
-          type: "apiKey",
-          apiKeySid,
-          apiKeySecret,
-        };
-      } else if (authToken) {
-        auth = {
-          type: "authToken",
-          authToken,
-        };
-      } else {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message:
-              "twilio auth must provider either an auth token or api key sid and secret",
-          },
-        });
-      }
-
-      let senderOverride: TwilioSender | null = null;
-      if (
-        params.providerOverride === SmsProviderType.Twilio &&
-        params.senderOverride
-      ) {
-        switch (params.senderOverride.type) {
-          case TwilioSenderOverrideType.MessageSid:
-            senderOverride = {
-              messagingServiceSid: params.senderOverride.messagingServiceSid,
-            };
-            break;
-          case TwilioSenderOverrideType.PhoneNumber:
-            senderOverride = {
-              from: params.senderOverride.phone,
-            };
-            break;
-        }
-      }
-      let sender: TwilioSender;
-      if (senderOverride) {
-        sender = senderOverride;
-      } else if (messagingServiceSid) {
-        sender = {
-          messagingServiceSid,
-        };
-      } else {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message:
-              "twilio sender must provide either a messaging service sid or a sender override",
-          },
-        });
-      }
-
-      const result = await sendSmsTwilio({
-        body,
-        accountSid,
-        auth,
-        userId,
-        subscriptionGroupId: subscriptionGroupDetails?.id,
-        to,
-        workspaceId,
-        disableCallback,
-        tags: messageTags,
-        ...sender,
-      });
-
-      if (result.isErr()) {
-        return err({
-          type: InternalEventType.MessageFailure,
-          variant: {
-            type: ChannelType.Sms,
-            provider: {
-              type: SmsProviderType.Twilio,
-              message: result.error.message,
-            },
-          },
-        });
-      }
-      return ok({
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Sms,
-          body,
-          to,
-          provider: {
-            type: SmsProviderType.Twilio,
-            sid: result.value.sid,
-          },
-        },
-      });
-    }
-    case SmsProviderType.SignalWire: {
-      const configResult = schemaValidateWithErr(
-        parsedConfigResult.value,
-        SignalWireSecret,
-      );
-      if (configResult.isErr()) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: configResult.error.message,
-          },
-        });
-      }
-
-      const { project, token, spaceUrl, phone } = configResult.value;
-
-      if (!project) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: `missing project in SignalWire provider config`,
-          },
-        });
-      }
-
-      if (!token) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: `missing token in SignalWire provider config`,
-          },
-        });
-      }
-
-      if (!spaceUrl) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: `missing spaceUrl in SignalWire provider config`,
-          },
-        });
-      }
-
-      let phoneOverride: string | null = null;
-      if (
-        params.providerOverride === SmsProviderType.SignalWire &&
-        params.senderOverride
-      ) {
-        switch (params.senderOverride.type) {
-          case SignalWireSenderOverrideType.PhoneNumber:
-            phoneOverride = params.senderOverride.phone;
-        }
-      }
-      let from: string;
-      if (phoneOverride) {
-        from = phoneOverride;
-      } else if (phone) {
-        from = phone;
-      } else {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message:
-              "SignalWire sender requires a default phone number or a sender override phone number",
-          },
-        });
-      }
-
-      const result = await sendSmsSignalWire({
-        project,
-        token,
-        spaceUrl,
-        body,
-        to,
-        from,
-        tags: messageTags,
-        disableCallback,
-      });
-
-      if (result.isErr()) {
-        return err({
-          type: InternalEventType.MessageFailure,
-          variant: {
-            type: ChannelType.Sms,
-            provider: result.error,
-          },
-        });
-      }
-
-      return ok({
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Sms,
-          body,
-          to,
-          provider: {
-            type: SmsProviderType.SignalWire,
-            sid: result.value.sid,
-            status: result.value.status,
-          },
-        },
-      });
-    }
-    case SmsProviderType.Test:
-      return ok({
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Sms,
-          body,
-          to,
-          provider: {
-            type: SmsProviderType.Test,
-          },
-        },
-      });
-    default: {
-      return err({
-        type: InternalEventType.BadWorkspaceConfiguration,
-        variant: {
-          type: BadWorkspaceConfigurationType.MessageServiceProviderNotFound,
-        },
-      });
-    }
-  }
-}
-
 export async function sendWebhook({
   workspaceId,
   templateId,
@@ -2403,6 +1945,7 @@ export type Sender = (
 export async function sendMessage(
   params: SendMessageParameters,
 ): Promise<BackendMessageSendResult> {
+  const channel: string = params.channel;
   return withSpan({ name: "sendMessage" }, async (span) => {
     span.setAttributes({
       channel: params.channel,
@@ -2415,12 +1958,18 @@ export async function sendMessage(
     switch (params.channel) {
       case ChannelType.Email:
         return sendEmail(params);
-      case ChannelType.Sms:
-        return sendSms(params);
       case ChannelType.MobilePush:
         throw new Error("not implemented");
       case ChannelType.Webhook:
         return sendWebhook(params);
+      default:
+        return err({
+          type: InternalEventType.BadWorkspaceConfiguration,
+          variant: {
+            type: BadWorkspaceConfigurationType.MessageTemplateMisconfigured,
+            message: `Unsupported message channel: ${channel}`,
+          },
+        });
     }
   });
 }
@@ -2489,15 +2038,6 @@ export async function testTemplate(
         ...baseSendMessageParams,
         channel: request.channel,
         providerOverride: request.provider,
-      };
-      break;
-    }
-    case ChannelType.Sms: {
-      sendMessageParams = {
-        ...baseSendMessageParams,
-        providerOverride: request.provider,
-        channel: request.channel,
-        disableCallback: true,
       };
       break;
     }
@@ -2642,20 +2182,6 @@ export async function batchMessageUsers(
 
         switch (params.channel) {
           case ChannelType.Email: {
-            sendMessageParams = {
-              workspaceId,
-              templateId,
-              userId: user.id,
-              userPropertyAssignments: combinedUserPropertyAssignments,
-              subscriptionGroupDetails,
-              messageTags,
-              useDraft: false,
-              channel: params.channel,
-              providerOverride: params.provider,
-            };
-            break;
-          }
-          case ChannelType.Sms: {
             sendMessageParams = {
               workspaceId,
               templateId,

@@ -7,7 +7,6 @@ import {
   SegmentDefinition,
   SegmentNodeType,
   SegmentOperatorType,
-  SmsProviderType,
   WorkspaceWideEmailProviders,
 } from "./types";
 
@@ -20,8 +19,6 @@ export const SUBSCRIPTION_MANAGEMENT_PAGE =
 export const DEBUG_USER_ID1 = "1b9858de-907d-493f-a067-b3c8effecb0b" as const;
 
 export enum SecretNames {
-  Twilio = "twilio-key",
-  SignalWire = "signalwire",
   SendGrid = "sendgrid",
   AmazonSes = "amazonses",
   Resend = "resend",
@@ -31,7 +28,6 @@ export enum SecretNames {
   Smtp = "smtp",
   Subscription = "subscription-key",
   Webhook = "webhook-channel",
-  SmsTestProvider = "SmsTestProvider",
   EmailTestProvider = "EmailTestProvider",
   ViewInBrowser = "view-in-browser-key",
 }
@@ -39,13 +35,6 @@ export enum SecretNames {
 export enum DataSources {
   ManualSegment = "DfManualSegment",
 }
-
-export const SMS_PROVIDER_TYPE_TO_SECRET_NAME: Record<SmsProviderType, string> =
-  {
-    [SmsProviderType.Twilio]: SecretNames.Twilio,
-    [SmsProviderType.SignalWire]: SecretNames.SignalWire,
-    [SmsProviderType.Test]: SecretNames.SmsTestProvider,
-  };
 
 export const EMAIL_PROVIDER_TYPE_TO_SECRET_NAME: Record<
   WorkspaceWideEmailProviders,
@@ -61,7 +50,6 @@ export const EMAIL_PROVIDER_TYPE_TO_SECRET_NAME: Record<
 };
 
 export const CHANNEL_NAMES: Record<ChannelType, string> = {
-  [ChannelType.Sms]: "SMS",
   [ChannelType.Email]: "Email",
   [ChannelType.MobilePush]: "Push Notification",
   [ChannelType.Webhook]: "Webhook",
@@ -85,8 +73,6 @@ export const MESSAGE_EVENTS = [
   InternalEventType.EmailDropped,
   InternalEventType.EmailBounced,
   InternalEventType.EmailMarkedSpam,
-  InternalEventType.SmsDelivered,
-  InternalEventType.SmsFailed,
 ];
 
 export enum SourceType {

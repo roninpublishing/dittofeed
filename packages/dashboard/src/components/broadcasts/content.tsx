@@ -21,7 +21,6 @@ import { useBroadcastQuery } from "../../lib/useBroadcastQuery";
 import { useMessageTemplateQuery } from "../../lib/useMessageTemplateQuery";
 import { useMessageTemplateUpdateMutation } from "../../lib/useMessageTemplateUpdateMutation";
 import EmailEditor from "../messages/emailEditor";
-import SmsEditor from "../messages/smsEditor";
 import WebhookEditor from "../messages/webhookEditor";
 import ResourceSelect from "../resourceSelect";
 import { BroadcastState } from "./broadcastsShared";
@@ -93,17 +92,6 @@ function ExistingTemplatePreview({ broadcastId }: { broadcastId: string }) {
     case ChannelType.Email:
       return (
         <EmailEditor
-          templateId={messageTemplateId}
-          disabled
-          hidePublisher
-          hideTitle
-          hideUserPropertiesPanel
-          hideEditor
-        />
-      );
-    case ChannelType.Sms:
-      return (
-        <SmsEditor
           templateId={messageTemplateId}
           disabled
           hidePublisher
@@ -218,17 +206,6 @@ function BroadcastMessageTemplateEditor({
     case ChannelType.Email:
       editor = (
         <EmailEditor
-          templateId={messageTemplateId}
-          disabled={disabled}
-          hidePublisher
-          hideTitle
-          hideUserPropertiesPanel={hideTemplateUserPropertiesPanel}
-        />
-      );
-      break;
-    case ChannelType.Sms:
-      editor = (
-        <SmsEditor
           templateId={messageTemplateId}
           disabled={disabled}
           hidePublisher

@@ -33,7 +33,6 @@ export function expandCascadingMessageFilters(
         break;
 
       case InternalEventType.EmailDelivered:
-      case InternalEventType.SmsDelivered:
         // Delivery events remain as-is
         expandedStatuses.add(status);
         break;
@@ -42,7 +41,6 @@ export function expandCascadingMessageFilters(
       case InternalEventType.EmailBounced:
       case InternalEventType.EmailMarkedSpam:
       case InternalEventType.EmailDropped:
-      case InternalEventType.SmsFailed:
         // These events don't cascade - they remain as selected
         expandedStatuses.add(status);
         break;

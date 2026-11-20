@@ -35,7 +35,6 @@ export const dbBroadcastVersion = pgEnum("DBBroadcastVersion", ["V1", "V2"]);
 export const dbChannelType = pgEnum("DBChannelType", [
   "Email",
   "MobilePush",
-  "Sms",
   "Webhook",
 ]);
 export const dbCompletionStatus = pgEnum("DBCompletionStatus", [
@@ -776,75 +775,6 @@ export const segment = pgTable(
     })
       .onUpdate("cascade")
       .onDelete("set null"),
-  ],
-);
-
-export const defaultSmsProvider = pgTable(
-  "DefaultSmsProvider",
-  {
-    workspaceId: uuid().notNull(),
-    smsProviderId: uuid().notNull(),
-    createdAt: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
-    updatedAt: timestamp({ precision: 3, mode: "date" })
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [
-    uniqueIndex("DefaultSmsProvider_workspaceId_key").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"),
-    ),
-    foreignKey({
-      columns: [table.workspaceId],
-      foreignColumns: [workspace.id],
-      name: "DefaultSmsProvider_workspaceId_fkey",
-    })
-      .onUpdate("cascade")
-      .onDelete("cascade"),
-    foreignKey({
-      columns: [table.smsProviderId],
-      foreignColumns: [smsProvider.id],
-      name: "DefaultSmsProvider_smsProviderId_fkey",
-    })
-      .onUpdate("cascade")
-      .onDelete("cascade"),
-  ],
-);
-
-export const smsProvider = pgTable(
-  "SmsProvider",
-  {
-    id: uuid().primaryKey().defaultRandom().notNull(),
-    workspaceId: uuid().notNull(),
-    secretId: uuid().notNull(),
-    type: text().notNull(),
-    createdAt: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
-    updatedAt: timestamp({ precision: 3, mode: "date" })
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [
-    uniqueIndex("SmsProvider_workspaceId_type_key").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"), // Change from text_ops
-      table.type.asc().nullsLast().op("text_ops"),
-    ),
-    foreignKey({
-      columns: [table.workspaceId],
-      foreignColumns: [workspace.id],
-      name: "SmsProvider_workspaceId_fkey",
-    })
-      .onUpdate("cascade")
-      .onDelete("cascade"),
-    foreignKey({
-      columns: [table.secretId],
-      foreignColumns: [secret.id],
-      name: "SmsProvider_secretId_fkey",
-    })
-      .onUpdate("cascade")
-      .onDelete("cascade"),
   ],
 );
 

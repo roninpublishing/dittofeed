@@ -39,9 +39,6 @@ import {
   PartialSegmentResource,
   SavedSegmentResource,
   SegmentNodeType,
-  SignalWireSenderOverrideType,
-  SmsProviderType,
-  TwilioSenderOverrideType,
   WorkspaceWideEmailProviders,
 } from "isomorphic-lib/src/types";
 import { ReactNode, useCallback, useMemo } from "react";
@@ -465,11 +462,6 @@ function MessageNodeFields({
               // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
               (provider as WorkspaceWideEmailProviders | null) ?? undefined;
             break;
-          case ChannelType.Sms:
-            props.providerOverride =
-              // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-              (provider as SmsProviderType | null) ?? undefined;
-            break;
           case ChannelType.Webhook:
             break;
           case ChannelType.MobilePush:
@@ -482,10 +474,7 @@ function MessageNodeFields({
     });
   };
   let providerOverrideEl: React.ReactNode;
-  if (
-    nodeProps.channel === ChannelType.Email ||
-    nodeProps.channel === ChannelType.Sms
-  ) {
+  if (nodeProps.channel === ChannelType.Email) {
     providerOverrideEl = (
       <ChannelProviderAutocomplete
         providerOverride={nodeProps.providerOverride}
@@ -495,210 +484,6 @@ function MessageNodeFields({
       />
     );
   }
-  let providerOverrideConfigEl: React.ReactNode;
-  let senderOverrideType: TwilioSenderOverrideType | "" = "";
-  if (
-    nodeProps.channel === ChannelType.Sms &&
-    nodeProps.providerOverride === SmsProviderType.Twilio
-  ) {
-    let twilioOverrideConfigEl: React.ReactNode;
-    if (nodeProps.senderOverride) {
-      switch (nodeProps.senderOverride.type) {
-        case TwilioSenderOverrideType.MessageSid: {
-          senderOverrideType = TwilioSenderOverrideType.MessageSid;
-          twilioOverrideConfigEl = (
-            <TextField
-              label="Message SID"
-              value={nodeProps.senderOverride.messagingServiceSid}
-              onChange={(e) => {
-                updateJourneyNodeData(nodeId, (node) => {
-                  const props = node.data.nodeTypeProps;
-                  if (
-                    props.type === JourneyNodeType.MessageNode &&
-                    props.channel === ChannelType.Sms &&
-                    props.providerOverride === SmsProviderType.Twilio &&
-                    props.senderOverride?.type ===
-                      TwilioSenderOverrideType.MessageSid
-                  ) {
-                    props.senderOverride.messagingServiceSid = e.target.value;
-                  }
-                });
-              }}
-            />
-          );
-          break;
-        }
-        case TwilioSenderOverrideType.PhoneNumber:
-          senderOverrideType = TwilioSenderOverrideType.PhoneNumber;
-          twilioOverrideConfigEl = (
-            <TextField
-              label="Phone Number"
-              value={nodeProps.senderOverride.phone}
-              onChange={(e) => {
-                updateJourneyNodeData(nodeId, (node) => {
-                  const props = node.data.nodeTypeProps;
-                  if (
-                    props.type === JourneyNodeType.MessageNode &&
-                    props.channel === ChannelType.Sms &&
-                    props.providerOverride === SmsProviderType.Twilio &&
-                    props.senderOverride?.type ===
-                      TwilioSenderOverrideType.PhoneNumber
-                  ) {
-                    props.senderOverride.phone = e.target.value;
-                  }
-                });
-              }}
-            />
-          );
-          break;
-        default:
-          twilioOverrideConfigEl = null;
-      }
-    }
-    const onSenderOverrideChangeHandler: SelectInputProps<
-      TwilioSenderOverrideType | ""
-    >["onChange"] = (event) => {
-      updateJourneyNodeData(nodeId, (node) => {
-        const props = node.data.nodeTypeProps;
-        if (
-          props.type === JourneyNodeType.MessageNode &&
-          props.channel === ChannelType.Sms &&
-          props.providerOverride === SmsProviderType.Twilio
-        ) {
-          if (!event.target.value) {
-            props.senderOverride = undefined;
-          } else {
-            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-            switch (event.target.value as TwilioSenderOverrideType) {
-              case TwilioSenderOverrideType.MessageSid:
-                props.senderOverride = {
-                  type: TwilioSenderOverrideType.MessageSid,
-                  messagingServiceSid: "",
-                };
-                break;
-              case TwilioSenderOverrideType.PhoneNumber:
-                props.senderOverride = {
-                  type: TwilioSenderOverrideType.PhoneNumber,
-                  phone: "",
-                };
-                break;
-            }
-          }
-        }
-      });
-    };
-    providerOverrideConfigEl = (
-      <>
-        <FormControl>
-          <InputLabel id="twilio-sender-override-select-label">
-            Sender Override
-          </InputLabel>
-          <Select
-            labelId="twilio-sender-override-select-label"
-            label="Twilio Override"
-            onChange={onSenderOverrideChangeHandler}
-            value={senderOverrideType}
-            disabled={disabled}
-          >
-            <MenuItem value="">None</MenuItem>
-            <MenuItem value={TwilioSenderOverrideType.MessageSid}>
-              Message SID
-            </MenuItem>
-            <MenuItem value={TwilioSenderOverrideType.PhoneNumber}>
-              Phone Number
-            </MenuItem>
-          </Select>
-        </FormControl>
-        {twilioOverrideConfigEl}
-      </>
-    );
-  }
-  let signalWireSenderOverrideType: SignalWireSenderOverrideType | "" = "";
-  if (
-    nodeProps.channel === ChannelType.Sms &&
-    nodeProps.providerOverride === SmsProviderType.SignalWire
-  ) {
-    let signalWireOverrideConfigEl: React.ReactNode;
-    if (nodeProps.senderOverride) {
-      switch (nodeProps.senderOverride.type) {
-        case SignalWireSenderOverrideType.PhoneNumber:
-          signalWireSenderOverrideType =
-            SignalWireSenderOverrideType.PhoneNumber;
-          signalWireOverrideConfigEl = (
-            <TextField
-              label="Phone Number"
-              value={nodeProps.senderOverride.phone}
-              onChange={(e) => {
-                updateJourneyNodeData(nodeId, (node) => {
-                  const props = node.data.nodeTypeProps;
-                  if (
-                    props.type === JourneyNodeType.MessageNode &&
-                    props.channel === ChannelType.Sms &&
-                    props.providerOverride === SmsProviderType.SignalWire &&
-                    props.senderOverride?.type ===
-                      SignalWireSenderOverrideType.PhoneNumber
-                  ) {
-                    props.senderOverride.phone = e.target.value;
-                  }
-                });
-              }}
-            />
-          );
-          break;
-        default:
-          signalWireOverrideConfigEl = null;
-      }
-    }
-    const onSignalWireSenderOverrideChangeHandler: SelectInputProps<
-      SignalWireSenderOverrideType | ""
-    >["onChange"] = (event) => {
-      updateJourneyNodeData(nodeId, (node) => {
-        const props = node.data.nodeTypeProps;
-        if (
-          props.type === JourneyNodeType.MessageNode &&
-          props.channel === ChannelType.Sms &&
-          props.providerOverride === SmsProviderType.SignalWire
-        ) {
-          if (!event.target.value) {
-            props.senderOverride = undefined;
-          } else {
-            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-            switch (event.target.value as SignalWireSenderOverrideType) {
-              case SignalWireSenderOverrideType.PhoneNumber:
-                props.senderOverride = {
-                  type: SignalWireSenderOverrideType.PhoneNumber,
-                  phone: "",
-                };
-                break;
-            }
-          }
-        }
-      });
-    };
-    providerOverrideConfigEl = (
-      <>
-        <FormControl>
-          <InputLabel id="signalwire-sender-override-select-label">
-            Sender Override
-          </InputLabel>
-          <Select
-            labelId="signalwire-sender-override-select-label"
-            label="SignalWire Override"
-            onChange={onSignalWireSenderOverrideChangeHandler}
-            value={signalWireSenderOverrideType}
-            disabled={disabled}
-          >
-            <MenuItem value="">None</MenuItem>
-            <MenuItem value={SignalWireSenderOverrideType.PhoneNumber}>
-              Phone Number
-            </MenuItem>
-          </Select>
-        </FormControl>
-        {signalWireOverrideConfigEl}
-      </>
-    );
-  }
-
   return (
     <>
       <FormControl>
@@ -713,7 +498,6 @@ function MessageNodeFields({
           disabled={disabled}
         >
           <MenuItem value={ChannelType.Email}>Email</MenuItem>
-          <MenuItem value={ChannelType.Sms}>SMS</MenuItem>
           <MenuItem value={ChannelType.Webhook}>Webhook</MenuItem>
         </Select>
       </FormControl>
@@ -775,7 +559,6 @@ function MessageNodeFields({
         </Stack>
       ) : null}
       {providerOverrideEl}
-      {providerOverrideConfigEl}
       <Stack direction="row" spacing={1}>
         <InfoTooltip title="When enabled, message failures won't cause the journey to exit. The user will continue to the next step even if the message fails to send." />
         <FormControlLabel

@@ -96,8 +96,6 @@
                   "integrations/channels/resend",
                   "integrations/channels/smtp",
                   "integrations/channels/amazonses",
-                  "integrations/channels/sms",
-                  "integrations/channels/twilio",
                   "integrations/channels/webhooks",
                   "integrations/channels/mailchimp"
                 ]
@@ -160,7 +158,6 @@
                   "resources/templates/mjml",
                   "resources/templates/liquid-presets",
                   "resources/templates/free-mjml-email-templates",
-                  "resources/templates/sms-editor",
                   "resources/templates/webhook-editor"
                 ]
               },
@@ -260,7 +257,6 @@
               "api-reference/auto/groups/get-apiadmingroupsusers",
               "api-reference/auto/deliveries/get-apiadmindeliveries",
               "api-reference/auto/settings/put-apiadminsettingsemail-providers",
-              "api-reference/auto/settings/put-apiadminsettingssms-providers",
               "api-reference/auto/segments/post-apiadminsegmentsmanual-segmentupdate",
               "api-reference/auto/segments/post-apiadminsegmentsmanual-segmentclear",
               "api-reference/auto/segments/get-apiadminsegmentsmanual-segmentstatus",

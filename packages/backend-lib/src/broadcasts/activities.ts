@@ -1,3 +1,4 @@
+import { ApplicationFailure } from "@temporalio/common";
 import { zonedTimeToUtc } from "date-fns-tz";
 import { and, eq } from "drizzle-orm";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
@@ -91,7 +92,10 @@ export async function getBroadcast({
       },
       "Error validating broadcast config",
     );
-    return null;
+    throw ApplicationFailure.nonRetryable(
+      `Broadcast ${broadcastId} has an unsupported or invalid configuration: ${configResult.error.message}`,
+      "UnsupportedBroadcastConfiguration",
+    );
   }
   if (model.statusV2 === null) {
     logger().error(
@@ -341,13 +345,6 @@ export function sendMessagesFactory(sender: Sender) {
                 channel: ChannelType.Email,
               };
               break;
-            case ChannelType.Sms:
-              messageVariant = {
-                ...baseParams,
-                ...config.message,
-                channel: ChannelType.Sms,
-              };
-              break;
             case ChannelType.Webhook:
               messageVariant = {
                 ...baseParams,
@@ -355,6 +352,11 @@ export function sendMessagesFactory(sender: Sender) {
                 channel: ChannelType.Webhook,
               };
               break;
+            default:
+              throw ApplicationFailure.nonRetryable(
+                "Broadcast message channel is no longer supported",
+                "UnsupportedMessageChannel",
+              );
           }
           logger().debug({ messageVariant }, "Sending broadcast message");
           const result = await sender(messageVariant);

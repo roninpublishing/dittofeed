@@ -26,7 +26,6 @@ import { DEFAULT_WRITE_KEY_NAME } from "./constants";
 import { insert } from "./db";
 import {
   defaultEmailProvider as dbDefaultEmailProvider,
-  defaultSmsProvider as dbDefaultSmsProvider,
   userProperty as dbUserProperty,
 } from "./db/schema";
 import { addFeatures, getFeature } from "./features";
@@ -34,7 +33,6 @@ import { kafkaAdmin } from "./kafka";
 import logger from "./logger";
 import { upsertMessageTemplate } from "./messaging";
 import { getOrCreateEmailProviders } from "./messaging/email";
-import { getOrCreateSmsProviders } from "./messaging/sms";
 import { drizzleMigrate } from "./migrate";
 import {
   upsertSubscriptionGroup,
@@ -50,7 +48,6 @@ import {
   FeatureNamesEnum,
   Features,
   NodeEnvEnum,
-  SmsProviderType,
   SubscriptionGroupType,
   UserPropertyDefinitionType,
   Workspace,
@@ -243,13 +240,10 @@ export async function bootstrapPostgres({
       userPropertyAllowList.has(up.name),
     );
   }
-  const [writeKeyResource, smsProviders, emailProviders] = await Promise.all([
+  const [writeKeyResource, emailProviders] = await Promise.all([
     getOrCreateWriteKey({
       workspaceId,
       writeKeyName: DEFAULT_WRITE_KEY_NAME,
-    }),
-    getOrCreateSmsProviders({
-      workspaceId,
     }),
     getOrCreateEmailProviders({
       workspaceId,
@@ -271,9 +265,6 @@ export async function bootstrapPostgres({
   const testEmailProvider = emailProviders.find(
     (ep) => ep.type === EmailProviderType.Test,
   );
-  const testSmsProvider = smsProviders.find(
-    (sp) => sp.type === SmsProviderType.Test,
-  );
 
   await Promise.all([
     upsertSubscriptionGroup({
@@ -283,29 +274,12 @@ export async function bootstrapPostgres({
       type: SubscriptionGroupType.OptOut,
       channel: ChannelType.Email,
     }),
-    upsertSubscriptionGroup({
-      workspaceId,
-      id: uuidv5("sms-subscription-group", workspaceId),
-      name: `${workspaceName} - SMS`,
-      type: SubscriptionGroupType.OptOut,
-      channel: ChannelType.Sms,
-    }),
     testEmailProvider
       ? insert({
           table: dbDefaultEmailProvider,
           values: {
             workspaceId,
             emailProviderId: testEmailProvider.id,
-          },
-          doNothingOnConflict: true,
-        }).then(unwrap)
-      : undefined,
-    testSmsProvider
-      ? insert({
-          table: dbDefaultSmsProvider,
-          values: {
-            workspaceId,
-            smsProviderId: testSmsProvider.id,
           },
           doNothingOnConflict: true,
         }).then(unwrap)

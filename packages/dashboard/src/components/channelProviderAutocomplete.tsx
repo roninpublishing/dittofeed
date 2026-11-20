@@ -2,24 +2,18 @@ import { Autocomplete, TextField } from "@mui/material";
 import { emailProviderLabel } from "isomorphic-lib/src/email";
 import {
   ChannelType,
-  SmsProviderType,
   WorkspaceWideEmailProviders,
   WorkspaceWideEmailProviderType,
 } from "isomorphic-lib/src/types";
 
 function getProviderLabel(
-  provider: WorkspaceWideEmailProviders | SmsProviderType,
+  provider: WorkspaceWideEmailProviders,
 ) {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  if (Object.values(SmsProviderType).includes(provider as SmsProviderType)) {
-    return provider;
-  }
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  return emailProviderLabel(provider as WorkspaceWideEmailProviders);
+  return emailProviderLabel(provider);
 }
 
 export type ProviderOverrideChangeHandler = (
-  provider: WorkspaceWideEmailProviders | SmsProviderType | null,
+  provider: WorkspaceWideEmailProviders | null,
 ) => void;
 
 export default function ChannelProviderAutocomplete({
@@ -28,18 +22,15 @@ export default function ChannelProviderAutocomplete({
   disabled,
   handler,
 }: {
-  providerOverride?: WorkspaceWideEmailProviders | SmsProviderType | null;
+  providerOverride?: WorkspaceWideEmailProviders | null;
   disabled?: boolean;
   channel: ChannelType;
   handler: ProviderOverrideChangeHandler;
 }) {
-  let providerOptions: (WorkspaceWideEmailProviders | SmsProviderType)[] = [];
+  let providerOptions: WorkspaceWideEmailProviders[] = [];
   switch (channel) {
     case ChannelType.Email:
       providerOptions = Object.values(WorkspaceWideEmailProviderType);
-      break;
-    case ChannelType.Sms:
-      providerOptions = Object.values(SmsProviderType);
       break;
     case ChannelType.MobilePush:
       // TODO: Implement mobile push providers when available
@@ -59,7 +50,7 @@ export default function ChannelProviderAutocomplete({
       getOptionLabel={getProviderLabel}
       onChange={(_event, p) =>
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-        handler(p as WorkspaceWideEmailProviders | SmsProviderType | null)
+        handler(p as WorkspaceWideEmailProviders | null)
       }
       renderInput={(params) => (
         <TextField {...params} label="Provider Override" variant="outlined" />

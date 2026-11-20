@@ -338,16 +338,6 @@ export function NewDeliveriesFilterButton({
                       type: DeliveriesFilterCommandType.SelectItem,
                       id: InternalEventType.EmailDropped,
                     },
-                    {
-                      label: "Sms Delivered",
-                      type: DeliveriesFilterCommandType.SelectItem,
-                      id: InternalEventType.SmsDelivered,
-                    },
-                    {
-                      label: "Sms Failed",
-                      type: DeliveriesFilterCommandType.SelectItem,
-                      id: InternalEventType.SmsFailed,
-                    },
                   ];
                   draft.stage = {
                     type: StageType.SelectItem,
@@ -361,11 +351,6 @@ export function NewDeliveriesFilterButton({
                     {
                       label: "Email",
                       id: ChannelType.Email,
-                      type: DeliveriesFilterCommandType.SelectItem,
-                    },
-                    {
-                      label: "SMS",
-                      id: ChannelType.Sms,
                       type: DeliveriesFilterCommandType.SelectItem,
                     },
                     {

@@ -58,7 +58,6 @@ import {
   MobilePushProviderType,
   RenderMessageTemplateRequest,
   RenderMessageTemplateRequestContents,
-  SmsProviderType,
   UserPropertyAssignments,
   UserPropertyResource,
   WorkspaceMemberResource,
@@ -201,11 +200,6 @@ export interface EmailTemplateState extends BaseTemplateState {
   providerOverride: EmailProviderTypeSchema | null;
 }
 
-export interface SmsTemplateState extends BaseTemplateState {
-  channel: (typeof ChannelType)["Sms"];
-  providerOverride: SmsProviderType | null;
-}
-
 export interface MobilePushTemplateState extends BaseTemplateState {
   channel: (typeof ChannelType)["MobilePush"];
   providerOverride: MobilePushProviderType | null;
@@ -218,7 +212,6 @@ export interface WebhookTemplateState extends BaseTemplateState {
 
 export type TemplateEditorState =
   | EmailTemplateState
-  | SmsTemplateState
   | MobilePushTemplateState
   | WebhookTemplateState;
 
@@ -915,13 +908,6 @@ export default function TemplateEditor({
         provider: state.providerOverride ?? undefined,
       };
       break;
-    case ChannelType.Sms:
-      submitTestDataVariables = {
-        ...submitTestDataBase,
-        channel: state.channel,
-        provider: state.providerOverride ?? undefined,
-      };
-      break;
     case ChannelType.MobilePush:
       submitTestDataVariables = {
         ...submitTestDataBase,
@@ -1063,28 +1049,6 @@ export default function TemplateEditor({
               onChange={(value) => {
                 setState((draft) => {
                   if (draft.channel === ChannelType.Email)
-                    draft.providerOverride = value;
-                });
-              }}
-            />
-          );
-        }
-        break;
-      case ChannelType.Sms:
-        {
-          const providerOptions: { id: SmsProviderType; label: string }[] =
-            Object.values(SmsProviderType).map((type) => ({
-              id: type,
-              label: type,
-            }));
-
-          providerAutocomplete = (
-            <ProviderOverrideSelector<SmsProviderType>
-              value={state.providerOverride}
-              options={providerOptions}
-              onChange={(value) => {
-                setState((draft) => {
-                  if (draft.channel === ChannelType.Sms)
                     draft.providerOverride = value;
                 });
               }}

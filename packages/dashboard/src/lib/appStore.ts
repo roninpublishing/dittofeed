@@ -39,8 +39,6 @@ export const initializeStore = (preloadedState: PreloadedState = {}) =>
         defaultEmailProvider: null,
         drawerOpen: true,
         emailProviders: [],
-        defaultSmsProvider: null,
-        smsProviders: [],
         traits: [],
         properties: {},
         getTraitsRequest: {
@@ -491,19 +489,6 @@ export const initializeStore = (preloadedState: PreloadedState = {}) =>
             state.emailProviders.push(emailProvider);
             return state;
           }),
-
-        upsertSmsProvider: (provider) =>
-          set((state) => {
-            for (const smsProvider of state.smsProviders) {
-              // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-              if (smsProvider.type === provider.type) {
-                Object.assign(smsProvider, provider);
-                return state;
-              }
-            }
-            state.smsProviders.push(provider);
-            return state;
-          }),
         upsertDataSourceConfiguration: (dataSourceConfiguration) =>
           set((state) => {
             let { dataSourceConfigurations } = state;
@@ -556,10 +541,6 @@ export const initializeStore = (preloadedState: PreloadedState = {}) =>
         setDefaultEmailProvider: (emailProvider) =>
           set((state) => {
             state.defaultEmailProvider = emailProvider;
-          }),
-        setDefaultSmsProvider: (smsProvider) =>
-          set((state) => {
-            state.defaultSmsProvider = smsProvider;
           }),
         setViewDraft: (viewDraft) =>
           set((state) => {

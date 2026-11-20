@@ -1,4 +1,5 @@
 import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
+import { Type } from "@sinclair/typebox";
 import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import { deleteMessageTemplate } from "backend-lib/src/journeys";
@@ -20,9 +21,9 @@ import { SecretNames } from "isomorphic-lib/src/constants";
 import { defaultEmailDefinition } from "isomorphic-lib/src/email";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
-import { defaultSmsDefinition } from "isomorphic-lib/src/sms";
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import {
+  BadRequestResponse,
   BadWorkspaceConfigurationType,
   BaseMessageResponse,
   BatchMessageUsersRequest,
@@ -50,7 +51,6 @@ import {
   RenderMessageTemplateResponseContent,
   RenderMessageTemplateType,
   ResetMessageTemplateResource,
-  SmsProviderType,
   UpsertMessageTemplateResource,
   UpsertMessageTemplateValidationError,
   WebhookSecret,
@@ -217,7 +217,10 @@ export default async function contentController(fastify: FastifyInstance) {
         body: UpsertMessageTemplateResource,
         response: {
           200: MessageTemplateResource,
-          400: UpsertMessageTemplateValidationError,
+          400: Type.Union([
+            UpsertMessageTemplateValidationError,
+            BadRequestResponse,
+          ]),
         },
       },
     },
@@ -239,7 +242,10 @@ export default async function contentController(fastify: FastifyInstance) {
         body: ResetMessageTemplateResource,
         response: {
           200: MessageTemplateResource,
-          400: UpsertMessageTemplateValidationError,
+          400: Type.Union([
+            UpsertMessageTemplateValidationError,
+            BadRequestResponse,
+          ]),
         },
       },
     },
@@ -258,10 +264,6 @@ export default async function contentController(fastify: FastifyInstance) {
             emailProvider: defaultEmailProvider ?? undefined,
             emailContentsType: emailContentsType ?? EmailContentsType.Code,
           });
-          break;
-        }
-        case ChannelType.Sms: {
-          definition = defaultSmsDefinition();
           break;
         }
         case ChannelType.Webhook: {
@@ -369,63 +371,6 @@ export default async function contentController(fastify: FastifyInstance) {
                   : undefined,
               },
             });
-          }
-          case ChannelType.Sms: {
-            const { provider } = result.error.variant;
-            switch (provider.type) {
-              case SmsProviderType.Twilio: {
-                const suggestions: string[] = [];
-                if (provider.message) {
-                  suggestions.push(provider.message);
-                } else {
-                  suggestions.push(
-                    "Failed to send SMS via Twilio. Check your Twilio configuration and the phone number format.",
-                  );
-                }
-                return reply.status(200).send({
-                  type: JsonResultType.Err,
-                  err: {
-                    suggestions,
-                    responseData: provider.message,
-                  },
-                });
-              }
-              case SmsProviderType.SignalWire: {
-                const suggestions: string[] = [];
-                if (provider.status) {
-                  suggestions.push(
-                    `SignalWire responded with status: ${provider.status}`,
-                  );
-                }
-                if (provider.errorCode) {
-                  suggestions.push(`Error code: ${provider.errorCode}`);
-                }
-                if (provider.errorMessage) {
-                  suggestions.push(provider.errorMessage);
-                } else {
-                  suggestions.push(
-                    "Failed to send SMS via SignalWire. Verify phone number format and SignalWire project/token/space configuration.",
-                  );
-                }
-                return reply.status(200).send({
-                  type: JsonResultType.Err,
-                  err: {
-                    suggestions,
-                    responseData: JSON.stringify(provider, null, 2),
-                  },
-                });
-              }
-              default: {
-                return reply.status(200).send({
-                  type: JsonResultType.Err,
-                  err: {
-                    suggestions: [
-                      "Failed to send SMS. Check your SMS provider settings.",
-                    ],
-                  },
-                });
-              }
-            }
           }
           case ChannelType.Email: {
             const { type } = result.error.variant.provider;

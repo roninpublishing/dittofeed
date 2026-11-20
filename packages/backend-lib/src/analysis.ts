@@ -261,21 +261,19 @@ export async function getChartData({
         ie.workspace_id = ${workspaceIdParam}
         AND ie.event IN (
           '${InternalEventType.EmailDelivered}',
-          '${InternalEventType.SmsDelivered}',
           '${InternalEventType.EmailOpened}',
           '${InternalEventType.EmailClicked}',
-          '${InternalEventType.EmailBounced}',
-          '${InternalEventType.SmsFailed}'
+          '${InternalEventType.EmailBounced}'
         )
         AND ie.origin_message_id IN (SELECT origin_message_id FROM sent_messages)
     ),
     message_flags AS (
       SELECT
         origin_message_id,
-        max(event IN ('${InternalEventType.EmailDelivered}', '${InternalEventType.SmsDelivered}')) AS has_delivered,
+        max(event = '${InternalEventType.EmailDelivered}') AS has_delivered,
         max(event = '${InternalEventType.EmailOpened}') AS has_opened,
         max(event = '${InternalEventType.EmailClicked}') AS has_clicked,
-        max(event IN ('${InternalEventType.EmailBounced}', '${InternalEventType.SmsFailed}')) AS has_bounced
+        max(event = '${InternalEventType.EmailBounced}') AS has_bounced
       FROM status_events
       WHERE origin_message_id != ''
       GROUP BY origin_message_id
@@ -470,13 +468,6 @@ export async function getSummarizedData({
           InternalEventType.EmailDropped,
         ];
         break;
-      case ChannelType.Sms:
-        eventsToTrack = [
-          InternalEventType.MessageSent,
-          InternalEventType.SmsDelivered,
-          InternalEventType.SmsFailed,
-        ];
-        break;
       case ChannelType.MobilePush:
       case ChannelType.Webhook:
       default:
@@ -502,13 +493,6 @@ export async function getSummarizedData({
       sum(toUInt64(has_sent)) as sent,
       sum(toUInt64(has_opened OR has_clicked)) as opens,
       sum(toUInt64(has_clicked)) as clicks,
-      sum(toUInt64(has_bounced)) as bounces`;
-  } else if (channel === ChannelType.Sms) {
-    summaryFields = `
-      sum(toUInt64(has_delivered)) as deliveries,
-      sum(toUInt64(has_sent)) as sent,
-      0 as opens,
-      0 as clicks,
       sum(toUInt64(has_bounced)) as bounces`;
   } else {
     // Other channels: only sent messages
@@ -542,11 +526,9 @@ export async function getSummarizedData({
         ie.workspace_id = ${workspaceIdParam}
         AND ie.event IN (
           '${InternalEventType.EmailDelivered}',
-          '${InternalEventType.SmsDelivered}',
           '${InternalEventType.EmailOpened}',
           '${InternalEventType.EmailClicked}',
-          '${InternalEventType.EmailBounced}',
-          '${InternalEventType.SmsFailed}'
+          '${InternalEventType.EmailBounced}'
         )
         AND ie.origin_message_id IN (SELECT origin_message_id FROM sent_messages)
     ),
@@ -554,10 +536,10 @@ export async function getSummarizedData({
       SELECT
         sm.origin_message_id,
         1 as has_sent,
-        max(se.event IN ('${InternalEventType.EmailDelivered}', '${InternalEventType.SmsDelivered}')) as has_delivered,
+        max(se.event = '${InternalEventType.EmailDelivered}') as has_delivered,
         max(se.event = '${InternalEventType.EmailOpened}') as has_opened,
         max(se.event = '${InternalEventType.EmailClicked}') as has_clicked,
-        max(se.event IN ('${InternalEventType.EmailBounced}', '${InternalEventType.SmsFailed}')) as has_bounced
+        max(se.event = '${InternalEventType.EmailBounced}') as has_bounced
       FROM sent_messages sm
       LEFT JOIN status_events se USING (origin_message_id)
       GROUP BY sm.origin_message_id
@@ -666,11 +648,9 @@ export async function getJourneyEditorStats({
         AND event IN (
           '${InternalEventType.MessageSent}',
           '${InternalEventType.EmailDelivered}',
-          '${InternalEventType.SmsDelivered}',
           '${InternalEventType.EmailOpened}',
           '${InternalEventType.EmailClicked}',
-          '${InternalEventType.EmailBounced}',
-          '${InternalEventType.SmsFailed}'
+          '${InternalEventType.EmailBounced}'
         )
         AND JSON_VALUE(properties, '$.nodeId') != ''
         AND hidden = false
@@ -680,10 +660,10 @@ export async function getJourneyEditorStats({
         origin_message_id,
         node_id,
         countIf(event = '${InternalEventType.MessageSent}') > 0 as has_sent,
-        countIf(event IN ('${InternalEventType.EmailDelivered}', '${InternalEventType.SmsDelivered}')) > 0 as has_delivered,
+        countIf(event = '${InternalEventType.EmailDelivered}') > 0 as has_delivered,
         countIf(event = '${InternalEventType.EmailOpened}') > 0 as has_opened,
         countIf(event = '${InternalEventType.EmailClicked}') > 0 as has_clicked,
-        countIf(event IN ('${InternalEventType.EmailBounced}', '${InternalEventType.SmsFailed}')) > 0 as has_bounced
+        countIf(event = '${InternalEventType.EmailBounced}') > 0 as has_bounced
       FROM message_events
       WHERE origin_message_id != '' AND node_id != ''
       GROUP BY origin_message_id, node_id

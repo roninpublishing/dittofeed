@@ -415,7 +415,6 @@ export function NewAnalysisFilterButton({
                 case "channels": {
                   const children: SelectItemCommand[] = [
                     ChannelType.Email,
-                    ChannelType.Sms,
                     ChannelType.MobilePush,
                     ChannelType.Webhook,
                   ]
@@ -513,16 +512,6 @@ export function NewAnalysisFilterButton({
                       label: "Email Dropped",
                       type: AnalysisFilterCommandType.SelectItem,
                       id: InternalEventType.EmailDropped,
-                    },
-                    {
-                      label: "Sms Delivered",
-                      type: AnalysisFilterCommandType.SelectItem,
-                      id: InternalEventType.SmsDelivered,
-                    },
-                    {
-                      label: "Sms Failed",
-                      type: AnalysisFilterCommandType.SelectItem,
-                      id: InternalEventType.SmsFailed,
                     },
                   ];
                   draft.stage = {

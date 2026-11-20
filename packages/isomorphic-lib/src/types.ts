@@ -95,8 +95,6 @@ export enum InternalEventType {
   EmailClicked = "DFEmailClicked",
   EmailBounced = "DFEmailBounced",
   EmailMarkedSpam = "DFEmailMarkedSpam",
-  SmsDelivered = "DFSmsDelivered",
-  SmsFailed = "DFSmsFailed",
   JourneyNodeProcessed = "DFJourneyNodeProcessed",
   ManualSegmentUpdate = "DFManualSegmentUpdate",
   AttachedFiles = "DFAttachedFiles",
@@ -113,8 +111,6 @@ export const StatusEventsList = [
   InternalEventType.EmailClicked,
   InternalEventType.EmailBounced,
   InternalEventType.EmailMarkedSpam,
-  InternalEventType.SmsDelivered,
-  InternalEventType.SmsFailed,
 ] as const;
 
 export enum CursorDirectionEnum {
@@ -130,7 +126,6 @@ export enum SubscriptionGroupType {
 export const ChannelType = {
   Email: "Email",
   MobilePush: "MobilePush",
-  Sms: "Sms",
   Webhook: "Webhook",
 } as const;
 
@@ -176,12 +171,6 @@ export enum MobilePushProviderType {
 }
 
 export type ChannelType = (typeof ChannelType)[keyof typeof ChannelType];
-
-export enum SmsProviderType {
-  Twilio = "Twilio",
-  SignalWire = "SignalWire",
-  Test = "Test",
-}
 
 export const SubscriptionGroupResource = Type.Object({
   id: Type.String(),
@@ -1067,87 +1056,6 @@ export const MobilePushMessageVariant = Type.Object({
 
 export type MobilePushMessageVariant = Static<typeof MobilePushMessageVariant>;
 
-export enum TwilioSenderOverrideType {
-  MessageSid = "MessageSid",
-  PhoneNumber = "PhoneNumber",
-}
-
-export const TwilioSenderOverride = Type.Union([
-  Type.Object({
-    type: Type.Literal(TwilioSenderOverrideType.MessageSid),
-    messagingServiceSid: Type.String(),
-  }),
-  Type.Object({
-    type: Type.Literal(TwilioSenderOverrideType.PhoneNumber),
-    phone: Type.String(),
-  }),
-]);
-
-export type TwilioSenderOverride = Static<typeof TwilioSenderOverride>;
-
-const BaseSmsMessageVariant = Type.Object({
-  type: Type.Literal(ChannelType.Sms),
-  templateId: Type.String(),
-});
-
-export const NoSmsProviderOverride = Type.Object({
-  // Provider override has to be nullable to be compatible with JSON schema
-  providerOverride: Type.Optional(Type.Null()),
-  senderOverride: Type.Optional(Type.Null()),
-});
-
-export type NoSmsProviderOverride = Static<typeof NoSmsProviderOverride>;
-
-export const TwilioOverride = Type.Object({
-  providerOverride: Type.Literal(SmsProviderType.Twilio),
-  senderOverride: Type.Optional(TwilioSenderOverride),
-});
-
-export type TwilioOverride = Static<typeof TwilioOverride>;
-
-export enum SignalWireSenderOverrideType {
-  PhoneNumber = "PhoneNumber",
-}
-
-export const SignalWireSenderOverride = Type.Object({
-  type: Type.Literal(SignalWireSenderOverrideType.PhoneNumber),
-  phone: Type.String(),
-});
-
-export type SignalWireSenderOverride = Static<typeof SignalWireSenderOverride>;
-
-export const SignalWireOverride = Type.Object({
-  providerOverride: Type.Literal(SmsProviderType.SignalWire),
-  senderOverride: Type.Optional(SignalWireSenderOverride),
-});
-
-export type SignalWireOverride = Static<typeof SignalWireOverride>;
-
-export const TestSmsOverride = Type.Object({
-  providerOverride: Type.Literal(SmsProviderType.Test),
-  senderOverride: Type.Optional(Type.Null()),
-});
-
-export type TestSmsOverride = Static<typeof TestSmsOverride>;
-
-export const SmsProviderOverride = Type.Union([
-  NoSmsProviderOverride,
-  TwilioOverride,
-  SignalWireOverride,
-  TestSmsOverride,
-]);
-
-export type SmsProviderOverride = Static<typeof SmsProviderOverride>;
-
-export const SmsMessageVariant = Type.Union([
-  Type.Composite([BaseSmsMessageVariant, NoSmsProviderOverride]),
-  Type.Composite([BaseSmsMessageVariant, TwilioOverride]),
-  Type.Composite([BaseSmsMessageVariant, SignalWireOverride]),
-  Type.Composite([BaseSmsMessageVariant, TestSmsOverride]),
-]);
-
-export type SmsMessageVariant = Static<typeof SmsMessageVariant>;
-
 export const WebhookMessageVariant = Type.Object({
   type: Type.Literal(ChannelType.Webhook),
   templateId: Type.String(),
@@ -1158,7 +1066,6 @@ export type WebhookMessageVariant = Static<typeof WebhookMessageVariant>;
 export const MessageVariant = Type.Union([
   EmailMessageVariant,
   MobilePushMessageVariant,
-  SmsMessageVariant,
   WebhookMessageVariant,
 ]);
 
@@ -1758,30 +1665,6 @@ export type MobilePushTemplateResource = Static<
   typeof MobilePushTemplateResource
 >;
 
-const SmsContents = Type.Object({
-  body: Type.String(),
-  identifierKey: Type.Optional(
-    Type.String({
-      description:
-        "Name of user property to use as recipient phone number. Defaults to 'phone' if not specified.",
-    }),
-  ),
-});
-
-export const SmsTemplateResource = Type.Composite(
-  [
-    Type.Object({
-      type: Type.Literal(ChannelType.Sms),
-    }),
-    SmsContents,
-  ],
-  {
-    description: "SMS template resource",
-  },
-);
-
-export type SmsTemplateResource = Static<typeof SmsTemplateResource>;
-
 // Partial of AxiosRequestConfig.
 export const WebhookConfig = Type.Object({
   url: Type.Optional(Type.String()),
@@ -1820,7 +1703,6 @@ export type WebhookTemplateResource = Static<typeof WebhookTemplateResource>;
 export const MessageTemplateResourceDefinition = Type.Union([
   MobilePushTemplateResource,
   EmailTemplateResource,
-  SmsTemplateResource,
   WebhookTemplateResource,
 ]);
 
@@ -1845,7 +1727,6 @@ export type ParsedWebhookBody = Static<typeof ParsedWebhookBody>;
 export const MessageTemplateResourceDraft = Type.Union([
   MobilePushTemplateResource,
   EmailTemplateResource,
-  SmsTemplateResource,
   WebhookTemplateResource,
 ]);
 
@@ -2183,15 +2064,6 @@ export const EmailMessageUiNodeProps = Type.Object({
 
 export type EmailMessageUiNodeProps = Static<typeof EmailMessageUiNodeProps>;
 
-export const SmsMessageUiNodeProps = Type.Composite([
-  Type.Object({
-    channel: Type.Literal(ChannelType.Sms),
-  }),
-  SmsProviderOverride,
-]);
-
-export type SmsMessageUiNodeProps = Static<typeof SmsMessageUiNodeProps>;
-
 export const MobilePushMessageUiNodeProps = Type.Object({
   channel: Type.Literal(ChannelType.MobilePush),
   providerOverride: Type.Optional(Type.Enum(MobilePushProviderType)),
@@ -2211,7 +2083,6 @@ export type WebhookMessageUiNodeProps = Static<
 
 export const MessageChannelUiNodeProps = Type.Union([
   EmailMessageUiNodeProps,
-  SmsMessageUiNodeProps,
   MobilePushMessageUiNodeProps,
   WebhookMessageUiNodeProps,
 ]);
@@ -2233,7 +2104,6 @@ export type BaseMessageUiNodeProps = Static<typeof BaseMessageUiNodeProps>;
 
 export const MessageUiNodeProps = Type.Union([
   Type.Composite([BaseMessageUiNodeProps, EmailMessageUiNodeProps]),
-  Type.Composite([BaseMessageUiNodeProps, SmsMessageUiNodeProps]),
   Type.Composite([BaseMessageUiNodeProps, MobilePushMessageUiNodeProps]),
   Type.Composite([BaseMessageUiNodeProps, WebhookMessageUiNodeProps]),
 ]);
@@ -3824,14 +3694,6 @@ export const EmailStats = Type.Object({
 
 export type EmailStats = Static<typeof EmailStats>;
 
-export const SmsStats = Type.Object({
-  type: Type.Literal(ChannelType.Sms),
-  deliveryRate: Type.Number(),
-  failRate: Type.Optional(Type.Number()),
-});
-
-export type SmsStats = Static<typeof SmsStats>;
-
 export const WebhookStats = Type.Object({
   type: Type.Literal(ChannelType.Webhook),
   stats: Type.Record(Type.String(), Type.Number()),
@@ -3841,7 +3703,6 @@ export type WebhookStats = Static<typeof WebhookStats>;
 
 export const MessageChannelStats = Type.Union([
   EmailStats,
-  SmsStats,
   WebhookStats,
 ]);
 
@@ -3921,125 +3782,7 @@ export const JourneyStatsRequest = Type.Object({
 
 export type JourneyStatsRequest = Static<typeof JourneyStatsRequest>;
 
-export const TwilioSecret = Type.Object({
-  type: Type.Literal(SmsProviderType.Twilio),
-  accountSid: Type.Optional(Type.String()),
-  messagingServiceSid: Type.Optional(Type.String()),
-  authToken: Type.Optional(Type.String()),
-  apiKeySid: Type.Optional(Type.String()),
-  apiKeySecret: Type.Optional(Type.String()),
-});
-
-export type TwilioSecret = Static<typeof TwilioSecret>;
-
-export const SignalWireSecret = Type.Object({
-  type: Type.Literal(SmsProviderType.SignalWire),
-  project: Type.Optional(Type.String()),
-  token: Type.Optional(Type.String()),
-  spaceUrl: Type.Optional(Type.String()),
-  phone: Type.Optional(Type.String()),
-});
-
-export type SignalWireSecret = Static<typeof SignalWireSecret>;
-
-export const TestSmsSecret = Type.Object({
-  type: Type.Literal(SmsProviderType.Test),
-});
-
-export type TestSmsSecret = Static<typeof TestSmsSecret>;
-
-export const TestSmsProvider = Type.Object({
-  id: Type.String(),
-  workspaceId: Type.String(),
-  type: Type.Literal(SmsProviderType.Test),
-});
-
-export type TestSmsProvider = Static<typeof TestSmsProvider>;
-
-export const SmsProviderSecret = Type.Union([
-  TwilioSecret,
-  TestSmsSecret,
-  SignalWireSecret,
-]);
-
-export type SmsProviderSecret = Static<typeof SmsProviderSecret>;
-
-export const TwilioSmsProvider = Type.Object({
-  id: Type.String(),
-  workspaceId: Type.String(),
-  type: Type.Optional(Type.Literal(SmsProviderType.Twilio)),
-});
-
-export type TwilioSmsProvider = Static<typeof TwilioSmsProvider>;
-
-export const SignalWireSmsProvider = Type.Object({
-  id: Type.String(),
-  workspaceId: Type.String(),
-  type: Type.Optional(Type.Literal(SmsProviderType.SignalWire)),
-});
-
-export type SignalWireSmsProvider = Static<typeof SignalWireSmsProvider>;
-
-export const PersistedSmsProvider = Type.Union([
-  TwilioSmsProvider,
-  SignalWireSmsProvider,
-  TestSmsProvider,
-]);
-
-export type PersistedSmsProvider = Static<typeof PersistedSmsProvider>;
-
-export const DefaultSmsProviderResource = Type.Object({
-  workspaceId: Type.String(),
-  smsProviderId: Type.String(),
-});
-
-export type DefaultSmsProviderResource = Static<
-  typeof DefaultSmsProviderResource
->;
-
 export const MessageTemplateTestErrorResponse = Type.Object({});
-
-export const SmsTwilioSuccess = Type.Object({
-  type: Type.Literal(SmsProviderType.Twilio),
-  sid: Type.String(),
-});
-
-export type SmsTwilioSuccess = Static<typeof SmsTwilioSuccess>;
-
-export const SmsSignalWireSuccess = Type.Object({
-  type: Type.Literal(SmsProviderType.SignalWire),
-  status: Type.String(),
-  sid: Type.String(),
-});
-
-export type SmsSignalWireSuccess = Static<typeof SmsSignalWireSuccess>;
-
-export const SmsTestSuccess = Type.Object({
-  type: Type.Literal(SmsProviderType.Test),
-});
-
-export type SmsTestSuccess = Static<typeof SmsTestSuccess>;
-
-export const SmsServiceProviderSuccess = Type.Union([
-  SmsTwilioSuccess,
-  SmsSignalWireSuccess,
-  SmsTestSuccess,
-]);
-
-export type SmsServiceProviderSuccess = Static<
-  typeof SmsServiceProviderSuccess
->;
-
-export const MessageSmsSuccess = Type.Composite([
-  Type.Object({
-    type: Type.Literal(ChannelType.Sms),
-    provider: SmsServiceProviderSuccess,
-    to: Type.String(),
-  }),
-  SmsContents,
-]);
-
-export type MessageSmsSuccess = Static<typeof MessageSmsSuccess>;
 
 export const EmailTestSuccess = Type.Object({
   type: Type.Literal(EmailProviderType.Test),
@@ -4165,7 +3908,6 @@ export type MessageSkipped = Static<typeof MessageSkipped>;
 
 export const MessageSendSuccessVariant = Type.Union([
   MessageEmailSuccess,
-  MessageSmsSuccess,
   MessageWebhookSuccess,
 ]);
 
@@ -4428,42 +4170,6 @@ export type MessageEmailServiceFailure = Static<
   typeof MessageEmailServiceFailure
 >;
 
-export const MessageTwilioServiceFailure = Type.Object({
-  type: Type.Literal(SmsProviderType.Twilio),
-  message: Type.Optional(Type.String()),
-});
-
-export type MessageTwilioServiceFailure = Static<
-  typeof MessageTwilioServiceFailure
->;
-
-export const MessageSignalWireServiceFailure = Type.Object({
-  type: Type.Literal(SmsProviderType.SignalWire),
-  errorCode: Type.String(),
-  errorMessage: Type.Optional(Type.String()),
-  status: Type.String(),
-});
-
-export type MessageSignalWireServiceFailure = Static<
-  typeof MessageSignalWireServiceFailure
->;
-
-export const SmsServiceProviderFailure = Type.Union([
-  MessageTwilioServiceFailure,
-  MessageSignalWireServiceFailure,
-]);
-
-export type SmsServiceProviderFailure = Static<
-  typeof SmsServiceProviderFailure
->;
-
-export const MessageSmsServiceFailure = Type.Object({
-  type: Type.Literal(ChannelType.Sms),
-  provider: SmsServiceProviderFailure,
-});
-
-export type MessageSmsServiceFailure = Static<typeof MessageSmsServiceFailure>;
-
 export const MessageWebhookServiceFailure = Type.Object({
   type: Type.Literal(ChannelType.Webhook),
   code: Type.Optional(Type.String()),
@@ -4476,7 +4182,6 @@ export type MessageWebhookServiceFailure = Static<
 
 export const MessageServiceFailureVariant = Type.Union([
   MessageEmailServiceFailure,
-  MessageSmsServiceFailure,
   MessageWebhookServiceFailure,
 ]);
 
@@ -4577,16 +4282,6 @@ export type EmailMessageTemplateTestRequest = Static<
   typeof EmailMessageTemplateTestRequest
 >;
 
-export const SmsMessageTemplateTestRequest = Type.Object({
-  ...BaseMessageTemplateTestRequest,
-  channel: Type.Literal(ChannelType.Sms),
-  provider: Type.Optional(Type.Enum(SmsProviderType)),
-});
-
-export type SmsMessageTemplateTestRequest = Static<
-  typeof SmsMessageTemplateTestRequest
->;
-
 export const MobilePushMessageTemplateTestRequest = Type.Object({
   ...BaseMessageTemplateTestRequest,
   channel: Type.Literal(ChannelType.MobilePush),
@@ -4609,7 +4304,6 @@ export type WebhookMessageTemplateTestRequest = Static<
 
 export const MessageTemplateTestRequest = Type.Union([
   EmailMessageTemplateTestRequest,
-  SmsMessageTemplateTestRequest,
   MobilePushMessageTemplateTestRequest,
   WebhookMessageTemplateTestRequest,
 ]);
@@ -4655,14 +4349,6 @@ const BaseDeliveryItem = Type.Object({
 });
 
 export const SearchDeliveriesResponseItem = Type.Union([
-  // TODO implement sms status
-  Type.Composite([
-    Type.Object({
-      status: Type.String(),
-      variant: MessageSmsSuccess,
-    }),
-    BaseDeliveryItem,
-  ]),
   Type.Composite([
     Type.Object({
       status: EmailEvent,
@@ -5285,14 +4971,6 @@ export type UpsertEmailProviderRequest = Static<
   typeof UpsertEmailProviderRequest
 >;
 
-export const UpsertSmsProviderRequest = Type.Object({
-  workspaceId: Type.String(),
-  setDefault: Type.Optional(Type.Boolean()),
-  config: SmsProviderSecret,
-});
-
-export type UpsertSmsProviderRequest = Static<typeof UpsertSmsProviderRequest>;
-
 export const TombstoneWorkspaceRequest = WorkspaceIdentifier;
 
 export type TombstoneWorkspaceRequest = Static<
@@ -5343,19 +5021,6 @@ export const GetDeliveryBodyRequest = Type.Union([
 ]);
 
 export type GetDeliveryBodyRequest = Static<typeof GetDeliveryBodyRequest>;
-
-export const TwilioWebhookRequest = Type.Object({
-  workspaceId: Type.String(),
-  userId: Type.String(),
-  subscriptionGroupId: Type.Optional(Type.String()),
-  messageId: Type.Optional(Type.String()),
-  journeyId: Type.Optional(Type.String()),
-  templateId: Type.Optional(Type.String()),
-  nodeId: Type.Optional(Type.String()),
-  runId: Type.Optional(Type.String()),
-});
-
-export type TwilioWebhookRequest = Static<typeof TwilioWebhookRequest>;
 
 export enum UpsertUserPropertyErrorType {
   UserPropertyAlreadyExists = "UserPropertyAlreadyExists",
@@ -5977,20 +5642,6 @@ export type BroadcastEmailMessageVariant = Static<
   typeof BroadcastEmailMessageVariant
 >;
 
-export const BaseBroadcastSmsMessageVariant = Type.Object({
-  type: Type.Literal(ChannelType.Sms),
-});
-
-export const BroadcastSmsMessageVariant = Type.Union([
-  Type.Composite([BaseBroadcastSmsMessageVariant, NoSmsProviderOverride]),
-  Type.Composite([BaseBroadcastSmsMessageVariant, TwilioOverride]),
-  Type.Composite([BaseBroadcastSmsMessageVariant, SignalWireOverride]),
-  Type.Composite([BaseBroadcastSmsMessageVariant, TestSmsOverride]),
-]);
-
-export type BroadcastSmsMessageVariant = Static<
-  typeof BroadcastSmsMessageVariant
->;
 export const BroadcastV2Config = Type.Object({
   type: Type.Literal(BroadcastConfigTypeEnum.V2),
   // messages per second
@@ -6002,7 +5653,6 @@ export const BroadcastV2Config = Type.Object({
   message: Type.Union([
     // Defined separately to allow workspace member specific providers.
     BroadcastEmailMessageVariant,
-    BroadcastSmsMessageVariant,
     Type.Omit(WebhookMessageVariant, ["templateId"]),
   ]),
 });
@@ -6349,16 +5999,6 @@ export type EmailBatchMessageUsersRequest = Static<
   typeof EmailBatchMessageUsersRequest
 >;
 
-export const SmsBatchMessageUsersRequest = Type.Object({
-  ...BaseBatchMessageUsersRequest,
-  channel: Type.Literal(ChannelType.Sms),
-  provider: Type.Optional(Type.Enum(SmsProviderType)),
-});
-
-export type SmsBatchMessageUsersRequest = Static<
-  typeof SmsBatchMessageUsersRequest
->;
-
 export const WebBatchMessageUsersRequest = Type.Object({
   ...BaseBatchMessageUsersRequest,
   channel: Type.Literal(ChannelType.Webhook),
@@ -6371,7 +6011,6 @@ export type WebBatchMessageUsersRequest = Static<
 
 export const BatchMessageUsersRequest = Type.Union([
   EmailBatchMessageUsersRequest,
-  SmsBatchMessageUsersRequest,
   WebBatchMessageUsersRequest,
 ]);
 

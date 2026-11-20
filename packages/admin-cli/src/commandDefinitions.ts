@@ -2014,7 +2014,7 @@ export function createCommands(yargs: Argv): Argv {
             type: "string",
             alias: "c",
             array: true,
-            choices: ["Email", "MobilePush", "Sms", "Webhook"],
+            choices: ["Email", "MobilePush", "Webhook"],
           },
           "user-id": { type: "string", alias: "u", array: true },
           to: { type: "string", array: true },
@@ -2057,10 +2057,9 @@ export function createCommands(yargs: Argv): Argv {
         const normalizedChannels =
           Array.isArray(channels) && channels.length > 0
             ? channels.filter(
-                (ch): ch is "Email" | "MobilePush" | "Sms" | "Webhook" =>
+                (ch): ch is "Email" | "MobilePush" | "Webhook" =>
                   ch === "Email" ||
                   ch === "MobilePush" ||
-                  ch === "Sms" ||
                   ch === "Webhook",
               )
             : undefined;

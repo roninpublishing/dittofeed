@@ -473,11 +473,6 @@ export default function BroadcastsTable() {
             type: ChannelType.Email,
           };
           break;
-        case ChannelType.Sms:
-          broadcastConfigMessage = {
-            type: ChannelType.Sms,
-          };
-          break;
         case ChannelType.Webhook:
           broadcastConfigMessage = {
             type: ChannelType.Webhook,
@@ -781,9 +776,6 @@ export default function BroadcastsTable() {
           >
             <ToggleButton value={ChannelType.Email} aria-label="Email">
               Email
-            </ToggleButton>
-            <ToggleButton value={ChannelType.Sms} aria-label="SMS">
-              SMS
             </ToggleButton>
             <ToggleButton value={ChannelType.Webhook} aria-label="Webhook">
               Webhook

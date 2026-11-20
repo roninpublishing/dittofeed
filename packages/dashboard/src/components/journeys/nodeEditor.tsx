@@ -47,6 +47,7 @@ import {
 import { ReactNode, useCallback, useMemo } from "react";
 
 import { useAppStorePick } from "../../lib/appStore";
+import { isChannelVisible } from "../../lib/channelVisibility";
 import {
   AdditionalJourneyNodeType,
   DelayUiNodeProps,
@@ -400,12 +401,10 @@ function MessageNodeFields({
   nodeProps: MessageUiNodeProps;
   disabled?: boolean;
 }) {
-  const { enableMobilePush, updateJourneyNodeData, journeyName } =
-    useAppStorePick([
-      "enableMobilePush",
-      "updateJourneyNodeData",
-      "journeyName",
-    ]);
+  const { updateJourneyNodeData, journeyName } = useAppStorePick([
+    "updateJourneyNodeData",
+    "journeyName",
+  ]);
   const { data: subscriptionGroups } = useSubscriptionGroupsQuery();
 
   const onNameChangeHandler: React.ChangeEventHandler<
@@ -442,6 +441,9 @@ function MessageNodeFields({
       if (props.type === JourneyNodeType.MessageNode) {
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         const channel = e.target.value as ChannelType;
+        if (!isChannelVisible(props.channel) || !isChannelVisible(channel)) {
+          return;
+        }
         const defaultSubscriptionGroup = getDefaultSubscriptionGroup({
           channel,
           subscriptionGroups: subscriptionGroups ?? [],
@@ -713,9 +715,6 @@ function MessageNodeFields({
           <MenuItem value={ChannelType.Email}>Email</MenuItem>
           <MenuItem value={ChannelType.Sms}>SMS</MenuItem>
           <MenuItem value={ChannelType.Webhook}>Webhook</MenuItem>
-          <MenuItem disabled={!enableMobilePush} value={ChannelType.MobilePush}>
-            Mobile Push
-          </MenuItem>
         </Select>
       </FormControl>
       <ResourceSelect
@@ -1297,6 +1296,16 @@ function NodeFields({
         </NodeLayout>
       );
     case JourneyNodeType.MessageNode: {
+      if (!isChannelVisible(nodeProps.channel)) {
+        return (
+          <NodeLayout nodeId={node.id}>
+            <Typography color="text.secondary">
+              This message is unavailable in this dashboard. Its saved
+              configuration is unchanged.
+            </Typography>
+          </NodeLayout>
+        );
+      }
       return (
         <NodeLayout deleteButton nodeId={node.id}>
           <MessageNodeFields

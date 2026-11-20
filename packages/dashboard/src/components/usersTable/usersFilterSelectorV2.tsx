@@ -15,6 +15,7 @@ import MenuItem from "@mui/material/MenuItem";
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import * as React from "react";
 
+import { isChannelVisible } from "../../lib/channelVisibility";
 import { useSegmentsQuery } from "../../lib/useSegmentResourcesQuery";
 import { useSubscriptionGroupsResourcesQuery } from "../../lib/useSubscriptionGroupsResourcesQuery";
 import { useUserPropertyResourcesQuery } from "../../lib/useUserPropertyResourcesQuery";
@@ -208,10 +209,12 @@ function SubscriptionGroupSelector({
     }
     const subscriptionGroups =
       subscriptionGroupsQuery.data.subscriptionGroups || [];
-    return subscriptionGroups.map((sg) => ({
-      id: sg.id,
-      label: sg.name,
-    }));
+    return subscriptionGroups
+      .filter((group) => isChannelVisible(group.channel))
+      .map((sg) => ({
+        id: sg.id,
+        label: sg.name,
+      }));
   }, [subscriptionGroupsQuery]);
 
   return (

@@ -29,6 +29,7 @@ import InfoBox from "../../components/infoBox";
 import InfoTooltip from "../../components/infoTooltip";
 import apiRequestHandlerFactory from "../../lib/apiRequestHandlerFactory";
 import { useAppStore, useAppStorePick } from "../../lib/appStore";
+import { isChannelVisible } from "../../lib/channelVisibility";
 import { PropsWithInitialState } from "../../lib/types";
 import { useSubscriptionGroupsQuery } from "../../lib/useSubscriptionGroupsQuery";
 import getSubscriptionGroupsSSP from "./getSubscriptionGroupsSSP";
@@ -56,12 +57,10 @@ export default function SubscriptionGroupConfig() {
     setSubscriptionGroupUpdateRequest,
     apiBase,
     upsertSubscriptionGroup,
-    enableMobilePush,
   } = useAppStorePick([
     "subscriptionGroupUpdateRequest",
     "setSubscriptionGroupUpdateRequest",
     "apiBase",
-    "enableMobilePush",
     "upsertSubscriptionGroup",
   ]);
 
@@ -76,7 +75,11 @@ export default function SubscriptionGroupConfig() {
   useEffect(() => {
     if (!id || !subscriptionGroups) return;
     const sg = subscriptionGroups.find((s) => s.id === id);
-    if (sg && !editedSubscriptionGroup) {
+    if (
+      sg &&
+      isChannelVisible(sg.channel) &&
+      editedSubscriptionGroup?.id !== id
+    ) {
       setEditedSubscriptionGroup({
         id: sg.id,
         name: sg.name,
@@ -108,7 +111,12 @@ export default function SubscriptionGroupConfig() {
     if (
       workspace.type !== CompletionStatus.Successful ||
       !id ||
-      !editedSubscriptionGroup
+      !editedSubscriptionGroup ||
+      editedSubscriptionGroup.id !== id ||
+      !isChannelVisible(editedSubscriptionGroup.channel) ||
+      subscriptionGroups?.some(
+        (sg) => sg.id === id && !isChannelVisible(sg.channel),
+      )
     ) {
       return;
     }
@@ -150,6 +158,7 @@ export default function SubscriptionGroupConfig() {
     workspace,
     id,
     editedSubscriptionGroup,
+    subscriptionGroups,
     subscriptionGroupUpdateRequest,
     setSubscriptionGroupUpdateRequest,
     apiBase,
@@ -160,8 +169,16 @@ export default function SubscriptionGroupConfig() {
     return null;
   }
 
+  if (
+    subscriptionGroups?.some(
+      (sg) => sg.id === id && !isChannelVisible(sg.channel),
+    )
+  ) {
+    return null;
+  }
+
   // Show loading while fetching subscription group
-  if (!editedSubscriptionGroup) {
+  if (!editedSubscriptionGroup || editedSubscriptionGroup.id !== id) {
     return (
       <SubscriptionGroupLayout
         tab={SubscriptionGroupTabLabel.Configure}
@@ -244,12 +261,6 @@ export default function SubscriptionGroupConfig() {
               <MenuItem value={ChannelType.Email}>Email</MenuItem>
               <MenuItem value={ChannelType.Sms}>SMS</MenuItem>
               <MenuItem value={ChannelType.Webhook}>Webhook</MenuItem>
-              <MenuItem
-                disabled={!enableMobilePush}
-                value={ChannelType.MobilePush}
-              >
-                Mobile Push
-              </MenuItem>
             </Select>
           </FormControl>
         </InfoTooltip>

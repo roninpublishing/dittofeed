@@ -71,6 +71,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAppStorePick } from "../../lib/appStore";
+import { isChannelVisible } from "../../lib/channelVisibility";
 import { useCreateSubscriptionGroupMutation } from "../../lib/useCreateSubscriptionGroupMutation";
 import { useDeleteSubscriptionGroupMutation } from "../../lib/useDeleteSubscriptionGroupMutation";
 import {
@@ -286,7 +287,9 @@ export function SubscriptionGroupsTable({
   const subscriptionGroupsQuery = useSubscriptionGroupsQuery();
 
   const subscriptionGroupsData: Row[] = useMemo(() => {
-    return subscriptionGroupsQuery.data || [];
+    return (subscriptionGroupsQuery.data || []).filter((group) =>
+      isChannelVisible(group.channel),
+    );
   }, [subscriptionGroupsQuery.data]);
 
   const [pagination, setPagination] = useState({
@@ -337,6 +340,7 @@ export function SubscriptionGroupsTable({
   const handleCreateSubscriptionGroup = () => {
     if (
       subscriptionGroupName.trim() &&
+      isChannelVisible(selectedChannel) &&
       !createSubscriptionGroupMutation.isPending
     ) {
       createSubscriptionGroupMutation.mutate({
@@ -653,11 +657,13 @@ export function SubscriptionGroupsTable({
                 label="Channel"
                 onChange={handleChannelChange}
               >
-                {Object.values(ChannelType).map((channel) => (
-                  <MenuItem key={channel} value={channel}>
-                    {CHANNEL_NAMES[channel]}
-                  </MenuItem>
-                ))}
+                {Object.values(ChannelType)
+                  .filter(isChannelVisible)
+                  .map((channel) => (
+                    <MenuItem key={channel} value={channel}>
+                      {CHANNEL_NAMES[channel]}
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
           </Stack>

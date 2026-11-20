@@ -6,6 +6,7 @@ import {
 } from "isomorphic-lib/src/types";
 import { useMemo } from "react";
 
+import { isChannelVisible } from "../lib/channelVisibility";
 import { useMessageTemplatesQuery } from "../lib/useMessageTemplatesQuery";
 
 // Define a simpler type for message templates, assuming id and name exist
@@ -47,6 +48,9 @@ export function MessageTemplateAutocomplete({
     }
     // Assuming MessageTemplateResource has id and name properties
     return templates.flatMap((t: MessageTemplateResource) => {
+      if (!isChannelVisible(t.definition?.type)) {
+        return [];
+      }
       if (channel && t.definition?.type !== channel) {
         return [];
       }

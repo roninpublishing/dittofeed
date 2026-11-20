@@ -37,6 +37,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 
 // Internal application imports
+import { isChannelVisible } from "../../lib/channelVisibility";
 import { useBroadcastMutation } from "../../lib/useBroadcastMutation";
 import { useBroadcastQuery } from "../../lib/useBroadcastQuery";
 import { useStartBroadcastMutation } from "../../lib/useStartBroadcastMutation";
@@ -121,7 +122,7 @@ export default function Configuration({
   const steps = useBroadcastSteps(state.configuration?.stepsAllowList);
 
   const availableProviderOverrides: ProviderOverrideOption[] = useMemo(() => {
-    if (!channel) {
+    if (!channel || !isChannelVisible(channel)) {
       return [];
     }
     switch (channel) {
@@ -158,7 +159,7 @@ export default function Configuration({
   }, [channel]);
 
   const providerOverride = useMemo<ProviderOverrideOption | null>(() => {
-    if (!broadcast) {
+    if (!broadcast || !isChannelVisible(broadcast.config.message.type)) {
       return null;
     }
     const { message } = broadcast.config;
@@ -271,6 +272,14 @@ export default function Configuration({
 
   if (!broadcast) {
     return null;
+  }
+  if (!isChannelVisible(channel)) {
+    return (
+      <Typography color="text.secondary">
+        This broadcast is unavailable in this dashboard. Its saved configuration
+        is unchanged.
+      </Typography>
+    );
   }
 
   const disabled = broadcast.status !== "Draft";

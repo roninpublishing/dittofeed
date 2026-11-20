@@ -71,6 +71,7 @@ import { v4 as uuid } from "uuid";
 
 import { useAppStorePick } from "../../lib/appStore";
 import { useUniversalRouter } from "../../lib/authModeProvider";
+import { isChannelVisible } from "../../lib/channelVisibility";
 import { getDefaultMessageTemplateDefinition } from "../../lib/defaultTemplateDefinition";
 import {
   DeleteMessageTemplateVariables,
@@ -451,10 +452,12 @@ export default function TemplatesTable({
       }
     }
 
-    return messageTemplatesQuery.data.map((template) => ({
-      ...template,
-      journeysUsedBy: journeysByTemplateId.get(template.id) ?? [],
-    }));
+    return messageTemplatesQuery.data
+      .filter((template) => isChannelVisible(template.definition?.type))
+      .map((template) => ({
+        ...template,
+        journeysUsedBy: journeysByTemplateId.get(template.id) ?? [],
+      }));
   }, [messageTemplatesQuery.data, resources?.journeys, workspace]);
 
   const [pagination, setPagination] = useState({
@@ -884,12 +887,6 @@ export default function TemplatesTable({
             </ToggleButton>
             <ToggleButton value={ChannelType.Webhook} aria-label="Webhook">
               Webhook
-            </ToggleButton>
-            <ToggleButton
-              value={ChannelType.MobilePush}
-              aria-label="Mobile Push"
-            >
-              Mobile Push
             </ToggleButton>
           </ToggleButtonGroup>
           {selectedChannel === ChannelType.Email &&

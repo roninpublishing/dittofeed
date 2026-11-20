@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import React, { useCallback, useEffect } from "react";
 
 import { useAppStorePick } from "../lib/appStore";
+import { isChannelVisible } from "../lib/channelVisibility";
 import { useResourcesQuery } from "../lib/useResourcesQuery";
 
 // Map channel type to route path
@@ -65,6 +66,13 @@ export default function CommandPalette() {
     {
       enabled: workspaceReady && commandPaletteOpen,
     },
+  );
+
+  const visibleTemplates = data?.messageTemplates?.filter((template) =>
+    isChannelVisible(template.channel),
+  );
+  const visibleSubscriptionGroups = data?.subscriptionGroups?.filter((group) =>
+    isChannelVisible(group.channel),
   );
 
   const handleSelect = useCallback(
@@ -137,9 +145,9 @@ export default function CommandPalette() {
             </Command.Group>
           )}
 
-          {data?.messageTemplates && data.messageTemplates.length > 0 && (
+          {visibleTemplates && visibleTemplates.length > 0 && (
             <Command.Group heading="Message Templates">
-              {data.messageTemplates.map((template) => (
+              {visibleTemplates.map((template) => (
                 <Command.Item
                   key={template.id}
                   value={`template ${template.name}`}
@@ -158,24 +166,25 @@ export default function CommandPalette() {
             </Command.Group>
           )}
 
-          {data?.subscriptionGroups && data.subscriptionGroups.length > 0 && (
-            <Command.Group heading="Subscription Groups">
-              {data.subscriptionGroups.map((group) => (
-                <Command.Item
-                  key={group.id}
-                  value={`subscription group ${group.name}`}
-                  onSelect={() =>
-                    handleSelect(`/subscription-groups/${group.id}`)
-                  }
-                >
-                  <SearchIcon
-                    sx={{ mr: 1, fontSize: 16, color: "text.secondary" }}
-                  />
-                  {group.name}
-                </Command.Item>
-              ))}
-            </Command.Group>
-          )}
+          {visibleSubscriptionGroups &&
+            visibleSubscriptionGroups.length > 0 && (
+              <Command.Group heading="Subscription Groups">
+                {visibleSubscriptionGroups.map((group) => (
+                  <Command.Item
+                    key={group.id}
+                    value={`subscription group ${group.name}`}
+                    onSelect={() =>
+                      handleSelect(`/subscription-groups/${group.id}`)
+                    }
+                  >
+                    <SearchIcon
+                      sx={{ mr: 1, fontSize: 16, color: "text.secondary" }}
+                    />
+                    {group.name}
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
         </Command.List>
       </Command>
     </Dialog>

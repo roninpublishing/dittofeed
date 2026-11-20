@@ -31,15 +31,12 @@ import CodeMirror from "@uiw/react-codemirror";
 import axios from "axios";
 import { getAdminApiKeys } from "backend-lib/src/adminApiKeys";
 import { getOrCreateWriteKey, getWriteKeys } from "backend-lib/src/auth";
-import { HUBSPOT_INTEGRATION } from "backend-lib/src/constants";
 import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
-import { findAllEnrichedIntegrations } from "backend-lib/src/integrations";
 import { getOrCreateSmsProviders } from "backend-lib/src/messaging/sms";
 import { getSecretAvailability } from "backend-lib/src/secrets";
-import { toSegmentResource } from "backend-lib/src/segments";
 import { subscriptionGroupToResource } from "backend-lib/src/subscriptionGroups";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { writeKeyToHeader } from "isomorphic-lib/src/auth";
 import {
   EMAIL_PROVIDER_TYPE_TO_SECRET_NAME,
@@ -47,7 +44,6 @@ import {
   SMS_PROVIDER_TYPE_TO_SECRET_NAME,
 } from "isomorphic-lib/src/constants";
 import { emailProviderLabel } from "isomorphic-lib/src/email";
-import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import {
   CompletionStatus,
@@ -57,13 +53,8 @@ import {
   EmailProviderType,
   EmptyResponse,
   EphemeralRequestStatus,
-  IntegrationResource,
-  IntegrationType,
-  PartialSegmentResource,
   SmsProviderType,
   SmtpSecretKey,
-  SyncIntegration,
-  UpsertIntegrationResource,
 } from "isomorphic-lib/src/types";
 import {
   GetServerSideProps,
@@ -72,22 +63,16 @@ import {
 } from "next";
 import { enqueueSnackbar } from "notistack";
 import { useEffect, useMemo, useState } from "react";
-import { pick } from "remeda";
 import { useImmer } from "use-immer";
-import { create } from "zustand";
-import { immer } from "zustand/middleware/immer";
 
 import AdminApiKeyTable from "../components/adminApiKeyTable";
 import DashboardHead from "../components/dashboardHead";
-import ExternalLink from "../components/externalLink";
 import Fields from "../components/form/Fields";
 import {
   FieldComponents,
   SecretField,
   TextField as TextFieldComponent,
 } from "../components/form/types";
-import { HubspotIcon } from "../components/icons/hubspotIcon";
-import InfoBox from "../components/infoBox";
 import Layout from "../components/layout";
 import { MenuItemGroup } from "../components/menuItems/types";
 import { PermissionsTable } from "../components/permissionsTable";
@@ -215,8 +200,6 @@ export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
       defaultEmailProviderRecord,
       subscriptionGroups,
       writeKey,
-      integrations,
-      segments,
       smsProviders,
       defaultSmsProviderRecord,
       secretAvailability,
@@ -230,17 +213,6 @@ export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
         where: eq(schema.subscriptionGroup.workspaceId, workspaceId),
       }),
       getWriteKeys({ workspaceId }).then((keys) => keys[0]),
-      findAllEnrichedIntegrations(workspaceId),
-      db()
-        .query.segment.findMany({
-          where: and(
-            eq(schema.segment.workspaceId, workspaceId),
-            eq(schema.segment.resourceType, "Declarative"),
-          ),
-        })
-        .then((dbSegments) =>
-          dbSegments.map((segment) => unwrap(toSegmentResource(segment))),
-        ),
       getOrCreateSmsProviders({ workspaceId }),
       db().query.defaultSmsProvider.findFirst({
         where: eq(schema.defaultSmsProvider.workspaceId, workspaceId),
@@ -260,13 +232,6 @@ export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
       emailProviders,
       secretAvailability,
       defaultEmailProvider: defaultEmailProviderRecord,
-      integrations: unwrap(integrations).map((i) =>
-        pick(i, ["id", "name", "workspaceId", "definition", "enabled"]),
-      ),
-      segments: {
-        type: CompletionStatus.Successful,
-        value: segments,
-      },
     };
 
     if (writeKey) {
@@ -307,7 +272,6 @@ const settingsSectionIds = {
   authentication: "authentication",
   writeKey: "write-key",
   adminApiKey: "admin-api-key",
-  hubspotIntegration: "hubspot-integration",
   workspaceMetadata: "workspace-metadata",
   permissions: "permissions",
 } as const;
@@ -393,22 +357,6 @@ function getMenuItems(authMode: string | undefined): MenuItemGroup[] {
       ],
     },
     {
-      id: "integrations",
-      title: "Integrations",
-      type: "group",
-      children: [
-        {
-          id: "hubspot",
-          title: "Hubspot",
-          type: "item",
-          url: `/settings#${settingsSectionIds.hubspotIntegration}`,
-          icon: HubspotIcon,
-          description: "Configure Hubspot integration.",
-        },
-      ],
-      url: `/settings#${settingsSectionIds.hubspotIntegration}`,
-    },
-    {
       id: settingsSectionIds.workspaceMetadata,
       title: "Workspace Metadata",
       type: "group",
@@ -467,45 +415,6 @@ function SettingsLayout(
       />
     </>
   );
-}
-
-interface SettingsState {
-  upsertSmsProviderRequest: EphemeralRequestStatus<Error>;
-  upsertIntegrationsRequest: EphemeralRequestStatus<Error>;
-}
-
-interface SettingsActions {
-  updateUpsertIntegrationsRequest: (
-    request: EphemeralRequestStatus<Error>,
-  ) => void;
-  updateSmsProviderRequest: (request: EphemeralRequestStatus<Error>) => void;
-}
-
-type SettingsContent = SettingsState & SettingsActions;
-
-export const useSettingsStore = create(
-  immer<SettingsActions & SettingsState>((set) => ({
-    upsertIntegrationsRequest: {
-      type: CompletionStatus.NotStarted,
-    },
-    upsertSmsProviderRequest: {
-      type: CompletionStatus.NotStarted,
-    },
-    updateUpsertIntegrationsRequest: (request) => {
-      set((state) => {
-        state.upsertIntegrationsRequest = request;
-      });
-    },
-    updateSmsProviderRequest: (request) => {
-      set((state) => {
-        state.upsertSmsProviderRequest = request;
-      });
-    },
-  })),
-);
-
-function useSettingsStorePick(params: (keyof SettingsContent)[]) {
-  return useSettingsStore((store) => pick(store, params));
 }
 
 function SegmentIoConfig() {
@@ -1698,213 +1607,6 @@ function AuthenticationSettings() {
   );
 }
 
-function HubspotIntegration() {
-  const {
-    integrations,
-    dashboardUrl,
-    upsertIntegration,
-    apiBase,
-    workspace,
-    segments: segmentsRequest,
-  } = useAppStorePick([
-    "integrations",
-    "dashboardUrl",
-    "upsertIntegration",
-    "apiBase",
-    "workspace",
-    "segments",
-  ]);
-  const segments =
-    segmentsRequest.type === CompletionStatus.Successful
-      ? segmentsRequest.value
-      : [];
-  const [inProgress, setInProgress] = useState<"segments" | "enabled" | null>(
-    null,
-  );
-
-  const { upsertIntegrationsRequest, updateUpsertIntegrationsRequest } =
-    useSettingsStorePick([
-      "upsertIntegrationsRequest",
-      "updateUpsertIntegrationsRequest",
-    ]);
-
-  let hubspotIntegration: SyncIntegration | null = null;
-  for (const integration of integrations) {
-    if (
-      integration.name === HUBSPOT_INTEGRATION &&
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      integration.definition.type === IntegrationType.Sync &&
-      integration.enabled
-    ) {
-      hubspotIntegration = integration.definition;
-    }
-  }
-
-  const [subscribedSegments, setSubscribedSegments] = useState<
-    PartialSegmentResource[]
-  >(() => {
-    const subbed = new Set(hubspotIntegration?.subscribedSegments ?? []);
-    return segments.filter((segment) => subbed.has(segment.name));
-  });
-
-  if (workspace.type !== CompletionStatus.Successful) {
-    return null;
-  }
-
-  let hubspotContents;
-  if (hubspotIntegration) {
-    const disableBody: UpsertIntegrationResource = {
-      workspaceId: workspace.value.id,
-      name: HUBSPOT_INTEGRATION,
-      enabled: false,
-    };
-    const handleDisable = apiRequestHandlerFactory({
-      request: upsertIntegrationsRequest,
-      setRequest: updateUpsertIntegrationsRequest,
-      responseSchema: IntegrationResource,
-      setResponse: (integration) => {
-        setInProgress(null);
-        upsertIntegration(integration);
-      },
-      onSuccessNotice: "Disabled Hubspot integration.",
-      onFailureNoticeHandler: () =>
-        `API Error: Failed disable Hubspot integration`,
-      requestConfig: {
-        method: "PUT",
-        url: `${apiBase}/api/integrations`,
-        data: disableBody,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    });
-
-    const updateSubscribedSegmentsBody: UpsertIntegrationResource = {
-      workspaceId: workspace.value.id,
-      name: HUBSPOT_INTEGRATION,
-      definition: {
-        ...hubspotIntegration,
-        subscribedSegments: subscribedSegments.map((segment) => segment.name),
-      },
-    };
-    const saveSyncedSegments = apiRequestHandlerFactory({
-      request: upsertIntegrationsRequest,
-      setRequest: updateUpsertIntegrationsRequest,
-      responseSchema: IntegrationResource,
-      setResponse: (integration) => {
-        upsertIntegration(integration);
-        setInProgress(null);
-      },
-      onSuccessNotice: "Updated synced hubspot integration segments.",
-      onFailureNoticeHandler: () =>
-        `API Error: Failed to updated synced hubspot integration segment.`,
-      requestConfig: {
-        method: "PUT",
-        url: `${apiBase}/api/integrations`,
-        data: updateSubscribedSegmentsBody,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    });
-    hubspotContents = (
-      <Stack spacing={1}>
-        <InfoBox>
-          Segments can be synced to Hubspot as lists. See{" "}
-          <ExternalLink
-            disableNewTab
-            enableLinkStyling
-            href="https://knowledge.hubspot.com/lists/create-active-or-static-lists"
-          >
-            the docs
-          </ExternalLink>{" "}
-          for more information on hubspot lists.
-        </InfoBox>
-
-        <Autocomplete
-          multiple
-          options={segments}
-          value={subscribedSegments}
-          onChange={(_event, newValue) => {
-            setSubscribedSegments(newValue);
-          }}
-          getOptionLabel={(option) => option.name}
-          renderInput={(params) => (
-            <TextField {...params} variant="outlined" label="Synced Segments" />
-          )}
-        />
-        <Box>
-          <LoadingButton
-            variant="contained"
-            onClick={() => {
-              setInProgress("segments");
-              saveSyncedSegments();
-            }}
-            loading={inProgress === "segments"}
-            disabled={inProgress === "enabled"}
-          >
-            Save Synced Segments
-          </LoadingButton>
-        </Box>
-        <Box>
-          <LoadingButton
-            variant="outlined"
-            color="error"
-            onClick={() => {
-              setInProgress("enabled");
-              handleDisable();
-            }}
-            loading={inProgress === "enabled"}
-            disabled={inProgress === "segments"}
-          >
-            Disable Hubspot
-          </LoadingButton>
-        </Box>
-      </Stack>
-    );
-  } else {
-    hubspotContents = (
-      <Button
-        variant="contained"
-        sx={{
-          alignSelf: {
-            xs: "start",
-            sm: "end",
-          },
-        }}
-        href={`https://app.hubspot.com/oauth/authorize?client_id=9128468e-b771-4bab-b301-21b479213975&redirect_uri=${dashboardUrl}/dashboard/oauth2/callback/hubspot&scope=timeline%20sales-email-read%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.companies.write%20crm.objects.companies.read%20crm.objects.owners.read%20crm.lists.write%20crm.lists.read`}
-      >
-        Connect Hubspot
-      </Button>
-    );
-  }
-
-  return <>{hubspotContents}</>;
-}
-
-function IntegrationSettings() {
-  return (
-    <Stack spacing={3}>
-      <SectionHeader title="Integrations" description="" />
-      <Fields
-        sections={[
-          {
-            id: settingsSectionIds.hubspotIntegration,
-            fieldGroups: [
-              {
-                id: "hubspot-fields",
-                name: "Hubspot",
-                fields: [],
-                children: <HubspotIntegration />,
-              },
-            ],
-          },
-        ]}
-      />
-    </Stack>
-  );
-}
-
 function SubscriptionManagementSettings() {
   const subscriptionGroups = useAppStore((store) => store.subscriptionGroups);
   const { apiBase } = useAppStorePick(["apiBase"]);
@@ -2346,7 +2048,6 @@ function SettingsContents() {
       <MessageChannelsConfig />
       <AuthenticationSettings />
       <SubscriptionManagementSettings />
-      <IntegrationSettings />
       <PermissionsSettings />
       <Metadata />
     </>

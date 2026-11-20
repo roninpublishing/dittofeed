@@ -24,6 +24,19 @@ or a claim that inherited Push sending is fully implemented. Future restoration
 requires deliberately restoring dashboard entry points, not changing backend
 contracts or migrating saved data.
 
+## Retained, hidden HubSpot integration
+
+HubSpot connection, synced-segment controls, and the Integrations navigation
+group are not rendered on Settings, including `/settings#hubspot-integration`.
+Settings no longer fetches HubSpot integrations or audience segments solely to
+populate those controls. Documentation no longer advertises HubSpot onboarding.
+
+`src/lib/oauth.ts`, `/oauth2/callback/hubspot`, integration APIs, saved
+configuration, token refresh, and synchronization workers remain intact. The
+OAuth callback is a backend continuation endpoint, not a settings screen; hiding
+HubSpot must not interrupt an in-flight authorization or existing integrations.
+Restoring its dashboard UI is a separate product decision.
+
 ## Acknowledgements
 
 This dashboard adapts the code from the following open-source projects:

@@ -449,11 +449,6 @@ export function NewAnalysisFilterButton({
                       id: "AmazonSes",
                     },
                     {
-                      label: "Postmark",
-                      type: AnalysisFilterCommandType.SelectItem,
-                      id: "Postmark",
-                    },
-                    {
                       label: "Resend",
                       type: AnalysisFilterCommandType.SelectItem,
                       id: "Resend",

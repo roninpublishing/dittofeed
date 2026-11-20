@@ -431,30 +431,6 @@ export default async function contentController(fastify: FastifyInstance) {
                   },
                 });
               }
-              case EmailProviderType.PostMark: {
-                const { message } = result.error.variant.provider;
-                const suggestions: string[] = [];
-                suggestions.push(message);
-                return reply.status(200).send({
-                  type: JsonResultType.Err,
-                  err: {
-                    suggestions,
-                    responseData: message,
-                  },
-                });
-              }
-              case EmailProviderType.MailChimp: {
-                const { message } = result.error.variant.provider;
-                const suggestions: string[] = [];
-                suggestions.push(message);
-                return reply.status(200).send({
-                  type: JsonResultType.Err,
-                  err: {
-                    suggestions,
-                    responseData: message,
-                  },
-                });
-              }
               case EmailProviderType.Gmail: {
                 throw new Error("Gmail is not supported in test mode");
               }

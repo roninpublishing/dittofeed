@@ -91,12 +91,10 @@
                 "pages": [
                   "integrations/channels/email",
                   "integrations/channels/sendgrid",
-                  "integrations/channels/postmark",
                   "integrations/channels/resend",
                   "integrations/channels/smtp",
                   "integrations/channels/amazonses",
-                  "integrations/channels/webhooks",
-                  "integrations/channels/mailchimp"
+                  "integrations/channels/webhooks"
                 ]
               },
               "integrations/sdks",

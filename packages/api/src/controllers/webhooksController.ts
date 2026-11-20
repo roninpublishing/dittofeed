@@ -1,9 +1,7 @@
-import formbody from "@fastify/formbody";
 import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { SpanStatusCode } from "@opentelemetry/api";
 import { Type } from "@sinclair/typebox";
 import { canWorkspaceReceiveEvents } from "backend-lib/src/auth";
-import backendConfig from "backend-lib/src/config";
 import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import {
@@ -11,8 +9,6 @@ import {
   handleSesNotification,
   validSNSSignature,
 } from "backend-lib/src/destinations/amazonses";
-import { submitMailChimpEvents } from "backend-lib/src/destinations/mailchimp";
-import { submitPostmarkEvents } from "backend-lib/src/destinations/postmark";
 import { submitResendEvents } from "backend-lib/src/destinations/resend";
 import { handleSendgridEvents } from "backend-lib/src/destinations/sendgrid";
 import logger from "backend-lib/src/logger";
@@ -20,31 +16,19 @@ import { withSpan } from "backend-lib/src/openTelemetry";
 import {
   AmazonSNSEvent,
   AmazonSNSEventTypes,
-  MailChimpEvent,
-  PostMarkEvent,
   ResendEvent,
   SendgridEvent,
 } from "backend-lib/src/types";
-import { createHmac } from "crypto";
 import { and, eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { fastifyRawBody } from "fastify-raw-body";
 import { SecretNames } from "isomorphic-lib/src/constants";
-import {
-  jsonParseSafe,
-  schemaValidateWithErr,
-} from "isomorphic-lib/src/resultHandling/schemaValidation";
-import {
-  MailChimpSecret,
-  PostMarkSecret,
-  ResendSecret,
-} from "isomorphic-lib/src/types";
-import * as R from "remeda";
+import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
+import { ResendSecret } from "isomorphic-lib/src/types";
 import { Webhook } from "svix";
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export default async function webhookController(fastify: FastifyInstance) {
-  await fastify.register(formbody);
   await fastify.register(fastifyRawBody);
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -265,253 +249,6 @@ export default async function webhookController(fastify: FastifyInstance) {
         workspaceId,
         events: [request.body],
       });
-      return reply.status(200).send();
-    },
-  );
-
-  fastify.withTypeProvider<TypeBoxTypeProvider>().post(
-    "/postmark",
-    {
-      schema: {
-        description: "Used to consume postmark webhook payloads.",
-        tags: ["Webhooks"],
-        headers: Type.Object({
-          "x-postmark-secret": Type.String(),
-        }),
-        body: PostMarkEvent,
-      },
-    },
-    async (request, reply) => {
-      logger().debug({ body: request.body }, "Received postmark events.");
-      const { workspaceId } = request.body.Metadata;
-
-      if (!workspaceId || typeof workspaceId !== "string") {
-        logger().error("Missing workspaceId in Metadata.");
-        return reply.status(400).send({
-          error: "Missing workspaceId in Metadata.",
-        });
-      }
-
-      const secret = await db().query.secret.findFirst({
-        where: and(
-          eq(schema.secret.workspaceId, workspaceId),
-          eq(schema.secret.name, SecretNames.Postmark),
-        ),
-        with: {
-          workspace: true,
-        },
-      });
-
-      const secretHeader = request.headers["x-postmark-secret"];
-
-      const webhookKey = schemaValidateWithErr(
-        secret?.configValue,
-        PostMarkSecret,
-      )
-        .map((val) => val.webhookKey)
-        .unwrapOr(null);
-
-      if (!webhookKey) {
-        logger().error(
-          {
-            workspaceId,
-          },
-          "Missing postmark webhook secret.",
-        );
-        return reply.status(400).send({
-          error: "Missing secret.",
-        });
-      }
-
-      if (webhookKey !== secretHeader) {
-        logger().error("Invalid signature for PostMark webhook.");
-        return reply.status(401).send({
-          message: "Invalid signature.",
-        });
-      }
-
-      if (
-        !secret?.workspace ||
-        !canWorkspaceReceiveEvents({ workspace: secret.workspace })
-      ) {
-        return reply.status(401).send({
-          message: "Workspace not eligible.",
-        });
-      }
-
-      await submitPostmarkEvents({
-        workspaceId,
-        events: [request.body],
-      });
-      return reply.status(200).send();
-    },
-  );
-
-  fastify.withTypeProvider<TypeBoxTypeProvider>().post(
-    "/mailchimp",
-    {
-      schema: {
-        description: "Used to consume Mailchimp (Mandrill) webhook payloads.",
-        tags: ["Webhooks"],
-        body: Type.Object(
-          {
-            mandrill_events: Type.String(),
-          },
-          {
-            additionalProperties: true,
-          },
-        ),
-        headers: Type.Object({
-          "x-mandrill-signature": Type.String(),
-        }),
-      },
-    },
-    async (request, reply) => {
-      const eventsResult = jsonParseSafe(request.body.mandrill_events);
-      if (eventsResult.isErr()) {
-        logger().error(
-          {
-            err: eventsResult.error,
-          },
-          "Failed to parse Mailchimp webhook payload",
-        );
-        return reply.status(400).send({
-          error: "Invalid JSON in mandrill_events",
-        });
-      }
-
-      const events = eventsResult.value;
-      if (!Array.isArray(events)) {
-        logger().error(
-          {
-            events,
-          },
-          "Invalid Mailchimp webhook payload",
-        );
-        return reply.status(400).send({
-          error: "Invalid Mailchimp webhook payload",
-        });
-      }
-      const parsedEvents: MailChimpEvent[] = [];
-      for (const event of events) {
-        const parsedEvent = schemaValidateWithErr(event, MailChimpEvent);
-        if (parsedEvent.isErr()) {
-          logger().error(
-            {
-              err: parsedEvent.error,
-            },
-            "Failed to parse Mailchimp webhook payload",
-          );
-          continue;
-        }
-        parsedEvents.push(parsedEvent.value);
-      }
-
-      if (parsedEvents.length === 0) {
-        logger().debug(
-          {
-            rawBody: request.rawBody,
-          },
-          "No events in Mailchimp webhook",
-        );
-        return reply.status(200).send();
-      }
-
-      let workspaceId: string | null = null;
-      for (const event of parsedEvents) {
-        if (event.msg.metadata.workspaceId) {
-          workspaceId = event.msg.metadata.workspaceId;
-          break;
-        }
-      }
-
-      if (!workspaceId || typeof workspaceId !== "string") {
-        logger().error(
-          {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            workspaceId,
-            parsedEvents,
-          },
-          "Missing workspaceId in Mailchimp webhook metadata",
-        );
-        return reply.status(400).send({
-          error: "Missing workspaceId in metadata.",
-        });
-      }
-
-      const secret = await db().query.secret.findFirst({
-        where: and(
-          eq(schema.secret.workspaceId, workspaceId),
-          eq(schema.secret.name, SecretNames.MailChimp),
-        ),
-        with: {
-          workspace: true,
-        },
-      });
-
-      const webhookKey = schemaValidateWithErr(
-        secret?.configValue,
-        MailChimpSecret,
-      )
-        .map((val) => val.webhookKey)
-        .unwrapOr(null);
-
-      if (!webhookKey) {
-        logger().error(
-          {
-            workspaceId,
-          },
-          "Missing mandrill webhook secret.",
-        );
-        return reply.status(400).send({
-          error: "Missing secret.",
-        });
-      }
-
-      const signature = request.headers["x-mandrill-signature"];
-      const url = `${backendConfig().dashboardUrl}${request.url}`;
-      const params = request.body;
-
-      const signedData =
-        url +
-        R.sortBy(R.entries(params), ([key]) => key)
-          .map(([key, value]) => `${key}${value}`)
-          .join("");
-
-      const expectedSignature = createHmac("sha1", webhookKey)
-        .update(signedData)
-        .digest("base64");
-
-      if (signature !== expectedSignature) {
-        logger().info(
-          {
-            workspaceId,
-            signature,
-            expectedSignature,
-            url,
-            signedData,
-            rawBody: request.rawBody,
-          },
-          "Invalid signature for Mailchimp webhook.",
-        );
-        return reply.status(401).send({
-          message: "Invalid signature.",
-        });
-      }
-
-      if (
-        !secret?.workspace ||
-        !canWorkspaceReceiveEvents({ workspace: secret.workspace })
-      ) {
-        return reply.status(401).send({
-          message: "Workspace not eligible.",
-        });
-      }
-
-      await submitMailChimpEvents({
-        events: parsedEvents,
-      });
-
       return reply.status(200).send();
     },
   );

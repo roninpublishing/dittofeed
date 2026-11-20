@@ -1,5 +1,4 @@
 import { SESv2ServiceException } from "@aws-sdk/client-sesv2";
-import { MessagesMessage as MailChimpMessage } from "@mailchimp/mailchimp_transactional";
 import { MailDataRequired } from "@sendgrid/mail";
 import axios, { AxiosError, AxiosHeaders } from "axios";
 import { randomUUID } from "crypto";
@@ -17,7 +16,6 @@ import {
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import { err, ok, Result } from "neverthrow";
 import { PostgresError } from "pg-error-enum";
-import { Message as PostMarkRequiredFields } from "postmark";
 import * as R from "remeda";
 import { omit } from "remeda";
 import { Overwrite } from "utility-types";
@@ -40,8 +38,6 @@ import {
   sendMail as sendMailAmazonSes,
   SesMailData,
 } from "./destinations/amazonses";
-import { sendMail as sendMailMailchimp } from "./destinations/mailchimp";
-import { sendMail as sendMailPostMark } from "./destinations/postmark";
 import {
   ResendRequiredData,
   sendMail as sendMailResend,
@@ -597,26 +593,13 @@ function getMessageFileId({
   return `${messageId}-${name}`;
 }
 
-function getWebsiteFromFromEmail(from: string): string | null {
-  const fromParts = from.split("@");
-  if (fromParts.length !== 2 || !fromParts[1]) {
-    return null;
-  }
-  try {
-    return new URL(`https://${fromParts[1]}`).origin;
-  } catch (error) {
-    logger().info({ err: error }, "error getting website from from email");
-    return null;
-  }
-}
-
 async function getEmailProviderSecretForWorkspace({
   providerOverride,
   workspaceId,
 }: {
   workspaceId: string;
   providerOverride?: EmailProviderTypeSchema;
-}): Promise<Secret | null> {
+}): Promise<Result<Secret | null, MessageSendFailure>> {
   if (providerOverride) {
     const provider = await db().query.emailProvider.findFirst({
       where: and(
@@ -627,7 +610,7 @@ async function getEmailProviderSecretForWorkspace({
         secret: true,
       },
     });
-    return provider?.secret ?? null;
+    return validateSelectedEmailProvider(provider);
   }
   const defaultProvider = await db().query.defaultEmailProvider.findFirst({
     where: eq(dbDefaultEmailProvider.workspaceId, workspaceId),
@@ -640,7 +623,35 @@ async function getEmailProviderSecretForWorkspace({
     },
   });
 
-  return defaultProvider?.emailProvider.secret ?? null;
+  return validateSelectedEmailProvider(defaultProvider?.emailProvider);
+}
+
+function validateSelectedEmailProvider(
+  provider: { type: string; secret: Secret | null } | null | undefined,
+): Result<Secret | null, MessageSendFailure> {
+  if (!provider) {
+    return ok(null);
+  }
+  const providerType = schemaValidateWithErr(provider.type, EmailProviderTypeSchema);
+  const secretConfig = schemaValidateWithErr(
+    provider.secret?.configValue,
+    EmailProviderSecret,
+  );
+  if (
+    providerType.isErr() ||
+    !isWorkspaceWideProvider(providerType.value) ||
+    secretConfig.isErr() ||
+    secretConfig.value.type !== providerType.value
+  ) {
+    return err({
+      type: InternalEventType.BadWorkspaceConfiguration,
+      variant: {
+        type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
+        message: "Application error: message service provider config malformed.",
+      },
+    });
+  }
+  return ok(provider.secret);
 }
 
 const PROVIDER_NOT_FOUND_ERROR = {
@@ -656,12 +667,12 @@ async function getEmailProviderSecretForWorkspaceHierarchical({
 }: {
   workspaceId: string;
   providerOverride?: EmailProviderTypeSchema;
-}): Promise<Secret | null> {
+}): Promise<Result<Secret | null, MessageSendFailure>> {
   const secret = await getEmailProviderSecretForWorkspace({
     workspaceId,
     providerOverride,
   });
-  if (secret) {
+  if (secret.isErr() || secret.value) {
     return secret;
   }
   const workspace = await db().query.workspace.findFirst({
@@ -669,7 +680,7 @@ async function getEmailProviderSecretForWorkspaceHierarchical({
   });
   const parentWorkspaceId = workspace?.parentWorkspaceId;
   if (!parentWorkspaceId) {
-    return null;
+    return ok(null);
   }
   return getEmailProviderSecretForWorkspace({
     workspaceId: parentWorkspaceId,
@@ -688,6 +699,12 @@ async function getEmailProvider({
   workspaceOccupantId?: string;
   workspaceOccupantType?: string;
 }): Promise<Result<EmailProviderSecret, MessageSendFailure>> {
+  if (
+    providerOverride !== undefined &&
+    schemaValidateWithErr(providerOverride, EmailProviderTypeSchema).isErr()
+  ) {
+    return err(PROVIDER_NOT_FOUND_ERROR);
+  }
   let emailProviderSecret: EmailProviderSecret | null = null;
   if (providerOverride && !isWorkspaceWideProvider(providerOverride)) {
     if (
@@ -735,10 +752,14 @@ async function getEmailProvider({
         assertUnreachable(providerOverride);
     }
   } else {
-    const secret = await getEmailProviderSecretForWorkspaceHierarchical({
+    const secretResult = await getEmailProviderSecretForWorkspaceHierarchical({
       workspaceId,
       providerOverride,
     });
+    if (secretResult.isErr()) {
+      return err(secretResult.error);
+    }
+    const secret = secretResult.value;
     if (!secret) {
       logger().info(
         {
@@ -1488,200 +1509,6 @@ export async function sendEmail({
         },
       });
     }
-    case EmailProviderType.PostMark: {
-      const postmarkAttachments: PostMarkRequiredFields["Attachments"] =
-        messageTags
-          ? attachments?.map(({ mimeType, data, name }) => ({
-              Name: name,
-              ContentType: mimeType,
-              Content: data,
-              ContentID: getMessageFileId({
-                messageId: messageTags.messageId,
-                name,
-              }),
-            }))
-          : [];
-      const fromWithName = emailName ? `${emailName} <${from}>` : from;
-      const baseMetadata = R.merge(messageTags, {
-        workspaceId,
-        templateId,
-      });
-      const metadata = R.pick(baseMetadata, MESSAGE_METADATA_FIELDS);
-      const mailData: PostMarkRequiredFields = {
-        To: to,
-        From: fromWithName,
-        Subject: subject,
-        HtmlBody: body,
-        ReplyTo: replyTo,
-        Cc: unsplitCc,
-        Bcc: unsplitBcc,
-        Attachments: postmarkAttachments,
-        Headers:
-          Object.keys(headers).length > 0
-            ? Object.entries(headers).map(([name, value]) => ({
-                Name: name,
-                Value: value,
-              }))
-            : undefined,
-        Metadata: metadata,
-        MessageStream: emailProvider.messageStream,
-      };
-
-      if (!emailProvider.apiKey) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: `missing apiKey in PostMark secret config`,
-          },
-        });
-      }
-
-      const result = await sendMailPostMark({
-        mailData,
-        apiKey: emailProvider.apiKey,
-      });
-
-      if (result.isErr()) {
-        return err({
-          type: InternalEventType.MessageFailure,
-          variant: {
-            type: ChannelType.Email,
-            provider: {
-              type: EmailProviderType.PostMark,
-              name: result.error.ErrorCode.toString(),
-              message: result.error.Message,
-            },
-          },
-        });
-      }
-      return ok({
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Email,
-          from,
-          name: emailName,
-          body,
-          to,
-          subject,
-          replyTo,
-          headers,
-          cc: unsplitCc,
-          bcc: unsplitBcc,
-          attachments: attachmentsSent,
-          provider: {
-            type: EmailProviderType.PostMark,
-          },
-        },
-      });
-    }
-
-    case EmailProviderType.MailChimp: {
-      // Mandatory for Mailchimp
-      const website = getWebsiteFromFromEmail(from) ?? "https://dittofeed.com";
-      let mailChimpTo: MailChimpMessage["to"] = [{ email: to }];
-      if (cc && cc.length > 0) {
-        mailChimpTo = mailChimpTo.concat(
-          cc.map((email) => ({ email, type: "cc" })),
-        );
-      }
-      if (bcc && bcc.length > 0) {
-        mailChimpTo = mailChimpTo.concat(
-          bcc.map((email) => ({ email, type: "bcc" })),
-        );
-      }
-      if (replyTo) {
-        headers["Reply-To"] = replyTo;
-      }
-      const metadata: { website: string } & Record<string, string> = {
-        website,
-      };
-      if (messageTags) {
-        if (messageTags.workspaceId) {
-          metadata.workspaceId = messageTags.workspaceId;
-        }
-        if (messageTags.userId) {
-          metadata.userId = messageTags.userId;
-        }
-        metadata.messageId = messageTags.messageId;
-      }
-
-      const mailData: MailChimpMessage = {
-        html: body,
-        text: body,
-        from_name: emailName,
-        preserve_recipients: true,
-        subject,
-        headers,
-        to: mailChimpTo,
-        attachments: attachments?.map(({ name, data, mimeType }) => ({
-          type: mimeType,
-          name,
-          content: data,
-        })),
-        from_email: from,
-        metadata,
-      };
-
-      if (!emailProvider.apiKey) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: `missing apiKey in MailChimp secret config`,
-          },
-        });
-      }
-
-      const result = await sendMailMailchimp({
-        apiKey: emailProvider.apiKey,
-        message: mailData,
-      });
-
-      if (result.isErr()) {
-        let name: string;
-        let message: string;
-        if (result.error instanceof AxiosError) {
-          name = result.error.code?.toString() ?? "Unknown";
-          message = result.error.message;
-        } else {
-          name = result.error.status;
-          message = result.error.reject_reason;
-        }
-        return err({
-          type: InternalEventType.MessageFailure,
-          variant: {
-            type: ChannelType.Email,
-            provider: {
-              type: EmailProviderType.MailChimp,
-              name,
-              message,
-            },
-          },
-        });
-      }
-
-      return ok({
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Email,
-          from,
-          body,
-          name: emailName,
-          to,
-          subject,
-          cc: unsplitCc,
-          bcc: unsplitBcc,
-          replyTo,
-          headers,
-          attachments: attachmentsSent,
-          provider: {
-            type: EmailProviderType.MailChimp,
-          },
-        },
-      });
-    }
-
     case EmailProviderType.Test:
       return ok({
         type: InternalEventType.MessageSent,

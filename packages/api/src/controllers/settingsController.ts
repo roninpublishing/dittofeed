@@ -6,6 +6,7 @@ import * as schema from "backend-lib/src/db/schema";
 import { upsertEmailProvider } from "backend-lib/src/messaging/email";
 import { and, eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
+import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
   BadRequestResponse,
   DefaultEmailProviderResource,
@@ -16,6 +17,7 @@ import {
   UpsertDefaultEmailProviderRequest,
   UpsertEmailProviderRequest,
   UpsertWriteKeyResource,
+  WorkspaceWideEmailProviders,
   WriteKeyResource,
 } from "isomorphic-lib/src/types";
 
@@ -36,27 +38,30 @@ export default async function settingsController(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { workspaceId, fromAddress } = request.body;
-      let resource: DefaultEmailProviderResource;
-      if ("emailProviderId" in request.body) {
-        resource = request.body;
-      } else {
-        const emailProvider = await db().query.emailProvider.findFirst({
-          where: and(
-            eq(schema.emailProvider.workspaceId, workspaceId),
-            eq(schema.emailProvider.type, request.body.emailProvider),
-          ),
+      const selection =
+        "emailProviderId" in request.body
+          ? eq(schema.emailProvider.id, request.body.emailProviderId)
+          : eq(schema.emailProvider.type, request.body.emailProvider);
+      const emailProvider = await db().query.emailProvider.findFirst({
+        where: and(eq(schema.emailProvider.workspaceId, workspaceId), selection),
+        columns: { id: true, type: true },
+      });
+      if (
+        !emailProvider ||
+        schemaValidateWithErr(
+          emailProvider.type,
+          WorkspaceWideEmailProviders,
+        ).isErr()
+      ) {
+        return reply.status(400).send({
+          message: "Invalid payload. Email provider is unavailable.",
         });
-        if (!emailProvider) {
-          return reply.status(400).send({
-            message: "Invalid payload. Email provider not found.",
-          });
-        }
-        resource = {
-          workspaceId,
-          emailProviderId: emailProvider.id,
-          fromAddress,
-        };
       }
+      const resource: DefaultEmailProviderResource = {
+        workspaceId,
+        emailProviderId: emailProvider.id,
+        fromAddress,
+      };
 
       await upsert({
         table: schema.defaultEmailProvider,

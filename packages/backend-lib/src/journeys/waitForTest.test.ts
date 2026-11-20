@@ -97,7 +97,20 @@ describe("journeys with wait-for nodes", () => {
       }),
     );
   });
-  it("rejects a persisted removed channel before sending preceding email nodes", async () => {
+  it.each([
+    {
+      variant: { type: "Sms" },
+      failureType: "UnsupportedMessageChannel",
+    },
+    {
+      variant: { type: ChannelType.Email, providerOverride: "PostMark" },
+      failureType: "InvalidJourneyDefinition",
+    },
+    {
+      variant: { type: ChannelType.Email, providerOverride: "MailChimp" },
+      failureType: "InvalidJourneyDefinition",
+    },
+  ])("rejects a retired message variant $variant before preceding emails send", async ({ variant, failureType }) => {
     senderMock.mockClear();
     const definition = {
       entryNode: {
@@ -117,7 +130,7 @@ describe("journeys with wait-for nodes", () => {
           id: "retired",
           type: JourneyNodeType.MessageNode,
           // An old workflow payload is not validated by current native schemas.
-          variant: { type: "Sms", templateId: randomUUID() },
+          variant: { ...variant, templateId: randomUUID() },
           child: JourneyNodeType.ExitNode,
         },
       ],
@@ -136,7 +149,7 @@ describe("journeys with wait-for nodes", () => {
 
     await expect(handle.result()).rejects.toMatchObject({
       cause: {
-        type: "UnsupportedMessageChannel",
+        type: failureType,
         nonRetryable: true,
       },
     });

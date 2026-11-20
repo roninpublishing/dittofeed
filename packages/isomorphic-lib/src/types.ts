@@ -133,10 +133,8 @@ export const EmailProviderType = {
   SendGrid: "SendGrid",
   AmazonSes: "AmazonSes",
   Resend: "Resend",
-  PostMark: "PostMark",
   Smtp: "Smtp",
   Test: "Test",
-  MailChimp: "MailChimp",
   Gmail: "Gmail",
 } as const;
 
@@ -150,10 +148,8 @@ export const WorkspaceWideEmailProviderType = {
   SendGrid: EmailProviderType.SendGrid,
   AmazonSes: EmailProviderType.AmazonSes,
   Resend: EmailProviderType.Resend,
-  PostMark: EmailProviderType.PostMark,
   Smtp: EmailProviderType.Smtp,
   Test: EmailProviderType.Test,
-  MailChimp: EmailProviderType.MailChimp,
 } as const;
 
 // Providers that are configured at the workspace level, not the member level.
@@ -3794,23 +3790,9 @@ export const EmailResendSuccess = Type.Object({
 
 export type EmailResendSuccess = Static<typeof EmailResendSuccess>;
 
-export const EmailPostMarkSuccess = Type.Object({
-  type: Type.Literal(EmailProviderType.PostMark),
-});
-
-export type EmailPostMarkSuccess = Static<typeof EmailPostMarkSuccess>;
-
-export const EmailMailChimpSuccess = Type.Object({
-  type: Type.Literal(EmailProviderType.MailChimp),
-});
-
-export type EmailMailChimpSuccess = Static<typeof EmailMailChimpSuccess>;
-
 export const EmailServiceProviderSuccess = Type.Union([
-  EmailMailChimpSuccess,
   EmailSendgridSuccess,
   EmailAmazonSesSuccess,
-  EmailPostMarkSuccess,
   EmailResendSuccess,
   EmailGmailSuccess,
   EmailSmtpSuccess,
@@ -4101,28 +4083,10 @@ export const MessageResendFailure = Type.Object({
 
 export type MessageResendFailure = Static<typeof MessageResendFailure>;
 
-export const MessagePostMarkFailure = Type.Object({
-  type: Type.Literal(EmailProviderType.PostMark),
-  message: Type.String(),
-  name: Type.String(),
-});
-
-export type MessagePostMarkFailure = Static<typeof MessagePostMarkFailure>;
-
-export const MessageMailChimpFailure = Type.Object({
-  type: Type.Literal(EmailProviderType.MailChimp),
-  message: Type.String(),
-  name: Type.String(),
-});
-
-export type MessageMailChimpFailure = Static<typeof MessageMailChimpFailure>;
-
 export const EmailServiceProviderFailure = Type.Union([
   MessageSendgridServiceFailure,
-  MessageMailChimpFailure,
   MessageAmazonSesServiceFailure,
   MessageResendFailure,
-  MessagePostMarkFailure,
   MessageSmtpFailure,
   MessageGmailServiceFailure,
 ]);
@@ -4432,15 +4396,6 @@ export const SendgridSecret = Type.Object({
 
 export type SendgridSecret = Static<typeof SendgridSecret>;
 
-export const PostMarkSecret = Type.Object({
-  type: Type.Literal(EmailProviderType.PostMark),
-  apiKey: Type.Optional(Type.String()),
-  webhookKey: Type.Optional(Type.String()),
-  messageStream: Type.Optional(Type.String()),
-});
-
-export type PostMarkSecret = Static<typeof PostMarkSecret>;
-
 export const AmazonSesSecret = Type.Object({
   type: Type.Literal(EmailProviderType.AmazonSes),
   accessKeyId: Type.Optional(Type.String()),
@@ -4485,14 +4440,6 @@ export const ResendSecret = Type.Object({
 
 export type ResendSecret = Static<typeof ResendSecret>;
 
-export const MailChimpSecret = Type.Object({
-  type: Type.Literal(EmailProviderType.MailChimp),
-  apiKey: Type.Optional(Type.String()),
-  webhookKey: Type.Optional(Type.String()),
-});
-
-export type MailChimpSecret = Static<typeof MailChimpSecret>;
-
 export const SmtpSecret = Type.Object({
   type: Type.Literal(EmailProviderType.Smtp),
   host: Type.Optional(Type.String()),
@@ -4517,9 +4464,7 @@ export type WebhookSecret = Static<typeof WebhookSecret>;
 export type WebhookProviderSecret = Static<typeof WebhookSecret>;
 
 export const EmailProviderSecret = Type.Union([
-  MailChimpSecret,
   SendgridSecret,
-  PostMarkSecret,
   AmazonSesSecret,
   SmtpSecret,
   ResendSecret,

@@ -588,57 +588,9 @@ export const ResendEvent = Type.Object({
   type: Type.Enum(ResendEventType),
 });
 
-export enum PostMarkEventType {
-  Delivery = "Delivery",
-  SpamComplaint = "SpamComplaint",
-  Bounce = "Bounce",
-  Open = "Open",
-  Click = "Click",
-}
-
-export const PostMarkEvent = Type.Composite([
-  Type.Object({
-    MessageStream: Type.String(),
-    Tag: Type.String(),
-    MessageID: Type.String(),
-    Metadata: Type.Record(Type.String(), Type.Any()),
-    RecordType: Type.Enum(PostMarkEventType),
-    BouncedAt: Type.Optional(Type.String()),
-    DeliveredAt: Type.Optional(Type.String()),
-    ReceivedAt: Type.Optional(Type.String()),
-  }),
-  MessageMetadataFields,
-]);
-
-export enum MailChimpEventType {
-  Send = "send",
-  Delivered = "delivered",
-  HardBounce = "hard_bounce",
-  Open = "open",
-  Click = "click",
-  Spam = "spam",
-  Unsub = "unsub",
-  Reject = "reject",
-}
-
-export const MailChimpEvent = Type.Object({
-  event: Type.Enum(MailChimpEventType),
-  msg: Type.Object({
-    metadata: Type.Record(Type.String(), Type.String()),
-    email: Type.String(),
-    _id: Type.String(),
-  }),
-  ts: Type.Number(),
-  url: Type.Optional(Type.String()),
-});
-
-export type MailChimpEvent = Static<typeof MailChimpEvent>;
-
 export type SendgridEvent = Static<typeof SendgridEvent>;
 
 export type ResendEvent = Static<typeof ResendEvent>;
-
-export type PostMarkEvent = Static<typeof PostMarkEvent>;
 
 export type IntegrationCreateDefinition = Omit<
   Overwrite<

@@ -160,8 +160,8 @@ interface BroadcastConfiguration {
 
   // Restricts which email providers can be selected as overrides for this broadcast.
   // If not specified, all configured workspace providers are available.
-  // Options: "SendGrid", "AmazonSes", "Resend", "PostMark", "Smtp", "Test", "MailChimp", "Gmail"
-  emailProviderOverrideAllowList?: ("SendGrid" | "AmazonSes" | "Resend" | "PostMark" | "Smtp" | "Test" | "MailChimp" | "Gmail")[];
+  // Options: "SendGrid", "AmazonSes", "Resend", "Smtp", "Test", "Gmail"
+  emailProviderOverrideAllowList?: ("SendGrid" | "AmazonSes" | "Resend" | "Smtp" | "Test" | "Gmail")[];
 
   // When true, hides the email provider override dropdown selector.
   // Use this to force broadcasts to use the workspace default provider.

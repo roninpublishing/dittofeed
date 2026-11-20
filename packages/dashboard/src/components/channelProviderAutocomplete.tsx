@@ -40,7 +40,10 @@ export default function ChannelProviderAutocomplete({
       return null;
   }
 
-  const provider = providerOverride ?? null;
+  const provider =
+    providerOverride && providerOptions.includes(providerOverride)
+      ? providerOverride
+      : null;
 
   return (
     <Autocomplete
@@ -53,7 +56,16 @@ export default function ChannelProviderAutocomplete({
         handler(p as WorkspaceWideEmailProviders | null)
       }
       renderInput={(params) => (
-        <TextField {...params} label="Provider Override" variant="outlined" />
+        <TextField
+          {...params}
+          label="Provider Override"
+          variant="outlined"
+          helperText={
+            providerOverride && !provider
+              ? "The saved provider override is unavailable."
+              : undefined
+          }
+        />
       )}
     />
   );

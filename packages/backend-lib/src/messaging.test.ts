@@ -15,6 +15,8 @@ import config from "./config";
 import { insert } from "./db";
 import { getStoredEmailForViewInBrowser } from "./viewInBrowser";
 import {
+  defaultEmailProvider as dbDefaultEmailProvider,
+  emailProvider as dbEmailProvider,
   messageTemplate as dbMessageTemplate,
   secret as dbSecret,
   subscriptionGroup as dbSubscriptionGroup,
@@ -37,6 +39,7 @@ import {
   ChannelType,
   EmailContentsType,
   EmailProviderType,
+  EmailProviderTypeSchema,
   EmailTemplateResource,
   InternalEventType,
   MessageSkippedType,
@@ -109,6 +112,37 @@ describe("messaging", () => {
   });
 
   describe("sendEmail", () => {
+    it.each(["PostMark", "MailChimp", "UnknownProvider", ""])(
+      "rejects an unsupported runtime override %p",
+      async (providerOverride) => {
+        const { template } = await setupEmailTemplate(workspace);
+        const result = await sendEmail({
+          workspaceId: workspace.id,
+          templateId: template.id,
+          userId: "test-user",
+          userPropertyAssignments: { email: "test@example.com" },
+          useDraft: false,
+          providerOverride: providerOverride as EmailProviderTypeSchema,
+          messageTags: {
+            workspaceId: workspace.id,
+            templateId: template.id,
+            messageId: randomUUID(),
+            runId: randomUUID(),
+            nodeId: randomUUID(),
+            workspaceOccupantId: randomUUID(),
+            workspaceOccupantType: "User",
+          },
+        });
+        expect(result.isErr()).toBe(true);
+        expect(result._unsafeUnwrapErr()).toEqual({
+          type: InternalEventType.BadWorkspaceConfiguration,
+          variant: {
+            type: BadWorkspaceConfigurationType.MessageServiceProviderNotFound,
+          },
+        });
+      },
+    );
+
     describe("when sent from a child workspace", () => {
       let childWorkspace: Workspace;
       let parentWorkspace: Workspace;
@@ -178,6 +212,65 @@ describe("messaging", () => {
           }),
         ]);
       });
+      it.each<[string, Record<string, string> | null]>([
+        ["PostMark", { type: "PostMark" }],
+        ["MailChimp", { type: "MailChimp" }],
+        ["UnknownProvider", { type: EmailProviderType.Test }],
+        [EmailProviderType.Test, null],
+      ])(
+        "rejects an invalid local default %p without using the parent",
+        async (type, configValue) => {
+          let secretId: string | undefined;
+          if (configValue) {
+            const secret = unwrap(
+              await insert({
+                table: dbSecret,
+                values: {
+                  workspaceId: childWorkspace.id,
+                  name: `legacy-provider-${randomUUID()}`,
+                  configValue,
+                },
+              }),
+            );
+            secretId = secret.id;
+          }
+          const provider = unwrap(
+            await insert({
+              table: dbEmailProvider,
+              values: {
+                workspaceId: childWorkspace.id,
+                type,
+                secretId,
+              },
+            }),
+          );
+          unwrap(
+            await insert({
+              table: dbDefaultEmailProvider,
+              values: {
+                workspaceId: childWorkspace.id,
+                emailProviderId: provider.id,
+              },
+            }),
+          );
+          const result = await sendEmail({
+            workspaceId: childWorkspace.id,
+            templateId: template.id,
+            userId: "test-user",
+            userPropertyAssignments: { email: "test@example.com" },
+            useDraft: false,
+          });
+          expect(result.isErr()).toBe(true);
+          expect(result._unsafeUnwrapErr()).toEqual({
+            type: InternalEventType.BadWorkspaceConfiguration,
+            variant: {
+              type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
+              message:
+                "Application error: message service provider config malformed.",
+            },
+          });
+        },
+      );
 
       it("should use the parent workspace's email provider", async () => {
         const userId = 1234;

@@ -130,8 +130,6 @@ export default function Configuration({
           { id: EmailProviderType.Resend, label: "Resend" },
           { id: EmailProviderType.SendGrid, label: "SendGrid" },
           { id: EmailProviderType.Smtp, label: "SMTP" },
-          { id: EmailProviderType.PostMark, label: "PostMark" },
-          { id: EmailProviderType.MailChimp, label: "MailChimp" },
           { id: EmailProviderType.Gmail, label: "Gmail" },
         ];
         if (!state.configuration?.emailProviderOverrideAllowList) {

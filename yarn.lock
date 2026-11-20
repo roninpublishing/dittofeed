@@ -5658,15 +5658,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mailchimp/mailchimp_transactional@npm:^1.0.59":
-  version: 1.0.59
-  resolution: "@mailchimp/mailchimp_transactional@npm:1.0.59"
-  dependencies:
-    axios: "npm:^1.6.7"
-  checksum: 10/5dd9c0215ee46bd94f06b0a08857d9eb8658ea8cf314c9c7862eb78138ae1ca9ac50372fbe830fa42815f127fc1c5828a2c4fb9942945583fb8b8a15e9d86562
-  languageName: node
-  linkType: hard
-
 "@mdx-js/mdx@npm:^2.2.1":
   version: 2.3.0
   resolution: "@mdx-js/mdx@npm:2.3.0"
@@ -13180,15 +13171,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/mailchimp__mailchimp_transactional@npm:^1.0.10":
-  version: 1.0.10
-  resolution: "@types/mailchimp__mailchimp_transactional@npm:1.0.10"
-  dependencies:
-    axios: "npm:^1.6.7"
-  checksum: 10/fff7776d04ccbfec853396d25b18730e7944c0c1531f7935249aa0dd5411e41c14879b72b16c72e6071de802ed5d2b6a580048144823ea6131f57d63bb204bd0
-  languageName: node
-  linkType: hard
-
 "@types/markdown-it@npm:^12.2.3":
   version: 12.2.3
   resolution: "@types/markdown-it@npm:12.2.3"
@@ -14569,7 +14551,6 @@ __metadata:
     jest-expect-message: "npm:^1.1.3"
     neverthrow: "npm:^6.0.0"
     openapi-types: "npm:^12.1.0"
-    postmark: "npm:^4.0.2"
     prettier: "npm:3.2.5"
     qs: "npm:^6.12.0"
     remeda: "npm:^1.56.0"
@@ -15095,7 +15076,6 @@ __metadata:
     "@googleapis/gmail": "npm:^12.0.1"
     "@googleapis/oauth2": "npm:^1.0.7"
     "@hyperdx/node-opentelemetry": "npm:^0.8.0"
-    "@mailchimp/mailchimp_transactional": "npm:^1.0.59"
     "@opentelemetry/api": "npm:1.9.0"
     "@opentelemetry/auto-instrumentations-node": "npm:0.39.2"
     "@opentelemetry/exporter-metrics-otlp-grpc": "npm:0.41.2"
@@ -15118,7 +15098,6 @@ __metadata:
     "@types/jest": "npm:^29.2.6"
     "@types/jsdom": "npm:^27.0.0"
     "@types/jsonpath": "npm:^0.2.0"
-    "@types/mailchimp__mailchimp_transactional": "npm:^1.0.10"
     "@types/markdown-it": "npm:^12.2.3"
     "@types/minimist": "npm:^1.2.2"
     "@types/mjml": "npm:^4.7.1"
@@ -15179,7 +15158,6 @@ __metadata:
     pg-types: "npm:^2.2.0"
     pino: "npm:9.3.1"
     pino-pretty: "npm:11.2.1"
-    postmark: "npm:^4.0.2"
     prettier: "npm:3.2.5"
     remeda: "npm:^1.56.0"
     resend: "npm:^4.1.0"
@@ -26700,15 +26678,6 @@ __metadata:
   version: 1.1.4
   resolution: "postgres-range@npm:1.1.4"
   checksum: 10/035759f17b44bf9ba7e71a30402ed2ca1e2b7fabb3ad794b08169a5b453d38d06905a6dfb51fe41a3f6d9fac4e183dac9e769b95053053db933be16785edce1f
-  languageName: node
-  linkType: hard
-
-"postmark@npm:^4.0.2":
-  version: 4.0.2
-  resolution: "postmark@npm:4.0.2"
-  dependencies:
-    axios: "npm:^1.6.2"
-  checksum: 10/b7b0f6d04dc73d7dd5e68ad93cb13ecb9e0e9432e36826231010a0f6623c986c429af3bc29c3d0b55f65aee3a30a021c118bdd17eee94cebba28ce7211004ef6
   languageName: node
   linkType: hard
 

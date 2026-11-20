@@ -39,7 +39,10 @@ import {
   EMAIL_PROVIDER_TYPE_TO_SECRET_NAME,
   SecretNames,
 } from "isomorphic-lib/src/constants";
-import { emailProviderLabel } from "isomorphic-lib/src/email";
+import {
+  emailProviderLabel,
+  isEmailProviderType,
+} from "isomorphic-lib/src/email";
 import {
   CompletionStatus,
   DefaultEmailProviderResource,
@@ -516,61 +519,6 @@ function AmazonSesConfig() {
   );
 }
 
-function MailChimpConfig() {
-  const secretAvailability = useSecretAvailability();
-
-  return (
-    <Fields
-      sections={[
-        {
-          id: "mailchimp-section",
-          fieldGroups: [
-            {
-              id: "mailchimp-fields",
-              name: "MailChimp",
-              fields: [
-                {
-                  id: "mailchimp-api-key",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.MailChimp,
-                    secretKey: "apiKey",
-                    label: "MailChimp API Key",
-                    helperText: "API key used to send emails via MailChimp.",
-                    type: EmailProviderType.MailChimp,
-                    saved: isSecretSaved(
-                      SecretNames.MailChimp,
-                      "apiKey",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "mailchimp-webhook-key",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.MailChimp,
-                    secretKey: "webhookKey",
-                    label: "Webhook Key",
-                    helperText:
-                      "MailChimp webhook verification key, used to authenticate webhook requests.",
-                    type: EmailProviderType.MailChimp,
-                    saved: isSecretSaved(
-                      SecretNames.MailChimp,
-                      "webhookKey",
-                      secretAvailability,
-                    ),
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ]}
-    />
-  );
-}
-
 function ResendConfig() {
   const secretAvailability = useSecretAvailability();
 
@@ -614,79 +562,6 @@ function ResendConfig() {
                     saved: isSecretSaved(
                       SecretNames.Resend,
                       "webhookKey",
-                      secretAvailability,
-                    ),
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ]}
-    />
-  );
-}
-
-function PostMarkConfig() {
-  const secretAvailability = useSecretAvailability();
-
-  return (
-    <Fields
-      sections={[
-        {
-          id: "postmark-section",
-          fieldGroups: [
-            {
-              id: "postmark-fields",
-              name: "PostMark",
-              fields: [
-                {
-                  id: "postmark-api-key",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.Postmark,
-                    secretKey: "apiKey",
-                    label: "API Key",
-                    helperText:
-                      "API key, used internally to send emails via Postmark.",
-                    type: EmailProviderType.PostMark,
-                    saved: isSecretSaved(
-                      SecretNames.Postmark,
-                      "apiKey",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "postmark-webhook-key",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.Postmark,
-                    secretKey: "webhookKey",
-                    label: "Webhook Key",
-                    helperText:
-                      "Auth header value (x-postmark-secret), used to authenticate PostMark webhook requests. Use a secure random string generator.",
-                    type: EmailProviderType.PostMark,
-                    saved: isSecretSaved(
-                      SecretNames.Postmark,
-                      "webhookKey",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "postmark-message-stream",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.Postmark,
-                    secretKey: "messageStream",
-                    label: "Message Stream",
-                    helperText:
-                      "Message stream to use for sending emails. Usually 'broadcast'.",
-                    type: EmailProviderType.PostMark,
-                    saved: isSecretSaved(
-                      SecretNames.Postmark,
-                      "messageStream",
                       secretAvailability,
                     ),
                   },
@@ -830,13 +705,15 @@ function DefaultEmailConfig() {
     })();
   };
 
-  const options = emailProviders.map((ep) => {
-    const { type } = ep;
-    return {
+  const options = emailProviders
+    .filter((ep) => isEmailProviderType(ep.type))
+    .map((ep) => ({
       value: ep.id,
-      label: emailProviderLabel(type),
-    };
-  });
+      label: emailProviderLabel(ep.type),
+    }));
+  const isDefaultProviderAvailable = options.some(
+    (option) => option.value === defaultProvider,
+  );
 
   return (
     <Fields
@@ -853,7 +730,9 @@ function DefaultEmailConfig() {
                   type: "select",
                   fieldProps: {
                     label: "Default Email Provider",
-                    value: defaultProvider ?? "",
+                    value: isDefaultProviderAvailable
+                      ? defaultProvider ?? ""
+                      : "",
                     onChange: (value) => {
                       setState((state) => {
                         state.defaultProvider = value;
@@ -861,7 +740,9 @@ function DefaultEmailConfig() {
                     },
                     options,
                     helperText:
-                      "In order to use email, at least 1 email provider must be configured.",
+                      defaultProvider && !isDefaultProviderAvailable
+                        ? "The saved default email provider is unavailable. Select a supported provider and save to replace it."
+                        : "In order to use email, at least 1 email provider must be configured.",
                   },
                 },
                 {
@@ -887,7 +768,7 @@ function DefaultEmailConfig() {
     >
       <Button
         variant="contained"
-        disabled={!defaultProvider}
+        disabled={!isDefaultProviderAvailable}
         sx={{
           alignSelf: {
             xs: "start",
@@ -912,8 +793,6 @@ function EmailChannelConfig() {
       <SendGridConfig />
       <AmazonSesConfig />
       <ResendConfig />
-      <PostMarkConfig />
-      <MailChimpConfig />
       <SmtpConfig />
     </>
   );

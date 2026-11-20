@@ -9,6 +9,7 @@ import {
   workflowInfo,
 } from "@temporalio/workflow";
 import * as wf from "@temporalio/workflow";
+import { isEmailProviderType } from "isomorphic-lib/src/email";
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import { omit } from "remeda";
 import { v5 as uuidV5 } from "uuid";
@@ -280,6 +281,17 @@ export async function userJourneyWorkflow(
     const channel: string = node.variant.type;
     switch (channel) {
       case ChannelType.Email:
+        if (
+          node.variant.type === ChannelType.Email &&
+          node.variant.providerOverride !== undefined &&
+          !isEmailProviderType(node.variant.providerOverride)
+        ) {
+          throw wf.ApplicationFailure.nonRetryable(
+            `Journey ${journeyId} node ${node.id} uses an unsupported email provider`,
+            "InvalidJourneyDefinition",
+          );
+        }
+        break;
       case ChannelType.MobilePush:
       case ChannelType.Webhook:
         break;

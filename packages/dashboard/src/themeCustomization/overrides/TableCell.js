@@ -11,8 +11,10 @@ export default function TableCell(theme) {
         },
         head: {
           fontWeight: 600,
-          paddingTop: 20,
-          paddingBottom: 20,
+          color: theme.palette.text.secondary,
+          backgroundColor: theme.palette.grey[50],
+          paddingTop: 14,
+          paddingBottom: 14,
         },
       },
     },

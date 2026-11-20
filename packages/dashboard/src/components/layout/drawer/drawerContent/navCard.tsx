@@ -1,10 +1,9 @@
-import { Stack, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import { WhiteLabelFeatureConfig } from "isomorphic-lib/src/types";
 import { useMemo } from "react";
 
 import { useAppStorePick } from "../../../../lib/appStore";
-import MainCard from "../../../mainCard";
 
 // ==============================|| DRAWER CONTENT - NAVIGATION CARD ||============================== //
 
@@ -27,53 +26,72 @@ function NavCard() {
   if (whiteLabelConfig && !whiteLabelConfig.navCardTitle) {
     return null;
   }
-  const title = whiteLabelConfig?.navCardTitle || "Dittofeed";
-  const description = whiteLabelConfig
-    ? whiteLabelConfig.navCardDescription ?? null
-    : "Customer Engagement";
-
-  const icon = whiteLabelConfig?.navCardIcon ? (
-    <img
-      style={{
-        height: "2rem",
-      }}
-      src={whiteLabelConfig.navCardIcon}
-      alt="Nav Card Icon"
-    />
-  ) : null;
+  const title = whiteLabelConfig?.navCardTitle ?? "Ronin Publishing";
+  const description = whiteLabelConfig?.navCardDescription;
 
   return (
-    <MainCard sx={{ bgcolor: "grey.50", m: 3 }}>
-      <Stack alignItems="center" spacing={2.5} p={2} width="100%">
-        {icon}
-        <Typography
-          variant="h5"
+    <Stack
+      alignItems="flex-start"
+      spacing={1}
+      sx={{
+        mx: 3,
+        mt: 3,
+        mb: 1,
+        pb: 3,
+        borderBottom: 1,
+        borderColor: "divider",
+      }}
+    >
+      {whiteLabelConfig ? (
+        <>
+          {whiteLabelConfig.navCardIcon ? (
+            <Box
+              component="img"
+              src={whiteLabelConfig.navCardIcon}
+              alt=""
+              sx={{ height: 32, maxWidth: "100%", objectFit: "contain" }}
+            />
+          ) : null}
+          <Typography
+            variant="h5"
+            sx={{
+              overflowWrap: "break-word",
+              hyphens: "auto",
+              whiteSpace: "pre-wrap",
+              width: "100%",
+            }}
+          >
+            {title}
+          </Typography>
+        </>
+      ) : (
+        <Box
+          component="img"
+          src="/dashboard/branding/ronin/ronin-logo.png"
+          alt={title}
           sx={{
-            overflowWrap: "break-word",
-            wordBreak: "break-word",
-            hyphens: "auto",
-            textAlign: "center",
-            whiteSpace: "pre-wrap",
+            display: "block",
+            width: 208,
+            maxWidth: "100%",
+            height: "auto",
           }}
-        >
-          {title}
-        </Typography>
+        />
+      )}
+      {description ? (
         <Typography
-          variant="h6"
-          color="secondary"
+          variant="body2"
+          color="text.secondary"
           sx={{
             overflowWrap: "break-word",
-            wordBreak: "break-word",
             hyphens: "auto",
             width: "100%",
-            textAlign: "center",
             whiteSpace: "pre-wrap",
           }}
         >
           {description}
         </Typography>
-      </Stack>
-    </MainCard>
+      ) : null}
+    </Stack>
   );
 }
 

@@ -1,5 +1,5 @@
 import { LoadingButton } from "@mui/lab";
-import { Stack, TextField, useTheme } from "@mui/material";
+import { Stack, TextField, Typography, useTheme } from "@mui/material";
 import { AxiosError } from "axios";
 import backendConfig, { DEFAULT_BACKEND_CONFIG } from "backend-lib/src/config";
 import { SESSION_KEY } from "backend-lib/src/requestContext";
@@ -8,6 +8,7 @@ import { GetServerSideProps, NextPage } from "next";
 import { useRouter } from "next/router";
 import React from "react";
 
+import DashboardHead from "../../components/dashboardHead";
 import NavCard from "../../components/layout/drawer/drawerContent/navCard";
 import { useSingleTenantLoginMutation } from "../../lib/useSingleTenantLoginMutation";
 import { getWarningStyles } from "../../lib/warningTheme";
@@ -122,61 +123,88 @@ const SingleTenantAuth: NextPage<SingleTenantAuthProps> =
     };
 
     return (
-      <Stack
-        sx={{ width: "100%", height: "100vh" }}
-        alignItems="center"
-        justifyContent="center"
-        direction="column"
-        spacing={1}
-      >
-        <NavCard />
-        <Stack direction="row" spacing={1} p={3}>
-          <TextField
-            error={!!error}
-            sx={{
-              maxWidth: theme.spacing(75),
-              height: "3.3rem",
-            }}
-            label="Admin Password"
-            type="password"
-            value={password}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                submit();
-              }
-            }}
-            helperText={error}
-            onChange={(e) => {
-              setError("");
-              setPassword(e.target.value);
-            }}
-          />
-          <LoadingButton
-            disabled={loginMutation.isPending}
-            loading={loginMutation.isPending}
-            onClick={submit}
-            sx={{ height: "3.3rem" }}
-            variant="contained"
-          >
-            Login
-          </LoadingButton>
-        </Stack>
-        {Boolean(warnings.length) && (
+      <>
+        <DashboardHead />
+        <Stack
+          sx={{
+            width: "100%",
+            minHeight: "100dvh",
+            bgcolor: "background.default",
+            px: { xs: 2, sm: 3 },
+            py: 6,
+          }}
+          alignItems="center"
+          justifyContent="center"
+          spacing={3}
+        >
           <Stack
-            direction="column"
-            spacing={1}
             sx={{
-              p: 2,
-              fontWeight: 600,
-              ...getWarningStyles(theme),
+              width: "100%",
+              maxWidth: 440,
+              bgcolor: "background.paper",
+              border: 1,
+              borderColor: "divider",
+              borderRadius: 3,
+              boxShadow: 1,
             }}
           >
-            {warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
+            <NavCard />
+            <Stack spacing={1} sx={{ px: 3, pt: 2, pb: 3 }}>
+              <Typography component="h1" variant="h3">
+                Sign in
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Enter your administrator password to continue.
+              </Typography>
+            </Stack>
+            <Stack spacing={2} sx={{ px: 3, pb: 3 }}>
+              <TextField
+                fullWidth
+                error={!!error}
+                label="Admin Password"
+                type="password"
+                value={password}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    submit();
+                  }
+                }}
+                helperText={error}
+                onChange={(e) => {
+                  setError("");
+                  setPassword(e.target.value);
+                }}
+              />
+              <LoadingButton
+                disabled={loginMutation.isPending}
+                loading={loginMutation.isPending}
+                onClick={submit}
+                sx={{ minHeight: "3rem" }}
+                variant="contained"
+              >
+                Login
+              </LoadingButton>
+            </Stack>
           </Stack>
-        )}
-      </Stack>
+          {Boolean(warnings.length) && (
+            <Stack
+              direction="column"
+              spacing={1}
+              sx={{
+                p: 2,
+                width: "100%",
+                maxWidth: 720,
+                fontWeight: 600,
+                ...getWarningStyles(theme),
+              }}
+            >
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </Stack>
+          )}
+        </Stack>
+      </>
     );
   };
 

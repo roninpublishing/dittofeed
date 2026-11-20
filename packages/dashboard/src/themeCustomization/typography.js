@@ -11,21 +11,25 @@ const Typography = (fontFamily) => ({
     fontWeight: 600,
     fontSize: "2.375rem",
     lineHeight: 1.21,
+    letterSpacing: "-0.025em",
   },
   h2: {
     fontWeight: 600,
     fontSize: "1.875rem",
     lineHeight: 1.27,
+    letterSpacing: "-0.02em",
   },
   h3: {
     fontWeight: 600,
     fontSize: "1.5rem",
     lineHeight: 1.33,
+    letterSpacing: "-0.015em",
   },
   h4: {
     fontWeight: 600,
     fontSize: "1.25rem",
     lineHeight: 1.4,
+    letterSpacing: "-0.01em",
   },
   h5: {
     fontWeight: 600,
@@ -64,7 +68,9 @@ const Typography = (fontFamily) => ({
     lineHeight: 1.66,
   },
   button: {
-    textTransform: "capitalize",
+    textTransform: "none",
+    fontWeight: 600,
+    lineHeight: 1.5,
   },
 });
 

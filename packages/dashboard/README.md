@@ -37,6 +37,21 @@ OAuth callback is a backend continuation endpoint, not a settings screen; hiding
 HubSpot must not interrupt an in-flight authorization or existing integrations.
 Restoring its dashboard UI is a separate product decision.
 
+## Ronin branding
+
+The dashboard uses a white/light theme with the supplied logos' burgundy accent
+(`#9C1235`). Shared colors and control styling live in `src/themeCustomization`.
+
+Brand assets live in `public/branding/ronin/`. `originals/` preserves all four
+supplied PNGs; the cropped, resized `ronin-logo.png`, `ronin-mark.png`, and
+`ronin-favicon.png` use the transparent burgundy-accent pair without recoloring.
+Replace those web assets when updating the brand artwork, keeping their aspect
+ratios and transparent backgrounds. The dark-background originals are not used
+on the light interface.
+
+White-label document titles, favicons, navigation branding, and navigation-card
+opt-outs continue to override the Ronin defaults.
+
 ## Acknowledgements
 
 This dashboard adapts the code from the following open-source projects:

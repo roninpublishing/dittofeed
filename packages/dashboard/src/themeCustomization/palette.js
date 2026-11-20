@@ -9,27 +9,42 @@ import ThemeOption from "./theme";
 
 // ==============================|| DEFAULT THEME - PALETTE  ||============================== //
 
+const grey = [
+  "#FFFFFF",
+  "#FAF8F6",
+  "#F3EFEC",
+  "#E4DDD8",
+  "#C6BDB8",
+  "#9E9590",
+  "#706865",
+  "#554D4A",
+  "#302A28",
+  "#231F1D",
+  "#161312",
+  "#FAF8F6",
+  "#C6BDB8",
+  "#443C38",
+  "#231F1D",
+  "#FAF8F6",
+  "#EAE4DF",
+];
+
+const burgundy = [
+  "#FBF1F4",
+  "#F3DFE5",
+  "#E4B8C5",
+  "#D693A7",
+  "#B34261",
+  "#9C1235",
+  "#650B2B",
+  "#550118",
+  "#34000F",
+  "#24000B",
+];
+
+const colors = { ...presetPalettes, grey, burgundy };
+
 const Palette = (mode) => {
-  const colors = presetPalettes;
-
-  const greyPrimary = [
-    "#ffffff",
-    "#fafafa",
-    "#f5f5f5",
-    "#f0f0f0",
-    "#d9d9d9",
-    "#bfbfbf",
-    "#8c8c8c",
-    "#595959",
-    "#262626",
-    "#141414",
-    "#000000",
-  ];
-  const greyAscent = ["#fafafa", "#bfbfbf", "#434343", "#1f1f1f"];
-  const greyConstant = ["#fafafb", "#e6ebf1"];
-
-  colors.grey = [...greyPrimary, ...greyAscent, ...greyConstant];
-
   const paletteColor = ThemeOption(colors);
 
   return createTheme({
@@ -46,7 +61,11 @@ const Palette = (mode) => {
         disabled: paletteColor.grey[400],
       },
       action: {
-        disabled: paletteColor.grey[300],
+        disabled: paletteColor.grey[400],
+        disabledBackground: paletteColor.grey[100],
+        hover: "rgba(48, 42, 40, 0.04)",
+        selected: "rgba(156, 18, 53, 0.08)",
+        focus: "rgba(156, 18, 53, 0.12)",
       },
       divider: paletteColor.grey[200],
       background: {

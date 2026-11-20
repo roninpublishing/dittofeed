@@ -5,7 +5,8 @@ export default function Chip(theme) {
     MuiChip: {
       styleOverrides: {
         root: {
-          borderRadius: 4,
+          borderRadius: 6,
+          fontWeight: 500,
           "&:active": {
             boxShadow: "none",
           },
@@ -19,17 +20,17 @@ export default function Chip(theme) {
           backgroundColor: theme.palette.primary.lighter,
           borderColor: theme.palette.primary.light,
           "&.MuiChip-lightError": {
-            color: theme.palette.error.main,
+            color: theme.palette.error.dark,
             backgroundColor: theme.palette.error.lighter,
             borderColor: theme.palette.error.light,
           },
           "&.MuiChip-lightSuccess": {
-            color: theme.palette.success.main,
+            color: theme.palette.success.dark,
             backgroundColor: theme.palette.success.lighter,
             borderColor: theme.palette.success.light,
           },
           "&.MuiChip-lightWarning": {
-            color: theme.palette.warning.main,
+            color: theme.palette.warning.dark,
             backgroundColor: theme.palette.warning.lighter,
             borderColor: theme.palette.warning.light,
           },

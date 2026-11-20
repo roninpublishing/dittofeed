@@ -13,11 +13,14 @@ import componentsOverride from "./overrides";
 // ==============================|| DEFAULT THEME - MAIN  ||============================== //
 
 export default function ThemeCustomization({ children }) {
-  const theme = Palette("light", "default");
+  const theme = useMemo(() => Palette("light"), []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const themeTypography = Typography(
-    "Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,Noto Sans,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,Noto Color Emoji",
+  const themeTypography = useMemo(
+    () =>
+      Typography(
+        "Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,Noto Sans,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,Noto Color Emoji",
+      ),
+    [],
   );
 
   const themeCustomShadows = useMemo(() => CustomShadows(theme), [theme]);
@@ -42,14 +45,20 @@ export default function ThemeCustomization({ children }) {
         },
       },
       palette: theme.palette,
+      shape: {
+        borderRadius: 8,
+      },
       customShadows: themeCustomShadows,
       typography: themeTypography,
     }),
     [theme, themeTypography, themeCustomShadows],
   );
 
-  const themes = createTheme(themeOptions);
-  themes.components = componentsOverride(themes);
+  const themes = useMemo(() => {
+    const nextTheme = createTheme(themeOptions);
+    nextTheme.components = componentsOverride(nextTheme);
+    return nextTheme;
+  }, [themeOptions]);
 
   return (
     <ThemeProvider theme={themes}>

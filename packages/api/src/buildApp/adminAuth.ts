@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "crypto";
 import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import logger from "backend-lib/src/logger";
@@ -5,9 +6,12 @@ import { WorkspaceStatusDbEnum } from "backend-lib/src/types";
 import { and, eq, exists, or } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
+import { requiredApiScopes } from "isomorphic-lib/src/apiOperations";
+import { WORKSPACE_ID_HEADER } from "isomorphic-lib/src/constants";
 import { schemaValidate } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
   AdminApiKeyDefinition,
+  AdminApiKeyScope,
   WorkspaceIdentifier,
 } from "isomorphic-lib/src/types";
 
@@ -17,13 +21,21 @@ export type AuthenticateAdminKeyParams = {
   actualKey: string;
 } & WorkspaceIdentifier;
 
+export interface AuthenticatedAdminApiKey {
+  workspaceId: string;
+  keyId: string;
+  // Undefined means a persisted legacy administrator key.
+  scopes?: AdminApiKeyScope[];
+}
+
 export async function authenticateAdminApiKeyFull({
   actualKey,
   ...identifier
-}: AuthenticateAdminKeyParams): Promise<{
-  workspaceId: string;
-  keyId: string;
-} | null> {
+}: AuthenticateAdminKeyParams): Promise<AuthenticatedAdminApiKey | null> {
+  if (!actualKey) {
+    return null;
+  }
+  const actualKeyDigest = createHash("sha256").update(actualKey).digest();
   let apiKeys: {
     id: string;
     workspaceId: string;
@@ -158,15 +170,6 @@ export async function authenticateAdminApiKeyFull({
       );
   }
 
-  if (!actualKey) {
-    logger().info(
-      {
-        ...identifier,
-      },
-      "Empty API key",
-    );
-    return null;
-  }
   for (const apiKey of apiKeys) {
     const definitionResult = schemaValidate(
       apiKey.configValue,
@@ -182,21 +185,40 @@ export async function authenticateAdminApiKeyFull({
       );
       continue;
     }
-    if (definitionResult.value.key) {
-      if (definitionResult.value.key === actualKey) {
-        return {
-          workspaceId: apiKey.workspaceId,
-          keyId: apiKey.id,
-        };
+    const definition = definitionResult.value;
+    let expectedDigest: Buffer;
+    if ("keyHash" in definition) {
+      // Legacy JSON can contain extra properties; never decode a malformed
+      // digest or interpret an unscoped digest as a legacy administrator.
+      if (
+        typeof definition.keyHash !== "string" ||
+        !/^[a-f0-9]{64}$/.test(definition.keyHash) ||
+        definition.scopes === undefined
+      ) {
+        continue;
       }
+      expectedDigest = Buffer.from(definition.keyHash, "hex");
+    } else {
+      expectedDigest = createHash("sha256").update(definition.key).digest();
+    }
+    // Buffers are ArrayBufferViews; bridge older Node iterator typings without copying.
+    if (
+      timingSafeEqual(
+        expectedDigest as unknown as NodeJS.ArrayBufferView,
+        actualKeyDigest as unknown as NodeJS.ArrayBufferView,
+      )
+    ) {
+      return {
+        workspaceId: apiKey.workspaceId,
+        keyId: apiKey.id,
+        scopes: definition.scopes,
+      };
     }
   }
 
   logger().debug(
     {
       ...identifier,
-      actualKey,
-      apiKeys,
     },
     "API key not found among workspace's API keys",
   );
@@ -213,12 +235,39 @@ export async function authenticateAdminApiKey(
 // eslint-disable-next-line @typescript-eslint/require-await
 const adminAuth = fp(async (fastify: FastifyInstance) => {
   fastify.addHook("preHandler", async (request, reply) => {
+    const routePath = request.routeOptions.url ?? request.url.split("?")[0] ?? "/";
+    if (
+      request.body !== null &&
+      typeof request.body === "object" &&
+      "externalId" in request.body
+    ) {
+      return reply.status(400).send({
+        message: "externalId is supported only as a query workspace identifier",
+      });
+    }
+    // Handlers may consume externalId independently; never authorize one tenant
+    // identifier while allowing a second, unchecked identifier through.
+    const hasExternalId = [request.body, request.query].some(
+      (source) =>
+        source !== null &&
+        typeof source === "object" &&
+        "externalId" in source,
+    );
+    const hasWorkspaceId = [request.body, request.query].some(
+      (source) =>
+        source !== null &&
+        typeof source === "object" &&
+        "workspaceId" in source,
+    ) || request.headers[WORKSPACE_ID_HEADER] !== undefined;
+    if (hasExternalId && hasWorkspaceId) {
+      return reply.status(400).send({ message: "Ambiguous workspace identifiers" });
+    }
     const workspaceIdentifierResult = await getWorkspaceIdentifier(request);
     if (workspaceIdentifierResult.isErr()) {
       logger().info(
         {
           err: workspaceIdentifierResult.error,
-          path: request.url,
+          path: routePath,
           method: request.method,
         },
         "Error getting workspace identifier for admin auth",
@@ -232,7 +281,7 @@ const adminAuth = fp(async (fastify: FastifyInstance) => {
       const errorMessage = "workspace identifier missing for request";
       logger().info(
         {
-          path: request.url,
+          path: routePath,
           method: request.method,
         },
         errorMessage,
@@ -245,7 +294,7 @@ const adminAuth = fp(async (fastify: FastifyInstance) => {
       const errorMessage = "No authorization header";
       logger().info(
         {
-          path: request.url,
+          path: routePath,
           method: request.method,
         },
         errorMessage,
@@ -259,7 +308,7 @@ const adminAuth = fp(async (fastify: FastifyInstance) => {
       const errorMessage = "Invalid authorization header";
       logger().info(
         {
-          path: request.url,
+          path: routePath,
           method: request.method,
         },
         errorMessage,
@@ -273,7 +322,7 @@ const adminAuth = fp(async (fastify: FastifyInstance) => {
       const errorMessage = "API key missing for request";
       logger().info(
         {
-          path: request.url,
+          path: routePath,
           method: request.method,
         },
         errorMessage,
@@ -282,7 +331,7 @@ const adminAuth = fp(async (fastify: FastifyInstance) => {
         message: errorMessage,
       });
     }
-    const authenticated = await authenticateAdminApiKey({
+    const authenticated = await authenticateAdminApiKeyFull({
       ...workspaceIdentifier,
       actualKey,
     });
@@ -290,7 +339,7 @@ const adminAuth = fp(async (fastify: FastifyInstance) => {
       const errorMessage = "API key not valid";
       logger().info(
         {
-          path: request.url,
+          path: routePath,
           method: request.method,
           ...workspaceIdentifier,
         },
@@ -299,6 +348,17 @@ const adminAuth = fp(async (fastify: FastifyInstance) => {
       return reply.status(401).send({
         message: errorMessage,
       });
+    }
+    const requiredScopes = requiredApiScopes(
+      request.method,
+      request.routeOptions.url ?? request.url,
+    );
+    const { scopes } = authenticated;
+    if (
+      scopes !== undefined &&
+      !requiredScopes.every((scope) => scopes.includes(scope))
+    ) {
+      return reply.status(403).send({ message: "API key scope not granted" });
     }
   });
 });

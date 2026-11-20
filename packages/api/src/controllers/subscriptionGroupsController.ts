@@ -80,6 +80,18 @@ export default async function subscriptionGroupsController(
       schema: {
         // TODO upload files to S3 and use a presigned URL
         tags: ["Subscription Groups"],
+        "x-machine-request-body": {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["file"],
+                properties: { file: { type: "string", format: "binary" } },
+              },
+            },
+          },
+        },
         headers: Type.Object({
           [WORKSPACE_ID_HEADER]: WorkspaceId,
           [SUBSRIPTION_GROUP_ID_HEADER]: Type.String(),

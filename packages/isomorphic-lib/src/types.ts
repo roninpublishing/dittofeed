@@ -4913,13 +4913,34 @@ export enum AdminApiKeyType {
   AdminApiKey = "AdminApiKey",
 }
 
-export const AdminApiKeyDefinition = Type.Object({
-  type: Type.Literal(AdminApiKeyType.AdminApiKey),
-  key: Type.String(),
-  permissions: Type.Array(
-    Type.Union([Type.Literal(AdminApiKeyPermission.Admin)]),
-  ),
-});
+export const AdminApiKeyScope = Type.Union([
+  Type.Literal("read"),
+  Type.Literal("write"),
+  Type.Literal("destructive"),
+  Type.Literal("sensitive"),
+]);
+
+export type AdminApiKeyScope = Static<typeof AdminApiKeyScope>;
+
+export const AdminApiKeyDefinition = Type.Intersect([
+  Type.Object({
+    type: Type.Literal(AdminApiKeyType.AdminApiKey),
+    permissions: Type.Array(
+      Type.Union([Type.Literal(AdminApiKeyPermission.Admin)]),
+    ),
+  }),
+  Type.Union([
+    Type.Object({
+      // Persisted legacy keys remain valid without rewriting their secrets.
+      key: Type.String(),
+      scopes: Type.Optional(Type.Array(AdminApiKeyScope, { uniqueItems: true })),
+    }),
+    Type.Object({
+      keyHash: Type.String({ pattern: "^[a-f0-9]{64}$" }),
+      scopes: Type.Array(AdminApiKeyScope, { uniqueItems: true }),
+    }),
+  ]),
+]);
 
 export type AdminApiKeyDefinition = Static<typeof AdminApiKeyDefinition>;
 
@@ -4928,6 +4949,7 @@ export const AdminApiKeyResource = Type.Object({
   id: Type.String(),
   name: Type.String(),
   createdAt: Type.Number(),
+  scopes: Type.Optional(Type.Array(AdminApiKeyScope, { uniqueItems: true })),
 });
 
 export type AdminApiKeyResource = Static<typeof AdminApiKeyResource>;
@@ -4935,6 +4957,7 @@ export type AdminApiKeyResource = Static<typeof AdminApiKeyResource>;
 export const CreateAdminApiKeyRequest = Type.Object({
   workspaceId: Type.String(),
   name: Type.String(),
+  scopes: Type.Optional(Type.Array(AdminApiKeyScope, { uniqueItems: true })),
 });
 
 export type CreateAdminApiKeyRequest = Static<typeof CreateAdminApiKeyRequest>;

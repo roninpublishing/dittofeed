@@ -1,3 +1,11 @@
+## Workspace API and MCP
+
+The authenticated machine API and stdio MCP server share workspace authorization
+and explicit read/write/destructive/sensitive grants. Start with the
+[MCP setup guide](packages/docs/guide/mcp.mdx), the
+[API coverage map](packages/docs/guide/api-coverage.mdx), and the reproducible
+[function inventory](packages/docs/generated/code-functions.json).
+
 <p align="center">
   <a href="https://dittofeed.com">
     <picture>

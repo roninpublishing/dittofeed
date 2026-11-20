@@ -1,7 +1,7 @@
 import backendConfig from "backend-lib/src/config";
 import logger from "backend-lib/src/logger";
 import { DittofeedFastifyInstance } from "backend-lib/src/types";
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyRegister } from "fastify";
 
 import analysisController from "../controllers/analysisController";
 import apiKeyController from "../controllers/apiKeyController";
@@ -16,6 +16,7 @@ import groupsController from "../controllers/groupsController";
 import indexController from "../controllers/indexController";
 import integrationsController from "../controllers/integrationsController";
 import journeysController from "../controllers/journeysController";
+import operationsController from "../controllers/operationsController";
 import permissionsController from "../controllers/permissionsController";
 import publicAppsController from "../controllers/publicAppsController";
 import resourcesController from "../controllers/resourcesController";
@@ -35,6 +36,40 @@ import { BuildAppOpts } from "../types";
 import adminAuth from "./adminAuth";
 import requestContext from "./requestContext";
 
+// A single registration function keeps browser and bearer product APIs in parity.
+async function registerProductControllers(
+  f: { register: FastifyRegister<PromiseLike<unknown>> },
+  admin = false,
+) {
+  await Promise.all([
+    f.register(analysisController, { prefix: "/analysis" }),
+    f.register(contentController, { prefix: "/content" }),
+    f.register(eventsController, { prefix: "/events" }),
+    f.register(journeysController, { prefix: "/journeys" }),
+    f.register(secretsController, { prefix: "/secrets" }),
+    f.register(segmentsController, { prefix: "/segments" }),
+    f.register(settingsController, { prefix: "/settings" }),
+    f.register(integrationsController, { prefix: "/integrations" }),
+    admin ? null : f.register(permissionsController, { prefix: "/permissions" }),
+    f.register(subscriptionGroupsController, { prefix: "/subscription-groups" }),
+    f.register(subscriptionManagementTemplateController, {
+      prefix: "/subscription-management-template",
+    }),
+    f.register(userPropertiesController, { prefix: "/user-properties" }),
+    f.register(userPropertyIndexController, { prefix: "/user-property-indices" }),
+    f.register(broadcastsController, { prefix: "/broadcasts", admin }),
+    f.register(deliveriesController, { prefix: "/deliveries" }),
+    f.register(apiKeyController, { prefix: "/admin-keys" }),
+    f.register(usersController, { prefix: "/users" }),
+    f.register(groupsController, { prefix: "/groups" }),
+    f.register(resourcesController, { prefix: "/resources" }),
+    f.register(computedPropertiesController, { prefix: "/computed-properties" }),
+    f.register(componentConfigurationsController, {
+      prefix: "/component-configurations",
+    }),
+  ]);
+}
+
 export default async function router(
   fastify: FastifyInstance,
   opts?: BuildAppOpts,
@@ -48,41 +83,10 @@ export default async function router(
         logger().info("registering authentication");
         await opts.registerAuthentication(f);
       }
-      await fastify.register(requestContext);
+      await f.register(requestContext);
 
+      await registerProductControllers(f);
       await Promise.all([
-        f.register(analysisController, { prefix: "/analysis" }),
-        f.register(contentController, { prefix: "/content" }),
-        f.register(eventsController, { prefix: "/events" }),
-        f.register(journeysController, { prefix: "/journeys" }),
-        f.register(secretsController, { prefix: "/secrets" }),
-        f.register(segmentsController, { prefix: "/segments" }),
-        f.register(settingsController, { prefix: "/settings" }),
-        f.register(integrationsController, { prefix: "/integrations" }),
-        f.register(permissionsController, { prefix: "/permissions" }),
-        f.register(subscriptionGroupsController, {
-          prefix: "/subscription-groups",
-        }),
-        f.register(subscriptionManagementTemplateController, {
-          prefix: "/subscription-management-template",
-        }),
-        f.register(userPropertiesController, { prefix: "/user-properties" }),
-        f.register(userPropertyIndexController, {
-          prefix: "/user-property-indices",
-        }),
-        f.register(broadcastsController, {
-          prefix: "/broadcasts",
-        }),
-        f.register(deliveriesController, {
-          prefix: "/deliveries",
-        }),
-        f.register(apiKeyController, { prefix: "/admin-keys" }),
-        f.register(usersController, { prefix: "/users" }),
-        f.register(groupsController, { prefix: "/groups" }),
-        f.register(resourcesController, { prefix: "/resources" }),
-        f.register(computedPropertiesController, {
-          prefix: "/computed-properties",
-        }),
         // mount redundant webhooks controller at root level for backwards
         // compatibility. this is the one exception to this route namespace being auth'd.
         f.register(webhooksController, { prefix: "/webhooks" }),
@@ -111,35 +115,14 @@ export default async function router(
     { prefix: "/api/public" },
   );
 
-  // endpoints accessible by workspace members
+  // Machine operations require workspace-bound bearer authentication.
   await fastify.register(
     async (f: FastifyInstance) => {
       await f.register(adminAuth);
 
-      await Promise.all([
-        f.register(usersController, { prefix: "/users" }),
-        f.register(eventsController, { prefix: "/events" }),
-        f.register(userPropertiesController, { prefix: "/user-properties" }),
-        f.register(segmentsController, { prefix: "/segments" }),
-        f.register(journeysController, { prefix: "/journeys" }),
-        f.register(contentController, { prefix: "/content" }),
-        f.register(subscriptionGroupsController, {
-          prefix: "/subscription-groups",
-        }),
-        f.register(settingsController, { prefix: "/settings" }),
-        f.register(deliveriesController, { prefix: "/deliveries" }),
-        f.register(componentConfigurationsController, {
-          prefix: "/component-configurations",
-        }),
-        f.register(broadcastsController, {
-          prefix: "/broadcasts",
-        }),
-        f.register(groupsController, { prefix: "/groups" }),
-        f.register(computedPropertiesController, {
-          prefix: "/computed-properties",
-        }),
-        f.register(analysisController, { prefix: "/analysis" }),
-      ]);
+      await registerProductControllers(f, true);
+      await f.register(publicAppsController, { prefix: "/apps", admin: true });
+      await f.register(operationsController);
     },
     { prefix: "/api/admin" },
   );

@@ -200,6 +200,8 @@
                 ]
               },
               "guide/accessing-admin-api",
+              "guide/api-coverage",
+              "guide/mcp",
               "guide/submitting-broadcasts-api",
               "guide/mailing-list",
               "guide/view-in-browser",

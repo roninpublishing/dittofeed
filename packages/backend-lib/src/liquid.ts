@@ -1,6 +1,6 @@
 /* eslint-disable no-underscore-dangle */
 import { SecretNames } from "isomorphic-lib/src/constants";
-import { Liquid } from "liquidjs";
+import { Context, Liquid } from "liquidjs";
 import MarkdownIt from "markdown-it";
 import mjml2html from "mjml";
 
@@ -77,9 +77,11 @@ liquidEngine.registerFilter("markdown", (value) => md.render(value as string));
 
 type Secrets = Record<string, string>;
 
-function generateUnsubscribeUrl(scope: any): string {
+// Signing material must never enter the template-visible Liquid environment.
+const subscriptionSecrets = new WeakMap<Context, string>();
+
+function generateUnsubscribeUrl(scope: Context): string {
   const allScope = scope.getAll() as Record<string, unknown>;
-  const secrets = allScope.secrets as Secrets | undefined;
   const workspaceId = allScope.workspace_id as string;
   const subscriptionGroupId = allScope.subscription_group_id as
     | string
@@ -93,7 +95,7 @@ function generateUnsubscribeUrl(scope: any): string {
     : null;
   const userId = assignmentAsString(userProperties, "id");
 
-  const subscriptionSecret = secrets?.[SecretNames.Subscription];
+  const subscriptionSecret = subscriptionSecrets.get(scope);
   if (subscriptionSecret && identifierKey && identifier && userId) {
     return generateSubscriptionChangeUrl({
       workspaceId,
@@ -119,9 +121,8 @@ function generateUnsubscribeUrl(scope: any): string {
   return "";
 }
 
-function generateSubscriptionManagementUrl(scope: any): string {
+function generateSubscriptionManagementUrl(scope: Context): string {
   const allScope = scope.getAll() as Record<string, unknown>;
-  const secrets = allScope.secrets as Secrets | undefined;
   const workspaceId = allScope.workspace_id as string;
   const userProperties = allScope.user as UserPropertyAssignments;
   const identifierKey = allScope.identifier_key as string | undefined;
@@ -132,7 +133,7 @@ function generateSubscriptionManagementUrl(scope: any): string {
     : null;
   const userId = assignmentAsString(userProperties, "id");
 
-  const subscriptionSecret = secrets?.[SecretNames.Subscription];
+  const subscriptionSecret = subscriptionSecrets.get(scope);
   if (subscriptionSecret && identifierKey && identifier && userId) {
     return generateSubscriptionChangeUrl({
       workspaceId,
@@ -271,17 +272,29 @@ export function renderLiquid({
     return "";
   }
 
-  const liquidRendered = liquidEngine.parseAndRenderSync(template, {
-    user: userProperties,
-    workspace_id: workspaceId,
-    subscription_group_id: subscriptionGroupId,
-    secrets,
-    identifier_key: identifierKey,
-    // TODO [DF-471] remove default
-    tags: tags ?? {},
-    is_preview: isPreview,
-    message_id: messageId,
-  }) as string;
+  const {
+    [SecretNames.Subscription]: subscriptionSecret,
+    ...templateSecrets
+  } = secrets;
+  const context = new Context(
+    {
+      user: userProperties,
+      workspace_id: workspaceId,
+      subscription_group_id: subscriptionGroupId,
+      secrets: templateSecrets,
+      identifier_key: identifierKey,
+      // TODO [DF-471] remove default
+      tags: tags ?? {},
+      is_preview: isPreview,
+      message_id: messageId,
+    },
+    liquidEngine.options,
+    { sync: true },
+  );
+  if (subscriptionSecret) {
+    subscriptionSecrets.set(context, subscriptionSecret);
+  }
+  const liquidRendered = liquidEngine.parseAndRenderSync(template, context) as string;
   if (!mjml) {
     return liquidRendered;
   }

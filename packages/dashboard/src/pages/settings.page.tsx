@@ -1748,7 +1748,7 @@ function SubscriptionManagementSettings() {
   };
 
   // Set default selected subscription group if not set
-  const defaultSubscriptionGroupId = subscriptionGroups[0]?.id || "";
+  const defaultSubscriptionGroupId = subscriptionGroups[0]?.id ?? "";
   const actualSelectedId =
     selectedSubscriptionGroupId || defaultSubscriptionGroupId;
 
@@ -1809,9 +1809,9 @@ function SubscriptionManagementSettings() {
                   <Box sx={{ mt: 1, mb: 1 }}>
                     <Autocomplete
                       options={subscriptionGroups}
-                      value={selectedSubscriptionGroup || null}
+                      value={selectedSubscriptionGroup ?? null}
                       onChange={(_event, newValue) => {
-                        setSelectedSubscriptionGroupId(newValue?.id || "");
+                        setSelectedSubscriptionGroupId(newValue?.id ?? "");
                       }}
                       getOptionLabel={(option) =>
                         `${option.name} (${option.channel})`

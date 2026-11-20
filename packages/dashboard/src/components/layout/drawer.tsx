@@ -1,4 +1,4 @@
-import { Box, Drawer, useMediaQuery } from "@mui/material";
+import { Box, Drawer, Toolbar, useMediaQuery } from "@mui/material";
 // material-ui
 import { useTheme } from "@mui/material/styles";
 import { useMemo } from "react";
@@ -28,11 +28,15 @@ function MainDrawer({
   return (
     <Box
       component="nav"
-      sx={{ flexShrink: { md: 0 }, zIndex: 1300 }}
+      sx={{
+        flexShrink: { md: 0 },
+        zIndex: { xs: 1300, lg: theme.zIndex.drawer },
+      }}
       aria-label="Primary navigation"
     >
       {!matchDownMD ? (
         <MiniDrawerStyled variant="permanent" open={open}>
+          <Toolbar sx={{ flexShrink: 0 }} />
           {drawerContent}
         </MiniDrawerStyled>
       ) : (

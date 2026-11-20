@@ -7,7 +7,7 @@ import { useAppStorePick } from "../../../../lib/appStore";
 
 // ==============================|| DRAWER CONTENT - NAVIGATION CARD ||============================== //
 
-function NavCard() {
+function NavCard({ showDefault = true }: { showDefault?: boolean }) {
   const { features } = useAppStorePick(["features"]);
   const whiteLabelConfig = useMemo(() => {
     if (!features.WhiteLabel) {
@@ -23,10 +23,13 @@ function NavCard() {
     return result.value;
   }, [features.WhiteLabel]);
 
-  if (whiteLabelConfig && !whiteLabelConfig.navCardTitle) {
+  if (
+    (whiteLabelConfig && !whiteLabelConfig.navCardTitle) ||
+    (!whiteLabelConfig && !showDefault)
+  ) {
     return null;
   }
-  const title = whiteLabelConfig?.navCardTitle ?? "Ronin Publishing";
+  const title = whiteLabelConfig?.navCardTitle ?? "DITTO Email Client";
   const description = whiteLabelConfig?.navCardDescription;
 
   return (
@@ -65,17 +68,20 @@ function NavCard() {
           </Typography>
         </>
       ) : (
-        <Box
-          component="img"
-          src="/dashboard/branding/ronin/ronin-logo.png"
-          alt={title}
-          sx={{
-            display: "block",
-            width: 208,
-            maxWidth: "100%",
-            height: "auto",
-          }}
-        />
+        <>
+          <Box
+            component="img"
+            src="/dashboard/branding/ronin/ronin-logo.png"
+            alt="Ronin Publishing"
+            sx={{
+              display: "block",
+              width: 208,
+              maxWidth: "100%",
+              height: "auto",
+            }}
+          />
+          <Typography variant="h5">{title}</Typography>
+        </>
       )}
       {description ? (
         <Typography

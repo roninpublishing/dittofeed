@@ -16,7 +16,7 @@ function DrawerContent() {
       }}
     >
       <>
-        <NavCard />
+        <NavCard showDefault={false} />
         <Navigation />
       </>
     </SimpleBar>

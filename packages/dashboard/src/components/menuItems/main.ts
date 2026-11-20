@@ -3,12 +3,11 @@ import {
   BoltOutlined,
   BookOutlined,
   CampaignOutlined,
-  ContactSupportOutlined,
   GroupsOutlined,
+  HomeOutlined,
   InboxOutlined,
   LanOutlined,
   ManageAccountsOutlined,
-  MenuBookOutlined,
   PeopleOutlined,
   PersonOutlined,
 } from "@mui/icons-material";
@@ -19,6 +18,21 @@ import { MenuItemGroup } from "./types";
 
 const menuItems: { items: MenuItemGroup[] } = {
   items: [
+    {
+      id: "home-navigation",
+      title: "",
+      type: "group",
+      children: [
+        {
+          id: "home",
+          title: "Home",
+          type: "item",
+          url: "/home",
+          icon: HomeOutlined,
+          description: "Open your workspace home dashboard.",
+        },
+      ],
+    },
     {
       id: "reporting",
       title: "Reporting",
@@ -118,31 +132,6 @@ const menuItems: { items: MenuItemGroup[] } = {
           url: "/events",
           icon: BoltOutlined,
           description: "View user events.",
-        },
-      ],
-    },
-    {
-      id: "support",
-      title: "Support",
-      type: "group",
-      children: [
-        {
-          id: "documentation",
-          title: "Documentation",
-          type: "item",
-          url: "https://docs.dittofeed.com",
-          icon: MenuBookOutlined,
-          external: true,
-          description:
-            "Documentation with instructions and guidelines on how to use Dittofeed.",
-        },
-        {
-          id: "contact",
-          title: "Contact Us",
-          type: "item",
-          url: "/contact",
-          icon: ContactSupportOutlined,
-          description: "Contact details.",
         },
       ],
     },

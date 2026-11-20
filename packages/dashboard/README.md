@@ -37,10 +37,29 @@ OAuth callback is a backend continuation endpoint, not a settings screen; hiding
 HubSpot must not interrupt an in-flight authorization or existing integrations.
 Restoring its dashboard UI is a separate product decision.
 
-## Ronin branding
+## DITTO Email Client branding
 
 The dashboard uses a white/light theme with the supplied logos' burgundy accent
 (`#9C1235`). Shared colors and control styling live in `src/themeCustomization`.
+
+The full-width header identifies the product as `DITTO Email Client`. On desktop,
+the Ronin wordmark and product name sit above the left navigation column in a
+fixed drawer-width section, with the drawer toggle alongside them. Search and
+workspace/profile controls occupy the separate content-toolbar section. The
+desktop drawer reserves the same toolbar-height space, while its width still
+controls the main-content offset. Collapsing the drawer does not shift the brand.
+Smaller screens use the compact Ronin mark and name at the left of the header;
+the temporary mobile drawer retains its overlay/backdrop behavior.
+
+Search, return navigation, workspace/profile controls, and mobile navigation
+remain available. The default sidebar does not repeat the brand card; sign-in
+retains the Ronin logo and product name. The default document title and
+description are `DITTO Email Client`, with the Ronin favicon.
+The first navigation entry is Home (`/home`).
+
+The upstream GitHub shortcut, hard-coded upstream pull-request link, and
+Documentation/Contact Us support navigation are not exposed in the shell.
+Source-control providers and backend functionality are unchanged.
 
 Brand assets live in `public/branding/ronin/`. `originals/` preserves all four
 supplied PNGs; the cropped, resized `ronin-logo.png`, `ronin-mark.png`, and
@@ -50,7 +69,24 @@ ratios and transparent backgrounds. The dark-background originals are not used
 on the light interface.
 
 White-label document titles, favicons, navigation branding, and navigation-card
-opt-outs continue to override the Ronin defaults.
+opt-outs continue to override the defaults. Valid white-label configurations
+retain their custom sidebar/sign-in card and suppress the default header brand,
+including when their navigation card is explicitly omitted.
+
+## Home dashboard
+
+`/dashboard` lands on `/dashboard/home`. Home reads the current workspace's
+declarative journey/segment counts, non-archived broadcast count, and five most
+recent declarative journeys. These are saved-resource counts, not invented
+delivery, click, or open statistics. They refresh on page load.
+
+Quick-access links open templates, journeys, broadcasts, and deliveries. Recent
+journey links use the existing journey-editor router.
+
+Shared-password sessions show workspace controls rather than a synthetic
+Anonymous person; genuine member identities remain visible when available.
+Individual accounts are a separately approved follow-up, documented in the
+[account-system plan](../docs/ACCOUNT_SYSTEM_PLAN.md).
 
 ## Acknowledgements
 

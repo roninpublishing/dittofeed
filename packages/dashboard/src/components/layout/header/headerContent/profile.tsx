@@ -1,3 +1,4 @@
+import { WorkspacesOutlined } from "@mui/icons-material";
 import {
   Autocomplete,
   Avatar,
@@ -51,10 +52,11 @@ function Profile() {
 
   const iconBackColorOpen = "grey.300";
   const {
+    authMode,
     member,
     memberRoles,
     workspace: workspaceResult,
-  } = useAppStorePick(["member", "memberRoles", "workspace"]);
+  } = useAppStorePick(["authMode", "member", "memberRoles", "workspace"]);
   const workspace =
     workspaceResult.type === CompletionStatus.Successful
       ? workspaceResult.value
@@ -63,9 +65,10 @@ function Profile() {
   const [{ selectedWorkspaceId }] = useImmer<ProfileState>({
     selectedWorkspaceId: workspace?.id ?? null,
   });
-  const name = member
+  const hasPersonalIdentity = member !== null && member.id !== "anonymous";
+  const name = hasPersonalIdentity
     ? member.name ?? member.nickname ?? member.email
-    : "Anonymous";
+    : workspace?.name ?? "Workspace";
   const options = React.useMemo(
     () =>
       memberRoles.map((role) => ({
@@ -88,7 +91,9 @@ function Profile() {
           borderRadius: 1,
           "&:hover": { bgcolor: "secondary.lighter" },
         }}
-        aria-label="open profile"
+        aria-label={
+          hasPersonalIdentity ? "Open account menu" : "Open workspace menu"
+        }
         ref={anchorRef}
         aria-controls={open ? "profile-grow" : undefined}
         aria-haspopup="true"
@@ -96,11 +101,25 @@ function Profile() {
       >
         <Stack direction="row" spacing={2} alignItems="center" sx={{ p: 0.5 }}>
           <Avatar
-            alt="profile user"
-            sx={{ width: 32, height: 32 }}
-            src={member?.picture}
-          />
-          <Typography variant="subtitle1">{name}</Typography>
+            alt={hasPersonalIdentity ? name : "Workspace"}
+            sx={{
+              width: 32,
+              height: 32,
+              bgcolor: "primary.lighter",
+              color: "primary.main",
+            }}
+            src={hasPersonalIdentity ? member.picture : undefined}
+          >
+            {!hasPersonalIdentity ? <WorkspacesOutlined /> : null}
+          </Avatar>
+          <Typography
+            variant="subtitle1"
+            noWrap
+            title={name}
+            sx={{ maxWidth: { xs: 100, md: 160 } }}
+          >
+            {name}
+          </Typography>
         </Stack>
       </ButtonBase>
       <Popper
@@ -151,12 +170,33 @@ function Profile() {
                             alignItems="center"
                           >
                             <Avatar
-                              alt="profile user"
-                              src={member?.picture}
-                              sx={{ width: 32, height: 32 }}
-                            />
+                              alt={hasPersonalIdentity ? name : "Workspace"}
+                              src={
+                                hasPersonalIdentity ? member.picture : undefined
+                              }
+                              sx={{
+                                width: 32,
+                                height: 32,
+                                bgcolor: "primary.lighter",
+                                color: "primary.main",
+                              }}
+                            >
+                              {!hasPersonalIdentity ? (
+                                <WorkspacesOutlined />
+                              ) : null}
+                            </Avatar>
                             <Stack>
                               <Typography variant="h6">{name}</Typography>
+                              {!hasPersonalIdentity ? (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  {authMode === "single-tenant"
+                                    ? "Shared administrator session"
+                                    : "Workspace access"}
+                                </Typography>
+                              ) : null}
                             </Stack>
                           </Stack>
                         </Grid>

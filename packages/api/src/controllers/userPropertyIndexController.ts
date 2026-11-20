@@ -1,9 +1,12 @@
 import { Type, TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
+import { db } from "backend-lib/src/db";
+import { userProperty } from "backend-lib/src/db/schema";
 import {
   deleteUserPropertyIndex,
   getUserPropertyIndices,
   upsertUserPropertyIndex,
 } from "backend-lib/src/userPropertyIndices";
+import { and, eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import {
   DeleteUserPropertyIndexRequest,
@@ -57,11 +60,22 @@ export default async function userPropertyIndexController(
         body: UpsertUserPropertyIndexRequest,
         response: {
           204: EmptyResponse,
+          404: Type.Object({ message: Type.String() }),
         },
       },
     },
     async (request, reply) => {
       const { workspaceId, userPropertyId, type } = request.body;
+      const property = await db().query.userProperty.findFirst({
+        columns: { id: true },
+        where: and(
+          eq(userProperty.workspaceId, workspaceId),
+          eq(userProperty.id, userPropertyId),
+        ),
+      });
+      if (!property) {
+        return reply.status(404).send({ message: "User property not found." });
+      }
 
       await upsertUserPropertyIndex({
         workspaceId,

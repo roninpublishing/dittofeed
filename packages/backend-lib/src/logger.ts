@@ -2,12 +2,17 @@ import * as HyperDX from "@hyperdx/node-opentelemetry";
 import pino, { DestinationStream } from "pino";
 import pinoPretty from "pino-pretty";
 
-import config from "./config";
+import config, { SECRETS } from "./config";
 import { getServiceName } from "./openTelemetry/constants";
 import { Logger } from "./types";
 
 let LOGGER: Logger | null = null;
 let PUBLIC_LOGGER: Logger | null = null;
+
+const redactedSecretPaths = Array.from(SECRETS).flatMap((key) => [
+  key,
+  `*.${key}`,
+]);
 
 export { type LogFn } from "pino";
 
@@ -52,6 +57,7 @@ export function publicLogger(): Logger {
 
     const options: PinoConf = {
       level,
+      redact: redactedSecretPaths,
       base: {
         "service.version": config().appVersion,
       },
@@ -89,6 +95,7 @@ export default function logger(): Logger {
     // Add appVersion to the base options
     const baseOptions: PinoConf = {
       level: logLevel,
+      redact: redactedSecretPaths,
       base: {
         "service.version": appVersion,
       },

@@ -705,6 +705,139 @@ export const workspaceMember = pgTable(
   ],
 );
 
+export const googleAccount = pgTable(
+  "GoogleAccount",
+  {
+    memberId: uuid().primaryKey().notNull(),
+    googleSubject: text().notNull(),
+    normalizedEmail: text().notNull(),
+    isInstanceAdmin: boolean().default(false).notNull(),
+    disabledAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("GoogleAccount_googleSubject_key").on(table.googleSubject),
+    uniqueIndex("GoogleAccount_normalizedEmail_key").on(table.normalizedEmail),
+    foreignKey({
+      columns: [table.memberId],
+      foreignColumns: [workspaceMember.id],
+      name: "GoogleAccount_memberId_fkey",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const accountSession = pgTable(
+  "AccountSession",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    memberId: uuid().notNull(),
+    tokenHash: text().notNull(),
+    userAgent: text(),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+    revokedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("AccountSession_tokenHash_key").on(table.tokenHash),
+    index("AccountSession_memberId_idx").on(table.memberId),
+    foreignKey({
+      columns: [table.memberId],
+      foreignColumns: [googleAccount.memberId],
+      name: "AccountSession_memberId_fkey",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const workspaceInvitation = pgTable(
+  "WorkspaceInvitation",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    workspaceId: uuid().notNull(),
+    normalizedEmail: text().notNull(),
+    role: dbRoleType().notNull(),
+    tokenHash: text().notNull(),
+    createdByMemberId: uuid().notNull(),
+    acceptedByMemberId: uuid(),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+    acceptedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+    revokedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("WorkspaceInvitation_tokenHash_key").on(table.tokenHash),
+    index("WorkspaceInvitation_workspaceId_idx").on(table.workspaceId),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspace.id],
+      name: "WorkspaceInvitation_workspaceId_fkey",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.createdByMemberId],
+      foreignColumns: [googleAccount.memberId],
+      name: "WorkspaceInvitation_createdByMemberId_fkey",
+    }),
+    foreignKey({
+      columns: [table.acceptedByMemberId],
+      foreignColumns: [googleAccount.memberId],
+      name: "WorkspaceInvitation_acceptedByMemberId_fkey",
+    }),
+  ],
+);
+
+export const googleOAuthFlow = pgTable(
+  "GoogleOAuthFlow",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    stateHash: text().notNull(),
+    invitationId: uuid(),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+    consumedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("GoogleOAuthFlow_stateHash_key").on(table.stateHash),
+    foreignKey({
+      columns: [table.invitationId],
+      foreignColumns: [workspaceInvitation.id],
+      name: "GoogleOAuthFlow_invitationId_fkey",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const accountRateLimit = pgTable(
+  "AccountRateLimit",
+  {
+    key: text().primaryKey().notNull(),
+    attempts: integer().notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [index("AccountRateLimit_expiresAt_idx").on(table.expiresAt)],
+);
+
 export const segment = pgTable(
   "Segment",
   {

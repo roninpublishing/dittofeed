@@ -52,8 +52,8 @@ export function resolveApiBase(params: ResolveApiBaseParams): string {
     return `${protocol}://${domain}:${port}`;
   }
 
-  // 4. Single-tenant mode uses dashboard URL
-  if (authMode === "single-tenant") {
+  // Cookie-authenticated modes use the dashboard origin.
+  if (authMode === "single-tenant" || authMode === "google") {
     return dashboardUrl;
   }
 

@@ -1,0 +1,82 @@
+# Google SSO and owned accounts handoff
+
+## Earlier session work already completed
+
+- Hidden Push Notifications and HubSpot UI entry points while preserving their backend implementations.
+- Removed active SMS delivery and Segment.io integration end to end; retained historical migrations, contact/event data, native ingestion, and audience segmentation.
+- Removed Postmark and Mailchimp integrations and obsolete product documentation/assets.
+- Organized the Ronin logo assets and applied a light Ronin theme, left-navigation branding, the exact DITTO Email Client name, and the new favicon/metadata.
+- Removed GitHub, upstream support/documentation/contact links, and the old Dittofeed footer branding from the product navigation.
+- Added a real Home dashboard with saved-resource counts, recent journeys, and shortcuts. Renamed the existing local workspace RONIN without replacing its data.
+- Committed the earlier UI/removal/warning fixes on local main. Those commits are part of the isolated PR's history relative to GitHub main.
+
+The other agent's uncommitted Telnyx/tracking/admin/MCP implementation is not part of this account-only change. Its migration prerequisites are tracked below.
+
+## Completed implementation
+
+- Google OIDC authorization-code sign-in with PKCE, state, nonce, Google signature/issuer/audience/expiry verification, and verified-email checks. No Google passwords or reusable Google access/refresh tokens are stored.
+- Application-owned accounts linked by immutable Google subject; explicit workspace memberships and server-enforced Viewer, Author, Workspace Manager, and Admin roles.
+- Controlled first-owner bootstrap into an existing workspace. No unrestricted signup, domain-wide administrator admission, parent-workspace inheritance, shared-password fallback, or decoded-bearer fallback in Google mode.
+- Expiring, single-use, revocable invitations bound to an email, workspace, and role. Administrators hand off private fragment links; automatic invitation email delivery is not claimed.
+- Opaque hashed database sessions, encrypted HttpOnly cookies, logout, session listing/revocation, account disable/enable, and last-administrator race protection.
+- Ronin-branded sign-in/invitation/no-access screens, profile and session settings, team administration, confirmations, and authorized workspace switching.
+- Google-only cookie verification works in Lite and standalone Next. Cookies require HTTPS outside loopback, reject the public development signing key, and use every byte of the configured random secret.
+- Sensitive OAuth URLs are suppressed from ordinary access logs/traces; configured secrets are redacted from flat and nested application logs.
+- Additive account migration, schema/snapshot metadata, operator/recovery documentation, and focused security regressions. No contact/event data or historical migration is deleted.
+
+## Verification already observed
+
+The implementation in the shared local checkout passed 106 distinct focused cases across six suites, TypeScript package builds, and scoped zero-warning lint. Protocol tests use local signing keys and certificate transport doubles but execute the real Google SDK verification and database/session logic. They are not a real Google login.
+
+A real isolated Google-mode API/Next runtime rendered the sign-in and invitation screens, redirected unauthenticated Home to sign-in, rejected protected template reads with 401, and returned a safe `not_configured` 503 when Google credentials were absent. Desktop and 390-pixel layouts were checked. Deployment-target tests cover the repository's ES5 Error-subclass behavior. Temporary verification services and scripts were removed; the normal localhost:3000 shared-login instance was left running.
+
+The isolated pull-request branch also passed all 106 tests across six suites, the email editor/shared/backend/API/dashboard/Lite builds, scoped zero-warning lint, and its own browser/HTTP smoke checks. Viewer access to secret-bearing template rendering is explicitly rejected. Other agents' uncommitted provider, tracking, and MCP/admin implementation is excluded from the account-only commit.
+
+## Remaining external and integration work
+
+### 1. Google Cloud configuration — operator required
+
+Create a Web application OAuth client in the intended Google Cloud project. Configure consent/audience appropriately; external testing requires named test users. Only `openid email profile` is needed.
+
+Authorized local redirect URI:
+
+```text
+http://localhost:3000/api/public/auth/google/callback
+```
+
+Set these in ignored local `.env` / production secret storage, never in chat or Git:
+
+```dotenv
+GOOGLE_CLIENT_ID=your-web-client.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+The initial owner email and existing RONIN workspace ID are already configured in the shared local `.env`. A deployment also needs `GOOGLE_BOOTSTRAP_ADMIN_EMAIL`, `GOOGLE_BOOTSTRAP_WORKSPACE_ID`, and its own random `SECRET_KEY`. Gmail or a matching verified Workspace hosted domain is authoritative; a non-Google-hosted consumer email additionally needs an independently verified `GOOGLE_BOOTSTRAP_ADMIN_SUBJECT` pin.
+
+### 2. Predecessor migrations — merge prerequisite
+
+Account migration `0015_google_accounts` and its snapshot extend the other agent's `0011`–`0014` history. Those preceding migrations are currently uncommitted in the shared checkout. Checkpoint and integrate that work independently before merging/deploying this account migration. Do not silently include unrelated provider/tracking/MCP source in the account PR, renumber already-applied migrations, or apply a later migration before its earlier history is present.
+
+Keep the PR draft while this integration prerequisite is unresolved. Rebase/merge the committed predecessor history and verify the complete migration chain before marking it ready.
+
+### 3. Live cutover and real-browser acceptance
+
+After the preceding history and credentials are ready:
+
+1. Back up the intended database. Preserve the existing RONIN workspace ID and all contact/event data.
+2. Build the required packages and apply the normal additive migration chain through `0015_google_accounts`.
+3. Use one public origin for API and dashboard; split deployments need a same-origin reverse proxy and matching database/session secret.
+4. Set `AUTH_MODE=google` on API/dashboard and restart together. Do not expose shared login as a fallback.
+5. Sign in with the configured owner through real Google consent and verify RONIN data, profile editing, sessions, logout, and fresh login.
+6. Hand a private invitation to a second real Google account. Verify correct-account admission, wrong-account recovery, role restrictions, workspace switching, revocation, and disable behavior.
+7. Remove bootstrap settings after successful owner provisioning. Review production HTTPS, audience/test-user settings, and recovery access before release.
+
+Real Google consent and authenticated account/team UI acceptance cannot be honestly marked complete without the operator's Google configuration and interaction. No fake account, cookie injection, or simulated provider result is a substitute.
+
+## Operations and safety
+
+- Full setup/recovery guide: `packages/docs/guide/google-sso.mdx`.
+- Account design/status: `packages/docs/ACCOUNT_SYSTEM_PLAN.md`.
+- Google owns password/MFA/recovery. The application owns membership and session revocation; a Google password change is not automatically an app-session revocation signal.
+- Never run the inherited Jest global setup/teardown against live PostgreSQL/ClickHouse databases or a live blob bucket: teardown drops/empties configured resources. Use isolated test resources.
+- Keep `AUTH_MODE=single-tenant` on the existing local instance until the deliberate cutover is ready. Never log `.env`, credentials, cookies, authorization codes, invitation tokens, or identity payloads.

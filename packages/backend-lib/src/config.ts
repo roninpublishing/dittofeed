@@ -112,6 +112,11 @@ const BaseRawConfigProps = {
   sessionCookieSecure: Type.Optional(BoolStr),
   openIdClientId: Type.Optional(Type.String()),
   openIdClientSecret: Type.Optional(Type.String()),
+  googleClientId: Type.Optional(Type.String()),
+  googleClientSecret: Type.Optional(Type.String()),
+  googleBootstrapAdminEmail: Type.Optional(Type.String()),
+  googleBootstrapWorkspaceId: Type.Optional(Type.String()),
+  googleBootstrapAdminSubject: Type.Optional(Type.String()),
   allowedOrigins: Type.Optional(Type.String()),
   blobStorageEndpoint: Type.Optional(Type.String()),
   blobStorageInternalEndpoint: Type.Optional(Type.String()),
@@ -362,6 +367,7 @@ export const SECRETS = new Set<keyof Config>([
   "secretKey",
   "password",
   "openIdClientSecret",
+  "googleClientSecret",
   "blobStorageAccessKeyId",
   "blobStorageSecretAccessKey",
   "hyperDxApiKey",
@@ -598,6 +604,12 @@ function parseRawConfig(rawConfig: RawConfig): Config {
 
   const blobStorageBucket = rawConfig.blobStorageBucket ?? "dittofeed";
   const enableColdStorage = rawConfig.enableColdStorage === "true";
+  let signoutUrl = rawConfig.signoutUrl;
+  if (authMode === "google") {
+    signoutUrl = "/api/account/logout";
+  } else if (authMode === "single-tenant") {
+    signoutUrl = "/api/public/single-tenant/signout";
+  }
   const parsedConfig: Config = {
     ...rawConfig,
     bootstrap: rawConfig.bootstrap === "true",
@@ -683,10 +695,11 @@ function parseRawConfig(rawConfig: RawConfig): Config {
     computePropertiesJitterMs: rawConfig.computePropertiesJitterMs
       ? parseInt(rawConfig.computePropertiesJitterMs)
       : 0,
-    signoutUrl:
-      authMode === "single-tenant"
-        ? "/api/public/single-tenant/signout"
-        : rawConfig.signoutUrl,
+    oauthStartUrl:
+      authMode === "google"
+        ? "/api/public/auth/google/start"
+        : rawConfig.oauthStartUrl,
+    signoutUrl,
     signoutRedirectUrl: rawConfig.signoutRedirectUrl ?? dashboardUrl,
     secretKey,
     password: rawConfig.password ?? DEFAULT_BACKEND_CONFIG.password,

@@ -1,0 +1,142 @@
+---
+title: Google SSO and owned accounts
+description: Configure Google identity while retaining application-owned accounts, roles, invitations, and sessions.
+---
+
+Google authenticates the person. DITTO Email Client owns their account, display
+name, workspace memberships, roles, invitations, disabled state, and sessions.
+Google passwords, MFA, and recovery remain with Google. No Gmail access or
+Google access/refresh tokens are retained.
+
+## Google Cloud configuration
+
+1. Create/select a Google Cloud project. Configure Google Auth Platform branding,
+   audience, and consent. Use an Internal audience only when every invited user
+   belongs to that Google Workspace organization. External testing requires adding
+   the intended sign-in accounts as test users until the app is published.
+2. Create an OAuth client of type **Web application**. Request only `openid`,
+   `email`, and `profile`; no Gmail API scope is needed.
+3. Register the exact authorized redirect URI:
+   `http://localhost:3000/api/public/auth/google/callback` for local Lite.
+   Production uses `https://YOUR_HOST/api/public/auth/google/callback`.
+   Do not add `/dashboard` to this URI.
+4. Store the client ID and secret in the deployment's secret configuration, never
+   in source control, a browser bundle, support chat, or general logs.
+
+```dotenv
+GOOGLE_CLIENT_ID=your-web-client.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_BOOTSTRAP_ADMIN_EMAIL=owner@example.com
+GOOGLE_BOOTSTRAP_WORKSPACE_ID=existing-workspace-uuid
+DASHBOARD_URL=http://localhost:3000
+LOG_CONFIG=false
+```
+
+Set a random `SECRET_KEY` of at least 32 bytes, shared by API and dashboard.
+For a new deployment, `openssl rand -hex 32` generates a suitable value. Do not
+replace an existing deployment secret casually: rotation invalidates cookies.
+Google cookies use SHA-256 of the complete secret as the encryption key.
+
+The bootstrap email must be verified and authoritative at Google: Gmail, or a
+Google Workspace identity with matching verified `hd`. A third-party consumer
+Google account whose email is not hosted by Google additionally requires
+`GOOGLE_BOOTSTRAP_ADMIN_SUBJECT` pinned to its independently verified immutable
+Google subject. Never derive this pin from an unsigned JWT or a submitted email.
+No email domain grants administrator rights automatically.
+
+## Deployment and cutover
+
+- Back up PostgreSQL and inspect the existing workspace ID. Do not recreate RONIN
+  or delete contact/event data to bootstrap authentication.
+- Build the shared packages, API, and dashboard. Apply the normal additive
+  PostgreSQL migration chain, including `0015_google_accounts`. It creates five
+  account-related tables and indexes; it does not delete historical tables,
+  enum values, provider migrations, or application data.
+- Keep `AUTH_MODE=single-tenant` while preparing Google Cloud configuration.
+  `/dashboard/auth/google` and the public status endpoint explain readiness.
+- Use one public origin for browser API and dashboard requests. Lite already does
+  this. Split API/Next deployments require a reverse proxy routing `/api/*` to
+  the API and `/dashboard/*` to Next, and the same database and secret on both.
+  Standalone Next verifies the same encrypted cookie and live database session.
+- Configure HTTPS outside loopback. Google mode rejects ordinary remote HTTP;
+  cookies are HttpOnly, SameSite=Lax, and Secure on HTTPS. Mutation requests
+  require the configured public Origin, including when Origin is missing.
+- Set `AUTH_MODE=google` on API and dashboard and restart them together.
+  Shared-password cookies, synthetic identities, and decoded bearer JWTs are
+  not accepted in this mode. There is no automatic shared-login fallback.
+- Sign in with the configured owner. Bootstrap runs once, only while no Google
+  account exists, and grants Admin on the specified existing workspace plus
+  instance-administrator authority. Remove bootstrap settings after success.
+- Verify real Google consent/callback, RONIN data, account name, team controls,
+  logout, and fresh login before considering deployment complete. Protocol
+  tests with local signing keys are not evidence of live Google configuration.
+
+Changing back to shared-password mode is an explicit operator downgrade, not
+routine recovery. Restrict ingress before doing so; never expose it as a user
+fallback. Preserve the additive account data when rolling application code back.
+
+## Team, invitations, and roles
+
+Open the profile menu → **Team & access**. Admins manage workspace roles;
+Workspace Managers may invite/manage Authors and Viewers only. Authors edit
+content; Viewers browse and search without creating drafts. API and server-side
+page loaders enforce these boundaries, not just the controls shown in the UI.
+API-key management is Admin-only. Settings, integrations, secrets, and raw open
+evidence require Workspace Manager or Admin.
+
+Invitations expire after 72 hours, are single-use and revocable, and bind the
+verified Google email to an explicit workspace and role. The issuer must still
+have permission when the link is redeemed. Parent/child workspaces do not inherit
+membership. Demoting, removing, or disabling the last enabled administrator is
+rejected, including competing requests.
+
+The application creates a **private link for deliberate administrator handoff**;
+it does not pretend to send invitation email. Copy it only to the intended
+recipient through an appropriate private channel. The token is in the URL
+fragment, removed from the address/history on arrival, and submitted in POST
+bodies rather than access-log query strings. Do not paste the link into logs,
+analytics, public issues, or support chat. A wrong-account attempt leaves the
+invitation valid: reopen the original private link and select its named account.
+Expired or revoked invitations need a replacement link.
+
+## Account, sessions, and recovery
+
+**Account** edits the application-owned name; the Google email is readonly.
+Sessions expire after 14 days. Users can revoke individual or other sessions;
+logout revokes the current database session and clears its cookie. Cookies carry
+only an opaque application token; PostgreSQL stores its SHA-256 hash.
+Instance administrators can disable/enable accounts. Disable revokes all of that
+account's sessions immediately. Re-enable does not revive revoked sessions.
+
+Recover a lost Google login at `https://accounts.google.com/signin/recovery`.
+This app cannot reset Google credentials, and a Google password change is not an
+application-session revocation signal. Revoke app sessions separately when an
+account is suspected compromised.
+
+For an operator-verified lockout, recover the original Google identity first.
+A database operator may re-enable its existing GoogleAccount and revoke its
+AccountSession rows in a controlled transaction, using the same advisory lock
+`pg_advisory_xact_lock(1684632175, 1735357043)`. Preserve immutable subject linkage,
+workspace memberships, and administrator invariants. Do not delete accounts to
+reopen bootstrap, merge historical members by email, grant an entire domain
+Admin, or edit cookies. Replacing a lost Google identity needs deliberate
+operator identity proof and session revocation, not a public self-service bypass.
+
+OAuth state and invitation/session secrets must not enter ordinary request
+logs or traces. Keep `LOG_CONFIG=false`; protect database backups and account
+metadata as personal data. Encrypted temporary OAuth cookies expire after ten
+minutes. Google tokens are discarded after ID-token verification.
+
+## Verification
+
+Never point the inherited Jest global setup/teardown at a live `DATABASE_URL`,
+ClickHouse database, or blob bucket: teardown drops the configured databases
+and may empty the configured bucket. Use isolated test resources. Disable blob
+storage for these account tests; they do not need it.
+
+Exercise state/nonce/PKCE, signature/issuer/audience/expiry, replay, invitation
+email/expiry/revocation, role changes, last-admin races, account disable, Origin,
+workspace isolation/switching, and Lite/standalone cookie resolution. Then
+exercise the real browser Google flow with the configured production client.
+Official protocol reference:
+https://developers.google.com/identity/openid-connect/openid-connect

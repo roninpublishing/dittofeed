@@ -6,9 +6,11 @@ import fastifySwaggerUI from "@fastify/swagger-ui";
 import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import backendConfig from "backend-lib/src/config";
 import { trimTo32Bytes } from "backend-lib/src/crypto";
+import { googleSessionPluginOptions } from "backend-lib/src/googleSessions";
 import logger from "backend-lib/src/logger";
 import { DittofeedFastifyInstance, Logger } from "backend-lib/src/types";
 import fastify, { FastifyHttpOptions, RawServerDefault } from "fastify";
+import { googleAuthSensitiveUrl } from "isomorphic-lib/src/accounts";
 import { TYPE_REFS } from "isomorphic-lib/src/typeRefs";
 import {
   DFRequestContext,
@@ -21,6 +23,7 @@ import cors from "./buildApp/cors";
 import multipart from "./buildApp/multipart";
 import router from "./buildApp/router";
 import config from "./config";
+import { registerGoogleAccounts } from "./googleAccounts";
 import { BuildAppOpts } from "./types";
 
 declare module "@fastify/request-context" {
@@ -29,6 +32,22 @@ declare module "@fastify/request-context" {
 }
 
 export type FastifyAppOpts = FastifyHttpOptions<RawServerDefault, Logger>;
+
+export function configureOpenTrackingRequestLogging(
+  server: DittofeedFastifyInstance,
+) {
+  server.setChildLoggerFactory((parent, bindings, options, request) => {
+    // Routing failures must not leak sensitive URLs or supplied query strings.
+    const path = request.url?.split("?")[0] ?? "";
+    const sensitive =
+      path.includes("/api/public/email/open/") ||
+      googleAuthSensitiveUrl(request.url);
+    return parent.child(
+      bindings,
+      sensitive ? { ...options, level: "silent" } : options,
+    );
+  });
+}
 
 export function buildFastifyAppOpts(): FastifyAppOpts {
   const fastifyLogger = logger();
@@ -55,6 +74,7 @@ export async function registerApp(
   originalServer: DittofeedFastifyInstance,
   opts?: BuildAppOpts,
 ) {
+  configureOpenTrackingRequestLogging(originalServer);
   const server = originalServer.withTypeProvider<TypeBoxTypeProvider>();
 
   let servers: OpenAPIV3_1.ServerObject[];
@@ -127,8 +147,17 @@ export async function registerApp(
       }),
     );
   }
+  if (authMode === "google") {
+    fastifyPluginPromises.push(
+      server.register(
+        secureSession,
+        googleSessionPluginOptions(backendConfig()),
+      ),
+    );
+  }
 
   await Promise.all(fastifyPluginPromises);
+  await registerGoogleAccounts(server);
 
   await Promise.all([
     server.register((f) => router(f, opts)),

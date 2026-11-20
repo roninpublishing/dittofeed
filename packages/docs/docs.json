@@ -182,6 +182,7 @@
             "pages": [
               "guide/submitting-user-events",
               "guide/internal-events",
+              "guide/google-sso",
               "guide/roadmap",
               "guide/faq",
               "guide/creating-journeys",

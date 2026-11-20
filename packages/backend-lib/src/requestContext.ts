@@ -5,6 +5,7 @@ import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import { err, ok } from "neverthrow";
 import { sortBy } from "remeda";
 
+import { getGoogleRequestContext, GoogleAccountPrincipal } from "./accounts";
 import { decodeJwtHeader } from "./auth";
 import config from "./config";
 import { db } from "./db";
@@ -423,6 +424,7 @@ async function getAnonymousRequestContext(): Promise<RequestContextResult> {
 export async function getRequestContext(
   headers: IncomingHttpHeaders,
   profile?: OpenIdProfile,
+  googleAccountPrincipal?: GoogleAccountPrincipal,
 ): Promise<RequestContextResult> {
   return withSpan({ name: "get-request-context" }, async (span) => {
     const { authMode } = config();
@@ -439,6 +441,13 @@ export async function getRequestContext(
           });
         }
         result = await getAnonymousRequestContext();
+        break;
+      }
+      case "google": {
+        if (!googleAccountPrincipal) {
+          return err({ type: RequestContextErrorType.NotAuthenticated });
+        }
+        result = await getGoogleRequestContext(googleAccountPrincipal);
         break;
       }
       case "multi-tenant": {
@@ -458,17 +467,15 @@ export async function getRequestContext(
       }
     }
     if (result.isOk()) {
-      const { id: memberId, email: memberEmail } = result.value.member;
-      const { id: workspaceId, name: workspaceName } = result.value.workspace;
+      const { id: memberId } = result.value.member;
+      const { id: workspaceId } = result.value.workspace;
 
       const memberRoles = result.value.memberRoles.flatMap((r) =>
         r.workspaceId === workspaceId ? r.role : [],
       );
       span.setAttributes({
         memberId,
-        memberEmail,
         workspaceId,
-        workspaceName,
         memberRoles,
       });
       return result;

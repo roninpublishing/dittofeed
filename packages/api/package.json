@@ -41,6 +41,7 @@
     "fastify": "4.23.2",
     "fastify-plugin": "^4.5.0",
     "fastify-raw-body": "4.2.0",
+    "google-auth-library": "^9.15.1",
     "isomorphic-lib": "0.0.3",
     "neverthrow": "^6.0.0",
     "openapi-types": "^12.1.0",

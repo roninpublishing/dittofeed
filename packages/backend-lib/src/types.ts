@@ -194,6 +194,7 @@ export const AuthMode = Type.Union([
   Type.Literal("anonymous"),
   Type.Literal("multi-tenant"),
   Type.Literal("single-tenant"),
+  Type.Literal("google"),
 ]);
 
 export type AuthMode = Static<typeof AuthMode>;

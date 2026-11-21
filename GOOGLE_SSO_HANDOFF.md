@@ -32,11 +32,11 @@ A real isolated Google-mode API/Next runtime rendered the sign-in and invitation
 
 The isolated pull-request branch also passed all 106 tests across six suites, the email editor/shared/backend/API/dashboard/Lite builds, scoped zero-warning lint, and its own browser/HTTP smoke checks. Viewer access to secret-bearing template rendering is explicitly rejected. Other agents' uncommitted provider, tracking, and MCP/admin implementation is excluded from the account-only commit.
 
-## Remaining external and integration work
+## Local activation and remaining release work
 
-### 1. Google Cloud configuration — operator required
+### 1. Google Cloud configuration — local credentials supplied
 
-Create a Web application OAuth client in the intended Google Cloud project. Configure consent/audience appropriately; external testing requires named test users. Only `openid email profile` is needed.
+The operator added the Web application client ID and secret to ignored local `.env`. Presence/format checks passed without printing the values. A real browser reached Google's credential-entry screen and the subsequent real callback provisioned the configured owner and an application session, confirming the credentials work. The OAuth application is currently branded `pepper` in Google Cloud; confirm the intended project/branding before production. Only `openid email profile` is needed.
 
 Authorized local redirect URI:
 
@@ -61,7 +61,13 @@ Keep the PR draft while this integration prerequisite is unresolved. Rebase/merg
 
 ### 3. Live cutover and real-browser acceptance
 
-After the preceding history and credentials are ready:
+The existing local database already contained the complete migration history through `0017_newsletter_tracking_domains`, including all five account tables. The bootstrap workspace resolved to the existing RONIN workspace; no migration, workspace replacement, or contact/event data change was required for this cutover.
+
+Local Lite now runs on `http://localhost:3000` with `AUTH_MODE=google`. The live status endpoint returned `enabled: true`, `configured: true`, and the exact callback URI above with `Cache-Control: no-store`; unauthenticated account access returned 401 and Home redirected to sign-in. The actual branded page's Continue with Google link reached Google's sign-in screen. The user's browser was opened at the local sign-in page.
+
+**Real owner sign-in completed.** PostgreSQL showed the verified Google owner with instance-administrator authority, an explicit Admin membership in the existing RONIN workspace, and an active unrevoked application session. One-time bootstrap email/workspace settings were removed from ignored `.env`; a subsequent restart still reported configured Google mode and preserved the active administrator session. Authenticated account/team visual acceptance and second-account invitation checks remain release acceptance items; the assistant could not attach to the user's signed-in browser and did not copy/inject cookies or fabricate a provider result.
+
+For a deployment/release, complete the following checklist:
 
 1. Back up the intended database. Preserve the existing RONIN workspace ID and all contact/event data.
 2. Build the required packages and apply the normal additive migration chain through `0015_google_accounts`.
@@ -79,4 +85,4 @@ Real Google consent and authenticated account/team UI acceptance cannot be hones
 - Account design/status: `packages/docs/ACCOUNT_SYSTEM_PLAN.md`.
 - Google owns password/MFA/recovery. The application owns membership and session revocation; a Google password change is not automatically an app-session revocation signal.
 - Never run the inherited Jest global setup/teardown against live PostgreSQL/ClickHouse databases or a live blob bucket: teardown drops/empties configured resources. Use isolated test resources.
-- Keep `AUTH_MODE=single-tenant` on the existing local instance until the deliberate cutover is ready. Never log `.env`, credentials, cookies, authorization codes, invitation tokens, or identity payloads.
+- The deliberate local cutover is now `AUTH_MODE=google`; do not reintroduce shared login as a fallback. Never log `.env`, credentials, cookies, authorization codes, invitation tokens, or identity payloads.

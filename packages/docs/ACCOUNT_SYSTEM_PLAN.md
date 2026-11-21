@@ -101,10 +101,13 @@ template data, and returned a safe `not_configured` 503 for unconfigured sign-in
 The deployment-target regression also verifies account-error identity under the
 repository's ES5 compilation target.
 
-The initial RONIN owner is configured locally, but the Google client ID/secret
-are not yet configured. The existing shared-login instance was not switched off.
-Real Google consent, login, private invitation acceptance, and authenticated
-account/team browser verification remain launch prerequisites.
+Google credentials are now configured in ignored local `.env`, and localhost:3000
+has deliberately switched to Google mode. A real callback provisioned the initial
+owner as an instance administrator and Admin in the existing RONIN workspace.
+The active session survived a restart after removing one-time bootstrap settings.
+Private invitation acceptance and authenticated account/team visual verification
+remain release acceptance items. Google currently brands the OAuth app `pepper`;
+review that project's branding before production.
 
 The account migration and its snapshot extend the other agent's currently
 uncommitted `0011`–`0014` migration chain. Account changes are isolated on their

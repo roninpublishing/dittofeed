@@ -22,21 +22,19 @@ import {
   setSeconds,
 } from "date-fns";
 import { isEmailProviderType } from "isomorphic-lib/src/email";
-import { isSmsProviderType } from "isomorphic-lib/src/sms";
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import {
   BroadcastErrorHandling,
-  BroadcastSmsMessageVariant,
   BroadcastStepKeys,
   BroadcastV2Config,
   ChannelType,
   EmailProviderType,
   EmailProviderTypeSchema,
-  SmsProviderType,
 } from "isomorphic-lib/src/types";
 import { useCallback, useMemo, useState } from "react";
 
 // Internal application imports
+import { isChannelVisible } from "../../lib/channelVisibility";
 import { useBroadcastMutation } from "../../lib/useBroadcastMutation";
 import { useBroadcastQuery } from "../../lib/useBroadcastQuery";
 import { useStartBroadcastMutation } from "../../lib/useStartBroadcastMutation";
@@ -97,7 +95,7 @@ function getTomorrowAt8AM(currentDate: Date = new Date()): string {
 }
 
 interface ProviderOverrideOption {
-  id: EmailProviderTypeSchema | SmsProviderType;
+  id: EmailProviderTypeSchema;
   label: string;
 }
 
@@ -121,7 +119,7 @@ export default function Configuration({
   const steps = useBroadcastSteps(state.configuration?.stepsAllowList);
 
   const availableProviderOverrides: ProviderOverrideOption[] = useMemo(() => {
-    if (!channel) {
+    if (!channel || !isChannelVisible(channel)) {
       return [];
     }
     switch (channel) {
@@ -132,8 +130,6 @@ export default function Configuration({
           { id: EmailProviderType.Resend, label: "Resend" },
           { id: EmailProviderType.SendGrid, label: "SendGrid" },
           { id: EmailProviderType.Smtp, label: "SMTP" },
-          { id: EmailProviderType.PostMark, label: "PostMark" },
-          { id: EmailProviderType.MailChimp, label: "MailChimp" },
           { id: EmailProviderType.Gmail, label: "Gmail" },
         ];
         if (!state.configuration?.emailProviderOverrideAllowList) {
@@ -144,12 +140,6 @@ export default function Configuration({
         );
         return options.filter((option) => allowedSet.has(option.id));
       }
-      case ChannelType.Sms:
-        return [
-          { id: SmsProviderType.Twilio, label: "Twilio" },
-          { id: SmsProviderType.SignalWire, label: "SignalWire" },
-          { id: SmsProviderType.Test, label: "Test" },
-        ];
       case ChannelType.Webhook:
         return [];
       default:
@@ -158,16 +148,13 @@ export default function Configuration({
   }, [channel]);
 
   const providerOverride = useMemo<ProviderOverrideOption | null>(() => {
-    if (!broadcast) {
+    if (!broadcast || !isChannelVisible(broadcast.config.message.type)) {
       return null;
     }
     const { message } = broadcast.config;
-    let override: EmailProviderTypeSchema | SmsProviderType | null = null;
+    let override: EmailProviderTypeSchema | null = null;
     switch (message.type) {
       case ChannelType.Email:
-        override = message.providerOverride ?? null;
-        break;
-      case ChannelType.Sms:
         override = message.providerOverride ?? null;
         break;
       case ChannelType.Webhook:
@@ -271,6 +258,14 @@ export default function Configuration({
 
   if (!broadcast) {
     return null;
+  }
+  if (!isChannelVisible(channel)) {
+    return (
+      <Typography color="text.secondary">
+        This broadcast is unavailable in this dashboard. Its saved configuration
+        is unchanged.
+      </Typography>
+    );
   }
 
   const disabled = broadcast.status !== "Draft";
@@ -478,22 +473,6 @@ export default function Configuration({
                   ...message,
                   providerOverride: newProviderOverride,
                 };
-                break;
-              }
-              case ChannelType.Sms: {
-                let newProviderOverride: SmsProviderType | undefined;
-                if (!newValue) {
-                  newProviderOverride = undefined;
-                } else if (isSmsProviderType(newValue.id)) {
-                  newProviderOverride = newValue.id;
-                } else {
-                  newProviderOverride = undefined;
-                }
-                const newSmsMessage: BroadcastSmsMessageVariant = {
-                  type: message.type,
-                  providerOverride: newProviderOverride ?? null,
-                };
-                newMessage = newSmsMessage;
                 break;
               }
               default:

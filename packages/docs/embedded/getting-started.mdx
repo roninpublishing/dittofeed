@@ -160,8 +160,8 @@ interface BroadcastConfiguration {
 
   // Restricts which email providers can be selected as overrides for this broadcast.
   // If not specified, all configured workspace providers are available.
-  // Options: "SendGrid", "AmazonSes", "Resend", "PostMark", "Smtp", "Test", "MailChimp", "Gmail"
-  emailProviderOverrideAllowList?: ("SendGrid" | "AmazonSes" | "Resend" | "PostMark" | "Smtp" | "Test" | "MailChimp" | "Gmail")[];
+  // Options: "SendGrid", "AmazonSes", "Resend", "Smtp", "Test", "Gmail"
+  emailProviderOverrideAllowList?: ("SendGrid" | "AmazonSes" | "Resend" | "Smtp" | "Test" | "Gmail")[];
 
   // When true, hides the email provider override dropdown selector.
   // Use this to force broadcasts to use the workspace default provider.
@@ -221,22 +221,6 @@ The broadcasts table displays all of the broadcasts for the child workspace. It 
 ### Template Editor
 
 The template editor allows you to create and edit message templates.
-
-#### SMS Editor
-
-The SMS editor allows you to create and edit SMS templates.
-
-<Frame>
-![Embedded SMS Editor](/images/embedded-sms-editor.png)
-</Frame>
-
-```html
-<iframe
-  src="https://app.dittofeed.com/dashboard-l/embedded/templates/sms?token=${SESSION_TOKEN}&workspaceId=${CHILD_WORKSPACE_ID}&id=9fb712c3-8b65-4908-a9f7-68f1b8b99075"
-  width="100%"
-  height="100%"
-></iframe>
-```
 
 #### Email Editor
 
@@ -332,7 +316,7 @@ The segments table displays all of the segments for the child workspace. It prov
 
 ### Deliveries Table
 
-The deliveries table displays all of the message deliveries for the child workspace e.g. for sent emails, and SMS.
+The deliveries table displays all of the message deliveries for the child workspace, such as sent emails and mobile push notifications.
 
 <Frame>
 ![Embedded Deliveries Table](/images/embedded-deliveries.png)
@@ -359,11 +343,11 @@ interface DeliveriesTableConfiguration {
   // If not specified, all columns are shown.
   // Options:
   //   - "preview": Shows a preview button to view the full message content
-  //   - "from": The sender address (email from address or SMS phone number)
-  //   - "to": The recipient address (email to address or SMS phone number)
+  //   - "from": The sender address
+  //   - "to": The recipient address
   //   - "userId": The Dittofeed user ID of the recipient
   //   - "snippet": A short preview of the message content
-  //   - "channel": The delivery channel type (Email, SMS, etc.)
+  //   - "channel": The delivery channel type (Email, MobilePush, Webhook)
   //   - "status": The delivery status (Sent, Delivered, Bounced, etc.)
   //   - "origin": The source that triggered this delivery (journey name or broadcast name)
   //   - "sentAt": Timestamp when the message was sent
@@ -424,9 +408,9 @@ interface AnalysisChartConfiguration {
     journeyIds?: string[];
     // Filter to show only data from specific broadcasts (by broadcast ID)
     broadcastIds?: string[];
-    // Filter to show only data from specific channels: "Email", "Sms", "MobilePush", "Webhook"
+    // Filter to show only data from specific channels: "Email", "MobilePush", "Webhook"
     channels?: string[];
-    // Filter to show only data from specific providers: "SendGrid", "AmazonSes", "Twilio", etc.
+    // Filter to show only data from specific providers: "SendGrid", "AmazonSes", etc.
     providers?: string[];
     // Filter to show only specific message states: "Sent", "Delivered", "Opened", "Clicked", "Bounced", etc.
     messageStates?: string[];
@@ -452,9 +436,9 @@ interface AnalysisChartConfiguration {
   allowedGroupBy?: ("journey" | "broadcast" | "messageTemplate" | "provider")[];
 
   // Restricts which channel types appear in channel-related filters and groupings.
-  // Options: "Email", "MobilePush", "Sms", "Webhook"
+  // Options: "Email", "MobilePush", "Webhook"
   // Use this if your application only uses certain channels.
-  allowedChannels?: ("Email" | "MobilePush" | "Sms" | "Webhook")[];
+  allowedChannels?: ("Email" | "MobilePush" | "Webhook")[];
 
   // Controls which columns are visible in the deliveries drill-down table.
   // This table appears when users click on a data point in the chart.

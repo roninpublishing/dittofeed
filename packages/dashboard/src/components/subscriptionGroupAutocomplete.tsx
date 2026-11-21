@@ -3,6 +3,7 @@ import { ChannelType } from "isomorphic-lib/src/types";
 import { useEffect, useMemo } from "react";
 
 import { useAppStorePick } from "../lib/appStore";
+import { isChannelVisible } from "../lib/channelVisibility";
 import { useSubscriptionGroupsResourcesQuery } from "../lib/useSubscriptionGroupsResourcesQuery";
 
 // Define a simpler type based on observed/inferred data structure
@@ -33,7 +34,7 @@ export default function SubscriptionGroupAutocomplete({
 }) {
   const { subscriptionGroups } = useAppStorePick(["subscriptionGroups"]);
   const subscriptionGroupItems = subscriptionGroups.filter(
-    (sg) => sg.channel === channel,
+    (sg) => isChannelVisible(sg.channel) && sg.channel === channel,
   );
   const subscriptionGroup =
     subscriptionGroupItems.find((sg) => sg.id === subscriptionGroupId) ?? null;
@@ -76,10 +77,11 @@ export function SubscriptionGroupAutocompleteV2({
     if (!groups) {
       return [];
     }
-    if (!channel) {
-      return groups;
-    }
-    return groups.filter((sg) => sg.channel === channel);
+    return groups.filter(
+      (group) =>
+        isChannelVisible(group.channel) &&
+        (!channel || group.channel === channel),
+    );
   }, [queryData, channel]);
 
   const subscriptionGroup = useMemo(() => {

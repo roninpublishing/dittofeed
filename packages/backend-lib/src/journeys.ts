@@ -71,10 +71,10 @@ import {
   SegmentDefinition,
   SegmentNodeType,
   SegmentUpdate,
-  SmsStats,
   UpsertJourneyResource,
   WorkspaceQueueItemType,
 } from "./types";
+import { hasRetiredSmsChannel } from "./smsCutover";
 
 const { journey: dbJourney } = schema;
 
@@ -122,6 +122,16 @@ export async function findManyJourneys(
     const enrichedJourney = enrichJourney(journey);
 
     if (enrichedJourney.isErr()) {
+      if (
+        hasRetiredSmsChannel(journey.definition) ||
+        hasRetiredSmsChannel(journey.draft)
+      ) {
+        logger().warn(
+          { journeyId: journey.id, workspaceId: journey.workspaceId },
+          "Excluding retired SMS journey; resolve it before cutover",
+        );
+        continue;
+      }
       return err(enrichedJourney.error);
     }
 
@@ -431,17 +441,6 @@ export async function getJourneyMessageStats({
             clickRate: clicked / total,
           };
           channelStats = emailStats;
-          break;
-        }
-        case ChannelType.Sms: {
-          const delivered = nodeStats.get(InternalEventType.SmsDelivered) ?? 0;
-          const smsFailures = nodeStats.get(InternalEventType.SmsFailed) ?? 0;
-          const smsStats: SmsStats = {
-            type: ChannelType.Sms,
-            deliveryRate: delivered / total,
-            failRate: smsFailures / total,
-          };
-          channelStats = smsStats;
           break;
         }
         case ChannelType.MobilePush: {

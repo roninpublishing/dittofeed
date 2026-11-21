@@ -20,7 +20,6 @@ import {
   KnownBatchTrackData,
   MessageSendSuccess,
   MessageSendSuccessVariant,
-  SmsProviderType,
 } from "./types";
 import { createWorkspace } from "./workspaces";
 
@@ -1711,13 +1710,10 @@ describe("deliveries", () => {
           },
           {
             variant: {
-              type: ChannelType.Sms,
-              to: "+1234567890",
-              body: "body",
-              provider: {
-                type: SmsProviderType.Twilio,
-                sid: randomUUID(),
-              },
+              type: ChannelType.Webhook,
+              to: "https://example.com/events",
+              request: {},
+              response: { status: 200 },
             },
           },
         ];
@@ -1788,13 +1784,10 @@ describe("deliveries", () => {
           {
             templateId: "invalid-template-id",
             variant: {
-              type: ChannelType.Sms,
-              to: "+1234567890",
-              body: "body",
-              provider: {
-                type: SmsProviderType.Twilio,
-                sid: randomUUID(),
-              },
+              type: ChannelType.Webhook,
+              to: "https://example.com/events",
+              request: {},
+              response: { status: 200 },
             },
           },
         ];
@@ -1847,7 +1840,7 @@ describe("deliveries", () => {
 
       beforeEach(async () => {
         to1 = `test-to-${randomUUID()}@email.com`;
-        to2 = "+1234567890";
+        to2 = "https://example.com/events";
 
         const messageSentEvents: Omit<MessageSendSuccess, "type">[] = [
           {
@@ -1864,13 +1857,10 @@ describe("deliveries", () => {
           },
           {
             variant: {
-              type: ChannelType.Sms,
+              type: ChannelType.Webhook,
               to: to2,
-              body: "body",
-              provider: {
-                type: SmsProviderType.Twilio,
-                sid: randomUUID(),
-              },
+              request: {},
+              response: { status: 200 },
             },
           },
           {

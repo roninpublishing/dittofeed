@@ -6,7 +6,6 @@ import {
   componentConfiguration,
   computedPropertyPeriod,
   defaultEmailProvider,
-  defaultSmsProvider,
   emailProvider,
   emailTemplate,
   feature,
@@ -17,8 +16,6 @@ import {
   secret,
   segment,
   segmentAssignment,
-  segmentIoConfiguration,
-  smsProvider,
   subscriptionGroup,
   userProperty,
   userPropertyAssignment,
@@ -31,18 +28,7 @@ import {
   writeKey,
 } from "./schema";
 
-export const segmentIoConfigurationRelations = relations(
-  segmentIoConfiguration,
-  ({ one }) => ({
-    workspace: one(workspace, {
-      fields: [segmentIoConfiguration.workspaceId],
-      references: [workspace.id],
-    }),
-  }),
-);
-
 export const workspaceRelations = relations(workspace, ({ many }) => ({
-  segmentIoConfigurations: many(segmentIoConfiguration),
   userProperties: many(userProperty),
   userPropertyAssignments: many(userPropertyAssignment),
   emailProviders: many(emailProvider),
@@ -59,8 +45,6 @@ export const workspaceRelations = relations(workspace, ({ many }) => ({
   oauthTokens: many(oauthToken),
   workspaceMembers: many(workspaceMember),
   segments: many(segment),
-  defaultSmsProviders: many(defaultSmsProvider),
-  smsProviders: many(smsProvider),
   journeys: many(journey),
   computedPropertyPeriods: many(computedPropertyPeriod),
   adminApiKeys: many(adminApiKey),
@@ -122,7 +106,6 @@ export const secretRelations = relations(secret, ({ one, many }) => ({
     references: [workspace.id],
   }),
   writeKeys: many(writeKey),
-  smsProviders: many(smsProvider),
   adminApiKeys: many(adminApiKey),
   workspaceOccupantSettings: many(workspaceOccupantSetting),
 }));
@@ -282,32 +265,6 @@ export const oauthTokenRelations = relations(oauthToken, ({ one }) => ({
   workspace: one(workspace, {
     fields: [oauthToken.workspaceId],
     references: [workspace.id],
-  }),
-}));
-
-export const defaultSmsProviderRelations = relations(
-  defaultSmsProvider,
-  ({ one }) => ({
-    workspace: one(workspace, {
-      fields: [defaultSmsProvider.workspaceId],
-      references: [workspace.id],
-    }),
-    smsProvider: one(smsProvider, {
-      fields: [defaultSmsProvider.smsProviderId],
-      references: [smsProvider.id],
-    }),
-  }),
-);
-
-export const smsProviderRelations = relations(smsProvider, ({ one, many }) => ({
-  defaultSmsProviders: many(defaultSmsProvider),
-  workspace: one(workspace, {
-    fields: [smsProvider.workspaceId],
-    references: [workspace.id],
-  }),
-  secret: one(secret, {
-    fields: [smsProvider.secretId],
-    references: [secret.id],
   }),
 }));
 

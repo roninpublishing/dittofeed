@@ -12,7 +12,6 @@ import {
   MessageTemplateTestRequest,
   MessageTemplateTestResponse,
   MobilePushMessageTemplateTestRequest,
-  SmsMessageTemplateTestRequest,
   WebhookMessageTemplateTestRequest,
 } from "isomorphic-lib/src/types";
 
@@ -21,7 +20,6 @@ import { useAuthHeaders, useBaseApiUrl } from "./authModeProvider";
 
 export type TestTemplateVariables =
   | Omit<EmailMessageTemplateTestRequest, "workspaceId">
-  | Omit<SmsMessageTemplateTestRequest, "workspaceId">
   | Omit<MobilePushMessageTemplateTestRequest, "workspaceId">
   | Omit<WebhookMessageTemplateTestRequest, "workspaceId">;
 

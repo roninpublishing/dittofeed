@@ -15,6 +15,8 @@ import config from "./config";
 import { insert } from "./db";
 import { getStoredEmailForViewInBrowser } from "./viewInBrowser";
 import {
+  defaultEmailProvider as dbDefaultEmailProvider,
+  emailProvider as dbEmailProvider,
   messageTemplate as dbMessageTemplate,
   secret as dbSecret,
   subscriptionGroup as dbSubscriptionGroup,
@@ -24,12 +26,10 @@ import {
 import {
   batchMessageUsers,
   sendEmail,
-  sendSms,
   sendWebhook,
   upsertMessageTemplate,
 } from "./messaging";
 import { upsertEmailProvider } from "./messaging/email";
-import { upsertSmsProvider } from "./messaging/sms";
 import {
   upsertSubscriptionGroup,
   upsertSubscriptionSecret,
@@ -39,13 +39,12 @@ import {
   ChannelType,
   EmailContentsType,
   EmailProviderType,
+  EmailProviderTypeSchema,
   EmailTemplateResource,
   InternalEventType,
   MessageSkippedType,
   MessageTags,
   MessageTemplate,
-  SmsProviderType,
-  SmsTemplateResource,
   SubscriptionGroup,
   SubscriptionGroupType,
   UpsertMessageTemplateValidationErrorType,
@@ -113,6 +112,37 @@ describe("messaging", () => {
   });
 
   describe("sendEmail", () => {
+    it.each(["PostMark", "MailChimp", "UnknownProvider", ""])(
+      "rejects an unsupported runtime override %p",
+      async (providerOverride) => {
+        const { template } = await setupEmailTemplate(workspace);
+        const result = await sendEmail({
+          workspaceId: workspace.id,
+          templateId: template.id,
+          userId: "test-user",
+          userPropertyAssignments: { email: "test@example.com" },
+          useDraft: false,
+          providerOverride: providerOverride as EmailProviderTypeSchema,
+          messageTags: {
+            workspaceId: workspace.id,
+            templateId: template.id,
+            messageId: randomUUID(),
+            runId: randomUUID(),
+            nodeId: randomUUID(),
+            workspaceOccupantId: randomUUID(),
+            workspaceOccupantType: "User",
+          },
+        });
+        expect(result.isErr()).toBe(true);
+        expect(result._unsafeUnwrapErr()).toEqual({
+          type: InternalEventType.BadWorkspaceConfiguration,
+          variant: {
+            type: BadWorkspaceConfigurationType.MessageServiceProviderNotFound,
+          },
+        });
+      },
+    );
+
     describe("when sent from a child workspace", () => {
       let childWorkspace: Workspace;
       let parentWorkspace: Workspace;
@@ -182,6 +212,65 @@ describe("messaging", () => {
           }),
         ]);
       });
+      it.each<[string, Record<string, string> | null]>([
+        ["PostMark", { type: "PostMark" }],
+        ["MailChimp", { type: "MailChimp" }],
+        ["UnknownProvider", { type: EmailProviderType.Test }],
+        [EmailProviderType.Test, null],
+      ])(
+        "rejects an invalid local default %p without using the parent",
+        async (type, configValue) => {
+          let secretId: string | undefined;
+          if (configValue) {
+            const secret = unwrap(
+              await insert({
+                table: dbSecret,
+                values: {
+                  workspaceId: childWorkspace.id,
+                  name: `legacy-provider-${randomUUID()}`,
+                  configValue,
+                },
+              }),
+            );
+            secretId = secret.id;
+          }
+          const provider = unwrap(
+            await insert({
+              table: dbEmailProvider,
+              values: {
+                workspaceId: childWorkspace.id,
+                type,
+                secretId,
+              },
+            }),
+          );
+          unwrap(
+            await insert({
+              table: dbDefaultEmailProvider,
+              values: {
+                workspaceId: childWorkspace.id,
+                emailProviderId: provider.id,
+              },
+            }),
+          );
+          const result = await sendEmail({
+            workspaceId: childWorkspace.id,
+            templateId: template.id,
+            userId: "test-user",
+            userPropertyAssignments: { email: "test@example.com" },
+            useDraft: false,
+          });
+          expect(result.isErr()).toBe(true);
+          expect(result._unsafeUnwrapErr()).toEqual({
+            type: InternalEventType.BadWorkspaceConfiguration,
+            variant: {
+              type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
+              message:
+                "Application error: message service provider config malformed.",
+            },
+          });
+        },
+      );
 
       it("should use the parent workspace's email provider", async () => {
         const userId = 1234;
@@ -516,109 +605,6 @@ describe("messaging", () => {
         if (result.type === InternalEventType.MessageSent) {
           expect(result.variant.to).toBe("user@example.com"); // Falls back to email
         }
-      });
-    });
-  });
-
-  describe("sendSms", () => {
-    describe("when sent from a child workspace", () => {
-      let childWorkspace: Workspace;
-      let parentWorkspace: Workspace;
-      let template: MessageTemplate;
-      let subscriptionGroup: SubscriptionGroup;
-
-      beforeEach(async () => {
-        const parentWorkspaceId = randomUUID();
-        [parentWorkspace, childWorkspace] = await Promise.all([
-          insert({
-            table: dbWorkspace,
-            values: {
-              id: parentWorkspaceId,
-              name: `parent-workspace-${randomUUID()}`,
-              type: WorkspaceTypeAppEnum.Parent,
-              updatedAt: new Date(),
-              createdAt: new Date(),
-            },
-          }).then(unwrap),
-          insert({
-            table: dbWorkspace,
-            values: {
-              id: randomUUID(),
-              parentWorkspaceId,
-              name: `child-workspace-${randomUUID()}`,
-              type: WorkspaceTypeAppEnum.Child,
-              updatedAt: new Date(),
-              createdAt: new Date(),
-            },
-          }).then(unwrap),
-        ]);
-        [template, subscriptionGroup] = await Promise.all([
-          insert({
-            table: dbMessageTemplate,
-            values: {
-              id: randomUUID(),
-              workspaceId: childWorkspace.id,
-              name: `template-${randomUUID()}`,
-              updatedAt: new Date(),
-              createdAt: new Date(),
-              definition: {
-                type: ChannelType.Sms,
-                body: "Test SMS body",
-              } satisfies SmsTemplateResource,
-            },
-          }).then(unwrap),
-          insert({
-            table: dbSubscriptionGroup,
-            values: {
-              id: randomUUID(),
-              workspaceId: childWorkspace.id,
-              name: `group-${randomUUID()}`,
-              type: "OptOut",
-              channel: ChannelType.Sms,
-              updatedAt: new Date(),
-              createdAt: new Date(),
-            },
-          }).then(unwrap),
-          upsertSubscriptionSecret({
-            workspaceId: childWorkspace.id,
-          }),
-          upsertSmsProvider({
-            workspaceId: parentWorkspace.id,
-            config: { type: SmsProviderType.Test },
-          }),
-        ]);
-      });
-
-      it("should use the parent workspace's SMS provider", async () => {
-        const userId = "1234";
-        const phone = "+1234567890";
-
-        const payload = await sendSms({
-          workspaceId: childWorkspace.id,
-          templateId: template.id,
-          messageTags: {
-            workspaceId: childWorkspace.id,
-            templateId: template.id,
-            runId: "run-id-1",
-            nodeId: "node-id-1",
-            messageId: "message-id-1",
-          } satisfies MessageTags,
-          userPropertyAssignments: {
-            id: userId,
-            phone,
-          },
-          userId,
-          useDraft: false,
-          subscriptionGroupDetails: {
-            id: subscriptionGroup.id,
-            name: subscriptionGroup.name,
-            type: SubscriptionGroupType.OptOut,
-            action: null,
-          },
-          providerOverride: SmsProviderType.Test,
-        });
-        const unwrapped = unwrap(payload);
-        expect(unwrapped.type).toBe(InternalEventType.MessageSent);
       });
     });
   });

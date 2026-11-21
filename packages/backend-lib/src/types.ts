@@ -39,7 +39,6 @@ import {
   secret as dbSecret,
   segment as dbSegment,
   segmentAssignment as dbSegmentAssignment,
-  smsProvider as dbSmsProvider,
   subscriptionGroup as dbSubscriptionGroup,
   subscriptionManagementTemplate as dbSubscriptionManagementTemplate,
   userJourneyEvent as dbUserJourneyEvent,
@@ -93,8 +92,6 @@ export type Journey = InferSelectModel<typeof dbJourney>;
 export type Integration = InferSelectModel<typeof dbIntegration>;
 
 export type EmailProvider = InferSelectModel<typeof dbEmailProvider>;
-
-export type SmsProvider = InferSelectModel<typeof dbSmsProvider>;
 
 export type MessageTemplate = InferSelectModel<typeof dbMessageTemplate>;
 
@@ -177,21 +174,6 @@ export const UserEvent = Type.Object({
 
 export type UserEvent = Static<typeof UserEvent>;
 
-export const SegmentIOIdentifyEvent = Type.Object({
-  traits: Type.Record(Type.String(), Type.Any()),
-});
-
-export const SegmentIOTrackEvent = Type.Object({
-  properties: Type.Record(Type.String(), Type.Any()),
-});
-
-export const SegmentIOEvent = Type.Union([
-  SegmentIOIdentifyEvent,
-  SegmentIOTrackEvent,
-]);
-
-export type SegmentIOEvent = Static<typeof SegmentIOEvent>;
-
 export const KafkaSaslMechanism = Type.Union([
   Type.Literal("plain"),
   Type.Literal("scram-sha-256"),
@@ -212,6 +194,7 @@ export const AuthMode = Type.Union([
   Type.Literal("anonymous"),
   Type.Literal("multi-tenant"),
   Type.Literal("single-tenant"),
+  Type.Literal("google"),
 ]);
 
 export type AuthMode = Static<typeof AuthMode>;
@@ -243,35 +226,6 @@ export const OpenIdProfile = Type.Object({
 
 export type OpenIdProfile = Static<typeof OpenIdProfile>;
 
-export enum TwilioMessageStatus {
-  Queued = "queued",
-  Sending = "sending",
-  Sent = "sent",
-  Failed = "failed",
-  Delivered = "delivered",
-  Undelivered = "undelivered",
-  Receiving = "receiving",
-  Received = "received",
-  Accepted = "accepted",
-  Scheduled = "scheduled",
-  Read = "read",
-  PartiallyDelivered = "partially_delivered",
-  Canceled = "canceled",
-}
-
-export const TwilioEventSms = Type.Object({
-  SmsSid: Type.String(),
-  MessagingServiceSid: Type.String(),
-  SmsStatus: Type.Enum(TwilioMessageStatus),
-  Body: Type.Optional(Type.String()),
-  To: Type.String(),
-  MessageSid: Type.String(),
-  AccountSid: Type.String(),
-  From: Type.String(),
-  ApiVersion: Type.String(),
-});
-
-export type TwilioInboundSchema = Static<typeof TwilioEventSms>;
 
 export enum AmazonSesNotificationType {
   Bounce = "Bounce",
@@ -635,57 +589,9 @@ export const ResendEvent = Type.Object({
   type: Type.Enum(ResendEventType),
 });
 
-export enum PostMarkEventType {
-  Delivery = "Delivery",
-  SpamComplaint = "SpamComplaint",
-  Bounce = "Bounce",
-  Open = "Open",
-  Click = "Click",
-}
-
-export const PostMarkEvent = Type.Composite([
-  Type.Object({
-    MessageStream: Type.String(),
-    Tag: Type.String(),
-    MessageID: Type.String(),
-    Metadata: Type.Record(Type.String(), Type.Any()),
-    RecordType: Type.Enum(PostMarkEventType),
-    BouncedAt: Type.Optional(Type.String()),
-    DeliveredAt: Type.Optional(Type.String()),
-    ReceivedAt: Type.Optional(Type.String()),
-  }),
-  MessageMetadataFields,
-]);
-
-export enum MailChimpEventType {
-  Send = "send",
-  Delivered = "delivered",
-  HardBounce = "hard_bounce",
-  Open = "open",
-  Click = "click",
-  Spam = "spam",
-  Unsub = "unsub",
-  Reject = "reject",
-}
-
-export const MailChimpEvent = Type.Object({
-  event: Type.Enum(MailChimpEventType),
-  msg: Type.Object({
-    metadata: Type.Record(Type.String(), Type.String()),
-    email: Type.String(),
-    _id: Type.String(),
-  }),
-  ts: Type.Number(),
-  url: Type.Optional(Type.String()),
-});
-
-export type MailChimpEvent = Static<typeof MailChimpEvent>;
-
 export type SendgridEvent = Static<typeof SendgridEvent>;
 
 export type ResendEvent = Static<typeof ResendEvent>;
-
-export type PostMarkEvent = Static<typeof PostMarkEvent>;
 
 export type IntegrationCreateDefinition = Omit<
   Overwrite<

@@ -1,6 +1,6 @@
 ## Dittofeed Helm Chart
 
-[Dittofeed](https://dittofeed.com) is an omni-channel customer engagement platform. Create automated user journeys to message users along any channel: email, mobile push notifications, SMS, custom webhooks, Slack, and more. We're an open source, dev-friendly alternative to platforms like OneSignal, Customer.io, and Segment Engage.
+[Dittofeed](https://dittofeed.com) is an omni-channel customer engagement platform. Create automated user journeys to message users via email, mobile push notifications, and custom webhooks. We're an open source, dev-friendly alternative to platforms like OneSignal, Customer.io, and Segment Engage.
 
 This helm chart provides a convenient mechanism for deploying dittofeed-admin-cli.
 

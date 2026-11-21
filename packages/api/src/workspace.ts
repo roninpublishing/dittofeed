@@ -76,7 +76,10 @@ export async function getWorkspaceId(
     return ok(workspaceId);
   }
 
-  if (backendConfig().authMode === "multi-tenant") {
+  if (
+    backendConfig().authMode === "multi-tenant" ||
+    backendConfig().authMode === "google"
+  ) {
     return ok(null);
   }
 
@@ -135,7 +138,10 @@ export async function getWorkspaceIdentifier(
     return ok({ externalId });
   }
 
-  if (backendConfig().authMode === "multi-tenant") {
+  if (
+    backendConfig().authMode === "multi-tenant" ||
+    backendConfig().authMode === "google"
+  ) {
     return ok(null);
   }
 

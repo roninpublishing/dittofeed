@@ -41,13 +41,13 @@ import { useImmer } from "use-immer";
 import { validate } from "uuid";
 
 import EmailEditor from "../../../components/messages/emailEditor";
-import SmsEditor from "../../../components/messages/smsEditor";
 import WebhookEditor from "../../../components/messages/webhookEditor";
 import SubscriptionGroupAutocomplete from "../../../components/subscriptionGroupAutocomplete";
 import { addInitialStateToProps } from "../../../lib/addInitialStateToProps";
 import apiRequestHandlerFactory from "../../../lib/apiRequestHandlerFactory";
 import { useAppStorePick } from "../../../lib/appStore";
 import { getBroadcastMessageNode } from "../../../lib/broadcasts";
+import { isChannelVisible } from "../../../lib/channelVisibility";
 import { requestContext } from "../../../lib/requestContext";
 import { AppState, PropsWithInitialState } from "../../../lib/types";
 import { useUpdateEffect } from "../../../lib/useUpdateEffect";
@@ -200,6 +200,9 @@ const BroadcastTemplateInner: NextPage<BroadcastTemplateProps> =
     );
 
     const channel = template?.definition?.type ?? ChannelType.Email;
+    const unavailable =
+      !isChannelVisible(channel) ||
+      !isChannelVisible(messageNode?.variant.type);
     const isLowCode = useMemo(
       () =>
         template?.definition?.type === ChannelType.Email &&
@@ -218,7 +221,9 @@ const BroadcastTemplateInner: NextPage<BroadcastTemplateProps> =
       selectedLowCode: isLowCode || !template,
     });
     const disabled =
-      started || updateTemplateRequest.type === CompletionStatus.InProgress;
+      unavailable ||
+      started ||
+      updateTemplateRequest.type === CompletionStatus.InProgress;
 
     useUpdateEffect(() => {
       if (journeys.type !== CompletionStatus.Successful || disabled) {
@@ -269,6 +274,8 @@ const BroadcastTemplateInner: NextPage<BroadcastTemplateProps> =
     // Add new useEffect to handle channel changes
     useUpdateEffect(() => {
       if (
+        disabled ||
+        !isChannelVisible(selectedChannel) ||
         !broadcast ||
         (selectedChannel === channel && selectedLowCode === isLowCode)
       ) {
@@ -322,6 +329,14 @@ const BroadcastTemplateInner: NextPage<BroadcastTemplateProps> =
     if (typeof id !== "string") {
       return null;
     }
+    if (unavailable) {
+      return (
+        <Typography color="text.secondary">
+          This broadcast is unavailable in this dashboard. Its saved
+          configuration is unchanged.
+        </Typography>
+      );
+    }
     let templateEditor;
     switch (channel) {
       case ChannelType.Email:
@@ -331,16 +346,6 @@ const BroadcastTemplateInner: NextPage<BroadcastTemplateProps> =
             hideTitle
             hidePublisher
             templateId={templateId}
-          />
-        );
-        break;
-      case ChannelType.Sms:
-        templateEditor = (
-          <SmsEditor
-            templateId={templateId}
-            hideTitle
-            hidePublisher
-            disabled={disabled}
           />
         );
         break;
@@ -372,9 +377,13 @@ const BroadcastTemplateInner: NextPage<BroadcastTemplateProps> =
             minWidth: theme.spacing(10),
           }}
           onChange={(e) => {
+            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+            const nextChannel = e.target.value as ChannelType;
+            if (!isChannelVisible(nextChannel)) {
+              return;
+            }
             setState((draft) => {
-              // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-              draft.selectedChannel = e.target.value as ChannelType;
+              draft.selectedChannel = nextChannel;
             });
           }}
           value={selectedChannel}
@@ -382,14 +391,8 @@ const BroadcastTemplateInner: NextPage<BroadcastTemplateProps> =
           <MenuItem value={ChannelType.Email}>
             {CHANNEL_NAMES[ChannelType.Email]}
           </MenuItem>
-          <MenuItem value={ChannelType.Sms}>
-            {CHANNEL_NAMES[ChannelType.Sms]}
-          </MenuItem>
           <MenuItem value={ChannelType.Webhook}>
             {CHANNEL_NAMES[ChannelType.Webhook]}
-          </MenuItem>
-          <MenuItem disabled value={ChannelType.MobilePush}>
-            {CHANNEL_NAMES[ChannelType.MobilePush]}
           </MenuItem>
         </Select>
       </FormControl>

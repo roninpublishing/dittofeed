@@ -6,6 +6,7 @@ import {
 import backendConfig from "backend-lib/src/config";
 import { initOpenTelemetry } from "backend-lib/src/openTelemetry";
 import { FastifyRequest } from "fastify";
+import { googleAuthSensitiveUrl } from "isomorphic-lib/src/accounts";
 
 import config from "./config";
 import { getWorkspaceIdFromReq } from "./workspace";
@@ -18,6 +19,10 @@ export const API_TELEMETRY_CONFIG: Parameters<
 >[0]["configOverrides"] = {
   "@opentelemetry/instrumentation-http": {
     ignoreIncomingPaths: ["/api"],
+    ignoreIncomingRequestHook: (request) =>
+      Boolean(
+        request.url?.split("?")[0]?.includes("/api/public/email/open/"),
+      ) || googleAuthSensitiveUrl(request.url),
   },
   "@opentelemetry/instrumentation-fs": {
     enabled: false,

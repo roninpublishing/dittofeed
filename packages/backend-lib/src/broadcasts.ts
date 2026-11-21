@@ -606,11 +606,6 @@ export async function upsertBroadcastV2({
               type: channel,
             };
             break;
-          case ChannelType.Sms:
-            messageConfig = {
-              type: channel,
-            };
-            break;
           case ChannelType.Webhook:
             messageConfig = {
               type: channel,

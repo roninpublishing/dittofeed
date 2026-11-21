@@ -20,14 +20,20 @@ export default function DashboardHead() {
   return (
     <Head>
       <title>
-        {whiteLabelConfig?.title ? whiteLabelConfig.title : "Dittofeed"}
+        {whiteLabelConfig?.title
+          ? whiteLabelConfig.title
+          : "DITTO Email Client"}
       </title>
       {whiteLabelConfig?.favicon ? (
         <link rel="icon" href={whiteLabelConfig.favicon} />
       ) : (
-        <link rel="icon" type="image/png" href="/dashboard/favicon.png" />
+        <link
+          rel="icon"
+          type="image/png"
+          href="/dashboard/branding/ronin/ronin-favicon.png"
+        />
       )}
-      <meta name="description" content="Open Source Customer Engagement" />
+      <meta name="description" content="DITTO Email Client" />
     </Head>
   );
 }

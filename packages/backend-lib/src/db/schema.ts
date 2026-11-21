@@ -35,7 +35,6 @@ export const dbBroadcastVersion = pgEnum("DBBroadcastVersion", ["V1", "V2"]);
 export const dbChannelType = pgEnum("DBChannelType", [
   "Email",
   "MobilePush",
-  "Sms",
   "Webhook",
 ]);
 export const dbCompletionStatus = pgEnum("DBCompletionStatus", [
@@ -118,33 +117,6 @@ export const workspace = pgTable(
     unique("Workspace_parentWorkspaceId_name_key")
       .on(table.parentWorkspaceId, table.name)
       .nullsNotDistinct(),
-  ],
-);
-
-export const segmentIoConfiguration = pgTable(
-  "SegmentIOConfiguration",
-  {
-    id: uuid().primaryKey().defaultRandom().notNull(),
-    workspaceId: uuid().notNull(),
-    sharedSecret: text().notNull(),
-    createdAt: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
-    updatedAt: timestamp({ precision: 3, mode: "date" })
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [
-    uniqueIndex("SegmentIOConfiguration_workspaceId_key").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"),
-    ),
-    foreignKey({
-      columns: [table.workspaceId],
-      foreignColumns: [workspace.id],
-      name: "SegmentIOConfiguration_workspaceId_fkey",
-    })
-      .onUpdate("cascade")
-      .onDelete("cascade"),
   ],
 );
 
@@ -733,6 +705,139 @@ export const workspaceMember = pgTable(
   ],
 );
 
+export const googleAccount = pgTable(
+  "GoogleAccount",
+  {
+    memberId: uuid().primaryKey().notNull(),
+    googleSubject: text().notNull(),
+    normalizedEmail: text().notNull(),
+    isInstanceAdmin: boolean().default(false).notNull(),
+    disabledAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("GoogleAccount_googleSubject_key").on(table.googleSubject),
+    uniqueIndex("GoogleAccount_normalizedEmail_key").on(table.normalizedEmail),
+    foreignKey({
+      columns: [table.memberId],
+      foreignColumns: [workspaceMember.id],
+      name: "GoogleAccount_memberId_fkey",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const accountSession = pgTable(
+  "AccountSession",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    memberId: uuid().notNull(),
+    tokenHash: text().notNull(),
+    userAgent: text(),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+    revokedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("AccountSession_tokenHash_key").on(table.tokenHash),
+    index("AccountSession_memberId_idx").on(table.memberId),
+    foreignKey({
+      columns: [table.memberId],
+      foreignColumns: [googleAccount.memberId],
+      name: "AccountSession_memberId_fkey",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const workspaceInvitation = pgTable(
+  "WorkspaceInvitation",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    workspaceId: uuid().notNull(),
+    normalizedEmail: text().notNull(),
+    role: dbRoleType().notNull(),
+    tokenHash: text().notNull(),
+    createdByMemberId: uuid().notNull(),
+    acceptedByMemberId: uuid(),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+    acceptedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+    revokedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("WorkspaceInvitation_tokenHash_key").on(table.tokenHash),
+    index("WorkspaceInvitation_workspaceId_idx").on(table.workspaceId),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspace.id],
+      name: "WorkspaceInvitation_workspaceId_fkey",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.createdByMemberId],
+      foreignColumns: [googleAccount.memberId],
+      name: "WorkspaceInvitation_createdByMemberId_fkey",
+    }),
+    foreignKey({
+      columns: [table.acceptedByMemberId],
+      foreignColumns: [googleAccount.memberId],
+      name: "WorkspaceInvitation_acceptedByMemberId_fkey",
+    }),
+  ],
+);
+
+export const googleOAuthFlow = pgTable(
+  "GoogleOAuthFlow",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    stateHash: text().notNull(),
+    invitationId: uuid(),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+    consumedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("GoogleOAuthFlow_stateHash_key").on(table.stateHash),
+    foreignKey({
+      columns: [table.invitationId],
+      foreignColumns: [workspaceInvitation.id],
+      name: "GoogleOAuthFlow_invitationId_fkey",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const accountRateLimit = pgTable(
+  "AccountRateLimit",
+  {
+    key: text().primaryKey().notNull(),
+    attempts: integer().notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [index("AccountRateLimit_expiresAt_idx").on(table.expiresAt)],
+);
+
 export const segment = pgTable(
   "Segment",
   {
@@ -776,75 +881,6 @@ export const segment = pgTable(
     })
       .onUpdate("cascade")
       .onDelete("set null"),
-  ],
-);
-
-export const defaultSmsProvider = pgTable(
-  "DefaultSmsProvider",
-  {
-    workspaceId: uuid().notNull(),
-    smsProviderId: uuid().notNull(),
-    createdAt: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
-    updatedAt: timestamp({ precision: 3, mode: "date" })
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [
-    uniqueIndex("DefaultSmsProvider_workspaceId_key").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"),
-    ),
-    foreignKey({
-      columns: [table.workspaceId],
-      foreignColumns: [workspace.id],
-      name: "DefaultSmsProvider_workspaceId_fkey",
-    })
-      .onUpdate("cascade")
-      .onDelete("cascade"),
-    foreignKey({
-      columns: [table.smsProviderId],
-      foreignColumns: [smsProvider.id],
-      name: "DefaultSmsProvider_smsProviderId_fkey",
-    })
-      .onUpdate("cascade")
-      .onDelete("cascade"),
-  ],
-);
-
-export const smsProvider = pgTable(
-  "SmsProvider",
-  {
-    id: uuid().primaryKey().defaultRandom().notNull(),
-    workspaceId: uuid().notNull(),
-    secretId: uuid().notNull(),
-    type: text().notNull(),
-    createdAt: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
-    updatedAt: timestamp({ precision: 3, mode: "date" })
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [
-    uniqueIndex("SmsProvider_workspaceId_type_key").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"), // Change from text_ops
-      table.type.asc().nullsLast().op("text_ops"),
-    ),
-    foreignKey({
-      columns: [table.workspaceId],
-      foreignColumns: [workspace.id],
-      name: "SmsProvider_workspaceId_fkey",
-    })
-      .onUpdate("cascade")
-      .onDelete("cascade"),
-    foreignKey({
-      columns: [table.secretId],
-      foreignColumns: [secret.id],
-      name: "SmsProvider_secretId_fkey",
-    })
-      .onUpdate("cascade")
-      .onDelete("cascade"),
   ],
 );
 

@@ -51,14 +51,10 @@ export function emailProviderLabel(provider: EmailProviderTypeSchema): string {
       return "SendGrid";
     case EmailProviderType.AmazonSes:
       return "Amazon SES";
-    case EmailProviderType.PostMark:
-      return "Postmark";
     case EmailProviderType.Resend:
       return "Resend";
     case EmailProviderType.Smtp:
       return "SMTP";
-    case EmailProviderType.MailChimp:
-      return "Mailchimp";
     case EmailProviderType.Gmail:
       return "Gmail";
     default:

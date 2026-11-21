@@ -1,20 +1,22 @@
 ---
 title: "Using Dittofeed's REST API as a source"
-description: "Send data directly to Dittofeed's segment compatible API."
+description: "Send user traits and events directly to Dittofeed's REST API."
 ---
 
-Workspace members can send data directly to Dittofeed's segment compatible API. This is useful if you want to circumvent an external source integration, like Dittofeed's [segment integration](/integrations/sources/segment).
+Workspace members can send user traits and events directly to Dittofeed's REST API, without an external data source integration.
 
 This source of Dittofeed events is especially useful when self-hosting, as it allows you to send user data to Dittofeed without it ever being sent to a third party server.
 
 ## Endpoints
 
-Dittofeed's API is compatible with [segment's API](https://segment.com/docs/connections/sources/catalog/libraries/server/http-api/).
+Use identify to update user traits, track to record events, and batch to submit multiple updates in one request. Page, screen, and group requests record visits and group membership.
 
 - [`/api/public/apps/identify`](/api-reference/endpoints/apps/identify)
 - [`/api/public/apps/track`](/api-reference/endpoints/apps/track)
 - [`/api/public/apps/page`](/api-reference/endpoints/apps/page)
 - [`/api/public/apps/screen`](/api-reference/endpoints/apps/screen)
+- [`/api/public/apps/group`](/api-reference/auto/public-apps/post-apipublicappsgroup)
+- [`/api/public/apps/batch`](/api-reference/endpoints/apps/batch)
 
 ## Authentication
 

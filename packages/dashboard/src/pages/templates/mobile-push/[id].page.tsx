@@ -1,13 +1,10 @@
 import { GetServerSideProps } from "next";
 
-import { requestContext } from "../../../lib/requestContext";
-import { PropsWithInitialState } from "../../../lib/types";
-
-export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
-  requestContext(async (_ctx, _dfContext) => ({
-    notFound: true,
-  }));
+// Keep the route reserved, but do not load workspace data or expose an editor.
+export const getServerSideProps: GetServerSideProps = async () => ({
+  notFound: true,
+});
 
 export default function MessageEditor() {
-  return <>placeholder</>;
+  return null;
 }

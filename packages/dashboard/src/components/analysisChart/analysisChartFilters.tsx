@@ -14,6 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import Popover from "@mui/material/Popover";
+import { CHANNEL_NAMES } from "isomorphic-lib/src/constants";
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import {
   AnalysisChartFilters,
@@ -26,6 +27,7 @@ import React, { HTMLAttributes, useCallback, useMemo, useRef } from "react";
 import { omit } from "remeda";
 import { Updater, useImmer } from "use-immer";
 
+import { isChannelVisible } from "../../lib/channelVisibility";
 import { useResourcesQuery } from "../../lib/useResourcesQuery";
 import { greyTextFieldStyles } from "../greyScaleStyles";
 import {
@@ -411,35 +413,21 @@ export function NewAnalysisFilterButton({
                   break;
                 }
                 case "channels": {
-                  const allChannels: SelectItemCommand[] = [
-                    {
-                      label: "Email",
+                  const children: SelectItemCommand[] = [
+                    ChannelType.Email,
+                    ChannelType.MobilePush,
+                    ChannelType.Webhook,
+                  ]
+                    .filter(isChannelVisible)
+                    .filter(
+                      (channel) =>
+                        !allowedChannels || allowedChannels.includes(channel),
+                    )
+                    .map((channel) => ({
+                      label: CHANNEL_NAMES[channel],
                       type: AnalysisFilterCommandType.SelectItem,
-                      id: ChannelType.Email,
-                    },
-                    {
-                      label: "SMS",
-                      type: AnalysisFilterCommandType.SelectItem,
-                      id: ChannelType.Sms,
-                    },
-                    {
-                      label: "Mobile Push",
-                      type: AnalysisFilterCommandType.SelectItem,
-                      id: ChannelType.MobilePush,
-                    },
-                    {
-                      label: "Webhook",
-                      type: AnalysisFilterCommandType.SelectItem,
-                      id: ChannelType.Webhook,
-                    },
-                  ];
-                  // Filter channels based on allowedChannels configuration
-                  const children = allowedChannels
-                    ? allChannels.filter((channel) =>
-                        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-                        (allowedChannels as string[]).includes(channel.id),
-                      )
-                    : allChannels;
+                      id: channel,
+                    }));
                   draft.stage = {
                     type: StageType.SelectItem,
                     filterKey: value.filterKey,
@@ -459,11 +447,6 @@ export function NewAnalysisFilterButton({
                       label: "Amazon SES",
                       type: AnalysisFilterCommandType.SelectItem,
                       id: "AmazonSes",
-                    },
-                    {
-                      label: "Postmark",
-                      type: AnalysisFilterCommandType.SelectItem,
-                      id: "Postmark",
                     },
                     {
                       label: "Resend",
@@ -525,16 +508,6 @@ export function NewAnalysisFilterButton({
                       type: AnalysisFilterCommandType.SelectItem,
                       id: InternalEventType.EmailDropped,
                     },
-                    {
-                      label: "Sms Delivered",
-                      type: AnalysisFilterCommandType.SelectItem,
-                      id: InternalEventType.SmsDelivered,
-                    },
-                    {
-                      label: "Sms Failed",
-                      type: AnalysisFilterCommandType.SelectItem,
-                      id: InternalEventType.SmsFailed,
-                    },
                   ];
                   draft.stage = {
                     type: StageType.SelectItem,
@@ -544,7 +517,10 @@ export function NewAnalysisFilterButton({
                   break;
                 }
                 case "templateIds": {
-                  const templateOptions = resources?.messageTemplates ?? [];
+                  const templateOptions =
+                    resources?.messageTemplates?.filter((template) =>
+                      isChannelVisible(template.channel),
+                    ) ?? [];
                   const children: SelectItemCommand[] = templateOptions.map(
                     (template) => ({
                       label: template.name,

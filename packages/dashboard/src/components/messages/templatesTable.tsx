@@ -71,6 +71,7 @@ import { v4 as uuid } from "uuid";
 
 import { useAppStorePick } from "../../lib/appStore";
 import { useUniversalRouter } from "../../lib/authModeProvider";
+import { isChannelVisible } from "../../lib/channelVisibility";
 import { getDefaultMessageTemplateDefinition } from "../../lib/defaultTemplateDefinition";
 import {
   DeleteMessageTemplateVariables,
@@ -262,9 +263,6 @@ function NameCell({ row, getValue }: CellContext<Row, unknown>) {
       case ChannelType.Email:
         channelPath = "email";
         break;
-      case ChannelType.Sms:
-        channelPath = "sms";
-        break;
       case ChannelType.MobilePush:
         channelPath = "mobilepush";
         break;
@@ -318,9 +316,6 @@ function ChannelCell({ row }: CellContext<Row, unknown>) {
     switch (definition.type) {
       case ChannelType.Email:
         channelText = "Email";
-        break;
-      case ChannelType.Sms:
-        channelText = "SMS";
         break;
       case ChannelType.MobilePush:
         channelText = "Mobile Push";
@@ -451,10 +446,12 @@ export default function TemplatesTable({
       }
     }
 
-    return messageTemplatesQuery.data.map((template) => ({
-      ...template,
-      journeysUsedBy: journeysByTemplateId.get(template.id) ?? [],
-    }));
+    return messageTemplatesQuery.data
+      .filter((template) => isChannelVisible(template.definition?.type))
+      .map((template) => ({
+        ...template,
+        journeysUsedBy: journeysByTemplateId.get(template.id) ?? [],
+      }));
   }, [messageTemplatesQuery.data, resources?.journeys, workspace]);
 
   const [pagination, setPagination] = useState({
@@ -533,9 +530,6 @@ export default function TemplatesTable({
           case ChannelType.Email:
             channelPath = "email";
             break;
-          case ChannelType.Sms:
-            channelPath = "sms";
-            break;
           case ChannelType.MobilePush:
             channelPath = "mobilepush";
             break;
@@ -581,8 +575,6 @@ export default function TemplatesTable({
             switch (row.definition.type) {
               case ChannelType.Email:
                 return "Email";
-              case ChannelType.Sms:
-                return "SMS";
               case ChannelType.MobilePush:
                 return "Mobile Push";
               case ChannelType.Webhook:
@@ -879,17 +871,8 @@ export default function TemplatesTable({
             <ToggleButton value={ChannelType.Email} aria-label="Email">
               Email
             </ToggleButton>
-            <ToggleButton value={ChannelType.Sms} aria-label="SMS">
-              SMS
-            </ToggleButton>
             <ToggleButton value={ChannelType.Webhook} aria-label="Webhook">
               Webhook
-            </ToggleButton>
-            <ToggleButton
-              value={ChannelType.MobilePush}
-              aria-label="Mobile Push"
-            >
-              Mobile Push
             </ToggleButton>
           </ToggleButtonGroup>
           {selectedChannel === ChannelType.Email &&

@@ -40,6 +40,8 @@ export default async function router(
   opts?: BuildAppOpts,
 ) {
   await fastify.register(indexController, { prefix: "/api" });
+  // Provider signatures authenticate this legacy webhook namespace.
+  await fastify.register(webhooksController, { prefix: "/api/webhooks" });
 
   // endpoints with standard authorization
   await fastify.register(
@@ -48,7 +50,7 @@ export default async function router(
         logger().info("registering authentication");
         await opts.registerAuthentication(f);
       }
-      await fastify.register(requestContext);
+      await f.register(requestContext);
 
       await Promise.all([
         f.register(analysisController, { prefix: "/analysis" }),
@@ -59,7 +61,9 @@ export default async function router(
         f.register(segmentsController, { prefix: "/segments" }),
         f.register(settingsController, { prefix: "/settings" }),
         f.register(integrationsController, { prefix: "/integrations" }),
-        f.register(permissionsController, { prefix: "/permissions" }),
+        backendConfig().authMode === "google"
+          ? null
+          : f.register(permissionsController, { prefix: "/permissions" }),
         f.register(subscriptionGroupsController, {
           prefix: "/subscription-groups",
         }),
@@ -83,9 +87,6 @@ export default async function router(
         f.register(computedPropertiesController, {
           prefix: "/computed-properties",
         }),
-        // mount redundant webhooks controller at root level for backwards
-        // compatibility. this is the one exception to this route namespace being auth'd.
-        f.register(webhooksController, { prefix: "/webhooks" }),
       ]);
     },
     {

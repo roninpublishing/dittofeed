@@ -35,6 +35,7 @@ import {
 } from "./segments";
 import {
   BatchItem,
+  ChannelType,
   EventType,
   GetUserSubscriptionsRequest,
   InternalEventType,
@@ -130,6 +131,11 @@ export async function getSubscriptionGroupsWithAssignments({
   const subscriptionGroups = await db().query.subscriptionGroup.findMany({
     where: and(
       eq(dbSubscriptionGroup.workspaceId, workspaceId),
+      inArray(dbSubscriptionGroup.channel, [
+        ChannelType.Email,
+        ChannelType.MobilePush,
+        ChannelType.Webhook,
+      ]),
       subscriptionGroupIds
         ? inArray(dbSubscriptionGroup.id, subscriptionGroupIds)
         : undefined,

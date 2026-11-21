@@ -9,6 +9,7 @@ import {
   workflowInfo,
 } from "@temporalio/workflow";
 import * as wf from "@temporalio/workflow";
+import { isEmailProviderType } from "isomorphic-lib/src/email";
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import { omit } from "remeda";
 import { v5 as uuidV5 } from "uuid";
@@ -36,9 +37,6 @@ import {
   SegmentAssignment,
   SegmentAssignment as SegmentAssignmentDb,
   SegmentUpdate,
-  SmsMessageVariant,
-  SmsProviderOverride,
-  SmsProviderType,
   UserWorkflowTrackEvent,
   WaitForNode,
   WaitForSegmentChild,
@@ -273,6 +271,37 @@ export async function userJourneyWorkflow(
     journeyId,
     shouldContinueAsNew = true,
   } = props;
+
+  // Persisted workflow inputs bypass today's schemas. Fail before any message
+  // is sent, including email nodes preceding a removed channel in the graph.
+  for (const node of definition.nodes) {
+    if (node.type !== JourneyNodeType.MessageNode) {
+      continue;
+    }
+    const channel: string = node.variant.type;
+    switch (channel) {
+      case ChannelType.Email:
+        if (
+          node.variant.type === ChannelType.Email &&
+          node.variant.providerOverride !== undefined &&
+          !isEmailProviderType(node.variant.providerOverride)
+        ) {
+          throw wf.ApplicationFailure.nonRetryable(
+            `Journey ${journeyId} node ${node.id} uses an unsupported email provider`,
+            "InvalidJourneyDefinition",
+          );
+        }
+        break;
+      case ChannelType.MobilePush:
+      case ChannelType.Webhook:
+        break;
+      default:
+        throw wf.ApplicationFailure.nonRetryable(
+          `Journey ${journeyId} node ${node.id} uses unsupported message channel: ${channel}`,
+          "UnsupportedMessageChannel",
+        );
+    }
+  }
 
   let entryEventProperties: Record<string, JSONValue> | undefined;
   let isHidden: boolean;
@@ -889,39 +918,6 @@ export async function userJourneyWorkflow(
             };
             break;
           }
-          case ChannelType.Sms: {
-            const { providerOverride, senderOverride } = currentNode.variant;
-
-            let smsProviderOverride: SmsProviderOverride;
-            switch (providerOverride) {
-              case SmsProviderType.Twilio: {
-                smsProviderOverride = {
-                  providerOverride: SmsProviderType.Twilio,
-                  senderOverride,
-                };
-                break;
-              }
-              case SmsProviderType.Test: {
-                smsProviderOverride = {
-                  providerOverride: SmsProviderType.Test,
-                  senderOverride: undefined,
-                };
-                break;
-              }
-              default: {
-                smsProviderOverride = {};
-              }
-            }
-
-            const smsVariant: RenameKey<SmsMessageVariant, "type", "channel"> =
-              {
-                ...smsProviderOverride,
-                templateId: currentNode.variant.templateId,
-                channel: currentNode.variant.type,
-              };
-            variant = smsVariant;
-            break;
-          }
           case ChannelType.Webhook: {
             variant = {
               ...omit(currentNode.variant, ["type"]),
@@ -936,6 +932,11 @@ export async function userJourneyWorkflow(
             };
             break;
           }
+          default:
+            throw wf.ApplicationFailure.nonRetryable(
+              "Journey message channel is no longer supported",
+              "UnsupportedMessageChannel",
+            );
         }
 
         const sendMesssageParams: SendParamsV2 = {

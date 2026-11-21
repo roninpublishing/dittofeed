@@ -1,4 +1,4 @@
-import { Email, Sms } from "@mui/icons-material";
+import { Email } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -207,23 +207,6 @@ export function AnalysisSummaryPanel({
                   }}
                 >
                   Email
-                </Button>
-              )}
-              {(!allowedChannels ||
-                allowedChannels.includes(ChannelType.Sms)) && (
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<Sms />}
-                  onClick={() => onChannelSelect(ChannelType.Sms)}
-                  disableRipple
-                  sx={{
-                    ...greyButtonStyle,
-                    textTransform: "none",
-                    fontWeight: "bold",
-                  }}
-                >
-                  SMS
                 </Button>
               )}
             </Stack>

@@ -5645,16 +5645,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@segment/loosely-validate-event@npm:^2.0.0":
-  version: 2.0.0
-  resolution: "@segment/loosely-validate-event@npm:2.0.0"
-  dependencies:
-    component-type: "npm:^1.2.1"
-    join-component: "npm:^1.1.0"
-  checksum: 10/4e0b097de2c564673acceb5a0688bb8cf045bab4a1ffed1be19293a6bd2859af723e0d012349ff1d51433a6aad19f729383a302c3c0a9fc831e251cd16ade5ad
-  languageName: node
-  linkType: hard
-
 "@selderee/plugin-htmlparser2@npm:^0.11.0":
   version: 0.11.0
   resolution: "@selderee/plugin-htmlparser2@npm:0.11.0"
@@ -7183,13 +7173,6 @@ __metadata:
   dependencies:
     "@types/estree": "npm:*"
   checksum: 10/e00671d5055d06b07feccb8c2841467a4bdd1ab95a29e191d51cacc08c496e1ba1f54edeefab274bb2ba51cb45b0aaaa662a63897650e9d02e9997ad82124ae4
-  languageName: node
-  linkType: hard
-
-"@types/analytics-node@npm:^3.1.9":
-  version: 3.1.10
-  resolution: "@types/analytics-node@npm:3.1.10"
-  checksum: 10/e4e4ac78817202c5329aa406dbbf304bb31ab56f70e83dbb03ddb3a5ad1ff480ca6a0425e638b01dff716504c4756cddc1dc525fff3f53903c9b50f7bb6c8d6c
   languageName: node
   linkType: hard
 
@@ -9011,22 +8994,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"analytics-node@npm:^6.2.0":
-  version: 6.2.0
-  resolution: "analytics-node@npm:6.2.0"
-  dependencies:
-    "@segment/loosely-validate-event": "npm:^2.0.0"
-    axios: "npm:^0.27.2"
-    axios-retry: "npm:3.2.0"
-    lodash.isstring: "npm:^4.0.1"
-    md5: "npm:^2.2.1"
-    ms: "npm:^2.0.0"
-    remove-trailing-slash: "npm:^0.1.0"
-    uuid: "npm:^8.3.2"
-  checksum: 10/b56e5277192930fe4fa4d2b9e5186e4f7ff4433b89ce008d38a6ed0b24f6f937ec74d36aad16f332926a76a0dc001ecec7114917df143b75c52cf69ae23710de
-  languageName: node
-  linkType: hard
-
 "ansi-color@npm:^0.2.1":
   version: 0.2.1
   resolution: "ansi-color@npm:0.2.1"
@@ -9143,7 +9110,6 @@ __metadata:
     "@sinclair/typebox": "npm:0.32.29"
     "@temporalio/testing": "npm:1.10.3"
     "@temporalio/worker": "npm:1.10.3"
-    "@types/analytics-node": "npm:^3.1.9"
     "@types/jest": "npm:^29.2.6"
     "@types/node": "npm:18.11.18"
     "@types/uuid": "npm:^9.0.0"
@@ -9152,7 +9118,6 @@ __metadata:
     "@typescript-eslint/parser": "npm:^5.60.0"
     ajv: "npm:^8.12.0"
     ajv-formats: "npm:^3.0.1"
-    analytics-node: "npm:^6.2.0"
     backend-lib: "npm:0.0.3"
     change-case: "npm:^4.1.2"
     csv-parser: "npm:^3.0.0"
@@ -9176,7 +9141,6 @@ __metadata:
     jest-expect-message: "npm:^1.1.3"
     neverthrow: "npm:^6.0.0"
     openapi-types: "npm:^12.1.0"
-    postmark: "npm:^4.0.2"
     prettier: "npm:3.2.5"
     qs: "npm:^6.12.0"
     remeda: "npm:^1.56.0"
@@ -9185,7 +9149,6 @@ __metadata:
     ts-jest: "npm:^29.0.5"
     ts-node: "npm:10.9.1"
     ts-node-dev: "npm:^2.0.0"
-    twilio: "npm:^4.22.0"
     typescript: "npm:5.2.2"
     utility-types: "npm:^3.10.0"
     uuid: "npm:^9.0.0"
@@ -9632,7 +9595,6 @@ __metadata:
     cross-spawn: "npm:^7.0.3"
     date-fns: "npm:^2.29.3"
     date-fns-tz: "npm:^2.0.0"
-    deepmerge: "npm:^4.2.2"
     dotenv: "npm:^16.0.3"
     escape-html: "npm:^1.0.3"
     eslint: "npm:^8.43.0"
@@ -9665,7 +9627,6 @@ __metadata:
     p-limit: "npm:^3.1.0"
     pino: "npm:9.3.1"
     pino-pretty: "npm:11.2.1"
-    postmark: "npm:^4.0.2"
     prettier: "npm:3.2.5"
     prisma: "npm:5.17.0"
     remeda: "npm:^1.56.0"
@@ -9673,7 +9634,6 @@ __metadata:
     sns-payload-validator: "npm:^2.1.0"
     ts-jest: "npm:^29.0.5"
     ts-node: "npm:10.9.1"
-    twilio: "npm:^4.18.0"
     typescript: "npm:5.2.2"
     utility-types: "npm:^3.10.0"
     uuid: "npm:^9.0.0"
@@ -19343,15 +19303,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"postmark@npm:^4.0.2":
-  version: 4.0.2
-  resolution: "postmark@npm:4.0.2"
-  dependencies:
-    axios: "npm:^1.6.2"
-  checksum: 10/b7b0f6d04dc73d7dd5e68ad93cb13ecb9e0e9432e36826231010a0f6623c986c429af3bc29c3d0b55f65aee3a30a021c118bdd17eee94cebba28ce7211004ef6
-  languageName: node
-  linkType: hard
-
 "prelude-ls@npm:^1.2.1":
   version: 1.2.1
   resolution: "prelude-ls@npm:1.2.1"
@@ -22127,38 +22078,6 @@ __metadata:
   peerDependencies:
     typescript: ">=2.8.0 || >= 3.2.0-dev || >= 3.3.0-dev || >= 3.4.0-dev || >= 3.5.0-dev || >= 3.6.0-dev || >= 3.6.0-beta || >= 3.7.0-dev || >= 3.7.0-beta"
   checksum: 10/ea036bec1dd024e309939ffd49fda7a351c0e87a1b8eb049570dd119d447250e2c56e0e6c00554e8205760e7417793fdebff752a46e573fbe07d4f375502a5b2
-  languageName: node
-  linkType: hard
-
-"twilio@npm:^4.18.0":
-  version: 4.18.0
-  resolution: "twilio@npm:4.18.0"
-  dependencies:
-    axios: "npm:^0.26.1"
-    dayjs: "npm:^1.11.9"
-    https-proxy-agent: "npm:^5.0.0"
-    jsonwebtoken: "npm:^9.0.0"
-    qs: "npm:^6.9.4"
-    scmp: "npm:^2.1.0"
-    url-parse: "npm:^1.5.9"
-    xmlbuilder: "npm:^13.0.2"
-  checksum: 10/d90d9346e65eab7ed9829fea8b162a4dc86db1aede360983d883a4aa7401712748924b2c79a01ec8448b9c6a06d089ea84a47a9e558fe7d7ba5b9d9774d5b4f7
-  languageName: node
-  linkType: hard
-
-"twilio@npm:^4.22.0":
-  version: 4.22.0
-  resolution: "twilio@npm:4.22.0"
-  dependencies:
-    axios: "npm:^1.6.0"
-    dayjs: "npm:^1.11.9"
-    https-proxy-agent: "npm:^5.0.0"
-    jsonwebtoken: "npm:^9.0.0"
-    qs: "npm:^6.9.4"
-    scmp: "npm:^2.1.0"
-    url-parse: "npm:^1.5.9"
-    xmlbuilder: "npm:^13.0.2"
-  checksum: 10/b9bb3363cdd9544b9de8ff3cb4a8d6a5fcd61eca0765a77f8878d3ebff99ee8a981b44f87de8c1b567ccd08eeb2d688269063bef373e8cff52f872fffb28ecc3
   languageName: node
   linkType: hard
 

@@ -11,6 +11,7 @@ import { ChannelType } from "isomorphic-lib/src/types";
 import { useRouter } from "next/router";
 import { useMemo } from "react";
 
+import { isChannelVisible } from "../lib/channelVisibility";
 import { getResourceUrl } from "../lib/resourceUrls";
 import { buildResourceUrlWithReturn } from "../lib/returnNavigation";
 import { ResourceType } from "../lib/types";
@@ -74,9 +75,11 @@ export default function ResourceSelect({
     switch (resourceType) {
       case ResourceType.MessageTemplate: {
         const templates = data?.messageTemplates ?? [];
-        const filtered = channel
-          ? templates.filter((t) => t.channel === channel)
-          : templates;
+        const filtered = templates.filter(
+          (template) =>
+            isChannelVisible(template.channel) &&
+            (!channel || template.channel === channel),
+        );
         return filtered.map((t) => ({
           id: t.id,
           name: t.name,
@@ -92,9 +95,11 @@ export default function ResourceSelect({
       }
       case ResourceType.SubscriptionGroup: {
         const groups = data?.subscriptionGroups ?? [];
-        const filtered = channel
-          ? groups.filter((g) => g.channel === channel)
-          : groups;
+        const filtered = groups.filter(
+          (group) =>
+            isChannelVisible(group.channel) &&
+            (!channel || group.channel === channel),
+        );
         return filtered.map((g) => ({
           id: g.id,
           name: g.name,

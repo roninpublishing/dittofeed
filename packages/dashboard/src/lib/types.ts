@@ -6,9 +6,7 @@ import {
   AdminApiKeyResource,
   BroadcastResource,
   ChannelType,
-  DataSourceConfigurationResource,
   DefaultEmailProviderResource,
-  DefaultSmsProviderResource,
   DelayUiNodeProps,
   DelayUiNodeVariant,
   DFRequestContext,
@@ -40,7 +38,6 @@ import {
   MessageUiNodeProps,
   PartialSegmentResource,
   PersistedEmailProvider,
-  PersistedSmsProvider,
   RandomCohortUiNodeProps,
   RequestStatus,
   SavedJourneyResource,
@@ -165,12 +162,6 @@ export type AppState = {
   secretAvailability: SecretAvailabilityResource[];
   defaultEmailProvider: DefaultEmailProviderResource | null;
   emailProviders: PersistedEmailProvider[];
-  defaultSmsProvider: DefaultSmsProviderResource | null;
-  smsProviders: PersistedSmsProvider[];
-  dataSourceConfigurations: RequestStatus<
-    DataSourceConfigurationResource[],
-    Error
-  >;
   integrations: IntegrationResource[];
   sourceControlProvider?: SourceControlProviderEnum;
   viewDraft: boolean;
@@ -196,10 +187,6 @@ export type DeleteJourney = (segmentId: string) => void;
 export interface AppActions {
   toggleDrawer: () => void;
   upsertEmailProvider: (emailProvider: PersistedEmailProvider) => void;
-  upsertSmsProvider: (response: PersistedSmsProvider) => void;
-  upsertDataSourceConfiguration: (
-    dataSource: DataSourceConfigurationResource,
-  ) => void;
   upsertTemplate: (message: MessageTemplateResource) => void;
   upsertBroadcast: (message: BroadcastResource) => void;
   deleteMessage: (id: string) => void;
@@ -222,9 +209,6 @@ export interface AppActions {
   setGetPropertiesRequest: (request: EphemeralRequestStatus<Error>) => void;
   setDefaultEmailProvider: (
     defaultEmailProvider: DefaultEmailProviderResource,
-  ) => void;
-  setDefaultSmsProvider: (
-    defaultSmsProvider: DefaultSmsProviderResource,
   ) => void;
   setViewDraft: (viewDraft: boolean) => void;
   setCommandPaletteOpen: (open: boolean) => void;

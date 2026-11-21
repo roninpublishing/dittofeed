@@ -1,5 +1,5 @@
 // material-ui
-import { GitHub, Lock, Search as SearchIcon } from "@mui/icons-material";
+import { Lock, Search as SearchIcon } from "@mui/icons-material";
 import LoadingButton from "@mui/lab/LoadingButton";
 import {
   Box,
@@ -7,8 +7,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  IconButton,
-  Link,
   ListSubheader,
   MenuItem,
   Select,
@@ -23,7 +21,6 @@ import {
 import React, { lazy, Suspense } from "react";
 
 import { useAppStorePick } from "../../../lib/appStore";
-import ExternalLink from "../../externalLink";
 import { GitBranchIcon } from "../../gitBranchIcon";
 import ReturnLink from "../../returnNavigation/ReturnLink";
 import MobileSection from "./headerContent/mobileSection";
@@ -171,11 +168,6 @@ function BranchSelect() {
   );
 }
 
-enum GitAction {
-  CommitAndPush = "CommitAndPush",
-  OpenPR = "OpenPR",
-}
-
 const oldConfig = `definition:
   entryNode:
     segment: 'Users created within the last 30 minutes'
@@ -233,19 +225,6 @@ function GitActionsSelect() {
   const oldText = oldConfig;
   const newText = newConfig;
 
-  const handleChange = (event: SelectChangeEvent) => {
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    const value = event.target.value as string;
-    switch (value) {
-      case GitAction.CommitAndPush: {
-        setDiffOpen(true);
-        break;
-      }
-      default:
-        console.error("unanticipated select");
-    }
-  };
-
   const CommitAndPush = lazy(() => import("../../commitAndPush"));
 
   return (
@@ -270,7 +249,7 @@ function GitActionsSelect() {
             height: "100%",
           },
         }}
-        onChange={handleChange}
+        onChange={() => setDiffOpen(true)}
         renderValue={() => (
           <Stack spacing={1} direction="row" alignItems="center">
             <GitBranchIcon />
@@ -278,12 +257,7 @@ function GitActionsSelect() {
           </Stack>
         )}
       >
-        <MenuItem value={GitAction.CommitAndPush}>Commit and Push</MenuItem>
-        <MenuItem value={GitAction.OpenPR}>
-          <ExternalLink href="https://github.com/dittofeed/dittofeed/compare/main...maxgurewitz%2Fmy-feature-branch?body=&expand=1&title=remove+delay+and+message+nodes">
-            Open Pull Request
-          </ExternalLink>
-        </MenuItem>
+        <MenuItem value="commit-and-push">Commit and Push</MenuItem>
       </Select>
       <Dialog fullWidth maxWidth="md" open={isDiffOpen} onClose={handleClose}>
         <Suspense>
@@ -309,10 +283,7 @@ function HeaderContent() {
   const matchesXs = useMediaQuery<Theme>((theme) =>
     theme.breakpoints.down("md"),
   );
-  const { features, setCommandPaletteOpen } = useAppStorePick([
-    "features",
-    "setCommandPaletteOpen",
-  ]);
+  const { setCommandPaletteOpen } = useAppStorePick(["setCommandPaletteOpen"]);
 
   return (
     <>
@@ -326,9 +297,10 @@ function HeaderContent() {
           color: "text.secondary",
           bgcolor: "grey.100",
           borderRadius: 1,
-          px: 1.5,
+          px: { xs: 1, sm: 1.5 },
           py: 0.75,
           ml: 1,
+          flexShrink: 0,
           cursor: "pointer",
           "&:hover": {
             bgcolor: "grey.200",
@@ -367,23 +339,27 @@ function HeaderContent() {
           <span>K</span>
         </Box>
       </Box>
-      <ReturnLink />
-      <Box sx={{ width: "100%", ml: { xs: 0, md: 1 } }} />
-      {matchesXs && <Box sx={{ width: "100%", ml: 1 }} />}
+      <Box
+        sx={{
+          minWidth: 0,
+          maxWidth: { xs: 120, sm: 200, md: 240 },
+          "& .MuiButton-root": {
+            ml: { xs: 0.5, sm: 2 },
+            minWidth: { xs: 32, sm: 64 },
+            maxWidth: "100%",
+            px: { xs: 0.75, sm: 1.5 },
+          },
+          "& .MuiTypography-root": {
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          },
+        }}
+      >
+        <ReturnLink />
+      </Box>
+      <Box sx={{ flexGrow: 1, minWidth: 0 }} />
       <GitActionsSelect />
-      {!features.WhiteLabel ? (
-        <IconButton
-          component={Link}
-          href="https://github.com/dittofeed/dittofeed"
-          target="_blank"
-          disableRipple
-          color="secondary"
-          title="Github Repository"
-          sx={{ color: "text.primary", bgcolor: "grey.100" }}
-        >
-          <GitHub />
-        </IconButton>
-      ) : null}
 
       {!matchesXs && <Profile />}
       {matchesXs && <MobileSection />}

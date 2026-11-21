@@ -81,7 +81,6 @@
               {
                 "group": "Data Source Types",
                 "pages": [
-                  "integrations/sources/segment",
                   "integrations/sources/api",
                   "integrations/sources/polytomic"
                 ]
@@ -92,14 +91,10 @@
                 "pages": [
                   "integrations/channels/email",
                   "integrations/channels/sendgrid",
-                  "integrations/channels/postmark",
                   "integrations/channels/resend",
                   "integrations/channels/smtp",
                   "integrations/channels/amazonses",
-                  "integrations/channels/sms",
-                  "integrations/channels/twilio",
-                  "integrations/channels/webhooks",
-                  "integrations/channels/mailchimp"
+                  "integrations/channels/webhooks"
                 ]
               },
               "integrations/sdks",
@@ -115,7 +110,6 @@
               {
                 "group": "Data Destination Types",
                 "pages": [
-                  "integrations/destinations/hubspot",
                   "integrations/destinations/csv"
                 ]
               }
@@ -161,7 +155,6 @@
                   "resources/templates/mjml",
                   "resources/templates/liquid-presets",
                   "resources/templates/free-mjml-email-templates",
-                  "resources/templates/sms-editor",
                   "resources/templates/webhook-editor"
                 ]
               },
@@ -189,6 +182,7 @@
             "pages": [
               "guide/submitting-user-events",
               "guide/internal-events",
+              "guide/google-sso",
               "guide/roadmap",
               "guide/faq",
               "guide/creating-journeys",
@@ -230,7 +224,6 @@
               "api-reference/endpoints/apps/screen",
               "api-reference/auto/public-apps/post-apipublicappsgroup",
               "api-reference/endpoints/apps/batch",
-              "api-reference/endpoints/webhooks/segment",
               "api-reference/auto/content/get-apiadmincontenttemplates",
               "api-reference/auto/content/put-apiadmincontenttemplates",
               "api-reference/auto/content/delete-apiadmincontenttemplates",
@@ -261,7 +254,6 @@
               "api-reference/auto/groups/get-apiadmingroupsusers",
               "api-reference/auto/deliveries/get-apiadmindeliveries",
               "api-reference/auto/settings/put-apiadminsettingsemail-providers",
-              "api-reference/auto/settings/put-apiadminsettingssms-providers",
               "api-reference/auto/segments/post-apiadminsegmentsmanual-segmentupdate",
               "api-reference/auto/segments/post-apiadminsegmentsmanual-segmentclear",
               "api-reference/auto/segments/get-apiadminsegmentsmanual-segmentstatus",

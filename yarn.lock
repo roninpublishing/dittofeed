@@ -5658,15 +5658,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mailchimp/mailchimp_transactional@npm:^1.0.59":
-  version: 1.0.59
-  resolution: "@mailchimp/mailchimp_transactional@npm:1.0.59"
-  dependencies:
-    axios: "npm:^1.6.7"
-  checksum: 10/5dd9c0215ee46bd94f06b0a08857d9eb8658ea8cf314c9c7862eb78138ae1ca9ac50372fbe830fa42815f127fc1c5828a2c4fb9942945583fb8b8a15e9d86562
-  languageName: node
-  linkType: hard
-
 "@mdx-js/mdx@npm:^2.2.1":
   version: 2.3.0
   resolution: "@mdx-js/mdx@npm:2.3.0"
@@ -10462,16 +10453,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@segment/loosely-validate-event@npm:^2.0.0":
-  version: 2.0.0
-  resolution: "@segment/loosely-validate-event@npm:2.0.0"
-  dependencies:
-    component-type: "npm:^1.2.1"
-    join-component: "npm:^1.1.0"
-  checksum: 10/4e0b097de2c564673acceb5a0688bb8cf045bab4a1ffed1be19293a6bd2859af723e0d012349ff1d51433a6aad19f729383a302c3c0a9fc831e251cd16ade5ad
-  languageName: node
-  linkType: hard
-
 "@selderee/plugin-htmlparser2@npm:^0.11.0":
   version: 0.11.0
   resolution: "@selderee/plugin-htmlparser2@npm:0.11.0"
@@ -10557,25 +10538,6 @@ __metadata:
   version: 2.0.0
   resolution: "@sideway/pinpoint@npm:2.0.0"
   checksum: 10/1ed21800128b2b23280ba4c9db26c8ff6142b97a8683f17639fd7f2128aa09046461574800b30fb407afc5b663c2331795ccf3b654d4b38fa096e41a5c786bf8
-  languageName: node
-  linkType: hard
-
-"@signalwire/compatibility-api@npm:^3.1.4":
-  version: 3.1.4
-  resolution: "@signalwire/compatibility-api@npm:3.1.4"
-  dependencies:
-    axios: "npm:^0.26.1"
-    dayjs: "npm:^1.8.29"
-    https-proxy-agent: "npm:^5.0.0"
-    jsonwebtoken: "npm:9.0.0"
-    lodash: "npm:^4.17.21"
-    q: "npm:2.0.x"
-    qs: "npm:^6.9.4"
-    rootpath: "npm:^0.1.2"
-    scmp: "npm:^2.1.0"
-    url-parse: "npm:^1.5.9"
-    xmlbuilder: "npm:^13.0.2"
-  checksum: 10/e05c9155b1d88d6650c74ce59e3c547eb2977fb7dc9612d2ec04e8111d00113308c6658164513b111cb9caa6af0e256e3d0e57c212642b7ff364f5ad8884d1d0
   languageName: node
   linkType: hard
 
@@ -12524,13 +12486,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/analytics-node@npm:^3.1.9":
-  version: 3.1.10
-  resolution: "@types/analytics-node@npm:3.1.10"
-  checksum: 10/e4e4ac78817202c5329aa406dbbf304bb31ab56f70e83dbb03ddb3a5ad1ff480ca6a0425e638b01dff716504c4756cddc1dc525fff3f53903c9b50f7bb6c8d6c
-  languageName: node
-  linkType: hard
-
 "@types/aws-lambda@npm:8.10.119":
   version: 8.10.119
   resolution: "@types/aws-lambda@npm:8.10.119"
@@ -13213,15 +13168,6 @@ __metadata:
   version: 4.0.2
   resolution: "@types/long@npm:4.0.2"
   checksum: 10/68afa05fb20949d88345876148a76f6ccff5433310e720db51ac5ca21cb8cc6714286dbe04713840ddbd25a8b56b7a23aa87d08472fabf06463a6f2ed4967707
-  languageName: node
-  linkType: hard
-
-"@types/mailchimp__mailchimp_transactional@npm:^1.0.10":
-  version: 1.0.10
-  resolution: "@types/mailchimp__mailchimp_transactional@npm:1.0.10"
-  dependencies:
-    axios: "npm:^1.6.7"
-  checksum: 10/fff7776d04ccbfec853396d25b18730e7944c0c1531f7935249aa0dd5411e41c14879b72b16c72e6071de802ed5d2b6a580048144823ea6131f57d63bb204bd0
   languageName: node
   linkType: hard
 
@@ -14448,22 +14394,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"analytics-node@npm:^6.2.0":
-  version: 6.2.0
-  resolution: "analytics-node@npm:6.2.0"
-  dependencies:
-    "@segment/loosely-validate-event": "npm:^2.0.0"
-    axios: "npm:^0.27.2"
-    axios-retry: "npm:3.2.0"
-    lodash.isstring: "npm:^4.0.1"
-    md5: "npm:^2.2.1"
-    ms: "npm:^2.0.0"
-    remove-trailing-slash: "npm:^0.1.0"
-    uuid: "npm:^8.3.2"
-  checksum: 10/b56e5277192930fe4fa4d2b9e5186e4f7ff4433b89ce008d38a6ed0b24f6f937ec74d36aad16f332926a76a0dc001ecec7114917df143b75c52cf69ae23710de
-  languageName: node
-  linkType: hard
-
 "ansi-color@npm:^0.2.1":
   version: 0.2.1
   resolution: "ansi-color@npm:0.2.1"
@@ -14588,7 +14518,6 @@ __metadata:
     "@sinclair/typebox": "npm:0.34.37"
     "@temporalio/testing": "npm:1.14.1"
     "@temporalio/worker": "npm:1.14.1"
-    "@types/analytics-node": "npm:^3.1.9"
     "@types/jest": "npm:^29.2.6"
     "@types/node": "npm:20.14.8"
     "@types/uuid": "npm:^9.0.0"
@@ -14597,7 +14526,6 @@ __metadata:
     "@typescript-eslint/parser": "npm:^5.60.0"
     ajv: "npm:^8.12.0"
     ajv-formats: "npm:^3.0.1"
-    analytics-node: "npm:^6.2.0"
     backend-lib: "npm:0.0.3"
     change-case: "npm:^4.1.2"
     csv-parser: "npm:^3.2.0"
@@ -14618,12 +14546,12 @@ __metadata:
     fastify-plugin: "npm:^4.5.0"
     fastify-raw-body: "npm:4.2.0"
     fastify-tsconfig: "npm:^1.0.1"
+    google-auth-library: "npm:^9.15.1"
     isomorphic-lib: "npm:0.0.3"
     jest: "npm:^29.4.0"
     jest-expect-message: "npm:^1.1.3"
     neverthrow: "npm:^6.0.0"
     openapi-types: "npm:^12.1.0"
-    postmark: "npm:^4.0.2"
     prettier: "npm:3.2.5"
     qs: "npm:^6.12.0"
     remeda: "npm:^1.56.0"
@@ -14632,7 +14560,6 @@ __metadata:
     ts-jest: "npm:^29.2.5"
     ts-node: "npm:10.9.1"
     ts-node-dev: "npm:^2.0.0"
-    twilio: "npm:^4.22.0"
     typescript: "npm:5.6.3"
     utility-types: "npm:^3.10.0"
     uuid: "npm:^9.0.0"
@@ -14799,13 +14726,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"asap@npm:^2.0.0":
-  version: 2.0.6
-  resolution: "asap@npm:2.0.6"
-  checksum: 10/b244c0458c571945e4b3be0b14eb001bea5596f9868cc50cc711dc03d58a7e953517d3f0dad81ccde3ff37d1f074701fa76a6f07d41aaa992d7204a37b915dda
-  languageName: node
-  linkType: hard
-
 "asn1.js@npm:^5.4.1":
   version: 5.4.1
   resolution: "asn1.js@npm:5.4.1"
@@ -14923,15 +14843,6 @@ __metadata:
   version: 4.6.3
   resolution: "axe-core@npm:4.6.3"
   checksum: 10/280f6a7067129875380f733ae84093ce29c4b8cfe36e1a8ff46bd5d2bcd57d093f11b00223ddf5fef98ca147e0e6568ddd0ada9415cf8ae15d379224bf3cbb51
-  languageName: node
-  linkType: hard
-
-"axios-retry@npm:3.2.0":
-  version: 3.2.0
-  resolution: "axios-retry@npm:3.2.0"
-  dependencies:
-    is-retry-allowed: "npm:^1.1.0"
-  checksum: 10/5c9538095ce01b187cf40df67c4eee11ee31934ed1b7b1e4c8eb57dee7f955820ef49a043411a4036daded832e5b11f28e4e8fddc27b010ca411df036d5968aa
   languageName: node
   linkType: hard
 
@@ -15162,11 +15073,11 @@ __metadata:
     "@aws-sdk/client-sesv2": "npm:^3.535.0"
     "@clickhouse/client": "npm:1.11.1"
     "@fast-csv/format": "npm:^4.3.5"
+    "@fastify/secure-session": "npm:7.1.0"
     "@fastify/type-provider-typebox": "npm:4.1.0"
     "@googleapis/gmail": "npm:^12.0.1"
     "@googleapis/oauth2": "npm:^1.0.7"
     "@hyperdx/node-opentelemetry": "npm:^0.8.0"
-    "@mailchimp/mailchimp_transactional": "npm:^1.0.59"
     "@opentelemetry/api": "npm:1.9.0"
     "@opentelemetry/auto-instrumentations-node": "npm:0.39.2"
     "@opentelemetry/exporter-metrics-otlp-grpc": "npm:0.41.2"
@@ -15177,7 +15088,6 @@ __metadata:
     "@opentelemetry/semantic-conventions": "npm:1.12.0"
     "@sendgrid/helpers": "npm:^7.7.0"
     "@sendgrid/mail": "npm:^7.7.0"
-    "@signalwire/compatibility-api": "npm:^3.1.4"
     "@sinclair/typebox": "npm:0.34.37"
     "@temporalio/activity": "npm:1.14.1"
     "@temporalio/client": "npm:1.14.1"
@@ -15190,7 +15100,6 @@ __metadata:
     "@types/jest": "npm:^29.2.6"
     "@types/jsdom": "npm:^27.0.0"
     "@types/jsonpath": "npm:^0.2.0"
-    "@types/mailchimp__mailchimp_transactional": "npm:^1.0.10"
     "@types/markdown-it": "npm:^12.2.3"
     "@types/minimist": "npm:^1.2.2"
     "@types/mjml": "npm:^4.7.1"
@@ -15207,7 +15116,6 @@ __metadata:
     csv-parser: "npm:^3.2.0"
     date-fns: "npm:^2.29.3"
     date-fns-tz: "npm:^2.0.0"
-    deepmerge: "npm:^4.2.2"
     dotenv: "npm:^16.0.3"
     drizzle-kit: "npm:^0.30.1"
     drizzle-orm: "npm:^0.38.3"
@@ -15252,14 +15160,12 @@ __metadata:
     pg-types: "npm:^2.2.0"
     pino: "npm:9.3.1"
     pino-pretty: "npm:11.2.1"
-    postmark: "npm:^4.0.2"
     prettier: "npm:3.2.5"
     remeda: "npm:^1.56.0"
     resend: "npm:^4.1.0"
     sns-payload-validator: "npm:^2.1.0"
     ts-jest: "npm:^29.2.5"
     ts-node: "npm:10.9.1"
-    twilio: "npm:^4.18.0"
     typescript: "npm:5.6.3"
     utility-types: "npm:^3.10.0"
     uuid: "npm:^9.0.0"
@@ -15879,13 +15785,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"charenc@npm:0.0.2":
-  version: 0.0.2
-  resolution: "charenc@npm:0.0.2"
-  checksum: 10/81dcadbe57e861d527faf6dd3855dc857395a1c4d6781f4847288ab23cffb7b3ee80d57c15bba7252ffe3e5e8019db767757ee7975663ad2ca0939bb8fcaf2e5
-  languageName: node
-  linkType: hard
-
 "cheerio-select@npm:^2.1.0":
   version: 2.1.0
   resolution: "cheerio-select@npm:2.1.0"
@@ -16324,13 +16223,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"component-type@npm:^1.2.1":
-  version: 1.2.1
-  resolution: "component-type@npm:1.2.1"
-  checksum: 10/48e36d09852d8196a72a1353d4407bc35484ff052fc043ecf2e27786d4e8d5b93021c408cfe63237b585fd66bb0d1dbeabed96051356416a3b2a521aabf16d12
-  languageName: node
-  linkType: hard
-
 "compressible@npm:^2.0.12":
   version: 2.0.18
   resolution: "compressible@npm:2.0.18"
@@ -16560,13 +16452,6 @@ __metadata:
     shebang-command: "npm:^2.0.0"
     which: "npm:^2.0.1"
   checksum: 10/0d52657d7ae36eb130999dffff1168ec348687b48dd38e2ff59992ed916c88d328cf1d07ff4a4a10bc78de5e1c23f04b306d569e42f7a2293915c081e4dfee86
-  languageName: node
-  linkType: hard
-
-"crypt@npm:0.0.2":
-  version: 0.0.2
-  resolution: "crypt@npm:0.0.2"
-  checksum: 10/2c72768de3d28278c7c9ffd81a298b26f87ecdfe94415084f339e6632f089b43fe039f2c93f612bcb5ffe447238373d93b2e8c90894cba6cfb0ac7a74616f8b9
   languageName: node
   linkType: hard
 
@@ -17009,20 +16894,6 @@ __metadata:
   version: 4.6.3
   resolution: "dateformat@npm:4.6.3"
   checksum: 10/5c149c91bf9ce2142c89f84eee4c585f0cb1f6faf2536b1af89873f862666a28529d1ccafc44750aa01384da2197c4f76f4e149a3cc0c1cb2c46f5cc45f2bcb5
-  languageName: node
-  linkType: hard
-
-"dayjs@npm:^1.11.9":
-  version: 1.11.10
-  resolution: "dayjs@npm:1.11.10"
-  checksum: 10/27e8f5bc01c0a76f36c656e62ab7f08c2e7b040b09e613cd4844abf03fb258e0350f0a83b02c887b84d771c1f11e092deda0beef8c6df2a1afbc3f6c1fade279
-  languageName: node
-  linkType: hard
-
-"dayjs@npm:^1.8.29":
-  version: 1.11.13
-  resolution: "dayjs@npm:1.11.13"
-  checksum: 10/7374d63ab179b8d909a95e74790def25c8986e329ae989840bacb8b1888be116d20e1c4eee75a69ea0dfbae13172efc50ef85619d304ee7ca3c01d5878b704f5
   languageName: node
   linkType: hard
 
@@ -21506,13 +21377,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"is-buffer@npm:~1.1.6":
-  version: 1.1.6
-  resolution: "is-buffer@npm:1.1.6"
-  checksum: 10/f63da109e74bbe8947036ed529d43e4ae0c5fcd0909921dce4917ad3ea212c6a87c29f525ba1d17c0858c18331cf1046d4fc69ef59ed26896b25c8288a627133
-  languageName: node
-  linkType: hard
-
 "is-callable@npm:^1.1.3, is-callable@npm:^1.1.4, is-callable@npm:^1.2.7":
   version: 1.2.7
   resolution: "is-callable@npm:1.2.7"
@@ -21745,13 +21609,6 @@ __metadata:
     call-bind: "npm:^1.0.2"
     has-tostringtag: "npm:^1.0.0"
   checksum: 10/36d9174d16d520b489a5e9001d7d8d8624103b387be300c50f860d9414556d0485d74a612fdafc6ebbd5c89213d947dcc6b6bff6b2312093f71ea03cbb19e564
-  languageName: node
-  linkType: hard
-
-"is-retry-allowed@npm:^1.1.0":
-  version: 1.2.0
-  resolution: "is-retry-allowed@npm:1.2.0"
-  checksum: 10/50d700a89ae31926b1c91b3eb0104dbceeac8790d8b80d02f5c76d9a75c2056f1bb24b5268a8a018dead606bddf116b2262e5ac07401eb8b8783b266ed22558d
   languageName: node
   linkType: hard
 
@@ -22637,13 +22494,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"join-component@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "join-component@npm:1.1.0"
-  checksum: 10/b904c2f98549e4195022caca3a7dc837f9706c670ff333f3d617f2aed23bce2841322a999734683b6ab8e202568ad810c11ff79b58a64df66888153f04750239
-  languageName: node
-  linkType: hard
-
 "jose@npm:^4.10.4":
   version: 4.14.4
   resolution: "jose@npm:4.14.4"
@@ -22949,7 +22799,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jsonwebtoken@npm:9.0.0, jsonwebtoken@npm:^9.0.0":
+"jsonwebtoken@npm:^9.0.0":
   version: 9.0.0
   resolution: "jsonwebtoken@npm:9.0.0"
   dependencies:
@@ -23844,17 +23694,6 @@ __metadata:
   version: 1.1.0
   resolution: "math-intrinsics@npm:1.1.0"
   checksum: 10/11df2eda46d092a6035479632e1ec865b8134bdfc4bd9e571a656f4191525404f13a283a515938c3a8de934dbfd9c09674d9da9fa831e6eb7e22b50b197d2edd
-  languageName: node
-  linkType: hard
-
-"md5@npm:^2.2.1":
-  version: 2.3.0
-  resolution: "md5@npm:2.3.0"
-  dependencies:
-    charenc: "npm:0.0.2"
-    crypt: "npm:0.0.2"
-    is-buffer: "npm:~1.1.6"
-  checksum: 10/88dce9fb8df1a084c2385726dcc18c7f54e0b64c261b5def7cdfe4928c4ee1cd68695c34108b4fab7ecceb05838c938aa411c6143df9fdc0026c4ddb4e4e72fa
   languageName: node
   linkType: hard
 
@@ -26685,13 +26524,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pop-iterate@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "pop-iterate@npm:1.0.1"
-  checksum: 10/2592dc52592ab1d2999bd4944c70ce5f6e5e2e01bcd4259cf51d792c5c1d1fb0dfc54f29f6b795083a6ec60490676e8044c6e1a7e8992f67bd9242b2d3581841
-  languageName: node
-  linkType: hard
-
 "postcss-import@npm:^15.1.0":
   version: 15.1.0
   resolution: "postcss-import@npm:15.1.0"
@@ -26848,15 +26680,6 @@ __metadata:
   version: 1.1.4
   resolution: "postgres-range@npm:1.1.4"
   checksum: 10/035759f17b44bf9ba7e71a30402ed2ca1e2b7fabb3ad794b08169a5b453d38d06905a6dfb51fe41a3f6d9fac4e183dac9e769b95053053db933be16785edce1f
-  languageName: node
-  linkType: hard
-
-"postmark@npm:^4.0.2":
-  version: 4.0.2
-  resolution: "postmark@npm:4.0.2"
-  dependencies:
-    axios: "npm:^1.6.2"
-  checksum: 10/b7b0f6d04dc73d7dd5e68ad93cb13ecb9e0e9432e36826231010a0f6623c986c429af3bc29c3d0b55f65aee3a30a021c118bdd17eee94cebba28ce7211004ef6
   languageName: node
   linkType: hard
 
@@ -27501,17 +27324,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"q@npm:2.0.x":
-  version: 2.0.3
-  resolution: "q@npm:2.0.3"
-  dependencies:
-    asap: "npm:^2.0.0"
-    pop-iterate: "npm:^1.0.1"
-    weak-map: "npm:^1.0.5"
-  checksum: 10/bb13cad24aa30949f5e6d2d775e5a20782315e9f1a970dc870ed3777b5df5a9d8be1cf90cfd5109ffd08a6416e0641357ac75a81b4426c81b169f1420a8a2eab
-  languageName: node
-  linkType: hard
-
 "qs@npm:6.11.0":
   version: 6.11.0
   resolution: "qs@npm:6.11.0"
@@ -27536,15 +27348,6 @@ __metadata:
   dependencies:
     side-channel: "npm:^1.1.0"
   checksum: 10/a60e49bbd51c935a8a4759e7505677b122e23bf392d6535b8fc31c1e447acba2c901235ecb192764013cd2781723dc1f61978b5fdd93cc31d7043d31cdc01974
-  languageName: node
-  linkType: hard
-
-"qs@npm:^6.9.4":
-  version: 6.11.2
-  resolution: "qs@npm:6.11.2"
-  dependencies:
-    side-channel: "npm:^1.0.4"
-  checksum: 10/f2321d0796664d0f94e92447ccd3bdfd6b6f3a50b6b762aa79d7f5b1ea3a7a9f94063ba896b82bc2a877ed6a7426d4081e4f16568fdb04f0ee188cca9d8505b4
   languageName: node
   linkType: hard
 
@@ -28292,13 +28095,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"remove-trailing-slash@npm:^0.1.0":
-  version: 0.1.1
-  resolution: "remove-trailing-slash@npm:0.1.1"
-  checksum: 10/dd200c6b7d6f2b49d12b3eff3abc7089917e8a268cefcd5bf67ff23f8c2ad9f866fbe2f3566e1a8dbdc4f4b1171e2941f7dd00852f8de549bb73c3df53b09d96
-  languageName: node
-  linkType: hard
-
 "require-directory@npm:^2.1.1":
   version: 2.1.1
   resolution: "require-directory@npm:2.1.1"
@@ -28728,13 +28524,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rootpath@npm:^0.1.2":
-  version: 0.1.2
-  resolution: "rootpath@npm:0.1.2"
-  checksum: 10/10d9c6773afd6e92c24a481312321c553e96d099ec4905209c0401f8d3425fb051a009999df1db06b32d3629899145eebb45d0bf81ff937b0b5f7096d8b81853
-  languageName: node
-  linkType: hard
-
 "rope-sequence@npm:^1.3.0":
   version: 1.3.4
   resolution: "rope-sequence@npm:1.3.4"
@@ -28877,13 +28666,6 @@ __metadata:
     ajv: "npm:^6.12.5"
     ajv-keywords: "npm:^3.5.2"
   checksum: 10/2c7bbb1da967fdfd320e6cea538949006ec6e8c13ea560a4f94ff2c56809a8486fa5ec419e023452501a6befe1ca381e409c2798c24f4993c7c4094d97fdb258
-  languageName: node
-  linkType: hard
-
-"scmp@npm:^2.1.0":
-  version: 2.1.0
-  resolution: "scmp@npm:2.1.0"
-  checksum: 10/1a21c91d98891e61b411bf3c494482c8b47a8adece11356569c28328d983b98089eec19ff77005b74ec536ddac6ea2b7679a72b80e6a04774fc18a4a1f37f939
   languageName: node
   linkType: hard
 
@@ -30694,38 +30476,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"twilio@npm:^4.18.0":
-  version: 4.18.0
-  resolution: "twilio@npm:4.18.0"
-  dependencies:
-    axios: "npm:^0.26.1"
-    dayjs: "npm:^1.11.9"
-    https-proxy-agent: "npm:^5.0.0"
-    jsonwebtoken: "npm:^9.0.0"
-    qs: "npm:^6.9.4"
-    scmp: "npm:^2.1.0"
-    url-parse: "npm:^1.5.9"
-    xmlbuilder: "npm:^13.0.2"
-  checksum: 10/d90d9346e65eab7ed9829fea8b162a4dc86db1aede360983d883a4aa7401712748924b2c79a01ec8448b9c6a06d089ea84a47a9e558fe7d7ba5b9d9774d5b4f7
-  languageName: node
-  linkType: hard
-
-"twilio@npm:^4.22.0":
-  version: 4.22.0
-  resolution: "twilio@npm:4.22.0"
-  dependencies:
-    axios: "npm:^1.6.0"
-    dayjs: "npm:^1.11.9"
-    https-proxy-agent: "npm:^5.0.0"
-    jsonwebtoken: "npm:^9.0.0"
-    qs: "npm:^6.9.4"
-    scmp: "npm:^2.1.0"
-    url-parse: "npm:^1.5.9"
-    xmlbuilder: "npm:^13.0.2"
-  checksum: 10/b9bb3363cdd9544b9de8ff3cb4a8d6a5fcd61eca0765a77f8878d3ebff99ee8a981b44f87de8c1b567ccd08eeb2d688269063bef373e8cff52f872fffb28ecc3
-  languageName: node
-  linkType: hard
-
 "type-check@npm:^0.4.0, type-check@npm:~0.4.0":
   version: 0.4.0
   resolution: "type-check@npm:0.4.0"
@@ -31303,7 +31053,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"url-parse@npm:^1.4.3, url-parse@npm:^1.5.9":
+"url-parse@npm:^1.4.3":
   version: 1.5.10
   resolution: "url-parse@npm:1.5.10"
   dependencies:
@@ -31775,13 +31525,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"weak-map@npm:^1.0.5":
-  version: 1.0.8
-  resolution: "weak-map@npm:1.0.8"
-  checksum: 10/562041d8b8691b88bed0455e964712efdfc1a8b1db6c06da0adb2d1461e0568e11192bbceb7bd7bc7e1936ea4303d8e71cada9047c611ba3a350f11b49fdb662
-  languageName: node
-  linkType: hard
-
 "web-namespaces@npm:^2.0.0":
   version: 2.0.1
   resolution: "web-namespaces@npm:2.0.1"
@@ -32134,13 +31877,6 @@ __metadata:
   version: 5.0.0
   resolution: "xml-name-validator@npm:5.0.0"
   checksum: 10/43f30f3f6786e406dd665acf08cd742d5f8a46486bd72517edb04b27d1bcd1599664c2a4a99fc3f1e56a3194bff588b12f178b7972bc45c8047bdc4c3ac8d4a1
-  languageName: node
-  linkType: hard
-
-"xmlbuilder@npm:^13.0.2":
-  version: 13.0.2
-  resolution: "xmlbuilder@npm:13.0.2"
-  checksum: 10/84671f47fbc28e56dc2fca9b29a2a62e3c2e28f5fcaa986b11c9a7df7385fc921e923cd1c3da83ae0d58b255bc2369feffdcd20600b4125391c79be02eedca15
   languageName: node
   linkType: hard
 

@@ -45,7 +45,6 @@ import {
 import EmailPreviewHeader from "./emailPreviewHeader";
 import EmailPreviewBody from "./messages/emailPreview";
 import { WebhookPreviewBody } from "./messages/webhookPreview";
-import SmsPreviewBody from "./smsPreviewBody";
 import TemplatePreview from "./templatePreview";
 
 interface TableItem {
@@ -113,10 +112,6 @@ export function humanizeStatus(status: string) {
       return "Clicked";
     case InternalEventType.EmailDropped:
       return "Dropped";
-    case InternalEventType.SmsDelivered:
-      return "Delivered";
-    case InternalEventType.SmsFailed:
-      return "Failed";
     default:
       return status;
   }
@@ -508,17 +503,11 @@ export function DeliveriesTable({
     return <WebhookPreviewBody body={body} />;
   };
 
-  const renderSmsPreviewBody = (body: string) => {
-    return <SmsPreviewBody body={body} />;
-  };
-
   const renderPreviewBody = (po: PreviewObjectInterface) => {
     if (!po.body) return null;
     switch (po.channelType) {
       case ChannelType.Email:
         return renderEmailPreviewBody(po.body);
-      case ChannelType.Sms:
-        return renderSmsPreviewBody(po.body);
       case ChannelType.Webhook:
         return renderWebhookPreviewBody(po.body);
       default:

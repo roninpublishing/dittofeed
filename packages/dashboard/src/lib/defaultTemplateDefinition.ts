@@ -1,5 +1,4 @@
 import { defaultEmailDefinition } from "isomorphic-lib/src/email";
-import { defaultSmsDefinition } from "isomorphic-lib/src/sms";
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import {
   ChannelType,
@@ -22,8 +21,6 @@ export function getDefaultMessageTemplateDefinition(
         emailContentsType: emailContentsType ?? DEFAULT_EMAIL_CONTENTS_TYPE,
         lowCodeEmailDefaultType,
       });
-    case ChannelType.Sms:
-      return defaultSmsDefinition();
     case ChannelType.Webhook:
       return DEFAULT_WEBHOOK_DEFINITION;
     case ChannelType.MobilePush:

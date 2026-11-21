@@ -1,6 +1,13 @@
 import { DittofeedSdk } from "@dittofeed/sdk-node";
+import {
+  requiredGoogleApiRole,
+  requiredGoogleDashboardRole,
+  requireGoogleOrigin,
+} from "backend-lib/src/accountAuthorization";
+import { AccountError, requireWorkspaceRole } from "backend-lib/src/accounts";
 import backendConfigFromLib from "backend-lib/src/config";
 import { getFeatures } from "backend-lib/src/features";
+import { resolveGoogleRequestPrincipal } from "backend-lib/src/googleSessions";
 import backendLogger from "backend-lib/src/logger";
 import { getRequestContext as getRequestContextFromLib } from "backend-lib/src/requestContext";
 import {
@@ -28,8 +35,18 @@ export const requestContext: <T>(
   (gssp) => async (context) => {
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     const { profile } = context.req as { profile?: OpenIdProfile };
-    const rc = await getRequestContext(context.req.headers, profile);
-    const { onboardingUrl } = backendConfig();
+    const googleAccountPrincipal = await resolveGoogleRequestPrincipal(
+      context.req,
+    );
+    const rc = await getRequestContext(
+      context.req.headers,
+      profile,
+      googleAccountPrincipal,
+    );
+    const onboardingUrl =
+      backendConfig().authMode === "google"
+        ? "/dashboard/auth/no-access"
+        : backendConfig().onboardingUrl;
     if (rc.isErr()) {
       const { error } = rc;
       switch (error.type) {
@@ -81,6 +98,11 @@ export const requestContext: <T>(
         case BackendRequestContextErrorType.ApplicationError:
           throw new Error(error.message);
         case BackendRequestContextErrorType.NotAuthenticated:
+          if (backendConfig().authMode === "google") {
+            return {
+              redirect: { destination: "/auth/google", permanent: false },
+            };
+          }
           if (backendConfig().authMode === "single-tenant") {
             return {
               redirect: {
@@ -121,6 +143,25 @@ export const requestContext: <T>(
     }
 
     const dfContext = rc.value;
+    if (backendConfig().authMode === "google") {
+      if (!googleAccountPrincipal) {
+        return {
+          redirect: { destination: "/auth/google", permanent: false },
+        };
+      }
+      try {
+        await requireWorkspaceRole(
+          googleAccountPrincipal,
+          dfContext.workspace.id,
+          requiredGoogleDashboardRole(context.resolvedUrl),
+        );
+      } catch (error) {
+        if (!(error instanceof AccountError)) throw error;
+        return {
+          redirect: { destination: UNAUTHORIZED_PAGE, permanent: false },
+        };
+      }
+    }
     const features = await getFeatures({
       workspaceId: dfContext.workspace.id,
     });
@@ -148,9 +189,30 @@ export interface ApiRequestContextError {
 export async function apiAuth(
   req: NextApiRequest,
 ): Promise<Result<DFRequestContext, ApiRequestContextError>> {
-  const rc = await getRequestContext(req.headers, undefined);
+  const googleAccountPrincipal = await resolveGoogleRequestPrincipal(req);
+  const rc = await getRequestContext(
+    req.headers,
+    undefined,
+    googleAccountPrincipal,
+  );
 
   if (rc.isOk()) {
+    if (backendConfig().authMode === "google") {
+      if (!googleAccountPrincipal) {
+        return err({ message: "Authentication required.", status: 401 });
+      }
+      try {
+        requireGoogleOrigin(req.headers.origin, req.method ?? "GET");
+        await requireWorkspaceRole(
+          googleAccountPrincipal,
+          rc.value.workspace.id,
+          requiredGoogleApiRole(req.method ?? "GET", req.url ?? ""),
+        );
+      } catch (error) {
+        if (!(error instanceof AccountError)) throw error;
+        return err({ message: error.code, status: error.statusCode });
+      }
+    }
     return ok(rc.value);
   }
 

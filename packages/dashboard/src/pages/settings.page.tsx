@@ -6,8 +6,6 @@ import {
   InfoOutlined,
   Key,
   Mail,
-  SimCardDownload,
-  SmsOutlined,
   Webhook,
 } from "@mui/icons-material";
 import { LoadingButton } from "@mui/lab";
@@ -31,39 +29,27 @@ import CodeMirror from "@uiw/react-codemirror";
 import axios from "axios";
 import { getAdminApiKeys } from "backend-lib/src/adminApiKeys";
 import { getOrCreateWriteKey, getWriteKeys } from "backend-lib/src/auth";
-import { HUBSPOT_INTEGRATION } from "backend-lib/src/constants";
 import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
-import { findAllEnrichedIntegrations } from "backend-lib/src/integrations";
-import { getOrCreateSmsProviders } from "backend-lib/src/messaging/sms";
 import { getSecretAvailability } from "backend-lib/src/secrets";
-import { toSegmentResource } from "backend-lib/src/segments";
 import { subscriptionGroupToResource } from "backend-lib/src/subscriptionGroups";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { writeKeyToHeader } from "isomorphic-lib/src/auth";
 import {
   EMAIL_PROVIDER_TYPE_TO_SECRET_NAME,
   SecretNames,
-  SMS_PROVIDER_TYPE_TO_SECRET_NAME,
 } from "isomorphic-lib/src/constants";
-import { emailProviderLabel } from "isomorphic-lib/src/email";
-import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
-import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
+import {
+  emailProviderLabel,
+  isEmailProviderType,
+} from "isomorphic-lib/src/email";
 import {
   CompletionStatus,
-  DataSourceVariantType,
   DefaultEmailProviderResource,
-  DefaultSmsProviderResource,
   EmailProviderType,
   EmptyResponse,
   EphemeralRequestStatus,
-  IntegrationResource,
-  IntegrationType,
-  PartialSegmentResource,
-  SmsProviderType,
   SmtpSecretKey,
-  SyncIntegration,
-  UpsertIntegrationResource,
 } from "isomorphic-lib/src/types";
 import {
   GetServerSideProps,
@@ -72,22 +58,15 @@ import {
 } from "next";
 import { enqueueSnackbar } from "notistack";
 import { useEffect, useMemo, useState } from "react";
-import { pick } from "remeda";
 import { useImmer } from "use-immer";
-import { create } from "zustand";
-import { immer } from "zustand/middleware/immer";
 
 import AdminApiKeyTable from "../components/adminApiKeyTable";
 import DashboardHead from "../components/dashboardHead";
-import ExternalLink from "../components/externalLink";
 import Fields from "../components/form/Fields";
 import {
-  FieldComponents,
   SecretField,
   TextField as TextFieldComponent,
 } from "../components/form/types";
-import { HubspotIcon } from "../components/icons/hubspotIcon";
-import InfoBox from "../components/infoBox";
 import Layout from "../components/layout";
 import { MenuItemGroup } from "../components/menuItems/types";
 import { PermissionsTable } from "../components/permissionsTable";
@@ -215,10 +194,6 @@ export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
       defaultEmailProviderRecord,
       subscriptionGroups,
       writeKey,
-      integrations,
-      segments,
-      smsProviders,
-      defaultSmsProviderRecord,
       secretAvailability,
       adminApiKeys,
     ] = await Promise.all([
@@ -230,27 +205,11 @@ export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
         where: eq(schema.subscriptionGroup.workspaceId, workspaceId),
       }),
       getWriteKeys({ workspaceId }).then((keys) => keys[0]),
-      findAllEnrichedIntegrations(workspaceId),
-      db()
-        .query.segment.findMany({
-          where: and(
-            eq(schema.segment.workspaceId, workspaceId),
-            eq(schema.segment.resourceType, "Declarative"),
-          ),
-        })
-        .then((dbSegments) =>
-          dbSegments.map((segment) => unwrap(toSegmentResource(segment))),
-        ),
-      getOrCreateSmsProviders({ workspaceId }),
-      db().query.defaultSmsProvider.findFirst({
-        where: eq(schema.defaultSmsProvider.workspaceId, workspaceId),
-      }),
       getSecretAvailability({
         workspaceId,
         names: [
           SecretNames.Webhook,
           ...Object.values(EMAIL_PROVIDER_TYPE_TO_SECRET_NAME),
-          ...Object.values(SMS_PROVIDER_TYPE_TO_SECRET_NAME),
         ],
       }),
       getAdminApiKeys({ workspaceId }),
@@ -260,13 +219,6 @@ export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
       emailProviders,
       secretAvailability,
       defaultEmailProvider: defaultEmailProviderRecord,
-      integrations: unwrap(integrations).map((i) =>
-        pick(i, ["id", "name", "workspaceId", "definition", "enabled"]),
-      ),
-      segments: {
-        type: CompletionStatus.Successful,
-        value: segments,
-      },
     };
 
     if (writeKey) {
@@ -285,8 +237,6 @@ export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
     );
 
     serverInitialState.subscriptionGroups = subscriptionGroupResources;
-    serverInitialState.defaultSmsProvider = defaultSmsProviderRecord;
-    serverInitialState.smsProviders = smsProviders;
     serverInitialState.adminApiKeys = adminApiKeys;
 
     return {
@@ -299,36 +249,18 @@ export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
   });
 
 const settingsSectionIds = {
-  segmentSource: "segment-source",
   emailChannel: "email-channel",
-  smsChannel: "sms-channel",
   webhookChannel: "webhook-channel",
   subscription: "subscriptions",
   authentication: "authentication",
   writeKey: "write-key",
   adminApiKey: "admin-api-key",
-  hubspotIntegration: "hubspot-integration",
   workspaceMetadata: "workspace-metadata",
   permissions: "permissions",
 } as const;
 
 function getMenuItems(authMode: string | undefined): MenuItemGroup[] {
   const baseMenuItems: MenuItemGroup[] = [
-    {
-      id: "data-sources",
-      title: "Data Sources",
-      type: "group",
-      children: [
-        {
-          id: "data-sources-segment-io",
-          title: "Segment",
-          type: "item",
-          url: `/settings#${settingsSectionIds.segmentSource}`,
-          icon: SimCardDownload,
-          description: "",
-        },
-      ],
-    },
     {
       id: "message-channels",
       title: "Messaging Channels",
@@ -340,15 +272,6 @@ function getMenuItems(authMode: string | undefined): MenuItemGroup[] {
           type: "item",
           url: `/settings#${settingsSectionIds.emailChannel}`,
           icon: Mail,
-          description:
-            "Configure email settings, including the email provider credentials.",
-        },
-        {
-          id: "sms",
-          title: "SMS",
-          type: "item",
-          url: `/settings#${settingsSectionIds.smsChannel}`,
-          icon: SmsOutlined,
           description:
             "Configure email settings, including the email provider credentials.",
         },
@@ -391,22 +314,6 @@ function getMenuItems(authMode: string | undefined): MenuItemGroup[] {
           icon: Key,
         },
       ],
-    },
-    {
-      id: "integrations",
-      title: "Integrations",
-      type: "group",
-      children: [
-        {
-          id: "hubspot",
-          title: "Hubspot",
-          type: "item",
-          url: `/settings#${settingsSectionIds.hubspotIntegration}`,
-          icon: HubspotIcon,
-          description: "Configure Hubspot integration.",
-        },
-      ],
-      url: `/settings#${settingsSectionIds.hubspotIntegration}`,
     },
     {
       id: settingsSectionIds.workspaceMetadata,
@@ -466,253 +373,6 @@ function SettingsLayout(
         {...props}
       />
     </>
-  );
-}
-
-interface SettingsState {
-  upsertSmsProviderRequest: EphemeralRequestStatus<Error>;
-  upsertIntegrationsRequest: EphemeralRequestStatus<Error>;
-}
-
-interface SettingsActions {
-  updateUpsertIntegrationsRequest: (
-    request: EphemeralRequestStatus<Error>,
-  ) => void;
-  updateSmsProviderRequest: (request: EphemeralRequestStatus<Error>) => void;
-}
-
-type SettingsContent = SettingsState & SettingsActions;
-
-export const useSettingsStore = create(
-  immer<SettingsActions & SettingsState>((set) => ({
-    upsertIntegrationsRequest: {
-      type: CompletionStatus.NotStarted,
-    },
-    upsertSmsProviderRequest: {
-      type: CompletionStatus.NotStarted,
-    },
-    updateUpsertIntegrationsRequest: (request) => {
-      set((state) => {
-        state.upsertIntegrationsRequest = request;
-      });
-    },
-    updateSmsProviderRequest: (request) => {
-      set((state) => {
-        state.upsertSmsProviderRequest = request;
-      });
-    },
-  })),
-);
-
-function useSettingsStorePick(params: (keyof SettingsContent)[]) {
-  return useSettingsStore((store) => pick(store, params));
-}
-
-function SegmentIoConfig() {
-  const [isEnabled, setIsEnabled] = useState(false);
-  const [sharedSecret, setSharedSecret] = useState("");
-  const [secretExists, setSecretExists] = useState(false);
-  const { apiBase, workspace } = useAppStorePick(["apiBase", "workspace"]);
-  const queryClient = useQueryClient();
-
-  const workspaceId =
-    workspace.type === CompletionStatus.Successful ? workspace.value.id : null;
-
-  // Fetch existing segment configuration
-  const segmentConfigQuery = useQuery({
-    queryKey: ["segmentConfig", workspaceId],
-    queryFn: async () => {
-      if (!workspaceId) return null;
-
-      const response = await axios.get(
-        `${apiBase}/api/settings/data-sources?workspaceId=${workspaceId}`,
-      );
-
-      return response.data;
-    },
-    enabled: !!workspaceId,
-  });
-
-  // Update isEnabled when the query data changes
-  useEffect(() => {
-    if (segmentConfigQuery.data) {
-      const segmentEnabled =
-        segmentConfigQuery.data.dataSourceConfigurations?.includes(
-          DataSourceVariantType.SegmentIO,
-        );
-      setIsEnabled(!!segmentEnabled);
-      setSecretExists(!!segmentEnabled);
-    }
-  }, [segmentConfigQuery.data]);
-
-  // Mutation to update segment configuration
-  const segmentConfigMutation = useMutation({
-    mutationFn: async () => {
-      if (!workspaceId) return null;
-
-      // Determine what shared secret value to send
-      let sharedSecretValue: string | undefined;
-
-      // If there's no new value entered and a secret already exists,
-      // send undefined to keep existing value
-      if (!sharedSecret && secretExists) {
-        sharedSecretValue = undefined;
-      } else {
-        // Otherwise send the new value
-        sharedSecretValue = sharedSecret;
-      }
-
-      const body = {
-        workspaceId,
-        variant: {
-          type: DataSourceVariantType.SegmentIO,
-          sharedSecret: sharedSecretValue,
-        },
-      };
-
-      return axios.put(`${apiBase}/api/settings/data-sources`, body);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["segmentConfig", workspaceId],
-      });
-      enqueueSnackbar("Segment configuration updated successfully", {
-        variant: "success",
-        autoHideDuration: 3000,
-        anchorOrigin: noticeAnchorOrigin,
-      });
-    },
-    onError: (error) => {
-      enqueueSnackbar(
-        `Failed to update Segment configuration: ${error instanceof Error ? error.message : "Unknown error"}`,
-        {
-          variant: "error",
-          autoHideDuration: 10000,
-          anchorOrigin: noticeAnchorOrigin,
-        },
-      );
-    },
-  });
-
-  // Mutation to delete segment configuration
-  const deleteSegmentConfigMutation = useMutation({
-    mutationFn: async () => {
-      if (!workspaceId) return null;
-
-      return axios.delete(
-        `${apiBase}/api/settings/data-sources?workspaceId=${workspaceId}&type=${DataSourceVariantType.SegmentIO}`,
-      );
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["segmentConfig", workspaceId],
-      });
-      enqueueSnackbar("Segment integration disabled successfully", {
-        variant: "success",
-        autoHideDuration: 3000,
-        anchorOrigin: noticeAnchorOrigin,
-      });
-    },
-    onError: (error) => {
-      enqueueSnackbar(
-        `Failed to disable Segment integration: ${error instanceof Error ? error.message : "Unknown error"}`,
-        {
-          variant: "error",
-          autoHideDuration: 10000,
-          anchorOrigin: noticeAnchorOrigin,
-        },
-      );
-    },
-  });
-
-  const handleSubmit = () => {
-    if (isEnabled) {
-      segmentConfigMutation.mutate();
-    } else {
-      deleteSegmentConfigMutation.mutate();
-    }
-  };
-
-  const isPending =
-    segmentConfigMutation.isPending || deleteSegmentConfigMutation.isPending;
-
-  const saveButtonDisabled =
-    isPending || (isEnabled && !secretExists && !sharedSecret);
-
-  return (
-    <Stack spacing={3}>
-      <SectionHeader
-        id={settingsSectionIds.segmentSource}
-        title="Data Sources"
-        description="Integrations for submitting data to your workspace."
-      />
-      <Fields
-        sections={[
-          {
-            id: "data-sources-section-1",
-            fieldGroups: [
-              {
-                id: "segment-io-fields",
-                name: "Segment.io",
-                fields: [
-                  {
-                    id: "enable-segment-io",
-                    type: "toggle",
-                    fieldProps: {
-                      labelProps: {
-                        label: "Enable",
-                      },
-                      switchProps: {
-                        checked: isEnabled,
-                        disabled: segmentConfigQuery.isPending,
-                        onChange: (_, checked) => {
-                          setIsEnabled(checked);
-                        },
-                      },
-                    },
-                  },
-                  ...(isEnabled
-                    ? // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-                      ([
-                        {
-                          id: "shared-secret",
-                          type: "text",
-                          fieldProps: {
-                            label: "Shared Secret",
-                            placeholder: secretExists ? "••••••••••" : "",
-                            helperText:
-                              secretExists && !sharedSecret
-                                ? "Secret is already configured. Enter a new value to change it."
-                                : "Secret for validating signed request bodies from segment.",
-                            onChange: (e) => {
-                              setSharedSecret(e.target.value);
-                            },
-                            value: sharedSecret,
-                          },
-                        },
-                      ] as FieldComponents[])
-                    : []),
-                ],
-              },
-            ],
-          },
-        ]}
-      >
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={saveButtonDisabled}
-          sx={{
-            alignSelf: {
-              xs: "start",
-              sm: "end",
-            },
-          }}
-        >
-          Save
-        </Button>
-      </Fields>
-    </Stack>
   );
 }
 
@@ -859,61 +519,6 @@ function AmazonSesConfig() {
   );
 }
 
-function MailChimpConfig() {
-  const secretAvailability = useSecretAvailability();
-
-  return (
-    <Fields
-      sections={[
-        {
-          id: "mailchimp-section",
-          fieldGroups: [
-            {
-              id: "mailchimp-fields",
-              name: "MailChimp",
-              fields: [
-                {
-                  id: "mailchimp-api-key",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.MailChimp,
-                    secretKey: "apiKey",
-                    label: "MailChimp API Key",
-                    helperText: "API key used to send emails via MailChimp.",
-                    type: EmailProviderType.MailChimp,
-                    saved: isSecretSaved(
-                      SecretNames.MailChimp,
-                      "apiKey",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "mailchimp-webhook-key",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.MailChimp,
-                    secretKey: "webhookKey",
-                    label: "Webhook Key",
-                    helperText:
-                      "MailChimp webhook verification key, used to authenticate webhook requests.",
-                    type: EmailProviderType.MailChimp,
-                    saved: isSecretSaved(
-                      SecretNames.MailChimp,
-                      "webhookKey",
-                      secretAvailability,
-                    ),
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ]}
-    />
-  );
-}
-
 function ResendConfig() {
   const secretAvailability = useSecretAvailability();
 
@@ -957,79 +562,6 @@ function ResendConfig() {
                     saved: isSecretSaved(
                       SecretNames.Resend,
                       "webhookKey",
-                      secretAvailability,
-                    ),
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ]}
-    />
-  );
-}
-
-function PostMarkConfig() {
-  const secretAvailability = useSecretAvailability();
-
-  return (
-    <Fields
-      sections={[
-        {
-          id: "postmark-section",
-          fieldGroups: [
-            {
-              id: "postmark-fields",
-              name: "PostMark",
-              fields: [
-                {
-                  id: "postmark-api-key",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.Postmark,
-                    secretKey: "apiKey",
-                    label: "API Key",
-                    helperText:
-                      "API key, used internally to send emails via Postmark.",
-                    type: EmailProviderType.PostMark,
-                    saved: isSecretSaved(
-                      SecretNames.Postmark,
-                      "apiKey",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "postmark-webhook-key",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.Postmark,
-                    secretKey: "webhookKey",
-                    label: "Webhook Key",
-                    helperText:
-                      "Auth header value (x-postmark-secret), used to authenticate PostMark webhook requests. Use a secure random string generator.",
-                    type: EmailProviderType.PostMark,
-                    saved: isSecretSaved(
-                      SecretNames.Postmark,
-                      "webhookKey",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "postmark-message-stream",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.Postmark,
-                    secretKey: "messageStream",
-                    label: "Message Stream",
-                    helperText:
-                      "Message stream to use for sending emails. Usually 'broadcast'.",
-                    type: EmailProviderType.PostMark,
-                    saved: isSecretSaved(
-                      SecretNames.Postmark,
-                      "messageStream",
                       secretAvailability,
                     ),
                   },
@@ -1173,13 +705,15 @@ function DefaultEmailConfig() {
     })();
   };
 
-  const options = emailProviders.map((ep) => {
-    const { type } = ep;
-    return {
+  const options = emailProviders
+    .filter((ep) => isEmailProviderType(ep.type))
+    .map((ep) => ({
       value: ep.id,
-      label: emailProviderLabel(type),
-    };
-  });
+      label: emailProviderLabel(ep.type),
+    }));
+  const isDefaultProviderAvailable = options.some(
+    (option) => option.value === defaultProvider,
+  );
 
   return (
     <Fields
@@ -1196,7 +730,9 @@ function DefaultEmailConfig() {
                   type: "select",
                   fieldProps: {
                     label: "Default Email Provider",
-                    value: defaultProvider ?? "",
+                    value: isDefaultProviderAvailable
+                      ? defaultProvider ?? ""
+                      : "",
                     onChange: (value) => {
                       setState((state) => {
                         state.defaultProvider = value;
@@ -1204,7 +740,9 @@ function DefaultEmailConfig() {
                     },
                     options,
                     helperText:
-                      "In order to use email, at least 1 email provider must be configured.",
+                      defaultProvider && !isDefaultProviderAvailable
+                        ? "The saved default email provider is unavailable. Select a supported provider and save to replace it."
+                        : "In order to use email, at least 1 email provider must be configured.",
                   },
                 },
                 {
@@ -1230,7 +768,7 @@ function DefaultEmailConfig() {
     >
       <Button
         variant="contained"
-        disabled={!defaultProvider}
+        disabled={!isDefaultProviderAvailable}
         sx={{
           alignSelf: {
             xs: "start",
@@ -1255,346 +793,7 @@ function EmailChannelConfig() {
       <SendGridConfig />
       <AmazonSesConfig />
       <ResendConfig />
-      <PostMarkConfig />
-      <MailChimpConfig />
       <SmtpConfig />
-    </>
-  );
-}
-
-function DefaultSmsConfig() {
-  const {
-    smsProviders,
-    apiBase,
-    workspace,
-    defaultSmsProvider,
-    setDefaultSmsProvider,
-  } = useAppStorePick([
-    "apiBase",
-    "workspace",
-    "smsProviders",
-    "defaultSmsProvider",
-    "setDefaultSmsProvider",
-  ]);
-  const [{ defaultProvider, defaultProviderRequest }, setState] = useImmer<{
-    defaultProvider: string | null;
-    defaultProviderRequest: EphemeralRequestStatus<Error>;
-  }>({
-    defaultProvider: defaultSmsProvider?.smsProviderId ?? null,
-    defaultProviderRequest: {
-      type: CompletionStatus.NotStarted,
-    },
-  });
-
-  const apiHandler = (smsProviderId: string) => {
-    if (workspace.type !== CompletionStatus.Successful) {
-      return;
-    }
-    apiRequestHandlerFactory({
-      request: defaultProviderRequest,
-      setRequest: (request) => {
-        setState((state) => {
-          state.defaultProviderRequest = request;
-        });
-      },
-      responseSchema: EmptyResponse,
-      onSuccessNotice: "Set default SMS configuration.",
-      onFailureNoticeHandler: () =>
-        `API Error: Failed to set default SMS configuration.`,
-      setResponse: () => {
-        if (!defaultProvider) {
-          return;
-        }
-        setDefaultSmsProvider({
-          workspaceId: workspace.value.id,
-          smsProviderId: defaultProvider,
-        });
-      },
-      requestConfig: {
-        method: "PUT",
-        url: `${apiBase}/api/settings/sms-providers/default`,
-        data: {
-          workspaceId: workspace.value.id,
-          smsProviderId,
-        } satisfies DefaultSmsProviderResource,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    })();
-  };
-
-  const options = smsProviders.map((ep) => {
-    let name: string;
-    const { type } = ep;
-    switch (type) {
-      case SmsProviderType.Twilio:
-        name = "Twilio";
-        break;
-      case SmsProviderType.SignalWire:
-        name = "SignalWire";
-        break;
-      case SmsProviderType.Test:
-        name = "Test";
-        break;
-      default:
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-        assertUnreachable(type as never, `Unknown sms provider type ${type}`);
-    }
-    return {
-      value: ep.id,
-      label: name,
-    };
-  });
-
-  return (
-    <Fields
-      sections={[
-        {
-          id: "default-sms-section",
-          fieldGroups: [
-            {
-              id: "default-sms-fields",
-              name: "Default SMS Configuration",
-              fields: [
-                {
-                  id: "default-sms-provider",
-                  type: "select",
-                  fieldProps: {
-                    label: "Default SMS Provider",
-                    value: defaultProvider ?? "",
-                    onChange: (value) => {
-                      setState((state) => {
-                        state.defaultProvider = value;
-                      });
-                    },
-                    options,
-                    helperText:
-                      "In order to use SMS, at least 1 SMS provider must be configured.",
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ]}
-    >
-      <Button
-        variant="contained"
-        disabled={!defaultProvider}
-        sx={{
-          alignSelf: {
-            xs: "start",
-            sm: "end",
-          },
-        }}
-        onClick={() => apiHandler(defaultProvider ?? "")}
-      >
-        Save
-      </Button>
-    </Fields>
-  );
-}
-
-function Twilios() {
-  const secretAvailability = useSecretAvailability();
-  return (
-    <Fields
-      sections={[
-        {
-          id: "twilio-section",
-          fieldGroups: [
-            {
-              id: "twilio-fields",
-              name: "Twilio",
-              fields: [
-                {
-                  id: "twilio-account-sid",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.Twilio,
-                    secretKey: "accountSid",
-                    label: "Account SID",
-                    helperText: "Twilio Account SID",
-                    type: SmsProviderType.Twilio,
-                    saved: isSecretSaved(
-                      SecretNames.Twilio,
-                      "accountSid",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "twilio-messaging-service-sid",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.Twilio,
-                    secretKey: "messagingServiceSid",
-                    label: "Messaging Service SID",
-                    helperText: "Twilio messaging service SID",
-                    type: SmsProviderType.Twilio,
-                    saved: isSecretSaved(
-                      SecretNames.Twilio,
-                      "messagingServiceSid",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "twilio-auth-token",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.Twilio,
-                    secretKey: "authToken",
-                    label: "Twilio Auth Token",
-                    helperText:
-                      "Twilio auth token used to authenticate requests.",
-                    type: SmsProviderType.Twilio,
-                    saved: isSecretSaved(
-                      SecretNames.Twilio,
-                      "authToken",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "twilio-api-key-sid",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.Twilio,
-                    secretKey: "apiKeySid",
-                    label: "Twilio API Key SID",
-                    helperText:
-                      "Twilio API Key SID used to authenticate requests. Used with the API key secret to authenticate requests as an alternative to the auth token.",
-                    type: SmsProviderType.Twilio,
-                    saved: isSecretSaved(
-                      SecretNames.Twilio,
-                      "apiKeySid",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "twilio-api-key-secret",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.Twilio,
-                    secretKey: "apiKeySecret",
-                    label: "Twilio API Key Secret",
-                    helperText:
-                      "Twilio API Key Secret used to authenticate requests. Used with the API key SID to authenticate requests as an alternative to the auth token.",
-                    type: SmsProviderType.Twilio,
-                    saved: isSecretSaved(
-                      SecretNames.Twilio,
-                      "apiKeySecret",
-                      secretAvailability,
-                    ),
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ]}
-    />
-  );
-}
-
-function SignalWireConfig() {
-  const secretAvailability = useSecretAvailability();
-  return (
-    <Fields
-      sections={[
-        {
-          id: "signalwire-section",
-          fieldGroups: [
-            {
-              id: "signalwire-fields",
-              name: "SignalWire",
-              fields: [
-                {
-                  id: "signalwire-project",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.SignalWire,
-                    secretKey: "project",
-                    label: "Project ID",
-                    helperText: "SignalWire Project ID",
-                    type: SmsProviderType.SignalWire,
-                    saved: isSecretSaved(
-                      SecretNames.SignalWire,
-                      "project",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "signalwire-token",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.SignalWire,
-                    secretKey: "token",
-                    label: "API Token",
-                    helperText:
-                      "SignalWire API token used to authenticate requests",
-                    type: SmsProviderType.SignalWire,
-                    saved: isSecretSaved(
-                      SecretNames.SignalWire,
-                      "token",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "signalwire-space-url",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.SignalWire,
-                    secretKey: "spaceUrl",
-                    label: "Space URL",
-                    helperText:
-                      "SignalWire Space URL (e.g., https://yourspace.signalwire.com)",
-                    type: SmsProviderType.SignalWire,
-                    saved: isSecretSaved(
-                      SecretNames.SignalWire,
-                      "spaceUrl",
-                      secretAvailability,
-                    ),
-                  },
-                },
-                {
-                  id: "signalwire-phone",
-                  type: "secret",
-                  fieldProps: {
-                    name: SecretNames.SignalWire,
-                    secretKey: "phone",
-                    label: "Default Phone Number",
-                    helperText:
-                      "Default phone number for sending SMS (optional, can be overridden per message)",
-                    type: SmsProviderType.SignalWire,
-                    saved: isSecretSaved(
-                      SecretNames.SignalWire,
-                      "phone",
-                      secretAvailability,
-                    ),
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ]}
-    />
-  );
-}
-
-function SmsChannelConfig() {
-  return (
-    <>
-      <SectionSubHeader id={settingsSectionIds.smsChannel} title="SMS" />
-      <DefaultSmsConfig />
-      <Twilios />
-      <SignalWireConfig />
     </>
   );
 }
@@ -1618,7 +817,6 @@ function MessageChannelsConfig() {
     <Stack spacing={3}>
       <SectionHeader title="Message Channels" />
       <EmailChannelConfig />
-      <SmsChannelConfig />
       <WebhookChannelConfig />
     </Stack>
   );
@@ -1694,213 +892,6 @@ function AuthenticationSettings() {
       />
       <WriteKeySettings />
       <AdminApiKeySettings />
-    </Stack>
-  );
-}
-
-function HubspotIntegration() {
-  const {
-    integrations,
-    dashboardUrl,
-    upsertIntegration,
-    apiBase,
-    workspace,
-    segments: segmentsRequest,
-  } = useAppStorePick([
-    "integrations",
-    "dashboardUrl",
-    "upsertIntegration",
-    "apiBase",
-    "workspace",
-    "segments",
-  ]);
-  const segments =
-    segmentsRequest.type === CompletionStatus.Successful
-      ? segmentsRequest.value
-      : [];
-  const [inProgress, setInProgress] = useState<"segments" | "enabled" | null>(
-    null,
-  );
-
-  const { upsertIntegrationsRequest, updateUpsertIntegrationsRequest } =
-    useSettingsStorePick([
-      "upsertIntegrationsRequest",
-      "updateUpsertIntegrationsRequest",
-    ]);
-
-  let hubspotIntegration: SyncIntegration | null = null;
-  for (const integration of integrations) {
-    if (
-      integration.name === HUBSPOT_INTEGRATION &&
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      integration.definition.type === IntegrationType.Sync &&
-      integration.enabled
-    ) {
-      hubspotIntegration = integration.definition;
-    }
-  }
-
-  const [subscribedSegments, setSubscribedSegments] = useState<
-    PartialSegmentResource[]
-  >(() => {
-    const subbed = new Set(hubspotIntegration?.subscribedSegments ?? []);
-    return segments.filter((segment) => subbed.has(segment.name));
-  });
-
-  if (workspace.type !== CompletionStatus.Successful) {
-    return null;
-  }
-
-  let hubspotContents;
-  if (hubspotIntegration) {
-    const disableBody: UpsertIntegrationResource = {
-      workspaceId: workspace.value.id,
-      name: HUBSPOT_INTEGRATION,
-      enabled: false,
-    };
-    const handleDisable = apiRequestHandlerFactory({
-      request: upsertIntegrationsRequest,
-      setRequest: updateUpsertIntegrationsRequest,
-      responseSchema: IntegrationResource,
-      setResponse: (integration) => {
-        setInProgress(null);
-        upsertIntegration(integration);
-      },
-      onSuccessNotice: "Disabled Hubspot integration.",
-      onFailureNoticeHandler: () =>
-        `API Error: Failed disable Hubspot integration`,
-      requestConfig: {
-        method: "PUT",
-        url: `${apiBase}/api/integrations`,
-        data: disableBody,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    });
-
-    const updateSubscribedSegmentsBody: UpsertIntegrationResource = {
-      workspaceId: workspace.value.id,
-      name: HUBSPOT_INTEGRATION,
-      definition: {
-        ...hubspotIntegration,
-        subscribedSegments: subscribedSegments.map((segment) => segment.name),
-      },
-    };
-    const saveSyncedSegments = apiRequestHandlerFactory({
-      request: upsertIntegrationsRequest,
-      setRequest: updateUpsertIntegrationsRequest,
-      responseSchema: IntegrationResource,
-      setResponse: (integration) => {
-        upsertIntegration(integration);
-        setInProgress(null);
-      },
-      onSuccessNotice: "Updated synced hubspot integration segments.",
-      onFailureNoticeHandler: () =>
-        `API Error: Failed to updated synced hubspot integration segment.`,
-      requestConfig: {
-        method: "PUT",
-        url: `${apiBase}/api/integrations`,
-        data: updateSubscribedSegmentsBody,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    });
-    hubspotContents = (
-      <Stack spacing={1}>
-        <InfoBox>
-          Segments can be synced to Hubspot as lists. See{" "}
-          <ExternalLink
-            disableNewTab
-            enableLinkStyling
-            href="https://knowledge.hubspot.com/lists/create-active-or-static-lists"
-          >
-            the docs
-          </ExternalLink>{" "}
-          for more information on hubspot lists.
-        </InfoBox>
-
-        <Autocomplete
-          multiple
-          options={segments}
-          value={subscribedSegments}
-          onChange={(_event, newValue) => {
-            setSubscribedSegments(newValue);
-          }}
-          getOptionLabel={(option) => option.name}
-          renderInput={(params) => (
-            <TextField {...params} variant="outlined" label="Synced Segments" />
-          )}
-        />
-        <Box>
-          <LoadingButton
-            variant="contained"
-            onClick={() => {
-              setInProgress("segments");
-              saveSyncedSegments();
-            }}
-            loading={inProgress === "segments"}
-            disabled={inProgress === "enabled"}
-          >
-            Save Synced Segments
-          </LoadingButton>
-        </Box>
-        <Box>
-          <LoadingButton
-            variant="outlined"
-            color="error"
-            onClick={() => {
-              setInProgress("enabled");
-              handleDisable();
-            }}
-            loading={inProgress === "enabled"}
-            disabled={inProgress === "segments"}
-          >
-            Disable Hubspot
-          </LoadingButton>
-        </Box>
-      </Stack>
-    );
-  } else {
-    hubspotContents = (
-      <Button
-        variant="contained"
-        sx={{
-          alignSelf: {
-            xs: "start",
-            sm: "end",
-          },
-        }}
-        href={`https://app.hubspot.com/oauth/authorize?client_id=9128468e-b771-4bab-b301-21b479213975&redirect_uri=${dashboardUrl}/dashboard/oauth2/callback/hubspot&scope=timeline%20sales-email-read%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.companies.write%20crm.objects.companies.read%20crm.objects.owners.read%20crm.lists.write%20crm.lists.read`}
-      >
-        Connect Hubspot
-      </Button>
-    );
-  }
-
-  return <>{hubspotContents}</>;
-}
-
-function IntegrationSettings() {
-  return (
-    <Stack spacing={3}>
-      <SectionHeader title="Integrations" description="" />
-      <Fields
-        sections={[
-          {
-            id: settingsSectionIds.hubspotIntegration,
-            fieldGroups: [
-              {
-                id: "hubspot-fields",
-                name: "Hubspot",
-                fields: [],
-                children: <HubspotIntegration />,
-              },
-            ],
-          },
-        ]}
-      />
     </Stack>
   );
 }
@@ -2046,7 +1037,7 @@ function SubscriptionManagementSettings() {
   };
 
   // Set default selected subscription group if not set
-  const defaultSubscriptionGroupId = subscriptionGroups[0]?.id || "";
+  const defaultSubscriptionGroupId = subscriptionGroups[0]?.id ?? "";
   const actualSelectedId =
     selectedSubscriptionGroupId || defaultSubscriptionGroupId;
 
@@ -2107,9 +1098,9 @@ function SubscriptionManagementSettings() {
                   <Box sx={{ mt: 1, mb: 1 }}>
                     <Autocomplete
                       options={subscriptionGroups}
-                      value={selectedSubscriptionGroup || null}
+                      value={selectedSubscriptionGroup ?? null}
                       onChange={(_event, newValue) => {
-                        setSelectedSubscriptionGroupId(newValue?.id || "");
+                        setSelectedSubscriptionGroupId(newValue?.id ?? "");
                       }}
                       getOptionLabel={(option) =>
                         `${option.name} (${option.channel})`
@@ -2342,11 +1333,9 @@ function SettingsContents() {
   }
   return (
     <>
-      <SegmentIoConfig />
       <MessageChannelsConfig />
       <AuthenticationSettings />
       <SubscriptionManagementSettings />
-      <IntegrationSettings />
       <PermissionsSettings />
       <Metadata />
     </>

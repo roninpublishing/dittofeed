@@ -39,7 +39,7 @@ describe("subscriptionManagementPage", () => {
         ],
       },
       {
-        name: "SMS",
+        name: "Mobile Push",
         subscriptions: [{ id: "sub-3", name: "Alerts", isSubscribed: true }],
       },
     ],
@@ -202,12 +202,12 @@ describe("subscriptionManagementPage", () => {
       const emailToggle = doc.querySelector(
         '.df-channel-toggle[data-channel="Email"]',
       );
-      const smsToggle = doc.querySelector(
-        '.df-channel-toggle[data-channel="SMS"]',
+      const pushToggle = doc.querySelector(
+        '.df-channel-toggle[data-channel="Mobile Push"]',
       );
 
       expect(emailToggle).not.toBeNull();
-      expect(smsToggle).not.toBeNull();
+      expect(pushToggle).not.toBeNull();
     });
   });
 
@@ -223,14 +223,14 @@ describe("subscriptionManagementPage", () => {
       const emailToggle = document.querySelector(
         '.df-channel-toggle[data-channel="Email"]',
       ) as HTMLInputElement;
-      const smsToggle = document.querySelector(
-        '.df-channel-toggle[data-channel="SMS"]',
+      const pushToggle = document.querySelector(
+        '.df-channel-toggle[data-channel="Mobile Push"]',
       ) as HTMLInputElement;
 
       // Email channel has at least one checked subscription (Newsletter)
       expect(emailToggle.checked).toBe(true);
-      // SMS channel has one checked subscription (Alerts)
-      expect(smsToggle.checked).toBe(true);
+      // Mobile push channel has one checked subscription (Alerts).
+      expect(pushToggle.checked).toBe(true);
     });
 
     it("should update all channel subscriptions when channel toggle is changed", async () => {
@@ -392,7 +392,7 @@ describe("subscriptionManagementPage", () => {
 
       expect(html).toContain("Custom: Test Workspace");
       expect(html).toContain("Email");
-      expect(html).toContain("SMS");
+      expect(html).toContain("Mobile Push");
       // Should render hidden form fields
       expect(html).toContain('name="w"');
       expect(html).toContain('value="workspace-123"');

@@ -6,12 +6,12 @@ function getTemplateChannelPath(channel: ChannelType): string {
   switch (channel) {
     case ChannelType.Email:
       return "email";
-    case ChannelType.Sms:
-      return "sms";
     case ChannelType.MobilePush:
       return "mobile-push";
     case ChannelType.Webhook:
       return "webhook";
+    default:
+      throw new Error("Unsupported message template channel");
   }
 }
 

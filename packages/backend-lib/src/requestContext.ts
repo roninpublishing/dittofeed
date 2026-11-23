@@ -467,13 +467,6 @@ export async function getRequestContext(
         result = await getGoogleRequestContext(googleAccountPrincipal);
         break;
       }
-      case "google": {
-        if (!googleAccountPrincipal) {
-          return err({ type: RequestContextErrorType.NotAuthenticated });
-        }
-        result = await getGoogleRequestContext(googleAccountPrincipal);
-        break;
-      }
       case "multi-tenant": {
         const authorizationToken =
           headers.authorization && typeof headers.authorization === "string"

@@ -53,7 +53,7 @@ type HomeProps = PropsWithInitialState<{
 export const getServerSideProps: GetServerSideProps<HomeProps> = requestContext(
   async (_ctx, dfContext) => {
     const workspaceId = dfContext.workspace.id;
-    if (await getPublisherForWorkspace(workspaceId) === workspaceId) {
+    if ((await getPublisherForWorkspace(workspaceId)) === workspaceId) {
       return { redirect: { destination: "/publications", permanent: false } };
     }
     const visibleJourneys = and(

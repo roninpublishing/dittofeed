@@ -27,7 +27,11 @@ describe("performed user property examples", () => {
       type: UserPropertyDefinitionType.Group,
       entry: "group",
       nodes: [
-        { id: "group", type: UserPropertyDefinitionType.AnyOf, children: ["click"] },
+        {
+          id: "group",
+          type: UserPropertyDefinitionType.AnyOf,
+          children: ["click"],
+        },
         {
           id: "click",
           type: UserPropertyDefinitionType.Performed,
@@ -36,7 +40,9 @@ describe("performed user property examples", () => {
         },
       ],
     };
-    const parsed: unknown = JSON.parse(getDefaultUserPropertyExampleValue(definition));
+    const parsed: unknown = JSON.parse(
+      getDefaultUserPropertyExampleValue(definition),
+    );
     expect(typeof parsed).toBe("string");
     if (typeof parsed !== "string") {
       throw new Error("Expected a JSON timestamp string");

@@ -1185,7 +1185,9 @@ function LastPerformedSelect({ node }: { node: LastPerformedSegmentNode }) {
       });
     };
 
-    const handleValueSourceChange = (e: SelectChangeEvent<EventValueSource>) => {
+    const handleValueSourceChange = (
+      e: SelectChangeEvent<EventValueSource>,
+    ) => {
       updateEditableSegmentNodeData(setState, node.id, (n) => {
         if (n.type !== SegmentNodeType.LastPerformed || !n.hasProperties?.[i]) {
           return;
@@ -1414,7 +1416,9 @@ function LastPerformedSelect({ node }: { node: LastPerformedSegmentNode }) {
           inputProps={{ "aria-label": "Value source" }}
         >
           <MenuItem value={EventValueSource.Property}>Event property</MenuItem>
-          <MenuItem value={EventValueSource.EventTime}>Event time (UTC)</MenuItem>
+          <MenuItem value={EventValueSource.EventTime}>
+            Event time (UTC)
+          </MenuItem>
         </Select>
         {property.valueSource !== EventValueSource.EventTime && (
           <PropertiesAutocomplete
@@ -1670,9 +1674,9 @@ function LastPerformedSelect({ node }: { node: LastPerformedSegmentNode }) {
       {isLastOpenedSegmentNode(node) && (
         <Typography variant="body2" color="text.secondary">
           Latest observed open by event time, not verified human engagement.
-          Privacy proxies and automated scanners can count. Within selects recent
-          opens; Absolute Date &amp; Time supports before or after. Exists means
-          an open was observed; Not Exists means none.
+          Privacy proxies and automated scanners can count. Within selects
+          recent opens; Absolute Date &amp; Time supports before or after.
+          Exists means an open was observed; Not Exists means none.
         </Typography>
       )}
       {wherePropertyRows?.length ? (
@@ -2517,7 +2521,6 @@ function SubscriptionGroupSelect({
     </Box>
   );
 }
-
 
 function TraitSelect({ node }: { node: TraitSegmentNode }) {
   const traitPath = node.path;

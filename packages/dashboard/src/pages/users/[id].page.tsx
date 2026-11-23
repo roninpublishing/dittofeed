@@ -97,9 +97,9 @@ const User: NextPage<UserPageProps> = function User(props) {
             : "No open observed"}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Latest observed email open, by event time (UTC), across sends.
-          Privacy proxies and automated scanners can count; this is not verified
-          human engagement.
+          Latest observed email open, by event time (UTC), across sends. Privacy
+          proxies and automated scanners can count; this is not verified human
+          engagement.
         </Typography>
       </Stack>
       <SubtleHeader>User Properties</SubtleHeader>

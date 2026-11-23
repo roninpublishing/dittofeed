@@ -118,7 +118,8 @@ function EmailUrlTokens({
   const fieldExpression = /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(field)
     ? `user.${field}`
     : `user['${field.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}']`;
-  const variable = source === "recipient" ? "subscriber_email" : fieldExpression;
+  const variable =
+    source === "recipient" ? "subscriber_email" : fieldExpression;
   const expression = `{{ ${variable} | ${representation} }}`;
   const canCopy = source === "recipient" || field.length > 0;
 

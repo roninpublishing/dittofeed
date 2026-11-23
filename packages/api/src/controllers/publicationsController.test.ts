@@ -1,3 +1,4 @@
+import { fastifyRequestContext } from "@fastify/request-context";
 import { createAdminApiKey } from "backend-lib/src/adminApiKeys";
 import config from "backend-lib/src/config";
 import { db } from "backend-lib/src/db";
@@ -39,6 +40,7 @@ beforeEach(async () => {
   publisherId = parent.id;
   workspaceIds.push(parent.id);
   app = fastify();
+  await app.register(fastifyRequestContext);
   await app.register(adminAuth);
   await app.register(publicationsController, {
     prefix: "/api/admin/publications",

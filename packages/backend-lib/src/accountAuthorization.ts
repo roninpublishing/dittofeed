@@ -52,10 +52,13 @@ export function requiredGoogleApiRole(method: string, url: string): Role {
   const path = normalized.length === 0 ? "/" : normalized;
   if (path.startsWith("/api/admin-keys")) return RoleEnum.Admin;
   if (
-    /^\/api\/publications(?:\/(?:publisher|adopt|infrastructure(?:\/.*)?|tracking-domains(?:\/(?:provision|verify))?|suppressions(?:\/.*)?))?$/.test(path) &&
+    /^\/api\/publications(?:\/(?:publisher|adopt|infrastructure(?:\/.*)?|tracking-domains(?:\/(?:provision|verify))?|suppressions(?:\/.*)?))?$/.test(
+      path,
+    ) &&
     !readMethods.has(method) &&
     !(method === "POST" && readPostPaths.has(path))
-  ) return RoleEnum.WorkspaceManager;
+  )
+    return RoleEnum.WorkspaceManager;
   if (
     path.startsWith("/api/settings") ||
     path.startsWith("/api/secrets") ||

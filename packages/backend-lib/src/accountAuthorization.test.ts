@@ -13,11 +13,19 @@ import config, { DEFAULT_BACKEND_CONFIG } from "./config";
 import { googleSessionPluginOptions } from "./googleSessions";
 
 describe("Google browser authorization boundaries", () => {
-  it.each(["/api/publications/tracking-domains", "/api/publications/tracking-domains/provision", "/api/publications/tracking-domains/verify"])(
+  it.each([
+    "/api/publications/tracking-domains",
+    "/api/publications/tracking-domains/provision",
+    "/api/publications/tracking-domains/verify",
+  ])(
     "restricts hostname configuration and activation to managers: %s",
     (path) => {
-      expect(requiredGoogleApiRole("PUT", path)).toBe(RoleEnum.WorkspaceManager);
-      expect(requiredGoogleApiRole("POST", path)).toBe(RoleEnum.WorkspaceManager);
+      expect(requiredGoogleApiRole("PUT", path)).toBe(
+        RoleEnum.WorkspaceManager,
+      );
+      expect(requiredGoogleApiRole("POST", path)).toBe(
+        RoleEnum.WorkspaceManager,
+      );
       expect(requiredGoogleApiRole("GET", path)).toBe(RoleEnum.Viewer);
     },
   );

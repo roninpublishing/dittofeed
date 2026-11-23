@@ -20,12 +20,12 @@ import {
   Paper,
   Stack,
   Tab,
-  Tabs,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -233,24 +233,24 @@ function ActionForm({
             {fields.map((field) => {
               if (field.kind === "boolean") {
                 return (
-                <FormControlLabel
-                  key={field.key}
-                  label={field.label}
-                  control={
-                    <Checkbox
-                      required={field.required}
-                      checked={Boolean(
-                        values[field.key] ?? field.initial ?? false,
-                      )}
-                      onChange={(event) =>
-                        setValues({
-                          ...values,
-                          [field.key]: event.target.checked,
-                        })
-                      }
-                    />
-                  }
-                />
+                  <FormControlLabel
+                    key={field.key}
+                    label={field.label}
+                    control={
+                      <Checkbox
+                        required={field.required}
+                        checked={Boolean(
+                          values[field.key] ?? field.initial ?? false,
+                        )}
+                        onChange={(event) =>
+                          setValues({
+                            ...values,
+                            [field.key]: event.target.checked,
+                          })
+                        }
+                      />
+                    }
+                  />
                 );
               }
               let inputType = "text";
@@ -288,8 +288,11 @@ function ActionForm({
                     (field.kind === "multiselect" ? [] : "")
                   }
                   onChange={(event) => {
-                    let value: string | string[] = event.target.value;
-                    if (field.kind === "multiselect" && typeof value === "string") {
+                    let { value }: { value: string | string[] } = event.target;
+                    if (
+                      field.kind === "multiselect" &&
+                      typeof value === "string"
+                    ) {
                       value = value.split(",");
                     }
                     setValues({
@@ -793,23 +796,25 @@ export default function PublicationManagement({
       {section === "reports" && (
         <Stack spacing={3}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-            {([
+            {(
               [
-                "subscriptionCount",
-                "Publication subscriptions",
-                "A subscription is counted in each newsletter.",
-              ],
-              [
-                "contactCount",
-                "Contact records",
-                "Subscriber profiles remain independent.",
-              ],
-              [
-                "matchedMailboxCount",
-                "Matched mailboxes",
-                "Matched email addresses, not verified unique people.",
-              ],
-            ] as const).map(([key, label, hint]) => (
+                [
+                  "subscriptionCount",
+                  "Publication subscriptions",
+                  "A subscription is counted in each newsletter.",
+                ],
+                [
+                  "contactCount",
+                  "Contact records",
+                  "Subscriber profiles remain independent.",
+                ],
+                [
+                  "matchedMailboxCount",
+                  "Matched mailboxes",
+                  "Matched email addresses, not verified unique people.",
+                ],
+              ] as const
+            ).map(([key, label, hint]) => (
               <Paper
                 key={key}
                 variant="outlined"

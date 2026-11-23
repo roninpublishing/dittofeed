@@ -808,3 +808,58 @@ IP-reassignment and real-send flags default closed; no IP purchasing operation
 is automatic. Run the read-only `newsletter-cutover-preflight` before release.
 See [newsletter operations](packages/docs/guide/newsletters.mdx) for the approved
 structure, operations, worker requirements, safety boundaries and cutover steps.
+
+## Consolidated source integration: verified, not deployed
+
+The complete source integrates the previously unpublished teardown/UI commits,
+Google accounts, scoped API/MCP, Telnyx, engagement/owned tracking, explicit URL
+tokens, newsletters and the branded tracking Worker. PRs #1 and #2 are merged;
+the final integration preserves the concurrently reconciled main history rather
+than replacing its authorization, context, schema or fixture changes.
+
+Integration regressions closed generic-secret credential escalation,
+legacy-workspace contact erasure, asynchronous Telnyx projection crossing erasure
+locks, retargeted automation erasure, and late CC/BCC receipts recreating erased
+evidence. Real-controller regressions also cover schema-compatible authorization
+denials preserving public `no_access` / `forbidden` codes for lost membership,
+foreign Origin and insufficient role. An unreachable duplicate Google-context
+case was removed. API/dashboard CI repairs preserve optional middleware guards,
+protected event-time properties and per-send history; click/open cell renderers
+now have stable React identities.
+
+Observed local verification on 2026-11-23:
+
+- All nine test-inclusive workspace checks passed, including the reconciled
+  main candidate. Production editor/dashboard builds and the configured API,
+  dashboard, isomorphic-lib, admin-cli and worker lint gates passed. Non-blocking
+  lint/dependency/framework warnings remain; they are not claimed resolved.
+- 765 Jest cases passed across 58 affected/integration suites; 10 MCP cases and
+  10 native workerd cases passed: 785 passing cases total. Two existing skips
+  remain: journey re-entry after pause and inline file rendering. Resource-bounded
+  recycling workers completed the run after initial Jest heap exhaustion.
+  Reconciled-main checks passed 121 assertions; all 12 Google authorization
+  cases passed after the final real-controller error-contract repair.
+- Fresh disposable PostgreSQL applied all 18 ordered migrations through `0017`
+  and verified an idempotent reapply. No existing instance was migrated.
+- Actual HTTP plus spawned stdio MCP proved 133 tools, including 47 read-only
+  tools, native ingestion, newsletter creation, direct-child/foreign-tenant
+  isolation, write denial and immediate API-key revocation.
+- The production combined Lite UI, using an isolated shared-login fixture,
+  proved creation/open/return, reports, pending-only tracking and local draft
+  connection registration. Comma-separated domains persisted and key responses
+  remained redacted. This is not authenticated real Google-team acceptance.
+- The Google-mode checked-in schema/navigation documents all 301 registered
+  HTTP operations. The reproducible code inventory records 6,422 function-like
+  nodes across 688 package sources. Obsolete generated endpoint pages were
+  removed; handwritten guides remain.
+
+Owned proof databases, credentials, containers, browser tab and servers were
+removed/stopped. The existing Google preview, its sessions/data and its private
+client configuration were left unchanged. Its observed ClickHouse memory
+pressure was isolated from verification, not hidden by restarting or retuning
+that instance.
+
+No deployment, release/image publication, production migration, provider write,
+DNS/TLS change, IP purchase/reassignment, live-contact migration or external
+email occurred. Production provider inventory/adoption, public origin/hosting
+and real second-account Google/team acceptance remain explicit release gates.

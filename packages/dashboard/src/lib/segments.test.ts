@@ -17,16 +17,22 @@ import {
 
 describe("last clicked segment preset", () => {
   it("does not mistake a clickedAt JSON property or a different event for click event time", () => {
-    expect(isLastClickedSegmentNode({
-      id: "property-condition",
-      type: SegmentNodeType.LastPerformed,
-      event: InternalEventType.EmailClicked,
-      hasProperties: [{ path: "clickedAt", operator: { type: SegmentOperatorType.Exists } }],
-    })).toBe(false);
-    expect(isLastClickedSegmentNode({
-      ...createLastClickedSegmentNode("other-event"),
-      event: InternalEventType.EmailDelivered,
-    })).toBe(false);
+    expect(
+      isLastClickedSegmentNode({
+        id: "property-condition",
+        type: SegmentNodeType.LastPerformed,
+        event: InternalEventType.EmailClicked,
+        hasProperties: [
+          { path: "clickedAt", operator: { type: SegmentOperatorType.Exists } },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isLastClickedSegmentNode({
+        ...createLastClickedSegmentNode("other-event"),
+        event: InternalEventType.EmailDelivered,
+      }),
+    ).toBe(false);
   });
 
   it("keeps separate preset conditions independent when edited", () => {
@@ -65,12 +71,16 @@ describe("last clicked segment preset", () => {
     jest.useFakeTimers();
     try {
       jest.setSystemTime(new Date("2026-11-20T02:08:09.123-05:00"));
-      const operator = getDefaultLastPerformedOperator(SegmentOperatorType.AbsoluteTimestamp);
+      const operator = getDefaultLastPerformedOperator(
+        SegmentOperatorType.AbsoluteTimestamp,
+      );
       if (operator.type !== SegmentOperatorType.AbsoluteTimestamp) {
         throw new Error("Expected an absolute timestamp operator");
       }
       expect(operator.absoluteTimestamp.endsWith("Z")).toBe(true);
-      expect(Number.isFinite(Date.parse(operator.absoluteTimestamp))).toBe(true);
+      expect(Number.isFinite(Date.parse(operator.absoluteTimestamp))).toBe(
+        true,
+      );
     } finally {
       jest.useRealTimers();
     }
@@ -83,14 +93,23 @@ describe("last opened segment preset", () => {
     expect(Value.Check(LastPerformedSegmentNode, node)).toBe(true);
     expect(isLastOpenedSegmentNode(node)).toBe(true);
     expect(isLastClickedSegmentNode(node)).toBe(false);
-    expect(isLastOpenedSegmentNode(createLastClickedSegmentNode("click"))).toBe(false);
-    expect(isLastOpenedSegmentNode({
-      ...node,
-      hasProperties: [{ path: "openedAt", operator: { type: SegmentOperatorType.Exists } }],
-    })).toBe(false);
-    expect(isLastOpenedSegmentNode({
-      ...node, event: InternalEventType.EmailDelivered,
-    })).toBe(false);
+    expect(isLastOpenedSegmentNode(createLastClickedSegmentNode("click"))).toBe(
+      false,
+    );
+    expect(
+      isLastOpenedSegmentNode({
+        ...node,
+        hasProperties: [
+          { path: "openedAt", operator: { type: SegmentOperatorType.Exists } },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isLastOpenedSegmentNode({
+        ...node,
+        event: InternalEventType.EmailDelivered,
+      }),
+    ).toBe(false);
   });
 
   it.each([
@@ -102,11 +121,16 @@ describe("last opened segment preset", () => {
     const first = createLastOpenedSegmentNode("first");
     const second = createLastOpenedSegmentNode("second");
     const click = createLastClickedSegmentNode("click");
-    if (!first.hasProperties?.[0]) throw new Error("Missing timestamp condition");
+    if (!first.hasProperties?.[0])
+      throw new Error("Missing timestamp condition");
     first.hasProperties[0].operator = getDefaultLastPerformedOperator(type);
     expect(Value.Check(LastPerformedSegmentNode, first)).toBe(true);
-    expect(second.hasProperties?.[0]?.operator.type).toBe(SegmentOperatorType.Within);
-    expect(click.hasProperties?.[0]?.operator.type).toBe(SegmentOperatorType.Within);
+    expect(second.hasProperties?.[0]?.operator.type).toBe(
+      SegmentOperatorType.Within,
+    );
+    expect(click.hasProperties?.[0]?.operator.type).toBe(
+      SegmentOperatorType.Within,
+    );
     expect(isLastOpenedSegmentNode(first)).toBe(true);
   });
 });

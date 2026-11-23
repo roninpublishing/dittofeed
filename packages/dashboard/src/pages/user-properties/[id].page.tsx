@@ -815,7 +815,9 @@ function PerformedUserPropertyDefinitionEditor({
           sx={{ width: selectorWidth }}
         >
           <MenuItem value={EventValueSource.Property}>Event property</MenuItem>
-          <MenuItem value={EventValueSource.EventTime}>Event time (UTC)</MenuItem>
+          <MenuItem value={EventValueSource.EventTime}>
+            Event time (UTC)
+          </MenuItem>
         </TextField>
         {definition.valueSource !== EventValueSource.EventTime && (
           <Autocomplete
@@ -1271,8 +1273,8 @@ export default function NewUserProperty() {
         >
           {isProtected && (
             <Typography variant="body2" sx={{ mb: 2 }}>
-              Built-in user property. Its name, definition, and status are managed
-              automatically and cannot be edited.
+              Built-in user property. Its name, definition, and status are
+              managed automatically and cannot be edited.
             </Typography>
           )}
           <UserPropertyDefinitionEditor

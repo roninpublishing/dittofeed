@@ -684,13 +684,15 @@
     "packages/mcp/src/api.ts",
     "packages/mcp/src/index.ts",
     "packages/mcp/src/server.ts",
+    "packages/tracking-worker/.wrangler/dry-run/index.js",
+    "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
     "packages/tracking-worker/src/index.ts",
     "packages/worker/scripts/startWorker.ts",
     "packages/worker/src/buildWorker.ts",
     "packages/worker/src/config.ts",
     "packages/worker/src/openTelemetry.ts"
   ],
-  "functionCount": 6392,
+  "functionCount": 6422,
   "functions": [
     {
       "file": "packages/admin-cli/scripts/cli.ts",
@@ -3481,7 +3483,7 @@
     },
     {
       "file": "packages/api/src/buildApp/requestContext.ts",
-      "line": 155,
+      "line": 160,
       "column": 1,
       "name": "getOccupantFromRequest",
       "kind": "FunctionDeclaration",
@@ -27686,7 +27688,7 @@
     },
     {
       "file": "packages/backend-lib/src/requestContext.ts",
-      "line": 497,
+      "line": 490,
       "column": 60,
       "name": "result.value.memberRoles.flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -36499,7 +36501,7 @@
     },
     {
       "file": "packages/dashboard/src/components/channelProviderAutocomplete.tsx",
-      "line": 15,
+      "line": 13,
       "column": 45,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -36513,7 +36515,7 @@
     },
     {
       "file": "packages/dashboard/src/components/channelProviderAutocomplete.tsx",
-      "line": 19,
+      "line": 17,
       "column": 1,
       "name": "ChannelProviderAutocomplete",
       "kind": "FunctionDeclaration",
@@ -36527,7 +36529,7 @@
     },
     {
       "file": "packages/dashboard/src/components/channelProviderAutocomplete.tsx",
-      "line": 54,
+      "line": 52,
       "column": 17,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -36542,7 +36544,7 @@
     },
     {
       "file": "packages/dashboard/src/components/channelProviderAutocomplete.tsx",
-      "line": 58,
+      "line": 56,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -39534,7 +39536,7 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryClicksCell.tsx",
-      "line": 55,
+      "line": 54,
       "column": 14,
       "name": "queryFn",
       "kind": "ArrowFunction",
@@ -39546,7 +39548,7 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryClicksCell.tsx",
-      "line": 64,
+      "line": 73,
       "column": 17,
       "name": "close",
       "kind": "ArrowFunction",
@@ -39558,8 +39560,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryClicksCell.tsx",
-      "line": 71,
-      "column": 39,
+      "line": 82,
+      "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -39570,8 +39572,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryClicksCell.tsx",
-      "line": 85,
-      "column": 102,
+      "line": 112,
+      "column": 34,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -39582,8 +39584,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryClicksCell.tsx",
-      "line": 91,
-      "column": 41,
+      "line": 133,
+      "column": 43,
       "name": "query.data.items.map callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -39596,8 +39598,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryClicksCell.tsx",
-      "line": 104,
-      "column": 79,
+      "line": 182,
+      "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -39608,8 +39610,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryClicksCell.tsx",
-      "line": 104,
-      "column": 96,
+      "line": 182,
+      "column": 39,
       "name": "setCursors callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -39622,8 +39624,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryClicksCell.tsx",
-      "line": 105,
-      "column": 79,
+      "line": 188,
+      "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -39634,8 +39636,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryClicksCell.tsx",
-      "line": 105,
-      "column": 141,
+      "line": 190,
+      "column": 36,
       "name": "setCursors callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -39662,7 +39664,7 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 57,
+      "line": 56,
       "column": 14,
       "name": "queryFn",
       "kind": "ArrowFunction",
@@ -39674,7 +39676,7 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 70,
+      "line": 85,
       "column": 14,
       "name": "queryFn",
       "kind": "ArrowFunction",
@@ -39686,7 +39688,7 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 75,
+      "line": 96,
       "column": 17,
       "name": "close",
       "kind": "ArrowFunction",
@@ -39698,8 +39700,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 83,
-      "column": 39,
+      "line": 106,
+      "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -39710,8 +39712,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 97,
-      "column": 101,
+      "line": 136,
+      "column": 34,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -39722,8 +39724,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 103,
-      "column": 41,
+      "line": 157,
+      "column": 43,
       "name": "query.data.items.map callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -39736,8 +39738,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 105,
-      "column": 139,
+      "line": 173,
+      "column": 40,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -39748,8 +39750,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 118,
-      "column": 32,
+      "line": 223,
+      "column": 34,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -39760,8 +39762,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 123,
-      "column": 79,
+      "line": 233,
+      "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -39772,8 +39774,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 123,
-      "column": 96,
+      "line": 233,
+      "column": 39,
       "name": "setCursors callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -39786,8 +39788,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 124,
-      "column": 79,
+      "line": 239,
+      "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -39798,8 +39800,8 @@
     },
     {
       "file": "packages/dashboard/src/components/deliveriesTableV2/deliveryOpensCell.tsx",
-      "line": 124,
-      "column": 141,
+      "line": 241,
+      "column": 36,
       "name": "setCursors callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -47548,7 +47550,7 @@
     },
     {
       "file": "packages/dashboard/src/components/layout/header/headerContent/profile.tsx",
-      "line": 166,
+      "line": 168,
       "column": 10,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -47562,7 +47564,7 @@
     },
     {
       "file": "packages/dashboard/src/components/layout/header/headerContent/profile.tsx",
-      "line": 233,
+      "line": 235,
       "column": 35,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -47577,7 +47579,7 @@
     },
     {
       "file": "packages/dashboard/src/components/layout/header/headerContent/profile.tsx",
-      "line": 236,
+      "line": 238,
       "column": 38,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48174,7 +48176,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 127,
+      "line": 128,
       "column": 24,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48186,7 +48188,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 132,
+      "line": 133,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48198,7 +48200,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 145,
+      "line": 146,
       "column": 24,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48210,7 +48212,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 162,
+      "line": 163,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48224,7 +48226,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 177,
+      "line": 178,
       "column": 32,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48239,7 +48241,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 178,
+      "line": 179,
       "column": 30,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48253,7 +48255,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 192,
+      "line": 193,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48267,7 +48269,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 211,
+      "line": 212,
       "column": 24,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48279,7 +48281,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 239,
+      "line": 240,
       "column": 1,
       "name": "EmailOptions",
       "kind": "FunctionDeclaration",
@@ -48293,7 +48295,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 244,
+      "line": 245,
       "column": 37,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -48305,7 +48307,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 249,
+      "line": 250,
       "column": 15,
       "name": "userProperties.value .filter callback[0]",
       "kind": "ArrowFunction",
@@ -48319,7 +48321,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 250,
+      "line": 251,
       "column": 12,
       "name": "userProperties.value .filter((up) => up.definition.type === UserPropertyDefinitionType.File) .map callback[0]",
       "kind": "ArrowFunction",
@@ -48333,7 +48335,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 254,
+      "line": 255,
       "column": 36,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -48345,7 +48347,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 259,
+      "line": 260,
       "column": 15,
       "name": "userProperties.value .filter callback[0]",
       "kind": "ArrowFunction",
@@ -48359,7 +48361,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 260,
+      "line": 261,
       "column": 12,
       "name": "userProperties.value .filter((up) => up.definition.type === UserPropertyDefinitionType.Trait) .map callback[0]",
       "kind": "ArrowFunction",
@@ -48373,7 +48375,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 263,
+      "line": 264,
       "column": 27,
       "name": "addCustomHeader",
       "kind": "ArrowFunction",
@@ -48385,7 +48387,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 264,
+      "line": 265,
       "column": 14,
       "name": "setDraft callback[0]",
       "kind": "ArrowFunction",
@@ -48399,7 +48401,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 276,
+      "line": 277,
       "column": 30,
       "name": "updateCustomHeader",
       "kind": "ArrowFunction",
@@ -48415,7 +48417,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 281,
+      "line": 282,
       "column": 14,
       "name": "setDraft callback[0]",
       "kind": "ArrowFunction",
@@ -48429,7 +48431,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 295,
+      "line": 296,
       "column": 30,
       "name": "removeCustomHeader",
       "kind": "ArrowFunction",
@@ -48443,7 +48445,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 296,
+      "line": 297,
       "column": 14,
       "name": "setDraft callback[0]",
       "kind": "ArrowFunction",
@@ -48457,7 +48459,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 300,
+      "line": 301,
       "column": 51,
       "name": "(defn.headers ?? []).filter callback[0]",
       "kind": "ArrowFunction",
@@ -48472,7 +48474,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 311,
+      "line": 312,
       "column": 24,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48484,7 +48486,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 314,
+      "line": 315,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48496,7 +48498,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 325,
+      "line": 326,
       "column": 34,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48508,7 +48510,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 337,
+      "line": 338,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48522,26 +48524,12 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 338,
+      "line": 339,
       "column": 26,
       "name": "setDraft callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
         "defn"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 353,
-      "column": 25,
-      "name": "<anonymous>",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "e"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -48551,11 +48539,11 @@
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
       "line": 354,
-      "column": 26,
-      "name": "setDraft callback[0]",
+      "column": 25,
+      "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [
-        "defn"
+        "e"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -48564,12 +48552,12 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 369,
-      "column": 25,
-      "name": "<anonymous>",
+      "line": 355,
+      "column": 26,
+      "name": "setDraft callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
-        "e"
+        "defn"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -48579,20 +48567,6 @@
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
       "line": 370,
-      "column": 26,
-      "name": "setDraft callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "defn"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 386,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48606,7 +48580,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 387,
+      "line": 371,
       "column": 26,
       "name": "setDraft callback[0]",
       "kind": "ArrowFunction",
@@ -48620,7 +48594,35 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 395,
+      "line": 387,
+      "column": 25,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "e"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
+      "line": 388,
+      "column": 26,
+      "name": "setDraft callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "defn"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
+      "line": 396,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48635,7 +48637,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 396,
+      "line": 397,
       "column": 26,
       "name": "setDraft callback[0]",
       "kind": "ArrowFunction",
@@ -48649,7 +48651,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 405,
+      "line": 406,
       "column": 28,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48663,7 +48665,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 418,
+      "line": 419,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48678,7 +48680,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 419,
+      "line": 420,
       "column": 27,
       "name": "value.map callback[0]",
       "kind": "ArrowFunction",
@@ -48693,7 +48695,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 423,
+      "line": 424,
       "column": 51,
       "name": "userProperties.value.find callback[0]",
       "kind": "ArrowFunction",
@@ -48707,7 +48709,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 442,
+      "line": 443,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48722,7 +48724,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 443,
+      "line": 444,
       "column": 26,
       "name": "setDraft callback[0]",
       "kind": "ArrowFunction",
@@ -48736,7 +48738,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 453,
+      "line": 454,
       "column": 28,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48750,7 +48752,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 477,
+      "line": 478,
       "column": 42,
       "name": "(draft.headers ?? []).map callback[0]",
       "kind": "ArrowFunction",
@@ -48765,7 +48767,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 490,
+      "line": 491,
       "column": 31,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48779,7 +48781,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 500,
+      "line": 501,
       "column": 31,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48793,7 +48795,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 507,
+      "line": 508,
       "column": 30,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48805,7 +48807,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 523,
+      "line": 524,
       "column": 40,
       "name": "draftToPreview",
       "kind": "ArrowFunction",
@@ -48819,7 +48821,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 562,
+      "line": 563,
       "column": 3,
       "name": "dynamic callback[0]",
       "kind": "ArrowFunction",
@@ -48831,7 +48833,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 566,
+      "line": 567,
       "column": 1,
       "name": "EmailEditor",
       "kind": "FunctionDeclaration",
@@ -48845,7 +48847,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 609,
+      "line": 610,
       "column": 28,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48859,7 +48861,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 622,
+      "line": 623,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48873,7 +48875,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 646,
+      "line": 647,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48887,26 +48889,12 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 647,
+      "line": 648,
       "column": 26,
       "name": "setDraft callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
         "defn"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 669,
-      "column": 25,
-      "name": "<anonymous>",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "e"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -48916,6 +48904,20 @@
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
       "line": 670,
+      "column": 25,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "e"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
+      "line": 671,
       "column": 26,
       "name": "setDraft callback[0]",
       "kind": "ArrowFunction",
@@ -48929,7 +48931,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 689,
+      "line": 690,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48943,7 +48945,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 717,
+      "line": 718,
       "column": 28,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -48957,7 +48959,7 @@
     },
     {
       "file": "packages/dashboard/src/components/messages/emailEditor.tsx",
-      "line": 730,
+      "line": 731,
       "column": 26,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -50891,7 +50893,7 @@
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
       "line": 245,
-      "column": 33,
+      "column": 35,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [
@@ -50918,7 +50920,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 301,
+      "line": 304,
       "column": 39,
       "name": "field.options?.map callback[0]",
       "kind": "ArrowFunction",
@@ -50932,7 +50934,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 343,
+      "line": 346,
       "column": 1,
       "name": "HistoryPages",
       "kind": "FunctionDeclaration",
@@ -50946,7 +50948,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 352,
+      "line": 355,
       "column": 11,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -50960,7 +50962,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 358,
+      "line": 361,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -50972,7 +50974,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 365,
+      "line": 368,
       "column": 54,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -50984,7 +50986,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 372,
+      "line": 375,
       "column": 1,
       "name": "PublicationManagement",
       "kind": "FunctionDeclaration",
@@ -50998,7 +51000,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 412,
+      "line": 415,
       "column": 31,
       "name": "useCallback callback[0]",
       "kind": "ArrowFunction",
@@ -51010,7 +51012,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 435,
+      "line": 438,
       "column": 35,
       "name": "Object.entries(paths).map callback[0]",
       "kind": "ArrowFunction",
@@ -51024,7 +51026,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 450,
+      "line": 453,
       "column": 15,
       "name": "setData callback[0]",
       "kind": "ArrowFunction",
@@ -51038,7 +51040,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 459,
+      "line": 462,
       "column": 13,
       "name": "useEffect callback[0]",
       "kind": "ArrowFunction",
@@ -51050,7 +51052,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 462,
+      "line": 465,
       "column": 23,
       "name": "historyPage",
       "kind": "ArrowFunction",
@@ -51065,7 +51067,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 481,
+      "line": 484,
       "column": 15,
       "name": "setData callback[0]",
       "kind": "ArrowFunction",
@@ -51079,7 +51081,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 482,
+      "line": 485,
       "column": 25,
       "name": "setHistoryOffsets callback[0]",
       "kind": "ArrowFunction",
@@ -51093,7 +51095,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 489,
+      "line": 492,
       "column": 28,
       "name": "switchNewsletter",
       "kind": "ArrowFunction",
@@ -51107,7 +51109,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 523,
+      "line": 526,
       "column": 26,
       "name": "publicationStats.map callback[0]",
       "kind": "ArrowFunction",
@@ -51121,7 +51123,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 572,
+      "line": 575,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51133,7 +51135,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 583,
+      "line": 586,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51145,7 +51147,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 645,
+      "line": 648,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51157,7 +51159,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 653,
+      "line": 656,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51169,7 +51171,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 663,
+      "line": 666,
       "column": 46,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51181,7 +51183,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 675,
+      "line": 678,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51193,7 +51195,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 676,
+      "line": 679,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51205,7 +51207,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 705,
+      "line": 708,
       "column": 49,
       "name": "rows(data.newsletters).map callback[0]",
       "kind": "ArrowFunction",
@@ -51219,7 +51221,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 757,
+      "line": 760,
       "column": 38,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51231,9 +51233,9 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 812,
-      "column": 29,
-      "name": "([ [ \"subscriptionCount\", \"Publication subscriptions\", \"A subscription is counted in each newsletter.\", ], [ \"contactCount\", \"Contact records\", \"Subscriber prof callback[0]",
+      "line": 817,
+      "column": 19,
+      "name": "( [ [ \"subscriptionCount\", \"Publication subscriptions\", \"A subscription is counted in each newsletter.\", ], [ \"contactCount\", \"Contact records\", \"Subscriber pro callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
         "[key, label, hint]"
@@ -51245,7 +51247,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 853,
+      "line": 858,
       "column": 66,
       "name": "rows(record(data.health).observations).map callback[0]",
       "kind": "ArrowFunction",
@@ -51259,7 +51261,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 857,
+      "line": 862,
       "column": 23,
       "name": "newsletters.find callback[0]",
       "kind": "ArrowFunction",
@@ -51273,7 +51275,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 878,
+      "line": 883,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51287,7 +51289,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 896,
+      "line": 901,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51301,7 +51303,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 912,
+      "line": 917,
       "column": 45,
       "name": "rows(searchResults.contacts).map callback[0]",
       "kind": "ArrowFunction",
@@ -51315,7 +51317,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 919,
+      "line": 924,
       "column": 69,
       "name": "newsletters.find callback[0]",
       "kind": "ArrowFunction",
@@ -51329,7 +51331,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 923,
+      "line": 928,
       "column": 23,
       "name": "selectedContacts.some callback[0]",
       "kind": "ArrowFunction",
@@ -51343,7 +51345,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 925,
+      "line": 930,
       "column": 31,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51357,7 +51359,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 926,
+      "line": 931,
       "column": 43,
       "name": "setSelectedContacts callback[0]",
       "kind": "ArrowFunction",
@@ -51371,7 +51373,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 930,
+      "line": 935,
       "column": 31,
       "name": "current.filter callback[0]",
       "kind": "ArrowFunction",
@@ -51385,7 +51387,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 945,
+      "line": 950,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51399,7 +51401,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 948,
+      "line": 953,
       "column": 51,
       "name": "[\"subscribe\", \"unsubscribe\"].map callback[0]",
       "kind": "ArrowFunction",
@@ -51413,7 +51415,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 952,
+      "line": 957,
       "column": 30,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51425,7 +51427,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 961,
+      "line": 966,
       "column": 35,
       "name": "selectedContacts.map callback[0]",
       "kind": "ArrowFunction",
@@ -51439,7 +51441,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 965,
+      "line": 970,
       "column": 60,
       "name": "selectedContacts.map callback[0]",
       "kind": "ArrowFunction",
@@ -51453,7 +51455,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 999,
+      "line": 1004,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51468,7 +51470,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1026,
+      "line": 1031,
       "column": 64,
       "name": "[\"draft\", \"active\", \"paused\"].map callback[0]",
       "kind": "ArrowFunction",
@@ -51482,7 +51484,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1220,
+      "line": 1225,
       "column": 63,
       "name": "[\"nickname\", \"fromEmail\", \"replyTo\"].map callback[0]",
       "kind": "ArrowFunction",
@@ -51496,7 +51498,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1232,
+      "line": 1237,
       "column": 25,
       "name": "[ \"fromName\", \"address\", \"city\", \"state\", \"zip\", \"country\", ].map callback[0]",
       "kind": "ArrowFunction",
@@ -51510,7 +51512,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1466,
+      "line": 1471,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51524,7 +51526,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1494,
+      "line": 1499,
       "column": 27,
       "name": "[ \"manual\", \"publisher_optout\", \"complaint\", \"invalid_mailbox\", ].map callback[0]",
       "kind": "ArrowFunction",
@@ -51538,7 +51540,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1510,
+      "line": 1515,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51552,7 +51554,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1519,
+      "line": 1524,
       "column": 31,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51566,7 +51568,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1543,
+      "line": 1548,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51580,7 +51582,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1582,
+      "line": 1587,
       "column": 57,
       "name": "rows(record(data.health).ips).map callback[0]",
       "kind": "ArrowFunction",
@@ -51594,7 +51596,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1622,
+      "line": 1627,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51622,12 +51624,12 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 69,
+      "line": 90,
       "column": 1,
       "name": "DomainStatus",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "{ domain, cnameTarget }: { domain: TrackingDomain; cnameTarget: string | null }"
+        "{\n  domain,\n  cnameTarget,\n}: {\n  domain: TrackingDomain;\n  cnameTarget: string | null;\n}"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -51636,8 +51638,8 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 70,
-      "column": 46,
+      "line": 98,
+      "column": 5,
       "name": "domain.dnsRecords.find callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -51650,8 +51652,8 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 71,
-      "column": 54,
+      "line": 101,
+      "column": 5,
       "name": "domain.dnsRecords.filter callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -51664,7 +51666,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 93,
+      "line": 157,
       "column": 38,
       "name": "validationRecords.map callback[0]",
       "kind": "ArrowFunction",
@@ -51678,12 +51680,12 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 105,
+      "line": 190,
       "column": 1,
       "name": "NewsletterDomainSetup",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "{ workspaceId, apiBase, newsletterId, newsletterName }: {\n  workspaceId: string;\n  apiBase: string;\n  newsletterId: string;\n  newsletterName: string;\n}"
+        "{\n  workspaceId,\n  apiBase,\n  newsletterId,\n  newsletterName,\n}: {\n  workspaceId: string;\n  apiBase: string;\n  newsletterId: string;\n  newsletterName: string;\n}"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -51692,8 +51694,8 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 118,
-      "column": 41,
+      "line": 212,
+      "column": 5,
       "name": "useCallback callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -51706,7 +51708,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 126,
+      "line": 225,
       "column": 13,
       "name": "useEffect callback[0]",
       "kind": "ArrowFunction",
@@ -51718,9 +51720,9 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 129,
-      "column": 52,
-      "name": "loadConfiguration(controller.signal).then callback[0]",
+      "line": 229,
+      "column": 13,
+      "name": "loadConfiguration(controller.signal) .then callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
         "result"
@@ -51732,85 +51734,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 132,
-      "column": 37,
-      "name": "result.domains.find callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "item"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 133,
-      "column": 14,
-      "name": "loadConfiguration(controller.signal).then((result) => { if (controller.signal.aborted) return; setConfiguration(result); setDomain(result.domains.find((item) => callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "failure: unknown"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 135,
-      "column": 16,
-      "name": "loadConfiguration(controller.signal).then((result) => { if (controller.signal.aborted) return; setConfiguration(result); setDomain(result.domains.find((item) => callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 138,
-      "column": 12,
-      "name": "<anonymous>",
-      "kind": "ArrowFunction",
-      "parameters": [],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 141,
-      "column": 19,
-      "name": "refresh",
-      "kind": "ArrowFunction",
-      "parameters": [],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 148,
-      "column": 15,
-      "name": "run",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "action: \"save\" | \"provision\" | \"verify\""
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 160,
+      "line": 232,
       "column": 39,
       "name": "result.domains.find callback[0]",
       "kind": "ArrowFunction",
@@ -51824,8 +51748,86 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 172,
-      "column": 49,
+      "line": 234,
+      "column": 14,
+      "name": "loadConfiguration(controller.signal) .then((result) => { if (controller.signal.aborted) return; setConfiguration(result); setDomain(result.domains.find((item) = callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "failure: unknown"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
+      "line": 237,
+      "column": 16,
+      "name": "loadConfiguration(controller.signal) .then((result) => { if (controller.signal.aborted) return; setConfiguration(result); setDomain(result.domains.find((item) = callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
+      "line": 240,
+      "column": 12,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
+      "line": 243,
+      "column": 19,
+      "name": "refresh",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
+      "line": 254,
+      "column": 15,
+      "name": "run",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "action: \"save\" | \"provision\" | \"verify\""
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
+      "line": 273,
+      "column": 39,
+      "name": "result.domains.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "item"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
+      "line": 295,
+      "column": 7,
       "name": "configuration?.domains.filter callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -51838,7 +51840,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 173,
+      "line": 297,
       "column": 32,
       "name": "domains.find callback[0]",
       "kind": "ArrowFunction",
@@ -51852,7 +51854,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 174,
+      "line": 298,
       "column": 34,
       "name": "domains.filter callback[0]",
       "kind": "ArrowFunction",
@@ -51866,7 +51868,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 183,
+      "line": 307,
       "column": 26,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -51878,8 +51880,8 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 190,
-      "column": 41,
+      "line": 330,
+      "column": 21,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [
@@ -51892,8 +51894,8 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 192,
-      "column": 108,
+      "line": 340,
+      "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [
@@ -51906,8 +51908,8 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 203,
-      "column": 163,
+      "line": 390,
+      "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -51918,8 +51920,8 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 204,
-      "column": 125,
+      "line": 399,
+      "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -51930,8 +51932,8 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 212,
-      "column": 37,
+      "line": 431,
+      "column": 21,
       "name": "history.map callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -51944,12 +51946,12 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 217,
+      "line": 447,
       "column": 1,
       "name": "TrackingDomains",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "{ workspaceId, apiBase, newsletters }: {\n  workspaceId: string;\n  apiBase: string;\n  newsletters: NewsletterOption[];\n}"
+        "{\n  workspaceId,\n  apiBase,\n  newsletters,\n}: {\n  workspaceId: string;\n  apiBase: string;\n  newsletters: NewsletterOption[];\n}"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -51958,8 +51960,8 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 223,
-      "column": 47,
+      "line": 458,
+      "column": 5,
       "name": "newsletters.find callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -51972,8 +51974,8 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 229,
-      "column": 113,
+      "line": 478,
+      "column": 19,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [
@@ -51986,7 +51988,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/trackingDomains.tsx",
-      "line": 231,
+      "line": 481,
       "column": 26,
       "name": "newsletters.map callback[0]",
       "kind": "ArrowFunction",
@@ -54369,7 +54371,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1189,
+      "line": 1191,
       "column": 56,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54383,7 +54385,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1212,
+      "line": 1214,
       "column": 34,
       "name": "handleOperatorChange",
       "kind": "ArrowFunction",
@@ -54397,7 +54399,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1215,
+      "line": 1217,
       "column": 56,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54411,7 +54413,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1254,
+      "line": 1256,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -54425,7 +54427,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1257,
+      "line": 1259,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54439,7 +54441,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1285,
+      "line": 1287,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -54453,7 +54455,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1288,
+      "line": 1290,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54467,7 +54469,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1316,
+      "line": 1318,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -54481,7 +54483,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1319,
+      "line": 1321,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54495,7 +54497,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1352,
+      "line": 1354,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -54509,7 +54511,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1355,
+      "line": 1357,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54523,7 +54525,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1439,
+      "line": 1443,
       "column": 19,
       "name": "[ equalsOperatorOption, notEqualsOperatorOption, greaterThanOrEqualOperatorOption, lessThanOperatorOption, ].map callback[0]",
       "kind": "ArrowFunction",
@@ -54537,7 +54539,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1449,
+      "line": 1453,
       "column": 17,
       "name": "[ withinOperatorOption, absoluteTimestampOperatorOption, existsOperatorOption, notExistsOperatorOption, ].map callback[0]",
       "kind": "ArrowFunction",
@@ -54551,7 +54553,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1468,
+      "line": 1472,
       "column": 55,
       "name": "node.whereProperties?.map callback[0]",
       "kind": "ArrowFunction",
@@ -54566,7 +54568,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1469,
+      "line": 1473,
       "column": 38,
       "name": "handlePropertyPathChange",
       "kind": "ArrowFunction",
@@ -54580,7 +54582,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1470,
+      "line": 1474,
       "column": 56,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54594,7 +54596,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1481,
+      "line": 1485,
       "column": 26,
       "name": "handleDelete",
       "kind": "ArrowFunction",
@@ -54606,7 +54608,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1482,
+      "line": 1486,
       "column": 56,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54620,7 +54622,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1488,
+      "line": 1492,
       "column": 13,
       "name": "node.whereProperties?.filter callback[0]",
       "kind": "ArrowFunction",
@@ -54635,7 +54637,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1494,
+      "line": 1498,
       "column": 34,
       "name": "handleOperatorChange",
       "kind": "ArrowFunction",
@@ -54649,7 +54651,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1497,
+      "line": 1501,
       "column": 56,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54663,7 +54665,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1515,
+      "line": 1519,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -54677,7 +54679,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1518,
+      "line": 1522,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54691,7 +54693,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1546,
+      "line": 1550,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -54705,7 +54707,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1549,
+      "line": 1553,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54719,7 +54721,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1690,
+      "line": 1694,
       "column": 1,
       "name": "PerformedSelect",
       "kind": "FunctionDeclaration",
@@ -54733,7 +54735,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1694,
+      "line": 1698,
       "column": 33,
       "name": "handleEventNameChange",
       "kind": "ArrowFunction",
@@ -54747,7 +54749,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1695,
+      "line": 1699,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54761,7 +54763,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1702,
+      "line": 1706,
       "column": 62,
       "name": "handleTimesOperatorChange",
       "kind": "ArrowFunction",
@@ -54775,7 +54777,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1703,
+      "line": 1707,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54789,7 +54791,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1711,
+      "line": 1715,
       "column": 34,
       "name": "handleEventTimesChange",
       "kind": "ArrowFunction",
@@ -54803,7 +54805,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1712,
+      "line": 1716,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54817,7 +54819,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1720,
+      "line": 1724,
       "column": 29,
       "name": "handleAddProperty",
       "kind": "ArrowFunction",
@@ -54829,7 +54831,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1721,
+      "line": 1725,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54843,7 +54845,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1728,
+      "line": 1732,
       "column": 35,
       "name": "n.properties?.find callback[0]",
       "kind": "ArrowFunction",
@@ -54857,7 +54859,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1746,
+      "line": 1750,
       "column": 31,
       "name": "handleAddTimeWindow",
       "kind": "ArrowFunction",
@@ -54869,7 +54871,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1747,
+      "line": 1751,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54883,7 +54885,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1754,
+      "line": 1758,
       "column": 45,
       "name": "node.properties?.map callback[0]",
       "kind": "ArrowFunction",
@@ -54898,7 +54900,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1755,
+      "line": 1759,
       "column": 38,
       "name": "handlePropertyPathChange",
       "kind": "ArrowFunction",
@@ -54912,7 +54914,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1756,
+      "line": 1760,
       "column": 56,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54926,7 +54928,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1767,
+      "line": 1771,
       "column": 26,
       "name": "handleDelete",
       "kind": "ArrowFunction",
@@ -54938,7 +54940,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1768,
+      "line": 1772,
       "column": 56,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54952,7 +54954,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1773,
+      "line": 1777,
       "column": 50,
       "name": "node.properties?.filter callback[0]",
       "kind": "ArrowFunction",
@@ -54967,7 +54969,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1778,
+      "line": 1782,
       "column": 34,
       "name": "handleOperatorChange",
       "kind": "ArrowFunction",
@@ -54981,7 +54983,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1781,
+      "line": 1785,
       "column": 56,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -54995,7 +54997,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1799,
+      "line": 1803,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -55009,7 +55011,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1802,
+      "line": 1806,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55023,7 +55025,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1830,
+      "line": 1834,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -55037,7 +55039,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1833,
+      "line": 1837,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55051,7 +55053,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1866,
+      "line": 1870,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -55065,7 +55067,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1869,
+      "line": 1873,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55079,7 +55081,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1967,
+      "line": 1971,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -55093,7 +55095,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1968,
+      "line": 1972,
       "column": 64,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55107,7 +55109,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1979,
+      "line": 1983,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -55119,7 +55121,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 1980,
+      "line": 1984,
       "column": 64,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55133,7 +55135,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2007,
+      "line": 2011,
       "column": 40,
       "name": "relationalOperatorNames.map callback[0]",
       "kind": "ArrowFunction",
@@ -55147,7 +55149,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2025,
+      "line": 2029,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -55159,7 +55161,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2032,
+      "line": 2036,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -55171,7 +55173,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2044,
+      "line": 2048,
       "column": 1,
       "name": "KeyedPerformedSelect",
       "kind": "FunctionDeclaration",
@@ -55185,7 +55187,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2048,
+      "line": 2052,
       "column": 33,
       "name": "handleEventNameChange",
       "kind": "ArrowFunction",
@@ -55199,7 +55201,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2049,
+      "line": 2053,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55213,7 +55215,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2056,
+      "line": 2060,
       "column": 62,
       "name": "handleTimesOperatorChange",
       "kind": "ArrowFunction",
@@ -55227,7 +55229,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2057,
+      "line": 2061,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55241,7 +55243,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2065,
+      "line": 2069,
       "column": 34,
       "name": "handleEventTimesChange",
       "kind": "ArrowFunction",
@@ -55255,7 +55257,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2066,
+      "line": 2070,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55269,7 +55271,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2074,
+      "line": 2078,
       "column": 29,
       "name": "handleAddProperty",
       "kind": "ArrowFunction",
@@ -55281,7 +55283,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2075,
+      "line": 2079,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55295,7 +55297,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2082,
+      "line": 2086,
       "column": 35,
       "name": "n.properties?.find callback[0]",
       "kind": "ArrowFunction",
@@ -55309,7 +55311,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2101,
+      "line": 2105,
       "column": 45,
       "name": "node.properties?.map callback[0]",
       "kind": "ArrowFunction",
@@ -55324,7 +55326,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2102,
+      "line": 2106,
       "column": 38,
       "name": "handlePropertyPathChange",
       "kind": "ArrowFunction",
@@ -55338,7 +55340,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2103,
+      "line": 2107,
       "column": 56,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55352,7 +55354,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2114,
+      "line": 2118,
       "column": 26,
       "name": "handleDelete",
       "kind": "ArrowFunction",
@@ -55364,7 +55366,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2115,
+      "line": 2119,
       "column": 56,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55378,7 +55380,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2120,
+      "line": 2124,
       "column": 50,
       "name": "node.properties?.filter callback[0]",
       "kind": "ArrowFunction",
@@ -55393,7 +55395,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2125,
+      "line": 2129,
       "column": 34,
       "name": "handleOperatorChange",
       "kind": "ArrowFunction",
@@ -55407,7 +55409,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2128,
+      "line": 2132,
       "column": 56,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55421,7 +55423,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2148,
+      "line": 2152,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -55435,7 +55437,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2151,
+      "line": 2155,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55449,7 +55451,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2179,
+      "line": 2183,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -55463,7 +55465,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2182,
+      "line": 2186,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55477,7 +55479,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2210,
+      "line": 2214,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -55491,7 +55493,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2213,
+      "line": 2217,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55505,7 +55507,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2246,
+      "line": 2250,
       "column": 43,
       "name": "handlePropertyValueChange",
       "kind": "ArrowFunction",
@@ -55519,7 +55521,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2249,
+      "line": 2253,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55533,7 +55535,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2341,
+      "line": 2345,
       "column": 27,
       "name": "handleKeyChange",
       "kind": "ArrowFunction",
@@ -55547,7 +55549,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2342,
+      "line": 2346,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55561,7 +55563,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2374,
+      "line": 2378,
       "column": 40,
       "name": "relationalOperatorNames.map callback[0]",
       "kind": "ArrowFunction",
@@ -55575,7 +55577,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2392,
+      "line": 2396,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -55587,7 +55589,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2442,
+      "line": 2446,
       "column": 1,
       "name": "EmailSelect",
       "kind": "FunctionDeclaration",
@@ -55601,7 +55603,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2446,
+      "line": 2450,
       "column": 62,
       "name": "onEmailEventChangeHandler",
       "kind": "ArrowFunction",
@@ -55615,7 +55617,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2447,
+      "line": 2451,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55629,7 +55631,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2467,
+      "line": 2471,
       "column": 36,
       "name": "EMAIL_EVENT_UI_LIST.map callback[0]",
       "kind": "ArrowFunction",
@@ -55643,7 +55645,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2479,
+      "line": 2483,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -55657,7 +55659,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2480,
+      "line": 2484,
       "column": 62,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55671,7 +55673,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2493,
+      "line": 2497,
       "column": 1,
       "name": "SubscriptionGroupSelect",
       "kind": "FunctionDeclaration",
@@ -55685,7 +55687,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2506,
+      "line": 2510,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -55699,7 +55701,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2507,
+      "line": 2511,
       "column": 60,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55713,7 +55715,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2522,
+      "line": 2525,
       "column": 1,
       "name": "TraitSelect",
       "kind": "FunctionDeclaration",
@@ -55727,7 +55729,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2553,
+      "line": 2556,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -55742,7 +55744,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2557,
+      "line": 2560,
       "column": 17,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55756,7 +55758,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2567,
+      "line": 2570,
       "column": 26,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -55770,7 +55772,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2627,
+      "line": 2630,
       "column": 25,
       "name": "traitOnChange",
       "kind": "ArrowFunction",
@@ -55784,7 +55786,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2628,
+      "line": 2631,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55798,7 +55800,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2648,
+      "line": 2651,
       "column": 21,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -55813,7 +55815,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2649,
+      "line": 2652,
       "column": 62,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55827,7 +55829,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2734,
+      "line": 2737,
       "column": 24,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -55841,7 +55843,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2753,
+      "line": 2756,
       "column": 1,
       "name": "RandomBucketSelect",
       "kind": "FunctionDeclaration",
@@ -55855,7 +55857,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2756,
+      "line": 2759,
       "column": 31,
       "name": "handlePercentChange",
       "kind": "ArrowFunction",
@@ -55869,7 +55871,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2759,
+      "line": 2762,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55883,7 +55885,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2774,
+      "line": 2777,
       "column": 33,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -55895,7 +55897,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2795,
+      "line": 2798,
       "column": 1,
       "name": "IncludesSelect",
       "kind": "FunctionDeclaration",
@@ -55909,7 +55911,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2799,
+      "line": 2802,
       "column": 28,
       "name": "handlePathChange",
       "kind": "ArrowFunction",
@@ -55923,7 +55925,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2800,
+      "line": 2803,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55937,7 +55939,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2807,
+      "line": 2810,
       "column": 28,
       "name": "handleItemChange",
       "kind": "ArrowFunction",
@@ -55951,7 +55953,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2808,
+      "line": 2811,
       "column": 54,
       "name": "updateEditableSegmentNodeData callback[2]",
       "kind": "ArrowFunction",
@@ -55965,7 +55967,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2840,
+      "line": 2843,
       "column": 1,
       "name": "ManualNodeComponent",
       "kind": "FunctionDeclaration",
@@ -55979,7 +55981,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2848,
+      "line": 2851,
       "column": 5,
       "name": "useCallback callback[0]",
       "kind": "ArrowFunction",
@@ -55993,7 +55995,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2868,
+      "line": 2871,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -56007,7 +56009,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2884,
+      "line": 2887,
       "column": 1,
       "name": "SegmentNodeComponent",
       "kind": "FunctionDeclaration",
@@ -56021,7 +56023,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2900,
+      "line": 2903,
       "column": 5,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -56033,7 +56035,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2902,
+      "line": 2905,
       "column": 9,
       "name": "editedSegment.definition.nodes.reduce callback[0]",
       "kind": "ArrowFunction",
@@ -56048,7 +56050,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2911,
+      "line": 2914,
       "column": 5,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -56060,7 +56062,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2913,
+      "line": 2916,
       "column": 9,
       "name": "SEGMENT_OPTIONS.filter callback[0]",
       "kind": "ArrowFunction",
@@ -56074,7 +56076,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2944,
+      "line": 2947,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -56088,7 +56090,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2945,
+      "line": 2948,
       "column": 19,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -56103,7 +56105,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2951,
+      "line": 2954,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -56117,7 +56119,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 2972,
+      "line": 2975,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -56129,7 +56131,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 3002,
+      "line": 3005,
       "column": 40,
       "name": "node.children.flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -56144,7 +56146,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 3027,
+      "line": 3030,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -56156,7 +56158,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 3136,
+      "line": 3139,
       "column": 21,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -56170,7 +56172,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 3139,
+      "line": 3142,
       "column": 1,
       "name": "SegmentEditor",
       "kind": "FunctionDeclaration",
@@ -56184,7 +56186,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 3160,
+      "line": 3163,
       "column": 13,
       "name": "useEffect callback[0]",
       "kind": "ArrowFunction",
@@ -56196,7 +56198,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 3173,
+      "line": 3176,
       "column": 13,
       "name": "useEffect callback[0]",
       "kind": "ArrowFunction",
@@ -56208,7 +56210,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 3183,
+      "line": 3186,
       "column": 13,
       "name": "useEffect callback[0]",
       "kind": "ArrowFunction",
@@ -56220,7 +56222,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 3185,
+      "line": 3188,
       "column": 16,
       "name": "setState callback[0]",
       "kind": "ArrowFunction",
@@ -56234,7 +56236,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 3194,
+      "line": 3197,
       "column": 65,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -56246,7 +56248,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 3198,
+      "line": 3201,
       "column": 58,
       "name": "setNonNullState",
       "kind": "ArrowFunction",
@@ -56260,7 +56262,7 @@
     },
     {
       "file": "packages/dashboard/src/components/segments/editor.tsx",
-      "line": 3199,
+      "line": 3202,
       "column": 16,
       "name": "setState callback[0]",
       "kind": "ArrowFunction",
@@ -59754,7 +59756,7 @@
     },
     {
       "file": "packages/dashboard/src/components/templateEditor.tsx",
-      "line": 1345,
+      "line": 1347,
       "column": 22,
       "name": "onError",
       "kind": "ArrowFunction",
@@ -59768,7 +59770,7 @@
     },
     {
       "file": "packages/dashboard/src/components/templateEditor.tsx",
-      "line": 1353,
+      "line": 1355,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -59780,7 +59782,7 @@
     },
     {
       "file": "packages/dashboard/src/components/templateEditor.tsx",
-      "line": 1377,
+      "line": 1379,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -59794,7 +59796,7 @@
     },
     {
       "file": "packages/dashboard/src/components/templateEditor.tsx",
-      "line": 1378,
+      "line": 1380,
       "column": 26,
       "name": "setState callback[0]",
       "kind": "ArrowFunction",
@@ -59808,7 +59810,7 @@
     },
     {
       "file": "packages/dashboard/src/components/templateEditor.tsx",
-      "line": 1383,
+      "line": 1385,
       "column": 62,
       "name": "jsonParseSafe(json).andThen callback[0]",
       "kind": "ArrowFunction",
@@ -70220,7 +70222,7 @@
     },
     {
       "file": "packages/dashboard/src/lib/messaging.ts",
-      "line": 20,
+      "line": 19,
       "column": 1,
       "name": "serveEmailTemplate",
       "kind": "FunctionDeclaration",
@@ -70234,7 +70236,7 @@
     },
     {
       "file": "packages/dashboard/src/lib/messaging.ts",
-      "line": 79,
+      "line": 78,
       "column": 37,
       "name": "userProperties.flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -70248,7 +70250,7 @@
     },
     {
       "file": "packages/dashboard/src/lib/messaging.ts",
-      "line": 84,
+      "line": 83,
       "column": 1,
       "name": "serveWebhookTemplate",
       "kind": "FunctionDeclaration",
@@ -70262,7 +70264,7 @@
     },
     {
       "file": "packages/dashboard/src/lib/messaging.ts",
-      "line": 131,
+      "line": 130,
       "column": 37,
       "name": "userProperties.flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -70462,7 +70464,7 @@
     },
     {
       "file": "packages/dashboard/src/lib/segments.ts",
-      "line": 53,
+      "line": 55,
       "column": 1,
       "name": "isLastClickedSegmentNode",
       "kind": "FunctionDeclaration",
@@ -70476,7 +70478,7 @@
     },
     {
       "file": "packages/dashboard/src/lib/segments.ts",
-      "line": 59,
+      "line": 62,
       "column": 7,
       "name": "node.hasProperties?.some callback[0]",
       "kind": "ArrowFunction",
@@ -70490,7 +70492,7 @@
     },
     {
       "file": "packages/dashboard/src/lib/segments.ts",
-      "line": 64,
+      "line": 67,
       "column": 1,
       "name": "createLastOpenedSegmentNode",
       "kind": "FunctionDeclaration",
@@ -70504,7 +70506,7 @@
     },
     {
       "file": "packages/dashboard/src/lib/segments.ts",
-      "line": 71,
+      "line": 76,
       "column": 1,
       "name": "isLastOpenedSegmentNode",
       "kind": "FunctionDeclaration",
@@ -70518,7 +70520,7 @@
     },
     {
       "file": "packages/dashboard/src/lib/segments.ts",
-      "line": 77,
+      "line": 83,
       "column": 7,
       "name": "node.hasProperties?.some callback[0]",
       "kind": "ArrowFunction",
@@ -70532,7 +70534,7 @@
     },
     {
       "file": "packages/dashboard/src/lib/segments.ts",
-      "line": 82,
+      "line": 88,
       "column": 1,
       "name": "getDefaultLastPerformedOperator",
       "kind": "FunctionDeclaration",
@@ -77549,7 +77551,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 530,
+      "line": 531,
       "column": 13,
       "name": "useEffect callback[0]",
       "kind": "ArrowFunction",
@@ -77561,7 +77563,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 542,
+      "line": 543,
       "column": 27,
       "name": "saveSandboxMode",
       "kind": "ArrowFunction",
@@ -77575,7 +77577,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 551,
+      "line": 552,
       "column": 31,
       "name": "onFailureNoticeHandler",
       "kind": "ArrowFunction",
@@ -77587,7 +77589,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 552,
+      "line": 554,
       "column": 20,
       "name": "setResponse",
       "kind": "ArrowFunction",
@@ -77599,7 +77601,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 624,
+      "line": 626,
       "column": 33,
       "name": "onChange",
       "kind": "ArrowFunction",
@@ -77614,7 +77616,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 690,
+      "line": 691,
       "column": 1,
       "name": "SmtpConfig",
       "kind": "FunctionDeclaration",
@@ -77626,7 +77628,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 692,
+      "line": 693,
       "column": 56,
       "name": "SMTP_SECRET_FIELDS.map callback[0]",
       "kind": "ArrowFunction",
@@ -77640,7 +77642,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 724,
+      "line": 725,
       "column": 1,
       "name": "DefaultEmailConfig",
       "kind": "FunctionDeclaration",
@@ -77652,7 +77654,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 753,
+      "line": 754,
       "column": 22,
       "name": "apiHandler",
       "kind": "ArrowFunction",
@@ -77667,7 +77669,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 759,
+      "line": 760,
       "column": 19,
       "name": "setRequest",
       "kind": "ArrowFunction",
@@ -77681,7 +77683,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 760,
+      "line": 761,
       "column": 18,
       "name": "setState callback[0]",
       "kind": "ArrowFunction",
@@ -77695,7 +77697,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 766,
+      "line": 767,
       "column": 31,
       "name": "onFailureNoticeHandler",
       "kind": "ArrowFunction",
@@ -77707,7 +77709,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 768,
+      "line": 769,
       "column": 20,
       "name": "setResponse",
       "kind": "ArrowFunction",
@@ -77719,7 +77721,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 794,
+      "line": 795,
       "column": 13,
       "name": "emailProviders .filter callback[0]",
       "kind": "ArrowFunction",
@@ -77733,7 +77735,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 795,
+      "line": 796,
       "column": 10,
       "name": "emailProviders .filter((ep) => isEmailProviderType(ep.type)) .map callback[0]",
       "kind": "ArrowFunction",
@@ -77747,7 +77749,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 800,
+      "line": 801,
       "column": 5,
       "name": "options.some callback[0]",
       "kind": "ArrowFunction",
@@ -77761,7 +77763,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 821,
+      "line": 822,
       "column": 31,
       "name": "onChange",
       "kind": "ArrowFunction",
@@ -77775,7 +77777,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 822,
+      "line": 823,
       "column": 32,
       "name": "setState callback[0]",
       "kind": "ArrowFunction",
@@ -77789,7 +77791,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 839,
+      "line": 840,
       "column": 31,
       "name": "onChange",
       "kind": "ArrowFunction",
@@ -77803,7 +77805,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 840,
+      "line": 841,
       "column": 32,
       "name": "setState callback[0]",
       "kind": "ArrowFunction",
@@ -77817,7 +77819,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 863,
+      "line": 864,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -77829,7 +77831,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 873,
+      "line": 874,
       "column": 1,
       "name": "EmailChannelConfig",
       "kind": "FunctionDeclaration",
@@ -77841,7 +77843,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 886,
+      "line": 887,
       "column": 1,
       "name": "WebhookChannelConfig",
       "kind": "FunctionDeclaration",
@@ -77853,7 +77855,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 900,
+      "line": 901,
       "column": 1,
       "name": "MessageChannelsConfig",
       "kind": "FunctionDeclaration",
@@ -77865,7 +77867,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 910,
+      "line": 911,
       "column": 1,
       "name": "WriteKeySettings",
       "kind": "FunctionDeclaration",
@@ -77877,7 +77879,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 911,
+      "line": 912,
       "column": 32,
       "name": "useAppStore callback[0]",
       "kind": "ArrowFunction",
@@ -77891,7 +77893,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 913,
+      "line": 914,
       "column": 5,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -77903,7 +77905,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 948,
+      "line": 949,
       "column": 1,
       "name": "AdminApiKeySettings",
       "kind": "FunctionDeclaration",
@@ -77915,7 +77917,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 970,
+      "line": 971,
       "column": 1,
       "name": "AuthenticationSettings",
       "kind": "FunctionDeclaration",
@@ -77927,7 +77929,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 984,
+      "line": 985,
       "column": 1,
       "name": "SubscriptionManagementSettings",
       "kind": "FunctionDeclaration",
@@ -77939,7 +77941,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 985,
+      "line": 986,
       "column": 42,
       "name": "useAppStore callback[0]",
       "kind": "ArrowFunction",
@@ -77953,7 +77955,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1000,
+      "line": 1001,
       "column": 39,
       "name": "useAppStore callback[0]",
       "kind": "ArrowFunction",
@@ -77967,7 +77969,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1009,
+      "line": 1010,
       "column": 14,
       "name": "queryFn",
       "kind": "ArrowFunction",
@@ -77979,7 +77981,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1024,
+      "line": 1025,
       "column": 13,
       "name": "useEffect callback[0]",
       "kind": "ArrowFunction",
@@ -77991,7 +77993,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1040,
+      "line": 1041,
       "column": 17,
       "name": "mutationFn",
       "kind": "ArrowFunction",
@@ -78005,7 +78007,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1045,
+      "line": 1046,
       "column": 16,
       "name": "onSuccess",
       "kind": "ArrowFunction",
@@ -78017,7 +78019,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1056,
+      "line": 1057,
       "column": 14,
       "name": "onError",
       "kind": "ArrowFunction",
@@ -78031,7 +78033,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1066,
+      "line": 1067,
       "column": 16,
       "name": "onSettled",
       "kind": "ArrowFunction",
@@ -78043,7 +78045,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1073,
+      "line": 1074,
       "column": 17,
       "name": "mutationFn",
       "kind": "ArrowFunction",
@@ -78055,7 +78057,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1076,
+      "line": 1077,
       "column": 16,
       "name": "onSuccess",
       "kind": "ArrowFunction",
@@ -78067,7 +78069,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1088,
+      "line": 1089,
       "column": 14,
       "name": "onError",
       "kind": "ArrowFunction",
@@ -78081,7 +78083,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1109,
+      "line": 1110,
       "column": 16,
       "name": "onSettled",
       "kind": "ArrowFunction",
@@ -78093,7 +78095,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1114,
+      "line": 1115,
       "column": 30,
       "name": "handleSaveTemplate",
       "kind": "ArrowFunction",
@@ -78105,7 +78107,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1119,
+      "line": 1120,
       "column": 32,
       "name": "handleResetToDefault",
       "kind": "ArrowFunction",
@@ -78117,7 +78119,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1131,
+      "line": 1132,
       "column": 5,
       "name": "subscriptionGroups.find callback[0]",
       "kind": "ArrowFunction",
@@ -78131,7 +78133,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1139,
+      "line": 1140,
       "column": 43,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -78143,7 +78145,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1154,
+      "line": 1155,
       "column": 29,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -78158,7 +78160,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1178,
+      "line": 1179,
       "column": 35,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -78172,7 +78174,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1187,
+      "line": 1188,
       "column": 33,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -78187,7 +78189,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1190,
+      "line": 1191,
       "column": 39,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -78201,7 +78203,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1193,
+      "line": 1194,
       "column": 36,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -78215,7 +78217,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1216,
+      "line": 1217,
       "column": 15,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -78227,7 +78229,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1268,
+      "line": 1269,
       "column": 34,
       "name": "onClick",
       "kind": "ArrowFunction",
@@ -78239,7 +78241,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1316,
+      "line": 1317,
       "column": 31,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -78253,7 +78255,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1352,
+      "line": 1353,
       "column": 1,
       "name": "Metadata",
       "kind": "FunctionDeclaration",
@@ -78265,7 +78267,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1394,
+      "line": 1395,
       "column": 1,
       "name": "PermissionsSettings",
       "kind": "FunctionDeclaration",
@@ -78277,7 +78279,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1414,
+      "line": 1415,
       "column": 1,
       "name": "SettingsContents",
       "kind": "FunctionDeclaration",
@@ -78289,7 +78291,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/settings.page.tsx",
-      "line": 1432,
+      "line": 1433,
       "column": 5,
       "name": "Settings",
       "kind": "FunctionExpression",
@@ -79750,7 +79752,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 826,
+      "line": 828,
       "column": 28,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -79765,7 +79767,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 829,
+      "line": 831,
       "column": 26,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -79779,7 +79781,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 834,
+      "line": 836,
       "column": 46,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -79791,7 +79793,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 846,
+      "line": 848,
       "column": 1,
       "name": "AnyOfUserPropertyDefinitionEditor",
       "kind": "FunctionDeclaration",
@@ -79805,7 +79807,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 861,
+      "line": 863,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -79817,7 +79819,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 862,
+      "line": 864,
       "column": 40,
       "name": "updateUserPropertyDefinition callback[0]",
       "kind": "ArrowFunction",
@@ -79831,7 +79833,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 866,
+      "line": 868,
       "column": 46,
       "name": "current.nodes.find callback[0]",
       "kind": "ArrowFunction",
@@ -79845,7 +79847,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 888,
+      "line": 890,
       "column": 19,
       "name": "groupedUserProperty.nodes .filter callback[0]",
       "kind": "ArrowFunction",
@@ -79859,7 +79861,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 889,
+      "line": 891,
       "column": 16,
       "name": "groupedUserProperty.nodes .filter((n) => n.id && definition.children.includes(n.id)) .map callback[0]",
       "kind": "ArrowFunction",
@@ -79874,7 +79876,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 899,
+      "line": 901,
       "column": 38,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -79888,7 +79890,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 900,
+      "line": 902,
       "column": 28,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -79902,7 +79904,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 901,
+      "line": 903,
       "column": 29,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -79917,7 +79919,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 905,
+      "line": 907,
       "column": 50,
       "name": "updateUserPropertyDefinition callback[0]",
       "kind": "ArrowFunction",
@@ -79931,7 +79933,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 909,
+      "line": 911,
       "column": 57,
       "name": "current.nodes.map callback[0]",
       "kind": "ArrowFunction",
@@ -79945,7 +79947,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 936,
+      "line": 938,
       "column": 32,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -79959,7 +79961,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 950,
+      "line": 952,
       "column": 30,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -79971,7 +79973,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 951,
+      "line": 953,
       "column": 52,
       "name": "updateUserPropertyDefinition callback[0]",
       "kind": "ArrowFunction",
@@ -79985,7 +79987,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 956,
+      "line": 958,
       "column": 27,
       "name": "current.nodes.find callback[0]",
       "kind": "ArrowFunction",
@@ -79999,7 +80001,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 965,
+      "line": 967,
       "column": 27,
       "name": "entry.children.filter callback[0]",
       "kind": "ArrowFunction",
@@ -80013,7 +80015,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 968,
+      "line": 970,
       "column": 27,
       "name": "current.nodes.filter callback[0]",
       "kind": "ArrowFunction",
@@ -80027,7 +80029,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 985,
+      "line": 987,
       "column": 1,
       "name": "DefinitionComponent",
       "kind": "FunctionDeclaration",
@@ -80041,7 +80043,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1007,
+      "line": 1009,
       "column": 47,
       "name": "definition.nodes.find callback[0]",
       "kind": "ArrowFunction",
@@ -80055,7 +80057,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1035,
+      "line": 1037,
       "column": 1,
       "name": "UserPropertyDefinitionEditor",
       "kind": "FunctionDeclaration",
@@ -80069,7 +80071,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1059,
+      "line": 1061,
       "column": 26,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -80083,7 +80085,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1060,
+      "line": 1062,
       "column": 16,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -80097,7 +80099,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1061,
+      "line": 1063,
       "column": 17,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -80112,7 +80114,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1062,
+      "line": 1064,
       "column": 38,
       "name": "updateUserPropertyDefinition callback[0]",
       "kind": "ArrowFunction",
@@ -80124,7 +80126,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1066,
+      "line": 1068,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -80138,7 +80140,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1095,
+      "line": 1097,
       "column": 21,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -80152,7 +80154,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1117,
+      "line": 1119,
       "column": 1,
       "name": "NewUserProperty",
       "kind": "FunctionDeclaration",
@@ -80164,7 +80166,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1141,
+      "line": 1143,
       "column": 16,
       "name": "onSuccess",
       "kind": "ArrowFunction",
@@ -80178,7 +80180,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1145,
+      "line": 1147,
       "column": 14,
       "name": "onError",
       "kind": "ArrowFunction",
@@ -80190,7 +80192,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1155,
+      "line": 1157,
       "column": 39,
       "name": "useCallback callback[0]",
       "kind": "ArrowFunction",
@@ -80202,7 +80204,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1166,
+      "line": 1168,
       "column": 5,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -80214,7 +80216,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1177,
+      "line": 1179,
       "column": 17,
       "name": "action",
       "kind": "ArrowFunction",
@@ -80226,7 +80228,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1194,
+      "line": 1196,
       "column": 5,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -80238,7 +80240,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1202,
+      "line": 1204,
       "column": 37,
       "name": "onFailureNoticeHandler",
       "kind": "ArrowFunction",
@@ -80250,7 +80252,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1213,
+      "line": 1215,
       "column": 11,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -80262,7 +80264,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1247,
+      "line": 1249,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -80276,7 +80278,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/user-properties/[id].page.tsx",
-      "line": 1295,
+      "line": 1297,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -87829,6 +87831,434 @@
       "kind": "ArrowFunction",
       "parameters": [
         "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 2,
+      "column": 14,
+      "name": "__name",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "target",
+        "value"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 12,
+      "column": 3,
+      "name": "Uint8Array.from callback[1]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "character"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 38,
+      "column": 1,
+      "name": "response",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "status",
+        "method",
+        "pixel = false"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 57,
+      "column": 1,
+      "name": "brandedHostname",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "hostname"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 59,
+      "column": 93,
+      "name": "labels.every callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "label"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 62,
+      "column": 1,
+      "name": "relayUrl",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "env"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 73,
+      "column": 1,
+      "name": "secretBytes",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "secret"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 77,
+      "column": 35,
+      "name": "Uint8Array.from callback[1]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "character"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 80,
+      "column": 1,
+      "name": "evidenceHeaders",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "headers"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 94,
+      "column": 1,
+      "name": "evidenceQuery",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "url"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 104,
+      "column": 1,
+      "name": "boundedHint",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value",
+        "limit"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 108,
+      "column": 1,
+      "name": "handle",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "request",
+        "env"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 149,
+      "column": 56,
+      "name": "Array.from callback[1]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "byte"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 151,
+      "column": 30,
+      "name": "setTimeout callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
+      "line": 176,
+      "column": 3,
+      "name": "fetch",
+      "kind": "MethodDeclaration",
+      "parameters": [
+        "request",
+        "env"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 2,
+      "column": 14,
+      "name": "__name",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "target",
+        "value"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 12,
+      "column": 3,
+      "name": "Uint8Array.from callback[1]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "character"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 38,
+      "column": 1,
+      "name": "response",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "status",
+        "method",
+        "pixel = false"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 57,
+      "column": 1,
+      "name": "brandedHostname",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "hostname"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 59,
+      "column": 93,
+      "name": "labels.every callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "label"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 62,
+      "column": 1,
+      "name": "relayUrl",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "env"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 73,
+      "column": 1,
+      "name": "secretBytes",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "secret"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 77,
+      "column": 35,
+      "name": "Uint8Array.from callback[1]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "character"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 80,
+      "column": 1,
+      "name": "evidenceHeaders",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "headers"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 94,
+      "column": 1,
+      "name": "evidenceQuery",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "url"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 104,
+      "column": 1,
+      "name": "boundedHint",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value",
+        "limit"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 108,
+      "column": 1,
+      "name": "handle",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "request",
+        "env"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 149,
+      "column": 56,
+      "name": "Array.from callback[1]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "byte"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 151,
+      "column": 30,
+      "name": "setTimeout callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+      "line": 176,
+      "column": 3,
+      "name": "fetch",
+      "kind": "MethodDeclaration",
+      "parameters": [
+        "request",
+        "env"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,

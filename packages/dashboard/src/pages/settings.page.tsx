@@ -517,10 +517,11 @@ function TelnyxConfig() {
   const secretAvailability = useSecretAvailability();
   const { workspace, apiBase } = useAppStorePick(["workspace", "apiBase"]);
   const [sandboxMode, setSandboxMode] = useState(false);
-  const [sandboxRequest, setSandboxRequest] =
-    useState<EphemeralRequestStatus<Error>>({
-      type: CompletionStatus.NotStarted,
-    });
+  const [sandboxRequest, setSandboxRequest] = useState<
+    EphemeralRequestStatus<Error>
+  >({
+    type: CompletionStatus.NotStarted,
+  });
   const savedSandboxMode = isSecretSaved(
     SecretNames.Telnyx,
     "sandboxMode",
@@ -548,7 +549,8 @@ function TelnyxConfig() {
       setRequest: setSandboxRequest,
       responseSchema: EmptyResponse,
       onSuccessNotice: "Successfully saved Telnyx sandbox mode",
-      onFailureNoticeHandler: () => "API Error: Failed to save Telnyx sandbox mode",
+      onFailureNoticeHandler: () =>
+        "API Error: Failed to save Telnyx sandbox mode",
       setResponse: () => setSandboxMode(enabled),
       requestConfig: {
         method: "PUT",
@@ -641,13 +643,12 @@ function TelnyxConfig() {
     >
       <Typography variant="body2">
         Use a publicly reachable HTTPS version of the callback URL above; Telnyx
-        cannot reach localhost. Subscribe to delivery, bounce, complaint, failure,
-        unsubscribe, and enabled tracking events. Requests must include
-        telnyx-signature-ed25519 and
-        telnyx-timestamp; signatures older than five minutes are rejected.
-        Open/click tracking is off by default and configured on the Telnyx sending
-        profile, not per send here. Opens are observations, not verified human
-        engagement; clicks may be scanners.{" "}
+        cannot reach localhost. Subscribe to delivery, bounce, complaint,
+        failure, unsubscribe, and enabled tracking events. Requests must include
+        telnyx-signature-ed25519 and telnyx-timestamp; signatures older than
+        five minutes are rejected. Open/click tracking is off by default and
+        configured on the Telnyx sending profile, not per send here. Opens are
+        observations, not verified human engagement; clicks may be scanners.{" "}
         <a
           href="https://developers.telnyx.com/docs/messaging/email/webhooks-events"
           target="_blank"

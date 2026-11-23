@@ -1322,7 +1322,9 @@ export default function TemplateEditor({
                     `Test message sent successfully to ${data.value.variant.to}.`,
                     { variant: "success", anchorOrigin },
                   );
-                } else if (data.value.type === InternalEventType.MessageQueued) {
+                } else if (
+                  data.value.type === InternalEventType.MessageQueued
+                ) {
                   enqueueSnackbar(
                     data.value.state === "unknown"
                       ? "Provider acceptance is uncertain. Review the send; do not resubmit."

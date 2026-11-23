@@ -60,19 +60,14 @@ const requestContext = fp(async (fastify: FastifyInstance) => {
       try {
         requireGoogleOrigin(request.headers.origin, request.method);
       } catch {
-        return reply.status(403).send({ code: "forbidden" });
+        return reply
+          .status(403)
+          .send({ code: "forbidden", message: "Forbidden" });
       }
     }
     const rc = await getRequestContextFastify(request);
 
     if (rc.isErr()) {
-      if (
-        backendConfig().authMode === "google" &&
-        (rc.error.type === RequestContextErrorType.NotOnboarded ||
-          rc.error.type === RequestContextErrorType.EmailNotVerified)
-      ) {
-        return reply.status(403).send({ code: "no_access" });
-      }
       switch (rc.error.type) {
         case RequestContextErrorType.ApplicationError:
           throw new Error(rc.error.message);
@@ -92,7 +87,9 @@ const requestContext = fp(async (fastify: FastifyInstance) => {
           return reply.status(403).send();
         case RequestContextErrorType.NotOnboarded:
         case RequestContextErrorType.EmailNotVerified:
-          return reply.status(403).send({ code: "no_access" });
+          return reply
+            .status(403)
+            .send({ code: "no_access", message: "No workspace access" });
         default:
           logger().error(
             {
@@ -123,7 +120,10 @@ const requestContext = fp(async (fastify: FastifyInstance) => {
     }
     if (backendConfig().authMode === "google") {
       if (!request.googleAccountPrincipal) {
-        return reply.status(401).send({ code: "not_authenticated" });
+        return reply.status(401).send({
+          code: "not_authenticated",
+          message: "Authentication required",
+        });
       }
       try {
         await requireWorkspaceRole(
@@ -133,13 +133,18 @@ const requestContext = fp(async (fastify: FastifyInstance) => {
         );
       } catch (error) {
         if (error instanceof AccountError) {
-          return reply.status(error.statusCode).send({ code: error.code });
+          return reply
+            .status(error.statusCode)
+            .send({ code: error.code, message: "Workspace access denied" });
         }
         logger().error(
           { requestId: request.id },
           "Google workspace authorization failed",
         );
-        return reply.status(500).send({ code: "authorization_failed" });
+        return reply.status(500).send({
+          code: "authorization_failed",
+          message: "Authorization failed",
+        });
       }
     }
 

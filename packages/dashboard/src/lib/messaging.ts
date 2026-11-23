@@ -16,7 +16,6 @@ import { DEFAULT_WEBHOOK_DEFINITION } from "isomorphic-lib/src/webhook";
 
 import { AppState } from "./types";
 
-
 export async function serveEmailTemplate({
   workspaceId,
   messageTemplateId,

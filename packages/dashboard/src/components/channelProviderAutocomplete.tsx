@@ -6,9 +6,7 @@ import {
   WorkspaceWideEmailProviderType,
 } from "isomorphic-lib/src/types";
 
-function getProviderLabel(
-  provider: WorkspaceWideEmailProviders,
-) {
+function getProviderLabel(provider: WorkspaceWideEmailProviders) {
   return emailProviderLabel(provider);
 }
 

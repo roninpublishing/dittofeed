@@ -91,7 +91,9 @@ function Profile() {
         await axios.post(`${apiBase}/api/account/workspace`, { workspaceId });
         window.location.assign(`${path.basePath}/home`);
       } else if (authMode === "single-tenant" || authMode === "anonymous") {
-        await axios.post(`${apiBase}/api/public/single-tenant/workspace`, { workspaceId });
+        await axios.post(`${apiBase}/api/public/single-tenant/workspace`, {
+          workspaceId,
+        });
         window.location.assign(`${path.basePath}/home`);
       } else {
         await path.push(`/select-workspace?workspaceId=${workspaceId}`);

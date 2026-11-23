@@ -35,6 +35,7 @@ import {
 import adminAuth, { authenticateAdminApiKeyFull } from "./buildApp/adminAuth";
 import requestContext from "./buildApp/requestContext";
 import apiKeyController from "./controllers/apiKeyController";
+import publicationsController from "./controllers/publicationsController";
 import secretsController from "./controllers/secretsController";
 import { registerGoogleAccounts } from "./googleAccounts";
 
@@ -108,6 +109,9 @@ beforeEach(async () => {
     );
     await scope.register(apiKeyController, { prefix: "/api/admin-keys" });
     await scope.register(secretsController, { prefix: "/api/secrets" });
+    await scope.register(publicationsController, {
+      prefix: "/api/publications",
+    });
   });
   await app.register(async (scope) => {
     await scope.register(adminAuth);
@@ -142,6 +146,38 @@ test("public OAuth status is not captured by the protected API hook", async () =
     (await app.inject(`/api/users?workspaceId=${workspaceId}`)).statusCode,
   ).toBe(401);
 });
+
+test.each(["membership", "origin", "role"])(
+  "authorization failures preserve HTTP 403 on publication routes: %s",
+  async (reason) => {
+    if (reason === "membership") {
+      await db()
+        .delete(schema.workspaceMemberRole)
+        .where(
+          and(
+            eq(schema.workspaceMemberRole.workspaceId, workspaceId),
+            eq(schema.workspaceMemberRole.workspaceMemberId, memberId),
+          ),
+        );
+    }
+    const response = await app.inject({
+      method: reason === "membership" ? "GET" : "POST",
+      url: `/api/publications/?workspaceId=${workspaceId}`,
+      cookies,
+      headers: {
+        origin: reason === "origin" ? "https://foreign.example.test" : origin,
+      },
+      payload:
+        reason === "membership"
+          ? undefined
+          : { workspaceId, name: "Forbidden", slug: "forbidden" },
+    });
+    expect(response.statusCode).toBe(403);
+    const body = response.json<{ code: string; message: string }>();
+    expect(body.code).toBe(reason === "membership" ? "no_access" : "forbidden");
+    expect(typeof body.message).toBe("string");
+  },
+);
 
 test("legacy session and identity headers cannot authenticate the standard API", async () => {
   const response = await app.inject({

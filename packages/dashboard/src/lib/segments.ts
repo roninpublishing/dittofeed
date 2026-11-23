@@ -33,7 +33,9 @@ export function getSegmentConfigState({
   return serverInitialState;
 }
 
-export function createLastClickedSegmentNode(id: string): LastPerformedSegmentNode {
+export function createLastClickedSegmentNode(
+  id: string,
+): LastPerformedSegmentNode {
   return {
     id,
     type: SegmentNodeType.LastPerformed,
@@ -51,7 +53,8 @@ export function createLastClickedSegmentNode(id: string): LastPerformedSegmentNo
 }
 
 export function isLastClickedSegmentNode(node: SegmentNode): boolean {
-  const event: LastPerformedSegmentNode["event"] = InternalEventType.EmailClicked;
+  const event: LastPerformedSegmentNode["event"] =
+    InternalEventType.EmailClicked;
   return (
     node.type === SegmentNodeType.LastPerformed &&
     node.event === event &&
@@ -61,7 +64,9 @@ export function isLastClickedSegmentNode(node: SegmentNode): boolean {
   );
 }
 
-export function createLastOpenedSegmentNode(id: string): LastPerformedSegmentNode {
+export function createLastOpenedSegmentNode(
+  id: string,
+): LastPerformedSegmentNode {
   return {
     ...createLastClickedSegmentNode(id),
     event: InternalEventType.EmailOpened,
@@ -69,7 +74,8 @@ export function createLastOpenedSegmentNode(id: string): LastPerformedSegmentNod
 }
 
 export function isLastOpenedSegmentNode(node: SegmentNode): boolean {
-  const event: LastPerformedSegmentNode["event"] = InternalEventType.EmailOpened;
+  const event: LastPerformedSegmentNode["event"] =
+    InternalEventType.EmailOpened;
   return (
     node.type === SegmentNodeType.LastPerformed &&
     node.event === event &&
@@ -104,6 +110,8 @@ export function getDefaultLastPerformedOperator(
     case SegmentOperatorType.NotEquals:
       return { type, value: "" };
     case SegmentOperatorType.HasBeen:
-      throw new Error("Has Been is not supported for Last Performed conditions");
+      throw new Error(
+        "Has Been is not supported for Last Performed conditions",
+      );
   }
 }

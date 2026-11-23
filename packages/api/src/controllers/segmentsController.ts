@@ -384,14 +384,14 @@ export default async function segmentsController(fastify: FastifyInstance) {
         return reply.status(404).send({ message: "Segment not found." });
       }
       const definitionResult = schemaValidateWithErr(
-        segment.definition,
+        segment?.definition,
         SegmentDefinition,
       );
       if (definitionResult.isErr()) {
         logger().error(
           {
             segmentId,
-            definition: segment.definition,
+            definition: segment?.definition,
           },
           "segment definition is invalid",
         );

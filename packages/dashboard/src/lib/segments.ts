@@ -51,9 +51,10 @@ export function createLastClickedSegmentNode(id: string): LastPerformedSegmentNo
 }
 
 export function isLastClickedSegmentNode(node: SegmentNode): boolean {
+  const event: LastPerformedSegmentNode["event"] = InternalEventType.EmailClicked;
   return (
     node.type === SegmentNodeType.LastPerformed &&
-    node.event === InternalEventType.EmailClicked &&
+    node.event === event &&
     node.hasProperties?.some(
       (property) => property.valueSource === EventValueSource.EventTime,
     ) === true
@@ -68,9 +69,10 @@ export function createLastOpenedSegmentNode(id: string): LastPerformedSegmentNod
 }
 
 export function isLastOpenedSegmentNode(node: SegmentNode): boolean {
+  const event: LastPerformedSegmentNode["event"] = InternalEventType.EmailOpened;
   return (
     node.type === SegmentNodeType.LastPerformed &&
-    node.event === InternalEventType.EmailOpened &&
+    node.event === event &&
     node.hasProperties?.some(
       (property) => property.valueSource === EventValueSource.EventTime,
     ) === true

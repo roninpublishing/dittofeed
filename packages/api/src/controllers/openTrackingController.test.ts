@@ -69,7 +69,7 @@ describe("owned open HTTP evidence", () => {
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    await app.close();
+    await app?.close();
     config().enableOpenTracking = originalEnabled;
     config().openTrackingBaseUrl = originalBase;
     config().openTrackingRelaySecret = originalRelaySecret;

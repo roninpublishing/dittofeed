@@ -1,6 +1,9 @@
 import { Type } from "@sinclair/typebox";
 import { FastifyInstance } from "fastify";
-import { classifyApiOperation, requiredApiScopes } from "isomorphic-lib/src/apiOperations";
+import {
+  classifyApiOperation,
+  requiredApiScopes,
+} from "isomorphic-lib/src/apiOperations";
 import { WORKSPACE_ID_HEADER } from "isomorphic-lib/src/constants";
 import { OpenAPI, OpenAPIV3, OpenAPIV3_1 } from "openapi-types";
 
@@ -12,17 +15,37 @@ declare module "fastify" {
 }
 
 // Swagger supports both OpenAPI 3.0 and 3.1; preserve their schema dialects.
-type MachineOperation = Omit<OpenAPIV3.OperationObject, "parameters" | "requestBody" | "responses" | "callbacks"> & {
+type MachineOperation = Omit<
+  OpenAPIV3.OperationObject,
+  "parameters" | "requestBody" | "responses" | "callbacks"
+> & {
   parameters?: OpenAPI.Parameter[];
-  requestBody?: OpenAPIV3.OperationObject["requestBody"] | OpenAPIV3_1.OperationObject["requestBody"];
-  responses?: OpenAPIV3.OperationObject["responses"] | OpenAPIV3_1.OperationObject["responses"];
-  callbacks?: OpenAPIV3.OperationObject["callbacks"] | OpenAPIV3_1.OperationObject["callbacks"];
+  requestBody?:
+    | OpenAPIV3.OperationObject["requestBody"]
+    | OpenAPIV3_1.OperationObject["requestBody"];
+  responses?:
+    | OpenAPIV3.OperationObject["responses"]
+    | OpenAPIV3_1.OperationObject["responses"];
+  callbacks?:
+    | OpenAPIV3.OperationObject["callbacks"]
+    | OpenAPIV3_1.OperationObject["callbacks"];
 };
-type MachinePathItem = Partial<Record<typeof METHODS[number], MachineOperation>> & {
+type MachinePathItem = Partial<
+  Record<(typeof METHODS)[number], MachineOperation>
+> & {
   parameters?: OpenAPI.Parameter[];
 };
 
-const METHODS = ["get", "post", "put", "patch", "delete", "head", "options", "trace"] as const;
+const METHODS = [
+  "get",
+  "post",
+  "put",
+  "patch",
+  "delete",
+  "head",
+  "options",
+  "trace",
+] as const;
 
 /** Project registered routes, not a second maintained operation allowlist. */
 export function adminOpenApi(document: OpenAPI.Document) {
@@ -31,12 +54,17 @@ export function adminOpenApi(document: OpenAPI.Document) {
   }
   const paths: Record<string, MachinePathItem> = {};
   for (const [path, item] of Object.entries(document.paths ?? {})) {
-    if (!path.startsWith("/api/admin/") || path === "/api/admin/openapi.json" || !item) {
+    if (
+      !path.startsWith("/api/admin/") ||
+      path === "/api/admin/openapi.json" ||
+      !item
+    ) {
       continue;
     }
     const projected: MachinePathItem = {};
     // Preserve path-level parameter definitions, but never externally supplied refs.
-    if ("$ref" in item) throw new Error(`Unsupported referenced admin path: ${path}`);
+    if ("$ref" in item)
+      throw new Error(`Unsupported referenced admin path: ${path}`);
     if (item.parameters) projected.parameters = item.parameters;
     for (const method of METHODS) {
       const operation = item[method];
@@ -51,14 +79,22 @@ export function adminOpenApi(document: OpenAPI.Document) {
         security: [{ bearerAuth: [] }],
         ...(streamBody ? { requestBody: streamBody } : {}),
         parameters: [
-          ...(operation.parameters ?? []).filter((parameter) =>
-            "$ref" in parameter || !(parameter.in === "header" && parameter.name.toLowerCase() === WORKSPACE_ID_HEADER.toLowerCase())),
+          ...(operation.parameters ?? []).filter(
+            (parameter) =>
+              "$ref" in parameter ||
+              !(
+                parameter.in === "header" &&
+                parameter.name.toLowerCase() ===
+                  WORKSPACE_ID_HEADER.toLowerCase()
+              ),
+          ),
           {
             in: "header",
             name: WORKSPACE_ID_HEADER,
             required: true,
             schema: { type: "string", format: "uuid" },
-            description: "Workspace authorized by the bearer key. Must agree with any workspaceId in the request.",
+            description:
+              "Workspace authorized by the bearer key. Must agree with any workspaceId in the request.",
           },
         ],
       };
@@ -73,7 +109,12 @@ export function adminOpenApi(document: OpenAPI.Document) {
       ...document.components,
       securitySchemes: {
         ...document.components?.securitySchemes,
-        bearerAuth: { type: "http", scheme: "bearer", description: "Workspace admin API key with the required operation scopes." },
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          description:
+            "Workspace admin API key with the required operation scopes.",
+        },
       },
     },
   };
@@ -83,36 +124,66 @@ export function adminOpenApi(document: OpenAPI.Document) {
 // Fastify requires the async plugin contract even when registration is synchronous.
 // eslint-disable-next-line @typescript-eslint/require-await
 export default async function operationsController(fastify: FastifyInstance) {
-  fastify.get("/openapi.json", {
-    schema: {
-      description: "Live registered machine operations and their request/response schemas. Excludes this discovery endpoint itself.",
-      tags: ["Operations"],
-    },
-  }, (_request, reply) => reply.send(adminOpenApi(fastify.swagger())));
-
-  fastify.get("/operations", {
-    schema: {
-      description: "Coverage manifest derived from the live authenticated OpenAPI document. Scopes are enforced by the server.",
-      tags: ["Operations"],
-      response: {
-        200: Type.Object({
-          operations: Type.Array(Type.Object({
-            method: Type.String(),
-            path: Type.String(),
-            scope: Type.Union([Type.Literal("read"), Type.Literal("write"), Type.Literal("destructive"), Type.Literal("sensitive")]),
-            requiredScopes: Type.Array(Type.String()),
-            description: Type.String(),
-          })),
-        }),
+  fastify.get(
+    "/openapi.json",
+    {
+      schema: {
+        description:
+          "Live registered machine operations and their request/response schemas. Excludes this discovery endpoint itself.",
+        tags: ["Operations"],
       },
     },
-  }, (_request, reply) => {
-    const document = adminOpenApi(fastify.swagger());
-    const operations = Object.entries(document.paths).flatMap(([path, item]) =>
-      METHODS.flatMap((method) => {
-        const operation = item?.[method];
-        return operation ? [{ method: method.toUpperCase(), path, scope: classifyApiOperation(method, path), requiredScopes: [...requiredApiScopes(method, path)], description: operation.description ?? operation.summary ?? "" }] : [];
-      }));
-    return reply.send({ operations });
-  });
+    (_request, reply) => reply.send(adminOpenApi(fastify.swagger())),
+  );
+
+  fastify.get(
+    "/operations",
+    {
+      schema: {
+        description:
+          "Coverage manifest derived from the live authenticated OpenAPI document. Scopes are enforced by the server.",
+        tags: ["Operations"],
+        response: {
+          200: Type.Object({
+            operations: Type.Array(
+              Type.Object({
+                method: Type.String(),
+                path: Type.String(),
+                scope: Type.Union([
+                  Type.Literal("read"),
+                  Type.Literal("write"),
+                  Type.Literal("destructive"),
+                  Type.Literal("sensitive"),
+                ]),
+                requiredScopes: Type.Array(Type.String()),
+                description: Type.String(),
+              }),
+            ),
+          }),
+        },
+      },
+    },
+    (_request, reply) => {
+      const document = adminOpenApi(fastify.swagger());
+      const operations = Object.entries(document.paths).flatMap(
+        ([path, item]) =>
+          METHODS.flatMap((method) => {
+            const operation = item?.[method];
+            return operation
+              ? [
+                  {
+                    method: method.toUpperCase(),
+                    path,
+                    scope: classifyApiOperation(method, path),
+                    requiredScopes: [...requiredApiScopes(method, path)],
+                    description:
+                      operation.description ?? operation.summary ?? "",
+                  },
+                ]
+              : [];
+          }),
+      );
+      return reply.send({ operations });
+    },
+  );
 }

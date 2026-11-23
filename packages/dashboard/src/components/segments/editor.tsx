@@ -837,6 +837,22 @@ function NumericValueSelect({
   );
 }
 
+function getEditableOperator(
+  node: Draft<SegmentNode>,
+  hasPropertyIndex?: number,
+): Draft<SegmentOperator> | undefined {
+  if (node.type === SegmentNodeType.Trait) {
+    return node.operator;
+  }
+  if (
+    node.type === SegmentNodeType.LastPerformed &&
+    hasPropertyIndex !== undefined
+  ) {
+    return node.hasProperties?.[hasPropertyIndex]?.operator;
+  }
+  return undefined;
+}
+
 function DurationValueSelect({
   nodeId,
   operator,
@@ -874,20 +890,208 @@ function DurationValueSelect({
   );
 }
 
-function getEditableOperator(
-  node: Draft<SegmentNode>,
-  hasPropertyIndex?: number,
-): Draft<SegmentOperator> | undefined {
-  if (node.type === SegmentNodeType.Trait) {
-    return node.operator;
-  }
-  if (
-    node.type === SegmentNodeType.LastPerformed &&
-    hasPropertyIndex !== undefined
-  ) {
-    return node.hasProperties?.[hasPropertyIndex]?.operator;
-  }
-  return undefined;
+function AbsoluteTimestampValueSelect({
+  nodeId,
+  operator,
+  hasPropertyIndex,
+}: {
+  nodeId: string;
+  operator: SegmentAbsoluteTimestampOperator;
+  hasPropertyIndex?: number;
+}) {
+  const { state, setState } = useSegmentEditorContext();
+  const { disabled } = state;
+  const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(
+    null,
+  );
+
+  // Get user's current timezone
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // Convert stored timestamp to user's timezone for display
+  const [selectedDate, setSelectedDate] = React.useState<CalendarDate | null>(
+    operator.absoluteTimestamp
+      ? (() => {
+          // Create date in user's timezone, not UTC
+          const utcDate = new Date(operator.absoluteTimestamp);
+          const localDate = new Date(
+            utcDate.toLocaleString("en-US", { timeZone: userTimezone }),
+          );
+          return toCalendarDate(localDate);
+        })()
+      : null,
+  );
+
+  const [timeValue, setTimeValue] = React.useState<Time | null>(
+    operator.absoluteTimestamp
+      ? (() => {
+          // Create date in user's timezone, not UTC
+          const utcDate = new Date(operator.absoluteTimestamp);
+          const localDate = new Date(
+            utcDate.toLocaleString("en-US", { timeZone: userTimezone }),
+          );
+          return new Time(localDate.getHours(), 0); // Only hours, no minutes
+        })()
+      : new Time(0, 0),
+  );
+
+  const updateTimestamp = (date: CalendarDate, time: Time) => {
+    // Convert CalendarDate to a Date object in user's timezone
+    const dateObj = date.toDate(userTimezone);
+    dateObj.setHours(time.hour, 0, 0); // Set to hour precision, no minutes or seconds
+
+    updateEditableSegmentNodeData(setState, nodeId, (node) => {
+      const currentOperator = getEditableOperator(node, hasPropertyIndex);
+      if (currentOperator?.type === SegmentOperatorType.AbsoluteTimestamp) {
+        // Store as ISO string (UTC).
+        currentOperator.absoluteTimestamp = dateObj.toISOString();
+      }
+    });
+  };
+
+  const handleDateChange = (date: CalendarDate) => {
+    setSelectedDate(date);
+    if (timeValue) {
+      updateTimestamp(date, timeValue);
+    }
+  };
+
+  const handleTimeChange = (time: Time | null) => {
+    setTimeValue(time);
+    if (selectedDate && time) {
+      updateTimestamp(selectedDate, time);
+    }
+  };
+
+  const handleDirectionChange = (e: SelectChangeEvent<CursorDirectionEnum>) => {
+    updateEditableSegmentNodeData(setState, nodeId, (node) => {
+      const currentOperator = getEditableOperator(node, hasPropertyIndex);
+      if (currentOperator?.type === SegmentOperatorType.AbsoluteTimestamp) {
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        currentOperator.direction = e.target.value as CursorDirectionEnum;
+      }
+    });
+  };
+
+  const displayValue = operator.absoluteTimestamp
+    ? formatInTimeZone(
+        new Date(operator.absoluteTimestamp),
+        userTimezone,
+        "MMM d, yyyy 'at' HH:mm zzz",
+      )
+    : "Select Date & Time";
+
+  return (
+    <>
+      <Box sx={{ width: "220px" }}>
+        <Button
+          disabled={disabled}
+          variant="outlined"
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+          sx={{
+            width: "100%",
+            height: "100%",
+            justifyContent: "flex-start",
+            textTransform: "none",
+            color: "text.primary",
+          }}
+        >
+          {displayValue}
+        </Button>
+      </Box>
+
+      <Box sx={{ width: secondarySelectorWidth }}>
+        <Select
+          disabled={disabled}
+          value={operator.direction}
+          onChange={handleDirectionChange}
+          displayEmpty
+        >
+          <MenuItem value={CursorDirectionEnum.After}>After</MenuItem>
+          <MenuItem value={CursorDirectionEnum.Before}>Before</MenuItem>
+        </Select>
+      </Box>
+
+      <Popover
+        open={Boolean(anchorEl)}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "left",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "left",
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: "grey.50",
+            },
+          },
+        }}
+      >
+        <Box sx={{ p: 2 }}>
+          <Stack spacing={2}>
+            <Calendar value={selectedDate} onChange={handleDateChange} />
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="body1">Time (Hour):</Typography>
+              <TimeField
+                value={timeValue}
+                onChange={handleTimeChange}
+                granularity="hour"
+                shouldForceLeadingZeros
+                style={{ flex: 1 }}
+              >
+                <DateInput
+                  className="time-field-input"
+                  style={{
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    padding: "8px 12px",
+                    background: "#fff",
+                    minHeight: "40px",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  {(segment) => (
+                    <DateSegment
+                      segment={segment}
+                      className="time-segment"
+                      style={{
+                        padding: "2px 4px",
+                        borderRadius: "2px",
+                        minWidth: "24px",
+                        textAlign: "center",
+                      }}
+                    />
+                  )}
+                </DateInput>
+              </TimeField>
+            </Stack>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontSize: "0.75rem", textAlign: "center" }}
+            >
+              {userTimezone}
+            </Typography>
+            <GreyButton
+              onClick={() => setAnchorEl(null)}
+              sx={{
+                border: "1px solid",
+                borderColor: "grey.400",
+              }}
+            >
+              Apply
+            </GreyButton>
+          </Stack>
+        </Box>
+      </Popover>
+    </>
+  );
 }
 
 function LastPerformedSelect({ node }: { node: LastPerformedSegmentNode }) {
@@ -2314,209 +2518,6 @@ function SubscriptionGroupSelect({
   );
 }
 
-function AbsoluteTimestampValueSelect({
-  nodeId,
-  operator,
-  hasPropertyIndex,
-}: {
-  nodeId: string;
-  operator: SegmentAbsoluteTimestampOperator;
-  hasPropertyIndex?: number;
-}) {
-  const { state, setState } = useSegmentEditorContext();
-  const { disabled } = state;
-  const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(
-    null,
-  );
-
-  // Get user's current timezone
-  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-  // Convert stored timestamp to user's timezone for display
-  const [selectedDate, setSelectedDate] = React.useState<CalendarDate | null>(
-    operator.absoluteTimestamp
-      ? (() => {
-          // Create date in user's timezone, not UTC
-          const utcDate = new Date(operator.absoluteTimestamp);
-          const localDate = new Date(
-            utcDate.toLocaleString("en-US", { timeZone: userTimezone }),
-          );
-          return toCalendarDate(localDate);
-        })()
-      : null,
-  );
-
-  const [timeValue, setTimeValue] = React.useState<Time | null>(
-    operator.absoluteTimestamp
-      ? (() => {
-          // Create date in user's timezone, not UTC
-          const utcDate = new Date(operator.absoluteTimestamp);
-          const localDate = new Date(
-            utcDate.toLocaleString("en-US", { timeZone: userTimezone }),
-          );
-          return new Time(localDate.getHours(), 0); // Only hours, no minutes
-        })()
-      : new Time(0, 0),
-  );
-
-  const updateTimestamp = (date: CalendarDate, time: Time) => {
-    // Convert CalendarDate to a Date object in user's timezone
-    const dateObj = date.toDate(userTimezone);
-    dateObj.setHours(time.hour, 0, 0); // Set to hour precision, no minutes or seconds
-
-    updateEditableSegmentNodeData(setState, nodeId, (node) => {
-      const currentOperator = getEditableOperator(node, hasPropertyIndex);
-      if (currentOperator?.type === SegmentOperatorType.AbsoluteTimestamp) {
-        // Store as ISO string (UTC).
-        currentOperator.absoluteTimestamp = dateObj.toISOString();
-      }
-    });
-  };
-
-  const handleDateChange = (date: CalendarDate) => {
-    setSelectedDate(date);
-    if (timeValue) {
-      updateTimestamp(date, timeValue);
-    }
-  };
-
-  const handleTimeChange = (time: Time | null) => {
-    setTimeValue(time);
-    if (selectedDate && time) {
-      updateTimestamp(selectedDate, time);
-    }
-  };
-
-  const handleDirectionChange = (e: SelectChangeEvent<CursorDirectionEnum>) => {
-    updateEditableSegmentNodeData(setState, nodeId, (node) => {
-      const currentOperator = getEditableOperator(node, hasPropertyIndex);
-      if (currentOperator?.type === SegmentOperatorType.AbsoluteTimestamp) {
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-        currentOperator.direction = e.target.value as CursorDirectionEnum;
-      }
-    });
-  };
-
-  const displayValue = operator.absoluteTimestamp
-    ? formatInTimeZone(
-        new Date(operator.absoluteTimestamp),
-        userTimezone,
-        "MMM d, yyyy 'at' HH:mm zzz",
-      )
-    : "Select Date & Time";
-
-  return (
-    <>
-      <Box sx={{ width: "220px" }}>
-        <Button
-          disabled={disabled}
-          variant="outlined"
-          onClick={(e) => setAnchorEl(e.currentTarget)}
-          sx={{
-            width: "100%",
-            height: "100%",
-            justifyContent: "flex-start",
-            textTransform: "none",
-            color: "text.primary",
-          }}
-        >
-          {displayValue}
-        </Button>
-      </Box>
-
-      <Box sx={{ width: secondarySelectorWidth }}>
-        <Select
-          disabled={disabled}
-          value={operator.direction}
-          onChange={handleDirectionChange}
-          displayEmpty
-        >
-          <MenuItem value={CursorDirectionEnum.After}>After</MenuItem>
-          <MenuItem value={CursorDirectionEnum.Before}>Before</MenuItem>
-        </Select>
-      </Box>
-
-      <Popover
-        open={Boolean(anchorEl)}
-        anchorEl={anchorEl}
-        onClose={() => setAnchorEl(null)}
-        anchorOrigin={{
-          vertical: "bottom",
-          horizontal: "left",
-        }}
-        transformOrigin={{
-          vertical: "top",
-          horizontal: "left",
-        }}
-        slotProps={{
-          paper: {
-            sx: {
-              bgcolor: "grey.50",
-            },
-          },
-        }}
-      >
-        <Box sx={{ p: 2 }}>
-          <Stack spacing={2}>
-            <Calendar value={selectedDate} onChange={handleDateChange} />
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="body1">Time (Hour):</Typography>
-              <TimeField
-                value={timeValue}
-                onChange={handleTimeChange}
-                granularity="hour"
-                shouldForceLeadingZeros
-                style={{ flex: 1 }}
-              >
-                <DateInput
-                  className="time-field-input"
-                  style={{
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    padding: "8px 12px",
-                    background: "#fff",
-                    minHeight: "40px",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  {(segment) => (
-                    <DateSegment
-                      segment={segment}
-                      className="time-segment"
-                      style={{
-                        padding: "2px 4px",
-                        borderRadius: "2px",
-                        minWidth: "24px",
-                        textAlign: "center",
-                      }}
-                    />
-                  )}
-                </DateInput>
-              </TimeField>
-            </Stack>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ fontSize: "0.75rem", textAlign: "center" }}
-            >
-              {userTimezone}
-            </Typography>
-            <GreyButton
-              onClick={() => setAnchorEl(null)}
-              sx={{
-                border: "1px solid",
-                borderColor: "grey.400",
-              }}
-            >
-              Apply
-            </GreyButton>
-          </Stack>
-        </Box>
-      </Popover>
-    </>
-  );
-}
 
 function TraitSelect({ node }: { node: TraitSegmentNode }) {
   const traitPath = node.path;
@@ -2930,11 +2931,12 @@ function SegmentNodeComponent({
     return null;
   }
 
-  const condition = isLastOpenedSegmentNode(node)
-    ? lastOpenedOption
-    : isLastClickedSegmentNode(node)
-      ? lastClickedOption
-      : keyedSegmentOptions[node.type];
+  let condition = keyedSegmentOptions[node.type];
+  if (isLastOpenedSegmentNode(node)) {
+    condition = lastOpenedOption;
+  } else if (isLastClickedSegmentNode(node)) {
+    condition = lastClickedOption;
+  }
   const conditionSelect = (
     <Box sx={{ width: selectorWidth }}>
       <Autocomplete

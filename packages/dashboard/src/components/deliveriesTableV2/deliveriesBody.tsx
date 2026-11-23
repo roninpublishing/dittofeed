@@ -343,6 +343,28 @@ interface WebhookDelivery extends BaseDelivery {
 
 type Delivery = EmailDelivery | WebhookDelivery;
 
+function LastClickedCell({ row }: { row: Row<Delivery> }) {
+  return (
+    <DeliveryClicksCell
+      userId={row.original.userId}
+      messageId={row.original.messageId}
+      lastClickedAt={row.original.lastClickedAt}
+      clickCount={row.original.clickCount}
+    />
+  );
+}
+
+function LastOpenedCell({ row }: { row: Row<Delivery> }) {
+  return (
+    <DeliveryOpensCell
+      userId={row.original.userId}
+      messageId={row.original.messageId}
+      lastOpenedAt={row.original.lastOpenedAt}
+      openCount={row.original.openCount}
+    />
+  );
+}
+
 const DeliveriesCountResponseSchema = Type.Object({
   count: Type.Number(),
 });
@@ -989,27 +1011,13 @@ export function DeliveriesBody({
         id: "lastClickedAt",
         header: "Last clicked",
         accessorKey: "lastClickedAt",
-        cell: ({ row }) => (
-          <DeliveryClicksCell
-            userId={row.original.userId}
-            messageId={row.original.messageId}
-            lastClickedAt={row.original.lastClickedAt}
-            clickCount={row.original.clickCount}
-          />
-        ),
+        cell: LastClickedCell,
       },
       lastOpenedAt: {
         id: "lastOpenedAt",
         header: "Last opened",
         accessorKey: "lastOpenedAt",
-        cell: ({ row }) => (
-          <DeliveryOpensCell
-            userId={row.original.userId}
-            messageId={row.original.messageId}
-            lastOpenedAt={row.original.lastOpenedAt}
-            openCount={row.original.openCount}
-          />
-        ),
+        cell: LastOpenedCell,
       },
       updatedAt: {
         id: "updatedAt",

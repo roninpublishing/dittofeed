@@ -107,13 +107,15 @@ async function trackingPublisher(
   workspaceId: string,
   mutation = false,
 ) {
-  const context = request.requestContext.get("workspace");
+  const { requestContext }: Partial<Pick<FastifyRequest, "requestContext">> =
+    request;
+  const context = requestContext?.get("workspace");
   if (context && context.id !== workspaceId)
     throw new NewsletterTrackingError(403, "publisher_access_required");
   // Bearer callers pass the shared workspace/scopes preHandler; browser sessions
   // additionally carry member roles from the authenticated request context.
-  if (mutation && request.requestContext.get("member")) {
-    const roles = request.requestContext.get("memberRoles") ?? [];
+  if (mutation && requestContext?.get("member")) {
+    const roles = requestContext.get("memberRoles") ?? [];
     if (
       !roles.some(
         (role) =>

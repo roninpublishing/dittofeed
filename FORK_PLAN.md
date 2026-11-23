@@ -26,8 +26,8 @@ roles, private invitations, and revocable sessions are implemented. Local Google
 configuration and real owner sign-in are verified: the owner is Admin in RONIN,
 one-time bootstrap settings are removed, and Google mode remains enabled.
 The full-platform integration checkpoints migrations `0000`–`0017`; production
-deployment and second-account acceptance remain separate release gates. See
-[account operations](packages/docs/guide/google-sso.mdx).
+origin/deployment and authenticated team/second-account acceptance remain separate
+release gates. See [account operations](packages/docs/guide/google-sso.mdx).
 
 ## Product decisions
 
@@ -470,8 +470,9 @@ forwards cookies or authorization, and disables caching and request logs.
 
 Verification: 145 targeted Jest tests passed in isolated PostgreSQL/ClickHouse
 databases; the native workerd suite passed 10 tests and Wrangler dry-run passed.
-Production TypeScript builds passed for backend, API, and dashboard. The full
-test-inclusive package check reported separate newsletter-test typing errors.
+Production TypeScript builds passed for backend, API, and dashboard. Separate
+newsletter-test typing failures were subsequently fixed; the consolidated
+integration passed all nine test-inclusive workspace checks.
 An inbound-only native Worker → real HTTP API → encrypted PostgreSQL scenario
 proved GET/HEAD capture, hostname isolation, and forbidden-data redaction.
 The actual browser UI saved two independent pending newsletter domains in
@@ -480,8 +481,9 @@ owned synthetic preview rows were removed; the original local preview was
 restored with workers and capture disabled. This verification did not send
 email, deploy a Worker, provision provider resources, or change public DNS.
 
-Carson subsequently authorized public tracking deployment, but no sending.
-The Worker is now pinned to the RONIN account above; its disabled dry-run passes.
+An earlier request authorized public tracking deployment without sending. The
+current integration request explicitly prohibits deployment; release gates remain
+closed. The Worker is pinned to RONIN and its disabled dry-run passes.
 The current legacy CLI login belongs to ADVERTISE and cannot access RONIN.
 The separate macOS profile has an expired, unrefreshable login, and a fresh
 isolated OAuth attempt timed out before authorization. Live rollout therefore
@@ -622,9 +624,10 @@ manifest; direct API probes denied writes, raw evidence and a foreign workspace.
 No campaign or contact mutation was performed during client provisioning.
 
 This is a local-process MCP transport, not a public remote `/mcp` listener or OAuth
-authorization server. Production deployment/credentials and Google Cloud OAuth
-client provisioning were not performed. API keys do not secure a deployment whose
-browser authentication is left anonymous. See [MCP setup](packages/docs/guide/mcp.mdx) and
+authorization server. Production deployment and credential provisioning were not
+performed. Local operator-supplied Google credentials and owner sign-in were
+verified separately. API keys do not secure an anonymously authenticated browser
+deployment. See [MCP setup](packages/docs/guide/mcp.mdx) and
 [API/code coverage](packages/docs/guide/api-coverage.mdx). Retained tracking,
 provider, retention, erasure and unqualified-engagement semantics are unchanged.
 

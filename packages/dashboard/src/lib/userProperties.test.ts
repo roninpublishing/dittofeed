@@ -16,7 +16,10 @@ describe("performed user property examples", () => {
     });
     const parsed: unknown = JSON.parse(example);
     expect(typeof parsed).toBe("string");
-    expect(Number.isFinite(Date.parse(parsed as string))).toBe(true);
+    if (typeof parsed !== "string") {
+      throw new Error("Expected a JSON timestamp string");
+    }
+    expect(Number.isFinite(Date.parse(parsed))).toBe(true);
   });
 
   it("uses a grouped event-time leaf's timestamp example instead of an event object", () => {
@@ -35,6 +38,9 @@ describe("performed user property examples", () => {
     };
     const parsed: unknown = JSON.parse(getDefaultUserPropertyExampleValue(definition));
     expect(typeof parsed).toBe("string");
-    expect(Number.isFinite(Date.parse(parsed as string))).toBe(true);
+    if (typeof parsed !== "string") {
+      throw new Error("Expected a JSON timestamp string");
+    }
+    expect(Number.isFinite(Date.parse(parsed))).toBe(true);
   });
 });

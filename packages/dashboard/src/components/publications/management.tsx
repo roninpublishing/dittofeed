@@ -30,6 +30,7 @@ import {
   Typography,
 } from "@mui/material";
 import axios from "axios";
+import { isObject } from "isomorphic-lib/src/objects";
 import { CompletionStatus } from "isomorphic-lib/src/types";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useState } from "react";
@@ -57,19 +58,19 @@ type Field = {
   hint?: string;
 };
 function record(value: unknown): RecordValue {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as RecordValue)
-    : {};
+  return isObject(value) ? value : {};
 }
 function rows(value: unknown): RecordValue[] {
   return Array.isArray(value) ? value.map(record) : [];
 }
 function text(value: unknown): string {
-  return value === undefined || value === null
-    ? "—"
-    : typeof value === "object"
-      ? JSON.stringify(value)
-      : String(value);
+  if (value === undefined || value === null) {
+    return "—";
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
 }
 function optionList(value: unknown, idKey: string, labelKey: string): Option[] {
   return rows(value).map((row) => ({
@@ -187,17 +188,18 @@ function ActionForm({
                   !(field.kind === "list" && field.key in values)
                 )
                   continue;
-                body[field.key] =
-                  field.kind === "json"
-                    ? JSON.parse(String(value))
-                    : field.kind === "number"
-                      ? Number(value)
-                      : field.kind === "list"
-                        ? String(value)
-                            .split(/[,\n]/)
-                            .map((item) => item.trim())
-                            .filter(Boolean)
-                        : value;
+                if (field.kind === "json") {
+                  body[field.key] = JSON.parse(String(value));
+                } else if (field.kind === "number") {
+                  body[field.key] = Number(value);
+                } else if (field.kind === "list") {
+                  body[field.key] = String(value)
+                    .split(/[,\n]/)
+                    .map((item) => item.trim())
+                    .filter(Boolean);
+                } else {
+                  body[field.key] = value;
+                }
               }
               const response = await axios.request<{ data: unknown }>({
                 url: `${apiBase}/api/publications${path}`,
@@ -228,8 +230,9 @@ function ActionForm({
             {description && (
               <Typography color="text.secondary">{description}</Typography>
             )}
-            {fields.map((field) =>
-              field.kind === "boolean" ? (
+            {fields.map((field) => {
+              if (field.kind === "boolean") {
+                return (
                 <FormControlLabel
                   key={field.key}
                   label={field.label}
@@ -248,7 +251,13 @@ function ActionForm({
                     />
                   }
                 />
-              ) : (
+                );
+              }
+              let inputType = "text";
+              if (field.kind === "password" || field.kind === "number") {
+                inputType = field.kind;
+              }
+              return (
                 <TextField
                   key={field.key}
                   label={field.label}
@@ -259,13 +268,7 @@ function ActionForm({
                       ? "Separate entries with commas or new lines."
                       : undefined)
                   }
-                  type={
-                    field.kind === "password"
-                      ? "password"
-                      : field.kind === "number"
-                        ? "number"
-                        : "text"
-                  }
+                  type={inputType}
                   autoComplete={
                     field.kind === "password" ? "new-password" : "off"
                   }
@@ -284,17 +287,16 @@ function ActionForm({
                     field.initial ??
                     (field.kind === "multiselect" ? [] : "")
                   }
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    let value: string | string[] = event.target.value;
+                    if (field.kind === "multiselect" && typeof value === "string") {
+                      value = value.split(",");
+                    }
                     setValues({
                       ...values,
-                      [field.key]:
-                        field.kind === "multiselect"
-                          ? typeof event.target.value === "string"
-                            ? event.target.value.split(",")
-                            : event.target.value
-                          : event.target.value,
-                    })
-                  }
+                      [field.key]: value,
+                    });
+                  }}
                 >
                   {field.options?.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
@@ -302,8 +304,8 @@ function ActionForm({
                     </MenuItem>
                   ))}
                 </TextField>
-              ),
-            )}
+              );
+            })}
             {error && <Alert severity="error">{error}</Alert>}
             {result !== undefined && (
               <Alert severity="success">
@@ -381,14 +383,14 @@ export default function PublicationManagement({
   const workspaceId =
     workspace.type === CompletionStatus.Successful ? workspace.value.id : "";
   const [tab, setTab] = useState(0);
-  const section =
-    router.query.view === "subscribers"
-      ? "subscribers"
-      : router.query.view === "reports"
-        ? "reports"
-        : router.query.view === "settings"
-          ? "settings"
-          : "newsletters";
+  let section = "newsletters";
+  if (router.query.view === "subscribers") {
+    section = "subscribers";
+  } else if (router.query.view === "reports") {
+    section = "reports";
+  } else if (router.query.view === "settings") {
+    section = "settings";
+  }
   const [creating, setCreating] = useState(false);
   const [openingNewsletter, setOpeningNewsletter] = useState<string | null>(
     null,

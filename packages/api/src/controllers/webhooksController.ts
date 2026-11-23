@@ -39,7 +39,7 @@ export default async function webhookController(fastify: FastifyInstance) {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   fastify.addHook("onSend", async (request, reply, payload) => {
     if (
-      request.routeOptions.url.endsWith("/telnyx") ||
+      request.routeOptions.url?.endsWith("/telnyx") ||
       reply.statusCode !== 400
     ) {
       return payload;

@@ -53,11 +53,11 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 
 The initial owner is already provisioned in the existing local RONIN workspace, and the one-time local bootstrap settings have been removed. A new deployment needs `GOOGLE_BOOTSTRAP_ADMIN_EMAIL`, `GOOGLE_BOOTSTRAP_WORKSPACE_ID`, and its own random `SECRET_KEY` until its initial owner is provisioned. Gmail or a matching verified Workspace hosted domain is authoritative; a non-Google-hosted consumer email additionally needs an independently verified `GOOGLE_BOOTSTRAP_ADMIN_SUBJECT` pin.
 
-### 2. Predecessor migrations — integrated
+### 2. Complete migration history — integrated and locally verified
 
 The full-platform checkpoint includes the complete ordered migration history `0000`–`0017`, including Telnyx, click/open evidence, Google accounts, publishers/newsletters, and newsletter tracking domains. Account migration `0015_google_accounts` retains its original predecessor chain. No applied migration was renumbered, historical migration removed, or contact/event data deleted.
 
-The integration preserves the newer platform implementation while reconciling the account-only branch. Production rollout still requires the database backup, deployment inventory, migration application, and acceptance checks below; local success is not a production cutover audit.
+Disposable PostgreSQL verification applied all 18 migrations and proved an idempotent reapply. The integration preserves the newer platform implementation while reconciling the account-only branch. Production rollout still requires database backup, deployment inventory, migration application, and acceptance checks below; local success is not a production cutover audit.
 
 ### 3. Live cutover and real-browser acceptance
 
@@ -70,14 +70,14 @@ Local Lite now runs on `http://localhost:3000` with `AUTH_MODE=google`. The live
 For a deployment/release, complete the following checklist:
 
 1. Back up the intended database. Preserve the existing RONIN workspace ID and all contact/event data.
-2. Build the required packages and apply the normal additive migration chain through `0015_google_accounts`.
+2. Build the required packages and apply the complete normal additive migration chain, currently through `0017_newsletter_tracking_domains`.
 3. Use one public origin for API and dashboard; split deployments need a same-origin reverse proxy and matching database/session secret.
 4. Set `AUTH_MODE=google` on API/dashboard and restart together. Do not expose shared login as a fallback.
 5. Sign in with the configured owner through real Google consent and verify RONIN data, profile editing, sessions, logout, and fresh login.
 6. Hand a private invitation to a second real Google account. Verify correct-account admission, wrong-account recovery, role restrictions, workspace switching, revocation, and disable behavior.
 7. Remove bootstrap settings after successful owner provisioning. Review production HTTPS, audience/test-user settings, and recovery access before release.
 
-Real Google consent and authenticated account/team UI acceptance cannot be honestly marked complete without the operator's Google configuration and interaction. No fake account, cookie injection, or simulated provider result is a substitute.
+Production Google consent and authenticated team/second-account acceptance remain operator release items. The local owner sign-in recorded above was real; protocol tests and local fixtures do not replace production acceptance. Never inject cookies or simulate a provider result to claim a real sign-in.
 
 ## Operations and safety
 

@@ -10,7 +10,7 @@
 - Added a real Home dashboard with saved-resource counts, recent journeys, and shortcuts. Renamed the existing local workspace RONIN without replacing its data.
 - Committed the earlier UI/removal/warning fixes on local main. Those commits are part of the isolated PR's history relative to GitHub main.
 
-The other agent's uncommitted Telnyx/tracking/admin/MCP implementation is not part of this account-only change. Its migration prerequisites are tracked below.
+This handoff originally described the isolated account-only PR. The complete authorized integration now includes the Telnyx, tracking, scoped API/MCP and multi-newsletter implementations rather than deploying an account-only snapshot with missing migration prerequisites.
 
 ## Completed implementation
 
@@ -53,11 +53,11 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 
 The initial owner email and existing RONIN workspace ID are already configured in the shared local `.env`. A deployment also needs `GOOGLE_BOOTSTRAP_ADMIN_EMAIL`, `GOOGLE_BOOTSTRAP_WORKSPACE_ID`, and its own random `SECRET_KEY`. Gmail or a matching verified Workspace hosted domain is authoritative; a non-Google-hosted consumer email additionally needs an independently verified `GOOGLE_BOOTSTRAP_ADMIN_SUBJECT` pin.
 
-### 2. Predecessor migrations — merge prerequisite
+### 2. Complete migration history — integrated and locally verified
 
-Account migration `0015_google_accounts` and its snapshot extend the other agent's `0011`–`0014` history. Those preceding migrations are currently uncommitted in the shared checkout. Checkpoint and integrate that work independently before merging/deploying this account migration. Do not silently include unrelated provider/tracking/MCP source in the account PR, renumber already-applied migrations, or apply a later migration before its earlier history is present.
+Account migration `0015_google_accounts` extends the preserved `0011`–`0014` history; newsletter and branded-tracking migrations follow as `0016` and `0017`. Complete local checkpoint `dd138654` includes the entire ordered source history. Disposable PostgreSQL verification applied all 18 migrations and proved an idempotent reapply. Do not renumber already-applied migrations or apply later migrations without their predecessors.
 
-Keep the PR draft while this integration prerequisite is unresolved. Rebase/merge the committed predecessor history and verify the complete migration chain before marking it ready.
+Use the consolidated integration instead of independently merging the older account-only snapshot. This resolves the source prerequisite, not the separate authorization to migrate or deploy a live instance.
 
 ### 3. Live cutover and real-browser acceptance
 
@@ -70,14 +70,14 @@ Local Lite now runs on `http://localhost:3000` with `AUTH_MODE=google`. The live
 For a deployment/release, complete the following checklist:
 
 1. Back up the intended database. Preserve the existing RONIN workspace ID and all contact/event data.
-2. Build the required packages and apply the normal additive migration chain through `0015_google_accounts`.
+2. Build the required packages and apply the complete normal additive migration chain, currently through `0017_newsletter_tracking_domains`.
 3. Use one public origin for API and dashboard; split deployments need a same-origin reverse proxy and matching database/session secret.
 4. Set `AUTH_MODE=google` on API/dashboard and restart together. Do not expose shared login as a fallback.
 5. Sign in with the configured owner through real Google consent and verify RONIN data, profile editing, sessions, logout, and fresh login.
 6. Hand a private invitation to a second real Google account. Verify correct-account admission, wrong-account recovery, role restrictions, workspace switching, revocation, and disable behavior.
 7. Remove bootstrap settings after successful owner provisioning. Review production HTTPS, audience/test-user settings, and recovery access before release.
 
-Real Google consent and authenticated account/team UI acceptance cannot be honestly marked complete without the operator's Google configuration and interaction. No fake account, cookie injection, or simulated provider result is a substitute.
+Production Google consent and authenticated team/second-account acceptance remain operator release items. The local owner sign-in recorded above was real; protocol tests and local fixtures do not replace production acceptance. Never inject cookies or simulate a provider result to claim a real sign-in.
 
 ## Operations and safety
 

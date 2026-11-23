@@ -90,8 +90,8 @@ function DomainStatus({ domain, cnameTarget }: { domain: TrackingDomain; cnameTa
             <TableHead><TableRow><TableCell>Type</TableCell><TableCell>Name / host</TableCell><TableCell>Value / target</TableCell></TableRow></TableHead>
             <TableBody>
               <TableRow><TableCell>CNAME (DNS only)</TableCell><TableCell sx={{ overflowWrap: "anywhere" }}>{domain.hostname}</TableCell><TableCell sx={{ overflowWrap: "anywhere" }}>{requiredTarget ?? "Not configured by the deployment operator"}</TableCell></TableRow>
-              {validationRecords.map((record, index) => (
-                <TableRow key={`${record.type}:${record.name}:${index}`}><TableCell>{record.type}</TableCell><TableCell sx={{ overflowWrap: "anywhere" }}>{record.name}</TableCell><TableCell sx={{ overflowWrap: "anywhere" }}>{record.value}</TableCell></TableRow>
+              {validationRecords.map((record) => (
+                <TableRow key={JSON.stringify([domain.id, record.type, record.name, record.value])}><TableCell>{record.type}</TableCell><TableCell sx={{ overflowWrap: "anywhere" }}>{record.name}</TableCell><TableCell sx={{ overflowWrap: "anywhere" }}>{record.value}</TableCell></TableRow>
               ))}
             </TableBody>
           </Table>
@@ -156,12 +156,14 @@ function NewsletterDomainSetup({ workspaceId, apiBase, newsletterId, newsletterN
         : await axios.post<{ data: TrackingConfiguration }>(`${endpoint}/${action}`, identity);
       const result = response.data.data;
       setConfiguration(result);
-      if (action === "save") setDomain(result.domains.find((item) => item.isCurrent)?.domain ?? "");
-      setNotice(action === "save"
-        ? "Saved locally. No provider resources were provisioned and no DNS records were changed."
-        : action === "provision"
-          ? "Explicit Cloudflare provisioning completed. Review the returned DNS and TLS requirements; this does not make a pending domain active."
-          : "Read-only verification completed. Review the current hostname, TLS, and DNS status below.");
+      if (action === "save") {
+        setDomain(result.domains.find((item) => item.isCurrent)?.domain ?? "");
+        setNotice("Saved locally. No provider resources were provisioned and no DNS records were changed.");
+      } else if (action === "provision") {
+        setNotice("Explicit Cloudflare provisioning completed. Review the returned DNS and TLS requirements; this does not make a pending domain active.");
+      } else {
+        setNotice("Read-only verification completed. Review the current hostname, TLS, and DNS status below.");
+      }
     } catch (failure) {
       setError(operationError(failure));
     } finally { setBusy(null); }
@@ -223,7 +225,7 @@ export default function TrackingDomains({ workspaceId, apiBase, newsletters }: {
     <Stack spacing={3}>
       <Typography variant="h4">Newsletter tracking domains</Typography>
       <Alert severity="info">Each native newsletter uses its own dt.&lt;newsletter-domain&gt; hostname. The global open-capture toggle is separate and remains unchanged here. An active hostname verifies infrastructure, not a human open or unique person.</Alert>
-      <Typography color="text.secondary">Use a DNS-only CNAME to the deployment's SaaS target, not a proxied or flattened record. Both Cloudflare hostname status and TLS status must be active before read-only verification can activate a matching CNAME.</Typography>
+      <Typography color="text.secondary">Use a DNS-only CNAME to the deployment&apos;s SaaS target, not a proxied or flattened record. Both Cloudflare hostname status and TLS status must be active before read-only verification can activate a matching CNAME.</Typography>
       <TextField select label="Newsletter for tracking setup" value={selectedNewsletter?.value ?? ""} onChange={(event) => setNewsletterId(event.target.value)}>
         <MenuItem value="">Choose a newsletter</MenuItem>
         {newsletters.map((newsletter) => <MenuItem key={newsletter.value} value={newsletter.value}>{newsletter.label}</MenuItem>)}

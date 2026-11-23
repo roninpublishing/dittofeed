@@ -1,8 +1,8 @@
-import { createHash, timingSafeEqual } from "crypto";
 import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import logger from "backend-lib/src/logger";
 import { WorkspaceStatusDbEnum } from "backend-lib/src/types";
+import { createHash, timingSafeEqual } from "crypto";
 import { and, eq, exists, or } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
@@ -36,6 +36,11 @@ export async function authenticateAdminApiKeyFull({
     return null;
   }
   const actualKeyDigest = createHash("sha256").update(actualKey).digest();
+  const actualKeyDigestView = new Uint8Array(
+    actualKeyDigest.buffer,
+    actualKeyDigest.byteOffset,
+    actualKeyDigest.byteLength,
+  );
   let apiKeys: {
     id: string;
     workspaceId: string;
@@ -201,11 +206,15 @@ export async function authenticateAdminApiKeyFull({
     } else {
       expectedDigest = createHash("sha256").update(definition.key).digest();
     }
-    // Buffers are ArrayBufferViews; bridge older Node iterator typings without copying.
+    // Zero-copy views bridge Buffer and older Node iterator typings.
     if (
       timingSafeEqual(
-        expectedDigest as unknown as NodeJS.ArrayBufferView,
-        actualKeyDigest as unknown as NodeJS.ArrayBufferView,
+        new Uint8Array(
+          expectedDigest.buffer,
+          expectedDigest.byteOffset,
+          expectedDigest.byteLength,
+        ),
+        actualKeyDigestView,
       )
     ) {
       return {
@@ -235,7 +244,8 @@ export async function authenticateAdminApiKey(
 // eslint-disable-next-line @typescript-eslint/require-await
 const adminAuth = fp(async (fastify: FastifyInstance) => {
   fastify.addHook("preHandler", async (request, reply) => {
-    const routePath = request.routeOptions.url ?? request.url.split("?")[0] ?? "/";
+    const routePath =
+      request.routeOptions.url ?? request.url.split("?")[0] ?? "/";
     if (
       request.body !== null &&
       typeof request.body === "object" &&
@@ -249,18 +259,19 @@ const adminAuth = fp(async (fastify: FastifyInstance) => {
     // identifier while allowing a second, unchecked identifier through.
     const hasExternalId = [request.body, request.query].some(
       (source) =>
-        source !== null &&
-        typeof source === "object" &&
-        "externalId" in source,
+        source !== null && typeof source === "object" && "externalId" in source,
     );
-    const hasWorkspaceId = [request.body, request.query].some(
-      (source) =>
-        source !== null &&
-        typeof source === "object" &&
-        "workspaceId" in source,
-    ) || request.headers[WORKSPACE_ID_HEADER] !== undefined;
+    const hasWorkspaceId =
+      [request.body, request.query].some(
+        (source) =>
+          source !== null &&
+          typeof source === "object" &&
+          "workspaceId" in source,
+      ) || request.headers[WORKSPACE_ID_HEADER] !== undefined;
     if (hasExternalId && hasWorkspaceId) {
-      return reply.status(400).send({ message: "Ambiguous workspace identifiers" });
+      return reply
+        .status(400)
+        .send({ message: "Ambiguous workspace identifiers" });
     }
     const workspaceIdentifierResult = await getWorkspaceIdentifier(request);
     if (workspaceIdentifierResult.isErr()) {

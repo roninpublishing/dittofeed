@@ -1,9 +1,9 @@
-import { randomUUID } from "crypto";
 import { db } from "backend-lib/src/db";
 import { emailProvider } from "backend-lib/src/db/schema";
 import { upsertEmailProvider } from "backend-lib/src/messaging/email";
 import { getSecretAvailability } from "backend-lib/src/secrets";
 import { createWorkspace } from "backend-lib/src/workspaces";
+import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import fastify, { FastifyInstance } from "fastify";
 import { SecretNames } from "isomorphic-lib/src/constants";
@@ -20,7 +20,9 @@ describe("email provider defaults", () => {
   let retainedProviderId: string;
 
   beforeEach(async () => {
-    const workspace = await createWorkspace({ name: randomUUID() }).then(unwrap);
+    const workspace = await createWorkspace({ name: randomUUID() }).then(
+      unwrap,
+    );
     workspaceId = workspace.id;
     const provider = await upsertEmailProvider({
       workspaceId,
@@ -114,7 +116,10 @@ describe("email provider defaults", () => {
       expect(response.statusCode).toBe(204);
       const secret = await db().query.secret.findFirst({
         where: (table, { and }) =>
-          and(eq(table.workspaceId, workspaceId), eq(table.name, SecretNames.Telnyx)),
+          and(
+            eq(table.workspaceId, workspaceId),
+            eq(table.name, SecretNames.Telnyx),
+          ),
       });
       expect(secret?.configValue).toEqual({
         type: EmailProviderType.Telnyx,

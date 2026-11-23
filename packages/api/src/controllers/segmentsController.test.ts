@@ -3,7 +3,10 @@ import { upsertSegment } from "backend-lib/src/segments";
 import { createWorkspace } from "backend-lib/src/workspaces";
 import { randomUUID } from "crypto";
 import fastify from "fastify";
-import { SEGMENT_ID_HEADER, WORKSPACE_ID_HEADER } from "isomorphic-lib/src/constants";
+import {
+  SEGMENT_ID_HEADER,
+  WORKSPACE_ID_HEADER,
+} from "isomorphic-lib/src/constants";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { TYPE_REFS } from "isomorphic-lib/src/typeRefs";
 import { SegmentNodeType } from "isomorphic-lib/src/types";
@@ -15,7 +18,21 @@ describe("manual segment CSV workspace boundary", () => {
     const caller = unwrap(await createWorkspace({ name: randomUUID() }));
     const owner = unwrap(await createWorkspace({ name: randomUUID() }));
     const segmentId = randomUUID();
-    unwrap(await upsertSegment({ id: segmentId, name: "Foreign manual segment", workspaceId: owner.id, definition: { entryNode: { id: randomUUID(), type: SegmentNodeType.Manual, version: 1 }, nodes: [] } }));
+    unwrap(
+      await upsertSegment({
+        id: segmentId,
+        name: "Foreign manual segment",
+        workspaceId: owner.id,
+        definition: {
+          entryNode: {
+            id: randomUUID(),
+            type: SegmentNodeType.Manual,
+            version: 1,
+          },
+          nodes: [],
+        },
+      }),
+    );
     const app = fastify();
     TYPE_REFS.forEach((schema) => app.addSchema(schema));
     await app.register(multipart);

@@ -5,13 +5,20 @@ import {
 } from "isomorphic-lib/src/apiOperations";
 
 describe("machine API operation policy", () => {
-  it.each(["/api/publications/tracking-domains", "/api/admin/publications/tracking-domains"])(
+  it.each([
+    "/api/publications/tracking-domains",
+    "/api/admin/publications/tracking-domains",
+  ])(
     "separates hostname status reads from privileged activation at %s",
     (path) => {
       expect(requiredApiScopes("GET", path)).toEqual(["read"]);
       expect(requiredApiScopes("PUT", path)).toEqual(API_OPERATION_SCOPES);
-      expect(requiredApiScopes("POST", `${path}/verify`)).toEqual(API_OPERATION_SCOPES);
-      expect(requiredApiScopes("POST", `${path}/provision`)).toEqual(API_OPERATION_SCOPES);
+      expect(requiredApiScopes("POST", `${path}/verify`)).toEqual(
+        API_OPERATION_SCOPES,
+      );
+      expect(requiredApiScopes("POST", `${path}/provision`)).toEqual(
+        API_OPERATION_SCOPES,
+      );
     },
   );
   it.each([
@@ -22,7 +29,9 @@ describe("machine API operation policy", () => {
     "/deliveries/opens",
     "/content/templates/render",
   ])("recognizes read-only POST %s independently of method", (path) => {
-    expect(classifyApiOperation("POST", `/api/admin${path}/?workspaceId=ignored`)).toBe("read");
+    expect(
+      classifyApiOperation("POST", `/api/admin${path}/?workspaceId=ignored`),
+    ).toBe("read");
     expect(requiredApiScopes("POST", `/api/admin${path}`)).toEqual(["read"]);
   });
 
@@ -47,24 +56,45 @@ describe("machine API operation policy", () => {
     ["PUT", "/broadcasts/archive"],
     ["PUT", "/broadcasts/cancel"],
   ])("requires an explicit destructive grant for %s %s", (method, path) => {
-    expect(classifyApiOperation(method, `/api/admin${path}`)).toBe("destructive");
-    expect(requiredApiScopes(method, `/api/admin${path}`)).toEqual(["destructive"]);
+    expect(classifyApiOperation(method, `/api/admin${path}`)).toBe(
+      "destructive",
+    );
+    expect(requiredApiScopes(method, `/api/admin${path}`)).toEqual([
+      "destructive",
+    ]);
   });
 
-  it.each(["admin-keys", "secrets", "settings", "integrations", "permissions", "oauth"])(
-    "requires full independent authority for %s administration", (root) => {
-      for (const method of ["GET", "POST", "PUT", "DELETE"]) {
-        expect(classifyApiOperation(method, `/api/admin/${root}`)).toBe("sensitive");
-        expect(requiredApiScopes(method, `/api/admin/${root}`)).toEqual(API_OPERATION_SCOPES);
-      }
-    },
-  );
+  it.each([
+    "admin-keys",
+    "secrets",
+    "settings",
+    "integrations",
+    "permissions",
+    "oauth",
+  ])("requires full independent authority for %s administration", (root) => {
+    for (const method of ["GET", "POST", "PUT", "DELETE"]) {
+      expect(classifyApiOperation(method, `/api/admin/${root}`)).toBe(
+        "sensitive",
+      );
+      expect(requiredApiScopes(method, `/api/admin/${root}`)).toEqual(
+        API_OPERATION_SCOPES,
+      );
+    }
+  });
 
   it("distinguishes raw evidence from public observations without granting unrelated authority", () => {
-    expect(requiredApiScopes("POST", "/api/admin/deliveries/opens/evidence")).toEqual(["sensitive"]);
-    expect(requiredApiScopes("POST", "/api/admin/deliveries/opens")).toEqual(["read"]);
-    expect(requiredApiScopes("GET", "/api/admin/openapi.json")).toEqual(["read"]);
+    expect(
+      requiredApiScopes("POST", "/api/admin/deliveries/opens/evidence"),
+    ).toEqual(["sensitive"]);
+    expect(requiredApiScopes("POST", "/api/admin/deliveries/opens")).toEqual([
+      "read",
+    ]);
+    expect(requiredApiScopes("GET", "/api/admin/openapi.json")).toEqual([
+      "read",
+    ]);
     expect(requiredApiScopes("GET", "/api/admin/operations")).toEqual(["read"]);
-    expect(requiredApiScopes("GET", "/api/settings-not-credentials")).toEqual(["read"]);
+    expect(requiredApiScopes("GET", "/api/settings-not-credentials")).toEqual([
+      "read",
+    ]);
   });
 });

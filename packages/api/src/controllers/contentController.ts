@@ -125,9 +125,10 @@ export default async function contentController(fastify: FastifyInstance) {
 
       let identifierKey: string | undefined;
       if (channel !== ChannelType.Webhook) {
-        identifierKey = channel === ChannelType.Email
-          ? request.body.identifierKey ?? CHANNEL_IDENTIFIERS[channel]
-          : CHANNEL_IDENTIFIERS[channel];
+        identifierKey =
+          channel === ChannelType.Email
+            ? request.body.identifierKey ?? CHANNEL_IDENTIFIERS[channel]
+            : CHANNEL_IDENTIFIERS[channel];
       }
 
       const responseContents: RenderMessageTemplateResponse["contents"] =

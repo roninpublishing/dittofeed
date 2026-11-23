@@ -48,6 +48,11 @@ names conflict rather than returning an existing secret. Delete a key to revoke
 it; deletion takes effect on the next API request, including an already-running
 MCP process. Creating a key with a previously revoked name produces a new secret.
 
+API-key credential secrets cannot be changed or deleted through the generic
+provider-secret API, including renamed or retyped secrets linked to a key.
+Use the dedicated admin-key creation and revocation routes instead. This
+boundary applies to browser roles and scoped bearer clients.
+
 New keys default to `read`. Persisted pre-scope keys retain their legacy broad
 administrative authority: replace those used by automation with scoped keys.
 Existing parent-key access to active child workspaces is preserved; a child key

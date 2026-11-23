@@ -15,13 +15,13 @@ import eventsController from "../controllers/eventsController";
 import groupsController from "../controllers/groupsController";
 import indexController from "../controllers/indexController";
 import integrationsController from "../controllers/integrationsController";
-import openTrackingController from "../controllers/openTrackingController";
 import journeysController from "../controllers/journeysController";
+import openTrackingController from "../controllers/openTrackingController";
 import operationsController from "../controllers/operationsController";
 import permissionsController from "../controllers/permissionsController";
 import publicAppsController from "../controllers/publicAppsController";
-import resourcesController from "../controllers/resourcesController";
 import publicationsController from "../controllers/publicationsController";
+import resourcesController from "../controllers/resourcesController";
 import secretsController from "../controllers/secretsController";
 import segmentsController from "../controllers/segmentsController";
 import settingsController from "../controllers/settingsController";
@@ -55,19 +55,25 @@ async function registerProductControllers(
     admin || backendConfig().authMode === "google"
       ? null
       : f.register(permissionsController, { prefix: "/permissions" }),
-    f.register(subscriptionGroupsController, { prefix: "/subscription-groups" }),
+    f.register(subscriptionGroupsController, {
+      prefix: "/subscription-groups",
+    }),
     f.register(subscriptionManagementTemplateController, {
       prefix: "/subscription-management-template",
     }),
     f.register(userPropertiesController, { prefix: "/user-properties" }),
-    f.register(userPropertyIndexController, { prefix: "/user-property-indices" }),
+    f.register(userPropertyIndexController, {
+      prefix: "/user-property-indices",
+    }),
     f.register(broadcastsController, { prefix: "/broadcasts", admin }),
     f.register(deliveriesController, { prefix: "/deliveries" }),
     f.register(apiKeyController, { prefix: "/admin-keys" }),
     f.register(usersController, { prefix: "/users" }),
     f.register(groupsController, { prefix: "/groups" }),
     f.register(resourcesController, { prefix: "/resources" }),
-    f.register(computedPropertiesController, { prefix: "/computed-properties" }),
+    f.register(computedPropertiesController, {
+      prefix: "/computed-properties",
+    }),
     f.register(publicationsController, { prefix: "/publications" }),
     f.register(componentConfigurationsController, {
       prefix: "/component-configurations",

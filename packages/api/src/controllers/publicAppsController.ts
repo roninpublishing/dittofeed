@@ -38,18 +38,22 @@ export default async function publicAppsController(
   // key as a public write key or accept a body-selected unauthenticated tenant.
   const authorizedWorkspace = async (request: FastifyRequest) => {
     if (!opts.admin) {
-      return validateWriteKey({ writeKey: request.headers.authorization ?? "" });
+      return validateWriteKey({
+        writeKey: request.headers.authorization ?? "",
+      });
     }
     const workspace = await getWorkspaceId(request);
     if (workspace.isErr() || !workspace.value) {
       return err("Invalid workspace.");
     }
-    if (!(await canWorkspaceReceiveEventsById({ workspaceId: workspace.value }))) {
+    if (
+      !(await canWorkspaceReceiveEventsById({ workspaceId: workspace.value }))
+    ) {
       return err("WorkspaceIneligible");
     }
     return ok(workspace.value);
   };
-  const security: { [name: string]: string[] }[] = opts.admin
+  const security: Record<string, string[]>[] = opts.admin
     ? [{ bearerAuth: [] }]
     : [{ publicWriteKey: [] }];
   const headers = Type.Object({
@@ -218,26 +222,26 @@ export default async function publicAppsController(
 
   // The inherited alias endpoint is not implemented and is not a machine tool.
   if (!opts.admin) {
-  fastify.withTypeProvider<TypeBoxTypeProvider>().post(
-    "/alias",
-    {
-      schema: {
-        security: [
-          {
-            publicWriteKey: [],
-          },
-        ],
-        tags: ["Public Apps"],
+    fastify.withTypeProvider<TypeBoxTypeProvider>().post(
+      "/alias",
+      {
+        schema: {
+          security: [
+            {
+              publicWriteKey: [],
+            },
+          ],
+          tags: ["Public Apps"],
+        },
       },
-    },
-    async (request, reply) => {
-      logger().warn("Client is calling unimplemented endpoint /alias");
+      async (request, reply) => {
+        logger().warn("Client is calling unimplemented endpoint /alias");
 
-      return reply.status(400).send({
-        message: "Not yet implemented.",
-      });
-    },
-  );
+        return reply.status(400).send({
+          message: "Not yet implemented.",
+        });
+      },
+    );
   }
 
   fastify.withTypeProvider<TypeBoxTypeProvider>().post(

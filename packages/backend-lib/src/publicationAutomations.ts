@@ -1183,25 +1183,27 @@ export async function deletePublicationAutomationData({
           userIds ? inArray(outbox.sourceUserId, userIds) : undefined,
         ),
       );
+    // Actions retain their original route even when the current rule is retargeted.
+    const sourceNewsletterId = sql<string>`${actions.state}->>'sourceNewsletterId'`;
+    const destinationNewsletterId = sql<string>`${actions.state}->>'destinationNewsletterId'`;
     const matched = await tx
       .select({
         id: actions.id,
         sourceUserId: actions.sourceUserId,
         sourceEventId: actions.sourceEventId,
         destinationUserId: actions.destinationUserId,
-        sourceNewsletterId: rules.sourceNewsletterId,
-        destinationNewsletterId: rules.destinationNewsletterId,
+        sourceNewsletterId,
+        destinationNewsletterId,
       })
       .from(actions)
-      .innerJoin(rules, eq(actions.ruleId, rules.id))
       .where(
         or(
           and(
-            eq(rules.sourceNewsletterId, workspaceId),
+            eq(sourceNewsletterId, workspaceId),
             userIds ? inArray(actions.sourceUserId, userIds) : undefined,
           ),
           and(
-            eq(rules.destinationNewsletterId, workspaceId),
+            eq(destinationNewsletterId, workspaceId),
             userIds ? inArray(actions.destinationUserId, userIds) : undefined,
           ),
         ),

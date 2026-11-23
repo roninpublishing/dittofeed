@@ -56,12 +56,14 @@ describe("publication automation native actions", () => {
   let ruleId: string;
   let sourceUserId: string;
   let mailbox: string;
+  let retargetedIds: string[];
   let previousWriteMode: Config["writeMode"];
   const startWorkflow = jest.fn().mockResolvedValue({});
   let definition: PublicationAutomationDefinition;
 
   beforeEach(async () => {
     previousWriteMode = config().writeMode;
+    retargetedIds = [];
     config().writeMode = "ch-sync";
     startWorkflow.mockClear();
     jest
@@ -172,7 +174,14 @@ describe("publication automation native actions", () => {
     config().writeMode = previousWriteMode;
     await db()
       .delete(workspace)
-      .where(inArray(workspace.id, [sourceId, destinationId, parentId]));
+      .where(
+        inArray(workspace.id, [
+          sourceId,
+          destinationId,
+          ...retargetedIds,
+          parentId,
+        ]),
+      );
   });
 
   async function click(extra: Record<string, unknown> = {}, id = randomUUID()) {
@@ -512,6 +521,93 @@ describe("publication automation native actions", () => {
     expect(rows.every((row) => row.disposition === "blocked")).toBe(true);
     expect(startWorkflow).toHaveBeenCalledTimes(1);
   });
+
+  it.each(["source", "destination"] as const)(
+    "erases pinned %s identities and encrypted plans after a rule is retargeted",
+    async (side) => {
+      const event = await click();
+      await drainPublicationAutomations();
+      const [completed] = await actionRows();
+      if (!completed?.destinationUserId)
+        throw new Error("Expected destination subscriber");
+      expect(completed.state.encryptedPlan).toBeTruthy();
+      const originalDestinationUserId = completed.destinationUserId;
+      retargetedIds = await Promise.all(
+        ["c", "d"].map(async () =>
+          (await createWorkspace({ name: randomUUID() }).then(unwrap)).id,
+        ),
+      );
+      await db().insert(newsletter).values(
+        retargetedIds.map((workspaceId, index) => ({
+          workspaceId,
+          publisherId: parentId,
+          slug: `retargeted-${index}`,
+          status: "active" as const,
+        })),
+      );
+      await upsertPublicationAutomation({
+        id: ruleId,
+        publisherId: parentId,
+        name: "C click to D",
+        sourceNewsletterId: retargetedIds[0]!,
+        destinationNewsletterId: retargetedIds[1]!,
+        enabled: true,
+        definition: {
+          ...definition,
+          destination: {
+            ...definition.destination,
+            subscribe: false,
+            welcomeJourneyId: undefined,
+          },
+        },
+      });
+
+      const workspaceId = side === "source" ? sourceId : destinationId;
+      const userId =
+        side === "source" ? sourceUserId : originalDestinationUserId;
+      const userHash = createHash("sha256")
+        .update(JSON.stringify([workspaceId, userId]))
+        .digest("hex");
+      await db().insert(newsletterErasure).values({ workspaceId, userHash });
+      await deletePublicationAutomationData({
+        workspaceId,
+        userIds: [userId],
+      });
+
+      const [erased] = await actionRows();
+      expect(erased).toMatchObject({
+        id: completed.id,
+        sourceUserId: `erased:${createHash("sha256")
+          .update(JSON.stringify([sourceId, sourceUserId]))
+          .digest("hex")}`,
+        destinationUserId: `erased:${createHash("sha256")
+          .update(JSON.stringify([destinationId, originalDestinationUserId]))
+          .digest("hex")}`,
+        sourceEventId: createHash("sha256")
+          .update(event.messageId)
+          .digest("hex"),
+        state: { erased: true },
+        disposition: "blocked",
+        error: "Subscriber data erased",
+      });
+      expect(erased?.state).toEqual({ erased: true });
+
+      // Restoring the old route and replaying its native event cannot recreate it.
+      await upsertPublicationAutomation({
+        id: ruleId,
+        publisherId: parentId,
+        name: "A click to B again",
+        sourceNewsletterId: sourceId,
+        destinationNewsletterId: destinationId,
+        enabled: true,
+        definition,
+      });
+      await insertUserEvents({ workspaceId: sourceId, userEvents: [event] });
+      await drainPublicationAutomations();
+      expect(await actionRows()).toEqual([erased]);
+      expect(startWorkflow).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("rejects cross-publisher rules and stops repeated rules in event lineage", async () => {
     await expect(

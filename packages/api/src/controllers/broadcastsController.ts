@@ -274,32 +274,33 @@ export default async function broadcastsController(
   );
 
   // Gmail authorization belongs to the current browser member, not an API key.
-  if (!opts.admin) fastify.withTypeProvider<TypeBoxTypeProvider>().get(
-    "/gmail-authorization",
-    {
-      schema: {
-        description: "Get gmail authorization status",
-        tags: ["Broadcasts"],
-        querystring: GetGmailAuthorizationRequest,
-        response: {
-          200: GetGmailAuthorizationResponse,
+  if (!opts.admin)
+    fastify.withTypeProvider<TypeBoxTypeProvider>().get(
+      "/gmail-authorization",
+      {
+        schema: {
+          description: "Get gmail authorization status",
+          tags: ["Broadcasts"],
+          querystring: GetGmailAuthorizationRequest,
+          response: {
+            200: GetGmailAuthorizationResponse,
+          },
         },
       },
-    },
-    async (request, reply) => {
-      const { workspaceId } = request.query;
-      const occupant = getOccupantFromRequest(request);
-      if (!occupant) {
-        logger().debug("No occupant found");
-        return reply.status(401).send();
-      }
-      const authorized = await isGmailAuthorized({
-        workspaceId,
-        workspaceOccupantId: occupant.workspaceOccupantId,
-      });
-      return reply.status(200).send({ authorized });
-    },
-  );
+      async (request, reply) => {
+        const { workspaceId } = request.query;
+        const occupant = getOccupantFromRequest(request);
+        if (!occupant) {
+          logger().debug("No occupant found");
+          return reply.status(401).send();
+        }
+        const authorized = await isGmailAuthorized({
+          workspaceId,
+          workspaceOccupantId: occupant.workspaceOccupantId,
+        });
+        return reply.status(200).send({ authorized });
+      },
+    );
 
   fastify.withTypeProvider<TypeBoxTypeProvider>().post(
     "/execute",

@@ -62,7 +62,10 @@ export default async function settingsController(fastify: FastifyInstance) {
           ? eq(schema.emailProvider.id, request.body.emailProviderId)
           : eq(schema.emailProvider.type, request.body.emailProvider);
       const emailProvider = await db().query.emailProvider.findFirst({
-        where: and(eq(schema.emailProvider.workspaceId, workspaceId), selection),
+        where: and(
+          eq(schema.emailProvider.workspaceId, workspaceId),
+          selection,
+        ),
         columns: { id: true, type: true },
       });
       if (

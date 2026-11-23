@@ -1,9 +1,27 @@
 import { generateKeyPairSync, randomUUID, sign } from "crypto";
+import { eq, inArray } from "drizzle-orm";
+import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { v5 as uuidv5 } from "uuid";
 
-import { telnyxEmailSend } from "../db/schema";
+import config from "../config";
+import { db } from "../db";
+import {
+  telnyxEmailReceipt,
+  telnyxEmailSend,
+  workspace,
+} from "../db/schema";
+import * as kafka from "../kafka";
 import { InternalEventType, SubscriptionChange, TelnyxEvent } from "../types";
-import { normalizeTelnyxEmailEvent, verifyTelnyxSignature } from "./telnyxEvents";
+import { findUserEvents } from "../userEvents";
+import { deleteAllUsers } from "../users";
+import { createWorkspace } from "../workspaces";
+import {
+  drainTelnyxEmailEvents,
+  normalizeTelnyxEmailEvent,
+  persistTelnyxEmailEvent,
+  verifyTelnyxSignature,
+} from "./telnyxEvents";
+import { completeTelnyxSend, prepareTelnyxSend } from "./telnyxState";
 
 function fixture(): { event: TelnyxEvent; mapping: typeof telnyxEmailSend.$inferSelect } {
   const providerMessageId = randomUUID();
@@ -147,5 +165,121 @@ describe("Telnyx primary-contact normalization", () => {
       event: InternalEventType.SubscriptionChange, userId: mapping.userId,
       properties: { subscriptionId: subscriptionGroupId, action: SubscriptionChange.Unsubscribe },
     });
+  });
+});
+
+describe("Telnyx synchronous native projection", () => {
+  it("persists native events before marking receipts projected even when Kafka writes are configured", async () => {
+    const previousWriteMode = config().writeMode;
+    const workspaceIds: string[] = [];
+    const kafkaSend = jest.fn().mockResolvedValue({});
+    const producer = jest.spyOn(kafka, "kafkaProducer").mockResolvedValue({
+      send: kafkaSend,
+    } as never);
+    try {
+      const sendingWorkspace = await createWorkspace({
+        name: randomUUID(),
+      }).then(unwrap);
+      workspaceIds.push(sendingWorkspace.id);
+      const credentialOwner = await createWorkspace({
+        name: randomUUID(),
+      }).then(unwrap);
+      workspaceIds.push(credentialOwner.id);
+      const { event, mapping } = fixture();
+      const input = {
+        workspaceId: sendingWorkspace.id,
+        credentialWorkspaceId: credentialOwner.id,
+        messageId: mapping.messageId,
+        userId: mapping.userId,
+        primaryEmail: mapping.primaryEmail,
+        requestHash: mapping.requestHash,
+        metadata: mapping.metadata,
+      };
+      const prepared = await prepareTelnyxSend(input);
+      await completeTelnyxSend({
+        id: prepared.id,
+        providerMessageId: String(event.data.payload.id),
+      });
+      event.data.payload.metadata = {
+        workspaceId: credentialOwner.id,
+        userId: "forged-contact",
+        messageId: "forged-message",
+      };
+      await persistTelnyxEmailEvent({
+        credentialWorkspaceId: credentialOwner.id,
+        rawBody: JSON.stringify(event),
+        headers: {},
+      });
+      const [pending] = await db()
+        .select()
+        .from(telnyxEmailReceipt)
+        .where(eq(telnyxEmailReceipt.eventId, event.data.id));
+      expect(pending).toMatchObject({
+        disposition: "pending",
+        processedAt: null,
+      });
+
+      config().writeMode = "kafka";
+      await drainTelnyxEmailEvents();
+
+      const messageId = uuidv5(`telnyx:${event.data.id}`, input.workspaceId);
+      const native = await findUserEvents({
+        workspaceId: input.workspaceId,
+        messageId,
+      });
+      expect(native).toHaveLength(1);
+      expect(native[0]).toMatchObject({
+        user_id: input.userId,
+        event: InternalEventType.EmailDelivered,
+        message_id: messageId,
+      });
+      expect(JSON.parse(native[0]?.properties ?? "{}")).toMatchObject({
+        messageId: input.messageId,
+        templateId: input.metadata.templateId,
+        providerMessageId: event.data.payload.id,
+        providerEventId: event.data.id,
+      });
+      const [projected] = await db()
+        .select()
+        .from(telnyxEmailReceipt)
+        .where(eq(telnyxEmailReceipt.eventId, event.data.id));
+      expect(projected).toMatchObject({
+        disposition: "projected",
+        attempts: 1,
+      });
+      expect(projected?.processedAt).toBeInstanceOf(Date);
+      expect(await findUserEvents({
+        workspaceId: credentialOwner.id,
+        messageId: uuidv5(`telnyx:${event.data.id}`, credentialOwner.id),
+      })).toHaveLength(0);
+      expect(producer).not.toHaveBeenCalled();
+      expect(kafkaSend).not.toHaveBeenCalled();
+
+      await deleteAllUsers({ workspaceId: input.workspaceId });
+      await persistTelnyxEmailEvent({
+        credentialWorkspaceId: credentialOwner.id,
+        rawBody: JSON.stringify({
+          data: { ...event.data, id: randomUUID() },
+        }),
+        headers: {},
+      });
+      await drainTelnyxEmailEvents();
+      expect(await db()
+        .select()
+        .from(telnyxEmailReceipt)
+        .where(eq(telnyxEmailReceipt.credentialWorkspaceId, credentialOwner.id)),
+      ).toHaveLength(0);
+      expect(await db()
+        .select()
+        .from(telnyxEmailSend)
+        .where(eq(telnyxEmailSend.workspaceId, input.workspaceId)),
+      ).toHaveLength(0);
+      expect(kafkaSend).not.toHaveBeenCalled();
+    } finally {
+      config().writeMode = previousWriteMode;
+      producer.mockRestore();
+      if (workspaceIds.length)
+        await db().delete(workspace).where(inArray(workspace.id, workspaceIds));
+    }
   });
 });

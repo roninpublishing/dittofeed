@@ -5,6 +5,7 @@ import { and, eq, inArray, SQL } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { isObject } from "isomorphic-lib/src/objects";
 import {
+  AdminApiKeyType,
   DeleteSecretRequest,
   EmptyResponse,
   JSONValue,
@@ -12,6 +13,17 @@ import {
   SecretResource,
   UpsertSecretRequest,
 } from "isomorphic-lib/src/types";
+
+function isApiKeySecret(secret: {
+  name: string;
+  configValue?: unknown;
+}): boolean {
+  return (
+    secret.name.startsWith("df-admin-api-key-") ||
+    (isObject(secret.configValue) &&
+      secret.configValue.type === AdminApiKeyType.AdminApiKey)
+  );
+}
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export default async function secretsController(fastify: FastifyInstance) {
@@ -59,23 +71,41 @@ export default async function secretsController(fastify: FastifyInstance) {
     {
       schema: {
         description:
-          "Create or update a secret. Will patch the secret definition if passed.",
+          "Create or patch a provider secret. API key secrets require the dedicated admin-key lifecycle APIs.",
         tags: ["Secrets"],
         body: UpsertSecretRequest,
         response: {
           204: EmptyResponse,
+          403: Type.Object({ message: Type.String() }),
         },
       },
     },
     async (request, reply) => {
       const { workspaceId, name, value, configValue } = request.body;
-      await db().transaction(async (pTx) => {
-        const secret = await pTx.query.secret.findFirst({
-          where: and(
-            eq(schema.secret.workspaceId, workspaceId),
-            eq(schema.secret.name, name),
-          ),
+      if (isApiKeySecret({ name, configValue })) {
+        return reply.status(403).send({
+          message: "Use the admin-key lifecycle APIs for API key secrets",
         });
+      }
+      const saved = await db().transaction(async (pTx) => {
+        const [secret] = await pTx
+          .select()
+          .from(schema.secret)
+          .where(
+            and(
+              eq(schema.secret.workspaceId, workspaceId),
+              eq(schema.secret.name, name),
+            ),
+          )
+          .for("update");
+        if (secret) {
+          const linkedKey = await pTx.query.adminApiKey.findFirst({
+            columns: { id: true },
+            where: eq(schema.adminApiKey.secretId, secret.id),
+          });
+          // Identity and linkage remain authoritative if a name or type is stale.
+          if (isApiKeySecret(secret) || linkedKey) return false;
+        }
         const existingConfigValue =
           secret?.configValue && isObject(secret.configValue)
             ? secret.configValue
@@ -110,7 +140,13 @@ export default async function secretsController(fastify: FastifyInstance) {
             configValue: configValueToSave,
           },
         });
+        return true;
       });
+      if (!saved) {
+        return reply.status(403).send({
+          message: "Use the admin-key lifecycle APIs for API key secrets",
+        });
+      }
 
       return reply.status(204).send();
     },
@@ -120,29 +156,44 @@ export default async function secretsController(fastify: FastifyInstance) {
     "/",
     {
       schema: {
-        description: "Delete a secret.",
+        description:
+          "Delete a provider secret. API key secrets require the dedicated admin-key lifecycle APIs.",
         querystring: DeleteSecretRequest,
         tags: ["Secrets"],
         response: {
           204: EmptyResponse,
+          403: Type.Object({ message: Type.String() }),
         },
       },
     },
     async (request, reply) => {
       const { workspaceId, id } = request.query;
-      const result = await db()
-        .delete(schema.secret)
-        .where(
-          and(
-            eq(schema.secret.workspaceId, workspaceId),
-            eq(schema.secret.id, id),
-          ),
-        )
-        .returning();
-      if (!result.length) {
-        return reply.status(404).send();
+      const status = await db().transaction(async (pTx) => {
+        const [secret] = await pTx
+          .select()
+          .from(schema.secret)
+          .where(
+            and(
+              eq(schema.secret.workspaceId, workspaceId),
+              eq(schema.secret.id, id),
+            ),
+          )
+          .for("update");
+        if (!secret) return 404;
+        const linkedKey = await pTx.query.adminApiKey.findFirst({
+          columns: { id: true },
+          where: eq(schema.adminApiKey.secretId, secret.id),
+        });
+        if (isApiKeySecret(secret) || linkedKey) return 403;
+        await pTx.delete(schema.secret).where(eq(schema.secret.id, secret.id));
+        return 204;
+      });
+      if (status === 403) {
+        return reply.status(403).send({
+          message: "Use the admin-key lifecycle APIs for API key secrets",
+        });
       }
-      return reply.status(204).send();
+      return reply.status(status).send();
     },
   );
 }

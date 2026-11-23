@@ -5,7 +5,11 @@ import {
 import { AccountError, requireWorkspaceRole } from "backend-lib/src/accounts";
 import backendConfig from "backend-lib/src/config";
 import logger from "backend-lib/src/logger";
-import { getRequestContext, SESSION_KEY, SESSION_WORKSPACE_KEY } from "backend-lib/src/requestContext";
+import {
+  getRequestContext,
+  SESSION_KEY,
+  SESSION_WORKSPACE_KEY,
+} from "backend-lib/src/requestContext";
 import {
   DBWorkspaceOccupantType,
   EmbeddedSession,
@@ -28,10 +32,11 @@ export function requestToSessionValue(request: FastifyRequest):
   }
 
   const hasSession = request.session.get(SESSION_KEY) === true;
-  const selectedWorkspace = request.session.get(SESSION_WORKSPACE_KEY);
+  const selectedWorkspace: unknown = request.session.get(SESSION_WORKSPACE_KEY);
   return {
     [SESSION_KEY]: hasSession ? "true" : "false",
-    [SESSION_WORKSPACE_KEY]: typeof selectedWorkspace === "string" ? selectedWorkspace : "",
+    [SESSION_WORKSPACE_KEY]:
+      typeof selectedWorkspace === "string" ? selectedWorkspace : "",
   };
 }
 

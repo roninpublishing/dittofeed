@@ -10,7 +10,7 @@
 - Added a real Home dashboard with saved-resource counts, recent journeys, and shortcuts. Renamed the existing local workspace RONIN without replacing its data.
 - Committed the earlier UI/removal/warning fixes on local main. Those commits are part of the isolated PR's history relative to GitHub main.
 
-The other agent's uncommitted Telnyx/tracking/admin/MCP implementation is not part of this account-only change. Its migration prerequisites are tracked below.
+The full-platform integration checkpoints the Telnyx, tracking, publisher/newsletter, admin/MCP, and account implementations together. The earlier account-only PR remains useful history, but its intentionally omitted platform code must not replace the newer integrated implementation.
 
 ## Completed implementation
 
@@ -51,13 +51,13 @@ GOOGLE_CLIENT_ID=your-web-client.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
 ```
 
-The initial owner email and existing RONIN workspace ID are already configured in the shared local `.env`. A deployment also needs `GOOGLE_BOOTSTRAP_ADMIN_EMAIL`, `GOOGLE_BOOTSTRAP_WORKSPACE_ID`, and its own random `SECRET_KEY`. Gmail or a matching verified Workspace hosted domain is authoritative; a non-Google-hosted consumer email additionally needs an independently verified `GOOGLE_BOOTSTRAP_ADMIN_SUBJECT` pin.
+The initial owner is already provisioned in the existing local RONIN workspace, and the one-time local bootstrap settings have been removed. A new deployment needs `GOOGLE_BOOTSTRAP_ADMIN_EMAIL`, `GOOGLE_BOOTSTRAP_WORKSPACE_ID`, and its own random `SECRET_KEY` until its initial owner is provisioned. Gmail or a matching verified Workspace hosted domain is authoritative; a non-Google-hosted consumer email additionally needs an independently verified `GOOGLE_BOOTSTRAP_ADMIN_SUBJECT` pin.
 
-### 2. Predecessor migrations — merge prerequisite
+### 2. Predecessor migrations — integrated
 
-Account migration `0015_google_accounts` and its snapshot extend the other agent's `0011`–`0014` history. Those preceding migrations are currently uncommitted in the shared checkout. Checkpoint and integrate that work independently before merging/deploying this account migration. Do not silently include unrelated provider/tracking/MCP source in the account PR, renumber already-applied migrations, or apply a later migration before its earlier history is present.
+The full-platform checkpoint includes the complete ordered migration history `0000`–`0017`, including Telnyx, click/open evidence, Google accounts, publishers/newsletters, and newsletter tracking domains. Account migration `0015_google_accounts` retains its original predecessor chain. No applied migration was renumbered, historical migration removed, or contact/event data deleted.
 
-Keep the PR draft while this integration prerequisite is unresolved. Rebase/merge the committed predecessor history and verify the complete migration chain before marking it ready.
+The integration preserves the newer platform implementation while reconciling the account-only branch. Production rollout still requires the database backup, deployment inventory, migration application, and acceptance checks below; local success is not a production cutover audit.
 
 ### 3. Live cutover and real-browser acceptance
 

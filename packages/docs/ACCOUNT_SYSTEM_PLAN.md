@@ -109,12 +109,12 @@ Private invitation acceptance and authenticated account/team visual verification
 remain release acceptance items. Google currently brands the OAuth app `pepper`;
 review that project's branding before production.
 
-The account migration and its snapshot extend the other agent's currently
-uncommitted `0011`–`0014` migration chain. Account changes are isolated on their
-own PR branch. Keep that PR draft until the earlier history lands, then integrate
-and verify the complete chain before merge/deployment. Do not mix unrelated
-provider/tracking/admin implementation into the account-only commit or reorder
-already-applied migrations.
+The full-platform integration checkpoints the complete ordered migration history
+`0000`–`0017`, preserving the account snapshot's original predecessors and the
+newer provider, tracking, publisher/newsletter, and MCP implementations. The
+account-only branch is reconciled into that integrated implementation rather than
+used to overwrite it. Do not reorder already-applied migrations. Production
+backup, deployment inventory, and acceptance remain separate release gates.
 
 See [the complete handoff](../../GOOGLE_SSO_HANDOFF.md) for completed work,
 operator steps, and release blockers.

@@ -221,56 +221,424 @@
         "tab": "API Reference",
         "groups": [
           {
-            "group": "API Reference",
+            "group": "Account and other HTTP APIs",
             "pages": [
-              "api-reference/endpoints/apps/identify",
-              "api-reference/endpoints/apps/track",
-              "api-reference/endpoints/apps/page",
-              "api-reference/endpoints/apps/screen",
-              "api-reference/auto/public-apps/post-apipublicappsgroup",
-              "api-reference/endpoints/apps/batch",
+              "api-reference/auto/get-apipublicauthgooglestatus",
+              "api-reference/auto/get-apipublicauthgooglestart",
+              "api-reference/auto/post-apipublicauthgooglestart",
+              "api-reference/auto/post-apipublicauthgoogleinvitation",
+              "api-reference/auto/get-apipublicauthgooglecallback",
+              "api-reference/auto/get-apiaccount",
+              "api-reference/auto/patch-apiaccount",
+              "api-reference/auto/post-apiaccountworkspace",
+              "api-reference/auto/get-apiaccountsessions",
+              "api-reference/auto/delete-apiaccountsessions",
+              "api-reference/auto/post-apiaccountsessionsrevoke-others",
+              "api-reference/auto/post-apiaccountlogout",
+              "api-reference/auto/get-apiaccountteam",
+              "api-reference/auto/post-apiaccountinvitations",
+              "api-reference/auto/delete-apiaccountinvitations",
+              "api-reference/auto/patch-apiaccountmembers-role",
+              "api-reference/auto/delete-apiaccountmembers",
+              "api-reference/auto/post-apiaccountmembers-disabled",
+              "api-reference/auto/get-api",
+              "api-reference/auto/get-apisubscription-management-template",
+              "api-reference/auto/put-apisubscription-management-template",
+              "api-reference/auto/delete-apisubscription-management-template",
+              "api-reference/auto/post-apicomputed-propertiestrigger-recompute",
+              "api-reference/auto/put-apipublicsubscription-managementuser-subscriptions",
+              "api-reference/auto/get-apipublicsubscription-managementpage",
+              "api-reference/auto/post-apipublicsubscription-managementpage",
+              "api-reference/auto/get-apipublicview-in-browser",
+              "api-reference/auto/get-apiadminsubscription-management-template",
+              "api-reference/auto/put-apiadminsubscription-management-template",
+              "api-reference/auto/delete-apiadminsubscription-management-template",
+              "api-reference/auto/post-apiadmincomputed-propertiestrigger-recompute",
+              "api-reference/auto/get-internal-apidebugboom",
+              "api-reference/auto/get-internal-apidebugok"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "api-reference/auto/webhooks/post-apiwebhookssendgrid",
+              "api-reference/auto/webhooks/post-apiwebhookssendgridconnections",
+              "api-reference/auto/webhooks/post-apiwebhooksamazon-ses",
+              "api-reference/auto/webhooks/post-apiwebhookstelnyx",
+              "api-reference/auto/webhooks/post-apipublicwebhookssendgrid",
+              "api-reference/auto/webhooks/post-apipublicwebhookssendgridconnections",
+              "api-reference/auto/webhooks/post-apipublicwebhooksamazon-ses",
+              "api-reference/auto/webhooks/post-apipublicwebhookstelnyx"
+            ]
+          },
+          {
+            "group": "Analysis",
+            "pages": [
+              "api-reference/auto/analysis/get-apianalysischart-data",
+              "api-reference/auto/analysis/get-apianalysissummary",
+              "api-reference/auto/analysis/get-apianalysisjourney-stats",
+              "api-reference/auto/analysis/get-apiadminanalysischart-data",
+              "api-reference/auto/analysis/get-apiadminanalysissummary",
+              "api-reference/auto/analysis/get-apiadminanalysisjourney-stats"
+            ]
+          },
+          {
+            "group": "Content",
+            "pages": [
+              "api-reference/auto/content/post-apicontenttemplatesrender",
+              "api-reference/auto/content/get-apicontenttemplates",
+              "api-reference/auto/content/put-apicontenttemplates",
+              "api-reference/auto/content/delete-apicontenttemplates",
+              "api-reference/auto/content/put-apicontenttemplatesreset",
+              "api-reference/auto/content/post-apicontenttemplatestest",
+              "api-reference/auto/content/delete-apicontenttemplatesv2",
+              "api-reference/auto/content/post-apicontenttemplatesbatch-send",
+              "api-reference/auto/content/post-apiadmincontenttemplatesrender",
               "api-reference/auto/content/get-apiadmincontenttemplates",
               "api-reference/auto/content/put-apiadmincontenttemplates",
               "api-reference/auto/content/delete-apiadmincontenttemplates",
+              "api-reference/auto/content/put-apiadmincontenttemplatesreset",
               "api-reference/auto/content/post-apiadmincontenttemplatestest",
-              "api-reference/auto/content/post-apiadmincontenttemplatesbatch-send",
-              "api-reference/auto/segments/get-apiadminsegments",
-              "api-reference/auto/segments/put-apiadminsegments",
-              "api-reference/auto/segments/delete-apiadminsegments",
-              "api-reference/auto/user-properties/get-apiadminuser-properties",
-              "api-reference/auto/user-properties/put-apiadminuser-properties",
-              "api-reference/auto/user-properties/delete-apiadminuser-properties",
+              "api-reference/auto/content/delete-apiadmincontenttemplatesv2",
+              "api-reference/auto/content/post-apiadmincontenttemplatesbatch-send"
+            ]
+          },
+          {
+            "group": "Events",
+            "pages": [
+              "api-reference/auto/events/get-apievents",
+              "api-reference/auto/events/get-apieventstraits",
+              "api-reference/auto/events/get-apieventsproperties",
+              "api-reference/auto/events/get-apieventsdownload",
+              "api-reference/auto/events/get-apiadminevents",
+              "api-reference/auto/events/get-apiadmineventstraits",
+              "api-reference/auto/events/get-apiadmineventsproperties",
+              "api-reference/auto/events/get-apiadmineventsdownload"
+            ]
+          },
+          {
+            "group": "Journeys",
+            "pages": [
+              "api-reference/auto/journeys/get-apijourneys",
+              "api-reference/auto/journeys/put-apijourneys",
+              "api-reference/auto/journeys/delete-apijourneys",
+              "api-reference/auto/journeys/delete-apijourneysv2",
+              "api-reference/auto/journeys/get-apijourneysstats",
               "api-reference/auto/journeys/get-apiadminjourneys",
               "api-reference/auto/journeys/put-apiadminjourneys",
               "api-reference/auto/journeys/delete-apiadminjourneys",
-              "api-reference/endpoints/subscription-management/user-subscriptions",
-              "api-reference/auto/users/get-apiadminuserssubscriptions",
-              "api-reference/auto/subscription-groups/put-apiadminsubscription-groupsassignments",
-              "api-reference/auto/subscription-groups/get-apiadminsubscription-groups",
-              "api-reference/auto/users/post-apiadminusers",
-              "api-reference/auto/users/delete-apiadminusers",
-              "api-reference/auto/events/get-apiadminevents",
-              "api-reference/auto/broadcasts/post-apiadminbroadcastsexecute",
-              "api-reference/auto/workspace/put-api-ladminworkspaceschild",
-              "api-reference/auto/workspace/delete-api-ladminworkspaces",
-              "api-reference/auto/workspace/get-api-ladminworkspaces",
-              "api-reference/auto/sessions/post-api-lsessions",
-              "api-reference/auto/groups/get-apiadmingroupsuser-groups",
-              "api-reference/auto/groups/get-apiadmingroupsusers",
-              "api-reference/auto/deliveries/get-apiadmindeliveries",
-              "api-reference/auto/deliveries/post-apiadmindeliveriesclicks",
-              "api-reference/auto/deliveries/post-apiadmindeliveriesopens",
-              "api-reference/auto/deliveries/post-apiadmindeliveriesopensevidence",
-              "api-reference/auto/settings/put-apiadminsettingsemail-providers",
+              "api-reference/auto/journeys/delete-apiadminjourneysv2",
+              "api-reference/auto/journeys/get-apiadminjourneysstats"
+            ]
+          },
+          {
+            "group": "Secrets",
+            "pages": [
+              "api-reference/auto/secrets/get-apisecrets",
+              "api-reference/auto/secrets/put-apisecrets",
+              "api-reference/auto/secrets/delete-apisecrets",
+              "api-reference/auto/secrets/get-apiadminsecrets",
+              "api-reference/auto/secrets/put-apiadminsecrets",
+              "api-reference/auto/secrets/delete-apiadminsecrets"
+            ]
+          },
+          {
+            "group": "Segments",
+            "pages": [
+              "api-reference/auto/segments/get-apisegments",
+              "api-reference/auto/segments/put-apisegments",
+              "api-reference/auto/segments/delete-apisegments",
+              "api-reference/auto/segments/post-apisegmentsmanual-segmentupdate",
+              "api-reference/auto/segments/post-apisegmentsmanual-segmentclear",
+              "api-reference/auto/segments/get-apisegmentsmanual-segmentstatus",
+              "api-reference/auto/segments/patch-apisegmentsstatus",
+              "api-reference/auto/segments/delete-apisegmentsv2",
+              "api-reference/auto/segments/get-apisegmentsdownload",
+              "api-reference/auto/segments/post-apisegmentsupload-csv",
+              "api-reference/auto/segments/get-apiadminsegments",
+              "api-reference/auto/segments/put-apiadminsegments",
+              "api-reference/auto/segments/delete-apiadminsegments",
               "api-reference/auto/segments/post-apiadminsegmentsmanual-segmentupdate",
               "api-reference/auto/segments/post-apiadminsegmentsmanual-segmentclear",
               "api-reference/auto/segments/get-apiadminsegmentsmanual-segmentstatus",
-              "api-reference/auto/analysis/get-apiadminanalysischart-data",
-              "api-reference/auto/analysis/get-apiadminanalysissummary",
-              "api-reference/auto/analysis/get-apiadminanalysisjourney-stats",
+              "api-reference/auto/segments/patch-apiadminsegmentsstatus",
+              "api-reference/auto/segments/delete-apiadminsegmentsv2",
+              "api-reference/auto/segments/get-apiadminsegmentsdownload",
+              "api-reference/auto/segments/post-apiadminsegmentsupload-csv"
+            ]
+          },
+          {
+            "group": "Settings",
+            "pages": [
+              "api-reference/auto/settings/put-apisettingsemail-providers",
+              "api-reference/auto/settings/put-apisettingsemail-providersdefault",
+              "api-reference/auto/settings/get-apisettingswrite-keys",
+              "api-reference/auto/settings/put-apisettingswrite-keys",
+              "api-reference/auto/settings/delete-apisettingswrite-keys",
+              "api-reference/auto/settings/put-apiadminsettingsemail-providers",
+              "api-reference/auto/settings/put-apiadminsettingsemail-providersdefault",
+              "api-reference/auto/settings/get-apiadminsettingswrite-keys",
+              "api-reference/auto/settings/put-apiadminsettingswrite-keys",
+              "api-reference/auto/settings/delete-apiadminsettingswrite-keys"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "api-reference/auto/integrations/put-apiintegrations",
+              "api-reference/auto/integrations/put-apiadminintegrations"
+            ]
+          },
+          {
+            "group": "Subscription Groups",
+            "pages": [
+              "api-reference/auto/subscription-groups/get-apisubscription-groups",
+              "api-reference/auto/subscription-groups/put-apisubscription-groups",
+              "api-reference/auto/subscription-groups/delete-apisubscription-groups",
+              "api-reference/auto/subscription-groups/put-apisubscription-groupsassignments",
+              "api-reference/auto/subscription-groups/post-apisubscription-groupsupload-csv",
+              "api-reference/auto/subscription-groups/get-apiadminsubscription-groups",
+              "api-reference/auto/subscription-groups/put-apiadminsubscription-groups",
+              "api-reference/auto/subscription-groups/delete-apiadminsubscription-groups",
+              "api-reference/auto/subscription-groups/put-apiadminsubscription-groupsassignments",
+              "api-reference/auto/subscription-groups/post-apiadminsubscription-groupsupload-csv"
+            ]
+          },
+          {
+            "group": "User Properties",
+            "pages": [
+              "api-reference/auto/user-properties/get-apiuser-properties",
+              "api-reference/auto/user-properties/put-apiuser-properties",
+              "api-reference/auto/user-properties/delete-apiuser-properties",
+              "api-reference/auto/user-properties/patch-apiuser-propertiesstatus",
+              "api-reference/auto/user-properties/get-apiadminuser-properties",
+              "api-reference/auto/user-properties/put-apiadminuser-properties",
+              "api-reference/auto/user-properties/delete-apiadminuser-properties",
+              "api-reference/auto/user-properties/patch-apiadminuser-propertiesstatus"
+            ]
+          },
+          {
+            "group": "User Property Indices",
+            "pages": [
+              "api-reference/auto/user-property-indices/get-apiuser-property-indices",
+              "api-reference/auto/user-property-indices/put-apiuser-property-indices",
+              "api-reference/auto/user-property-indices/delete-apiuser-property-indices",
+              "api-reference/auto/user-property-indices/get-apiadminuser-property-indices",
+              "api-reference/auto/user-property-indices/put-apiadminuser-property-indices",
+              "api-reference/auto/user-property-indices/delete-apiadminuser-property-indices"
+            ]
+          },
+          {
+            "group": "Broadcasts",
+            "pages": [
+              "api-reference/auto/broadcasts/put-apibroadcastsarchive",
+              "api-reference/auto/broadcasts/get-apibroadcasts",
+              "api-reference/auto/broadcasts/put-apibroadcasts",
+              "api-reference/auto/broadcasts/put-apibroadcastsv2",
+              "api-reference/auto/broadcasts/put-apibroadcaststrigger",
+              "api-reference/auto/broadcasts/put-apibroadcastsrecompute-segment",
+              "api-reference/auto/broadcasts/post-apibroadcastsstart",
+              "api-reference/auto/broadcasts/post-apibroadcastspause",
+              "api-reference/auto/broadcasts/post-apibroadcastsresume",
+              "api-reference/auto/broadcasts/post-apibroadcastscancel",
+              "api-reference/auto/broadcasts/get-apibroadcastsgmail-authorization",
+              "api-reference/auto/broadcasts/post-apibroadcastsexecute",
+              "api-reference/auto/broadcasts/put-apiadminbroadcastsarchive",
+              "api-reference/auto/broadcasts/get-apiadminbroadcasts",
+              "api-reference/auto/broadcasts/put-apiadminbroadcasts",
+              "api-reference/auto/broadcasts/put-apiadminbroadcastsv2",
+              "api-reference/auto/broadcasts/put-apiadminbroadcaststrigger",
+              "api-reference/auto/broadcasts/put-apiadminbroadcastsrecompute-segment",
+              "api-reference/auto/broadcasts/post-apiadminbroadcastsstart",
+              "api-reference/auto/broadcasts/post-apiadminbroadcastspause",
+              "api-reference/auto/broadcasts/post-apiadminbroadcastsresume",
+              "api-reference/auto/broadcasts/post-apiadminbroadcastscancel",
+              "api-reference/auto/broadcasts/post-apiadminbroadcastsexecute"
+            ]
+          },
+          {
+            "group": "Deliveries",
+            "pages": [
+              "api-reference/auto/deliveries/post-apideliveriesclicks",
+              "api-reference/auto/deliveries/post-apideliveriesopens",
+              "api-reference/auto/deliveries/post-apideliveriesopensevidence",
+              "api-reference/auto/deliveries/get-apideliveries",
+              "api-reference/auto/deliveries/get-apideliveriescount",
+              "api-reference/auto/deliveries/get-apideliveriesdownload",
+              "api-reference/auto/deliveries/post-apiadmindeliveriesclicks",
+              "api-reference/auto/deliveries/post-apiadmindeliveriesopens",
+              "api-reference/auto/deliveries/post-apiadmindeliveriesopensevidence",
+              "api-reference/auto/deliveries/get-apiadmindeliveries",
+              "api-reference/auto/deliveries/get-apiadmindeliveriescount",
+              "api-reference/auto/deliveries/get-apiadmindeliveriesdownload"
+            ]
+          },
+          {
+            "group": "API Key",
+            "pages": [
+              "api-reference/auto/api-key/get-apiadmin-keys",
+              "api-reference/auto/api-key/post-apiadmin-keys",
+              "api-reference/auto/api-key/delete-apiadmin-keys",
+              "api-reference/auto/api-key/get-apiadminadmin-keys",
+              "api-reference/auto/api-key/post-apiadminadmin-keys",
+              "api-reference/auto/api-key/delete-apiadminadmin-keys"
+            ]
+          },
+          {
+            "group": "Users",
+            "pages": [
+              "api-reference/auto/users/post-apiusers",
+              "api-reference/auto/users/delete-apiusers",
+              "api-reference/auto/users/post-apiuserscount",
+              "api-reference/auto/users/get-apiuserssubscriptions",
+              "api-reference/auto/users/delete-apiusersv2",
+              "api-reference/auto/users/post-apiadminusers",
+              "api-reference/auto/users/delete-apiadminusers",
+              "api-reference/auto/users/post-apiadminuserscount",
+              "api-reference/auto/users/get-apiadminuserssubscriptions",
+              "api-reference/auto/users/delete-apiadminusersv2"
+            ]
+          },
+          {
+            "group": "Groups",
+            "pages": [
+              "api-reference/auto/groups/get-apigroupsusers",
+              "api-reference/auto/groups/get-apigroupsuser-groups",
+              "api-reference/auto/groups/get-apiadmingroupsusers",
+              "api-reference/auto/groups/get-apiadmingroupsuser-groups"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "api-reference/auto/resources/get-apiresources",
+              "api-reference/auto/resources/post-apiresourcesduplicate",
+              "api-reference/auto/resources/get-apiadminresources",
+              "api-reference/auto/resources/post-apiadminresourcesduplicate"
+            ]
+          },
+          {
+            "group": "Computed Properties",
+            "pages": [
+              "api-reference/auto/computed-properties/get-apicomputed-propertiesperiods",
+              "api-reference/auto/computed-properties/get-apiadmincomputed-propertiesperiods"
+            ]
+          },
+          {
+            "group": "Publications",
+            "pages": [
+              "api-reference/auto/publications/get-apipublicationscontext",
+              "api-reference/auto/publications/get-apipublicationstracking-domains",
+              "api-reference/auto/publications/put-apipublicationstracking-domains",
+              "api-reference/auto/publications/post-apipublicationstracking-domainsprovision",
+              "api-reference/auto/publications/post-apipublicationstracking-domainsverify",
+              "api-reference/auto/publications/post-apipublicationspublisher",
+              "api-reference/auto/publications/get-apipublications",
+              "api-reference/auto/publications/post-apipublications",
+              "api-reference/auto/publications/patch-apipublications",
+              "api-reference/auto/publications/post-apipublicationsadopt",
+              "api-reference/auto/publications/get-apipublicationsoverview",
+              "api-reference/auto/publications/post-apipublicationscontactssearch",
+              "api-reference/auto/publications/post-apipublicationscontactsoperations",
+              "api-reference/auto/publications/get-apipublicationsinfrastructure",
+              "api-reference/auto/publications/put-apipublicationsinfrastructureaccount",
+              "api-reference/auto/publications/post-apipublicationsinfrastructureinspect",
+              "api-reference/auto/publications/put-apipublicationsinfrastructureconnections",
+              "api-reference/auto/publications/post-apipublicationsinfrastructureconnectionsinspect",
+              "api-reference/auto/publications/post-apipublicationsinfrastructureconnectionsprovision",
+              "api-reference/auto/publications/post-apipublicationsinfrastructuredomains",
+              "api-reference/auto/publications/post-apipublicationsinfrastructuresenders",
+              "api-reference/auto/publications/post-apipublicationsinfrastructurewebhooks",
+              "api-reference/auto/publications/put-apipublicationsinfrastructureips",
+              "api-reference/auto/publications/put-apipublicationsinfrastructurepools",
+              "api-reference/auto/publications/put-apipublicationsinfrastructurepool-bindings",
+              "api-reference/auto/publications/post-apipublicationsinfrastructurepool-bindingsreconcile",
+              "api-reference/auto/publications/put-apipublicationsinfrastructureroutes",
+              "api-reference/auto/publications/post-apipublicationsinfrastructureip-reassignment",
+              "api-reference/auto/publications/get-apipublicationssuppressions",
+              "api-reference/auto/publications/put-apipublicationssuppressions",
+              "api-reference/auto/publications/post-apipublicationssuppressionssearch",
+              "api-reference/auto/publications/post-apipublicationssuppressionsdeactivate",
+              "api-reference/auto/publications/get-apipublicationsautomations",
+              "api-reference/auto/publications/put-apipublicationsautomations",
+              "api-reference/auto/publications/delete-apipublicationsautomations",
+              "api-reference/auto/publications/get-apipublicationsautomationsactions",
+              "api-reference/auto/publications/get-apipublicationssends",
+              "api-reference/auto/publications/get-apipublicationsdelivery-health",
+              "api-reference/auto/publications/get-apiadminpublicationscontext",
+              "api-reference/auto/publications/get-apiadminpublicationstracking-domains",
+              "api-reference/auto/publications/put-apiadminpublicationstracking-domains",
+              "api-reference/auto/publications/post-apiadminpublicationstracking-domainsprovision",
+              "api-reference/auto/publications/post-apiadminpublicationstracking-domainsverify",
+              "api-reference/auto/publications/post-apiadminpublicationspublisher",
+              "api-reference/auto/publications/get-apiadminpublications",
+              "api-reference/auto/publications/post-apiadminpublications",
+              "api-reference/auto/publications/patch-apiadminpublications",
+              "api-reference/auto/publications/post-apiadminpublicationsadopt",
+              "api-reference/auto/publications/get-apiadminpublicationsoverview",
+              "api-reference/auto/publications/post-apiadminpublicationscontactssearch",
+              "api-reference/auto/publications/post-apiadminpublicationscontactsoperations",
+              "api-reference/auto/publications/get-apiadminpublicationsinfrastructure",
+              "api-reference/auto/publications/put-apiadminpublicationsinfrastructureaccount",
+              "api-reference/auto/publications/post-apiadminpublicationsinfrastructureinspect",
+              "api-reference/auto/publications/put-apiadminpublicationsinfrastructureconnections",
+              "api-reference/auto/publications/post-apiadminpublicationsinfrastructureconnectionsinspect",
+              "api-reference/auto/publications/post-apiadminpublicationsinfrastructureconnectionsprovision",
+              "api-reference/auto/publications/post-apiadminpublicationsinfrastructuredomains",
+              "api-reference/auto/publications/post-apiadminpublicationsinfrastructuresenders",
+              "api-reference/auto/publications/post-apiadminpublicationsinfrastructurewebhooks",
+              "api-reference/auto/publications/put-apiadminpublicationsinfrastructureips",
+              "api-reference/auto/publications/put-apiadminpublicationsinfrastructurepools",
+              "api-reference/auto/publications/put-apiadminpublicationsinfrastructurepool-bindings",
+              "api-reference/auto/publications/post-apiadminpublicationsinfrastructurepool-bindingsreconcile",
+              "api-reference/auto/publications/put-apiadminpublicationsinfrastructureroutes",
+              "api-reference/auto/publications/post-apiadminpublicationsinfrastructureip-reassignment",
+              "api-reference/auto/publications/get-apiadminpublicationssuppressions",
+              "api-reference/auto/publications/put-apiadminpublicationssuppressions",
+              "api-reference/auto/publications/post-apiadminpublicationssuppressionssearch",
+              "api-reference/auto/publications/post-apiadminpublicationssuppressionsdeactivate",
+              "api-reference/auto/publications/get-apiadminpublicationsautomations",
+              "api-reference/auto/publications/put-apiadminpublicationsautomations",
+              "api-reference/auto/publications/delete-apiadminpublicationsautomations",
+              "api-reference/auto/publications/get-apiadminpublicationsautomationsactions",
+              "api-reference/auto/publications/get-apiadminpublicationssends",
+              "api-reference/auto/publications/get-apiadminpublicationsdelivery-health"
+            ]
+          },
+          {
+            "group": "ComponentConfigurations",
+            "pages": [
+              "api-reference/auto/componentconfigurations/get-apicomponent-configurations",
+              "api-reference/auto/componentconfigurations/put-apicomponent-configurations",
+              "api-reference/auto/componentconfigurations/delete-apicomponent-configurations",
               "api-reference/auto/componentconfigurations/get-apiadmincomponent-configurations",
               "api-reference/auto/componentconfigurations/put-apiadmincomponent-configurations",
               "api-reference/auto/componentconfigurations/delete-apiadmincomponent-configurations"
+            ]
+          },
+          {
+            "group": "Public Apps",
+            "pages": [
+              "api-reference/auto/public-apps/post-apipublicappsidentify",
+              "api-reference/auto/public-apps/post-apipublicappstrack",
+              "api-reference/auto/public-apps/post-apipublicappspage",
+              "api-reference/auto/public-apps/post-apipublicappsscreen",
+              "api-reference/auto/public-apps/post-apipublicappsgroup",
+              "api-reference/auto/public-apps/post-apipublicappsalias",
+              "api-reference/auto/public-apps/post-apipublicappsbatch",
+              "api-reference/auto/public-apps/post-apiadminappsidentify",
+              "api-reference/auto/public-apps/post-apiadminappstrack",
+              "api-reference/auto/public-apps/post-apiadminappspage",
+              "api-reference/auto/public-apps/post-apiadminappsscreen",
+              "api-reference/auto/public-apps/post-apiadminappsgroup",
+              "api-reference/auto/public-apps/post-apiadminappsbatch"
+            ]
+          },
+          {
+            "group": "Operations",
+            "pages": [
+              "api-reference/auto/operations/get-apiadminopenapijson",
+              "api-reference/auto/operations/get-apiadminoperations"
             ]
           }
         ]

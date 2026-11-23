@@ -22,9 +22,11 @@ deployment, DNS/TLS activation, capture, and sending remain disabled; local
 inbound-only verification is not a production cutover.
 
 Google OIDC and application-owned accounts, explicit workspace memberships,
-roles, private invitations, and revocable sessions are implemented. Google Cloud
-configuration and a real Google browser sign-in remain cutover prerequisites;
-the shared-login local instance must not be silently locked out. See
+roles, private invitations, and revocable sessions are implemented. Local Google
+configuration and real owner sign-in are verified: the owner is Admin in RONIN,
+one-time bootstrap settings are removed, and Google mode remains enabled.
+The full-platform integration checkpoints migrations `0000`–`0017`; production
+deployment and second-account acceptance remain separate release gates. See
 [account operations](packages/docs/guide/google-sso.mdx).
 
 ## Product decisions

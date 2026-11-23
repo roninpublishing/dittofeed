@@ -1,52 +1,55 @@
 ---
-title: Updating Dittofeed's API Docs
+title: Updating the API and code reference
 ---
 
-We maintain a copy of the OpenAPI spec for the production API in the docs package - `packages/docs/open-api.json`. The following page describes how to update this file.
+The checked-in `packages/docs/open-api.json` describes registered HTTP routes.
+Export it from a local application built from the revision being documented,
+using the intended authentication mode. Google account routes are registered
+only in Google mode; they remain human-authenticated APIs, not MCP tools.
+Never copy the upstream hosted application's schema into this fork.
 
-This schema is used to generate the API reference docs.
+## Export the runtime contract
 
-## Updating `packages/docs/open-api.json`
-
-Run the following command to copy the OpenAPI / Swagger spec to the docs package:
-
-```bash
-curl "https://app.dittofeed.com/documentation/json" | jq "." > packages/docs/open-api.json
-```
-
-Note this command assumes you have [jq](https://stedolan.github.io/jq/) installed, which formats the JSON output from the API server.
-
-## Adding New Endpoints to the Docs
-
-Run the following command to add new endpoints to the docs:
+From the repository root, with the combined local application running:
 
 ```bash
-npx @mintlify/scraping@latest openapi-file packages/docs/open-api.json --outDir packages/docs/api-reference/auto
+curl --fail --silent --show-error http://localhost:3000/documentation/json \
+  | jq "." > packages/docs/open-api.json
 ```
 
-Then add the new endpoints to the [mint.json](https://github.com/dittofeed/dittofeed/blob/main/packages/docs/mint.json) file.
+Use your own loopback port when verifying an isolated instance. This endpoint
+returns schemas, not workspace records. Review the output before committing;
+never include real credentials or request evidence as examples.
 
-```json mint.json
-{
-  "group": "API Reference",
-  "pages": [
-    "api-reference/auto/content/get-apiadmincontenttemplates",
-    ...
-  ]
-}
-```
+For the machine-only contract, use authenticated `GET /api/admin/openapi.json`.
+`GET /api/admin/operations` lists the required grants. That live contract is
+authoritative for MCP discovery; the checked-in reference does not grant access.
 
+## Generate endpoint pages
 
-## Running the Docs Locally
-
-cd into docs directory
+Use the repository's pinned generator rather than downloading a new release:
 
 ```bash
-cd packages/docs
+yarn exec mintlify-scrape openapi-file packages/docs/open-api.json \
+  --outDir packages/docs/api-reference/auto
 ```
 
-Run the mintlify dev server.
+Update the API Reference navigation in `packages/docs/docs.json` with the
+generated page paths. Keep handwritten examples, cover every registered
+operation, and remove generated pages for retired routes. Public ingestion,
+signed callbacks, human account/session APIs and workspace machine APIs have
+different authentication boundaries; documenting a route does not make it a
+bearer-key or MCP operation.
+
+## Refresh the function inventory
 
 ```bash
-mintlify dev
+node packages/docs/scripts/generate-code-inventory.cjs
+node packages/docs/scripts/generate-code-inventory.cjs --check
 ```
+
+The inventory records package functions, methods, signatures, source locations,
+parameters, declared return types and existing JSDoc. It is a source map, not an
+arbitrary-function execution API. See [coverage](/guide/api-coverage).
+
+Run the documentation preview from `packages/docs` with `mintlify dev`.

@@ -4,8 +4,8 @@ import {
   buildDeliveriesFile,
   getDeliveryClicks,
   getDeliveryOpens,
-  InvalidDeliveryOpensCursorError,
   InvalidDeliveryClicksCursorError,
+  InvalidDeliveryOpensCursorError,
   searchDeliveries,
   searchDeliveriesCount,
 } from "backend-lib/src/deliveries";
@@ -15,10 +15,10 @@ import {
   DownloadDeliveriesRequest,
   GetDeliveryClicksRequest,
   GetDeliveryClicksResponse,
-  GetDeliveryOpensRequest,
-  GetDeliveryOpensResponse,
   GetDeliveryOpenEvidenceRequest,
   GetDeliveryOpenEvidenceResponse,
+  GetDeliveryOpensRequest,
+  GetDeliveryOpensResponse,
   SearchDeliveriesRequest,
   SearchDeliveriesResponse,
 } from "backend-lib/src/types";
@@ -30,7 +30,8 @@ export default async function deliveriesController(fastify: FastifyInstance) {
     "/clicks",
     {
       schema: {
-        description: "Observed, unqualified click history for one contact and send.",
+        description:
+          "Observed, unqualified click history for one contact and send.",
         tags: ["Deliveries"],
         body: GetDeliveryClicksRequest,
         response: {
@@ -55,10 +56,14 @@ export default async function deliveriesController(fastify: FastifyInstance) {
     "/opens",
     {
       schema: {
-        description: "Observed, unqualified open history for one contact and send.",
+        description:
+          "Observed, unqualified open history for one contact and send.",
         tags: ["Deliveries"],
         body: GetDeliveryOpensRequest,
-        response: { 200: GetDeliveryOpensResponse, 400: Type.Object({ message: Type.String() }) },
+        response: {
+          200: GetDeliveryOpensResponse,
+          400: Type.Object({ message: Type.String() }),
+        },
       },
     },
     async (request, reply) => {
@@ -77,15 +82,20 @@ export default async function deliveriesController(fastify: FastifyInstance) {
     "/opens/evidence",
     {
       schema: {
-        description: "Explicit scoped retrieval of retained raw open request evidence.",
+        description:
+          "Explicit scoped retrieval of retained raw open request evidence.",
         tags: ["Deliveries"],
         body: GetDeliveryOpenEvidenceRequest,
-        response: { 200: GetDeliveryOpenEvidenceResponse, 404: Type.Object({ message: Type.String() }) },
+        response: {
+          200: GetDeliveryOpenEvidenceResponse,
+          404: Type.Object({ message: Type.String() }),
+        },
       },
     },
     async (request, reply) => {
       const evidence = await getEmailOpenEvidence(request.body);
-      if (!evidence) return reply.status(404).send({ message: "Open evidence not found" });
+      if (!evidence)
+        return reply.status(404).send({ message: "Open evidence not found" });
       return reply.status(200).send({ ...request.body, evidence });
     },
   );

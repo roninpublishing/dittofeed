@@ -42,8 +42,10 @@ export function adminOpenApi(document: OpenAPI.Document) {
       const operation = item[method];
       if (!operation) continue;
       // Swagger preserves the vendor extension authored beside stream handlers.
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const streamBody = (operation as OpenAPIV3_1.OperationObject & { "x-machine-request-body"?: OpenAPIV3_1.RequestBodyObject })["x-machine-request-body"];
+      const streamOperation: typeof operation & {
+        "x-machine-request-body"?: OpenAPIV3_1.RequestBodyObject;
+      } = operation;
+      const streamBody = streamOperation["x-machine-request-body"];
       projected[method] = {
         ...operation,
         security: [{ bearerAuth: [] }],
@@ -78,13 +80,15 @@ export function adminOpenApi(document: OpenAPI.Document) {
 }
 
 /** Authenticated discovery for API clients and the local MCP bridge. */
+// Fastify requires the async plugin contract even when registration is synchronous.
+// eslint-disable-next-line @typescript-eslint/require-await
 export default async function operationsController(fastify: FastifyInstance) {
   fastify.get("/openapi.json", {
     schema: {
       description: "Live registered machine operations and their request/response schemas. Excludes this discovery endpoint itself.",
       tags: ["Operations"],
     },
-  }, async () => adminOpenApi(fastify.swagger()));
+  }, (_request, reply) => reply.send(adminOpenApi(fastify.swagger())));
 
   fastify.get("/operations", {
     schema: {
@@ -102,13 +106,13 @@ export default async function operationsController(fastify: FastifyInstance) {
         }),
       },
     },
-  }, async () => {
+  }, (_request, reply) => {
     const document = adminOpenApi(fastify.swagger());
     const operations = Object.entries(document.paths).flatMap(([path, item]) =>
       METHODS.flatMap((method) => {
         const operation = item?.[method];
         return operation ? [{ method: method.toUpperCase(), path, scope: classifyApiOperation(method, path), requiredScopes: [...requiredApiScopes(method, path)], description: operation.description ?? operation.summary ?? "" }] : [];
       }));
-    return { operations };
+    return reply.send({ operations });
   });
 }

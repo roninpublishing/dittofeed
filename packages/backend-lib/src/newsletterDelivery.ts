@@ -1221,11 +1221,7 @@ function eventIdentity(event: CallbackEvent): string {
 function providerIdentity(value: string): string {
   return value.split(".")[0] ?? value;
 }
-async function correlate(
-  tx: Tx,
-  connectionId: string,
-  event: CallbackEvent,
-): Promise<Send | undefined> {
+function callbackSendIdentity(event: CallbackEvent) {
   const sendId =
     typeof event.newsletterSendId === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -1243,25 +1239,31 @@ async function correlate(
     )
       ? smtpValue
       : null;
-  if (!sendId && !smtpValue && !event.sg_message_id) return undefined;
+  return or(
+    sendId ? eq(newsletterSend.id, sendId) : undefined,
+    smtp ? eq(newsletterSend.id, smtp) : undefined,
+    smtpValue ? eq(newsletterSend.providerSmtpId, smtpValue) : undefined,
+    event.sg_message_id
+      ? eq(
+          newsletterSend.providerMessageId,
+          providerIdentity(event.sg_message_id),
+        )
+      : undefined,
+  );
+}
+
+async function correlate(
+  tx: Tx,
+  connectionId: string,
+  event: CallbackEvent,
+): Promise<Send | undefined> {
+  const identity = callbackSendIdentity(event);
+  if (!identity) return undefined;
   const [row] = await tx
     .select()
     .from(newsletterSend)
     .where(
-      and(
-        eq(newsletterSend.connectionId, connectionId),
-        or(
-          sendId ? eq(newsletterSend.id, sendId) : undefined,
-          smtp ? eq(newsletterSend.id, smtp) : undefined,
-          smtpValue ? eq(newsletterSend.providerSmtpId, smtpValue) : undefined,
-          event.sg_message_id
-            ? eq(
-                newsletterSend.providerMessageId,
-                providerIdentity(event.sg_message_id),
-              )
-            : undefined,
-        ),
-      ),
+      and(eq(newsletterSend.connectionId, connectionId), identity),
     )
     .limit(1);
   if (!row || row.erasedAt || !row.encryptedRecipient || row.attempts === 0)
@@ -1351,7 +1353,12 @@ export async function receiveNewsletterWebhook(input: {
               and(
                 eq(newsletterSend.connectionId, connection.id),
                 isNotNull(newsletterSend.erasedAt),
-                eq(newsletterSend.mailboxHash, mailboxHash),
+                // Identity matches only discard evidence; they never assign
+                // callback metadata to an erased contact, including CC/BCC.
+                or(
+                  eq(newsletterSend.mailboxHash, mailboxHash),
+                  callbackSendIdentity(event),
+                ),
               ),
             )
             .limit(1);
@@ -1442,9 +1449,12 @@ export async function drainNewsletterWebhookReceipts(): Promise<void> {
             and(
               eq(newsletterSend.connectionId, receipt.connectionId),
               isNotNull(newsletterSend.erasedAt),
-              eq(
-                newsletterSend.mailboxHash,
-                newsletterMailboxHash(event.email),
+              or(
+                eq(
+                  newsletterSend.mailboxHash,
+                  newsletterMailboxHash(event.email),
+                ),
+                callbackSendIdentity(event),
               ),
             ),
           )
@@ -1677,6 +1687,11 @@ export async function deleteNewsletterDeliveryData(input: {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtextextended(${input.workspaceId}, 0))`,
     );
+    const [publication] = await tx
+      .select({ id: newsletter.workspaceId })
+      .from(newsletter)
+      .where(eq(newsletter.workspaceId, input.workspaceId));
+    if (!publication) return;
     if (input.userIds)
       for (let offset = 0; offset < input.userIds.length; offset += 500)
         await tx

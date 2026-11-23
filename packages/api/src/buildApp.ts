@@ -93,7 +93,9 @@ export async function registerApp(
   // Authorize in adminAuth; declare the same boundary in Swagger and generated docs.
   server.addHook("onRoute", (route) => {
     if (route.url.startsWith("/api/admin/")) {
-      route.schema = { ...route.schema, security: [{ bearerAuth: [] }] };
+      Object.assign(route, {
+        schema: { ...route.schema, security: [{ bearerAuth: [] }] },
+      });
     }
   });
 
@@ -111,7 +113,8 @@ export async function registerApp(
           bearerAuth: {
             type: "http",
             scheme: "bearer",
-            description: "Workspace-scoped administrative API key. Required operation scopes are listed by /api/admin/operations.",
+            description:
+              "Workspace-scoped administrative API key. Required operation scopes are listed by /api/admin/operations.",
           },
           publicWriteKey: {
             type: "apiKey",

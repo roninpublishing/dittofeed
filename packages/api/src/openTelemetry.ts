@@ -20,8 +20,9 @@ export const API_TELEMETRY_CONFIG: Parameters<
   "@opentelemetry/instrumentation-http": {
     ignoreIncomingPaths: ["/api"],
     ignoreIncomingRequestHook: (request) =>
-      Boolean(request.url?.split("?")[0]?.includes("/api/public/email/open/")) ||
-      googleAuthSensitiveUrl(request.url),
+      Boolean(
+        request.url?.split("?")[0]?.includes("/api/public/email/open/"),
+      ) || googleAuthSensitiveUrl(request.url),
   },
   "@opentelemetry/instrumentation-fs": {
     enabled: false,

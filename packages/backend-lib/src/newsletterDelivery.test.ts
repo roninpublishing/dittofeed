@@ -5,7 +5,13 @@ import { ok } from "neverthrow";
 
 import * as batch from "./apps/batch";
 import { db } from "./db";
-import { workspace, messageTemplate, subscriptionGroup } from "./db/schema";
+import {
+  workspace,
+  messageTemplate,
+  subscriptionGroup,
+  userProperty,
+  userPropertyAssignment,
+} from "./db/schema";
 import * as tables from "./db/publisherSchema";
 import * as sendgrid from "./destinations/sendgrid";
 import * as infrastructure from "./newsletterInfrastructure";
@@ -33,6 +39,7 @@ import {
   InternalEventType,
   SubscriptionChange,
 } from "./types";
+import { deleteUsers } from "./users";
 import { createWorkspace } from "./workspaces";
 
 const signingKeys = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
@@ -256,6 +263,7 @@ describe("durable newsletter sends and signed inbox", () => {
     index = 0,
     copies = 1,
     logicalMessageId: string = randomUUID(),
+    copyType: "cc" | "bcc" = "cc",
   ) {
     const workspaceId = newsletterIds[index]!;
     const userId = `contact-${index}`;
@@ -275,7 +283,8 @@ describe("durable newsletter sends and signed inbox", () => {
       mailData: {
         from: "editor@example.com",
         to: recipients[0]!,
-        cc: recipients.slice(1),
+        cc: copyType === "cc" ? recipients.slice(1) : undefined,
+        bcc: copyType === "bcc" ? recipients.slice(1) : undefined,
         html,
         subject: "Original subject",
         customArgs: { templateId: "original-template" },
@@ -307,6 +316,44 @@ describe("durable newsletter sends and signed inbox", () => {
       ...signed(Buffer.from(JSON.stringify(events))),
     });
   }
+
+  it("deletes legacy non-newsletter contacts without writing newsletter erasure barriers", async () => {
+    const [property] = await db()
+      .select()
+      .from(userProperty)
+      .where(eq(userProperty.workspaceId, publisherId))
+      .limit(1);
+    if (!property) throw new Error("Expected default workspace property");
+    const deletedUserId = randomUUID();
+    const retainedUserId = randomUUID();
+    await db().insert(userPropertyAssignment).values(
+      [deletedUserId, retainedUserId].map((userId) => ({
+        workspaceId: publisherId,
+        userPropertyId: property.id,
+        userId,
+        value: JSON.stringify("legacy contact"),
+      })),
+    );
+
+    await deleteUsers({
+      workspaceId: publisherId,
+      userIds: [deletedUserId],
+    });
+
+    const assignments = await db()
+      .select()
+      .from(userPropertyAssignment)
+      .where(eq(userPropertyAssignment.workspaceId, publisherId));
+    expect(assignments.map((assignment) => assignment.userId)).toEqual([
+      retainedUserId,
+    ]);
+    expect(
+      await db()
+        .select()
+        .from(tables.newsletterErasure)
+        .where(eq(tables.newsletterErasure.workspaceId, publisherId)),
+    ).toHaveLength(0);
+  });
 
   it("routes actual tests and personalized sends centrally after rendering, ignoring legacy overrides without fallback", async () => {
     const workspaceId = newsletterIds[0]!;
@@ -665,6 +712,71 @@ describe("durable newsletter sends and signed inbox", () => {
     });
     expect(retry.isErr()).toBe(true);
   });
+
+  it.each(["cc", "bcc"] as const)(
+    "discards late signed %s receipts for erased immutable sends without assigning callback metadata",
+    async (copyType) => {
+      const queued = await enqueue(0, 2, randomUUID(), copyType);
+      await drainNewsletterSends();
+      const [sent] = await db()
+        .select()
+        .from(tables.newsletterSend)
+        .where(eq(tables.newsletterSend.id, queued.sendId));
+      if (!sent?.providerMessageId) throw new Error("Expected accepted send");
+      await deleteNewsletterDeliveryData({
+        workspaceId: queued.workspaceId,
+        userIds: [queued.userId],
+      });
+      projection.mockClear();
+      const events = [
+        { sg_message_id: `${sent.providerMessageId}.filter` },
+        { "smtp-id": `<${queued.sendId}>` },
+        { newsletterSendId: queued.sendId },
+      ].map((identity, index) => ({
+        ...identity,
+        event: "open",
+        email: "copy-1@example.com",
+        timestamp: Math.floor(Date.now() / 1000),
+        sg_event_id: `late-copy-${index}`,
+        workspaceId: newsletterIds[1],
+        userId: "forged-contact",
+        messageId: "forged-message",
+      }));
+      await callback(0, events);
+      const receipts = await db()
+        .select()
+        .from(tables.newsletterWebhookReceipt)
+        .where(
+          eq(tables.newsletterWebhookReceipt.connectionId, connectionIds[0]!),
+        );
+      expect(receipts).toHaveLength(events.length);
+      for (const receipt of receipts) {
+        expect(receipt.encryptedPayload).toBeNull();
+        expect(receipt.processedAt).toBeInstanceOf(Date);
+        expect(receipt.sendId).toBeNull();
+      }
+
+      // The other signed connection cannot use these identities to assign a send.
+      await callback(1, events);
+      await drainNewsletterWebhookReceipts();
+      expect(projection).not.toHaveBeenCalled();
+      const unrelated = await db()
+        .select()
+        .from(tables.newsletterWebhookReceipt)
+        .where(
+          eq(tables.newsletterWebhookReceipt.connectionId, connectionIds[1]!),
+        );
+      expect(unrelated).toHaveLength(events.length);
+      expect(
+        unrelated.every(
+          (receipt) =>
+            receipt.sendId === null &&
+            receipt.encryptedPayload !== null &&
+            receipt.processedAt === null,
+        ),
+      ).toBe(true);
+    },
+  );
   it("applies a signed complaint across newsletters while local unsubscribe never creates a publisher block", async () => {
     const queued = await enqueue(0);
     await drainNewsletterSends();

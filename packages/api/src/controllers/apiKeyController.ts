@@ -7,7 +7,7 @@ import {
 import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import { DittofeedFastifyInstance } from "backend-lib/src/types";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   AdminApiKeyResource,
   CreateAdminApiKeyRequest,
@@ -81,15 +81,16 @@ export default async function apiKeyController(
             ),
           )
           .returning({ secretId: schema.adminApiKey.secretId });
-        for (const key of revoked) {
-          await tx
-            .delete(schema.secret)
-            .where(
-              and(
-                eq(schema.secret.workspaceId, workspaceId),
-                eq(schema.secret.id, key.secretId),
+        if (revoked.length) {
+          await tx.delete(schema.secret).where(
+            and(
+              eq(schema.secret.workspaceId, workspaceId),
+              inArray(
+                schema.secret.id,
+                revoked.map((key) => key.secretId),
               ),
-            );
+            ),
+          );
         }
       });
 

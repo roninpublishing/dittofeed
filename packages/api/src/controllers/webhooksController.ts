@@ -8,14 +8,17 @@ import {
   handleSesNotification,
   validSNSSignature,
 } from "backend-lib/src/destinations/amazonses";
+import { handleSendgridEvents } from "backend-lib/src/destinations/sendgrid";
+import logger from "backend-lib/src/logger";
 import {
   InvalidTelnyxEventError,
   persistTelnyxEmailEvent,
   verifyTelnyxSignature,
 } from "backend-lib/src/messaging/telnyxEvents";
-import { handleSendgridEvents } from "backend-lib/src/destinations/sendgrid";
-import logger from "backend-lib/src/logger";
-import { NewsletterDeliveryError, receiveNewsletterWebhook } from "backend-lib/src/newsletterDelivery";
+import {
+  NewsletterDeliveryError,
+  receiveNewsletterWebhook,
+} from "backend-lib/src/newsletterDelivery";
 import { withSpan } from "backend-lib/src/openTelemetry";
 import {
   AmazonSNSEvent,
@@ -35,7 +38,10 @@ export default async function webhookController(fastify: FastifyInstance) {
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   fastify.addHook("onSend", async (request, reply, payload) => {
-    if (request.routeOptions.url?.endsWith("/telnyx") || reply.statusCode !== 400) {
+    if (
+      request.routeOptions.url.endsWith("/telnyx") ||
+      reply.statusCode !== 400
+    ) {
       return payload;
     }
     logger().error("Failed to validate webhook payload.");
@@ -56,7 +62,10 @@ export default async function webhookController(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      logger().debug({ eventCount: request.body.length }, "Received sendgrid events.");
+      logger().debug(
+        { eventCount: request.body.length },
+        "Received sendgrid events.",
+      );
       const result = await handleSendgridEvents({
         sendgridEvents: request.body,
         webhookSignature:
@@ -82,7 +91,8 @@ export default async function webhookController(fastify: FastifyInstance) {
       bodyLimit: 2_000_000,
       schema: {
         operationId: "receiveNewsletterSendgridWebhook",
-        description: "Durably receive a raw, signed callback for a newsletter sending connection.",
+        description:
+          "Durably receive a raw, signed callback for a newsletter sending connection.",
         tags: ["Webhooks"],
         params: Type.Object({ connectionId: Type.String({ format: "uuid" }) }),
         headers: Type.Object({
@@ -93,7 +103,10 @@ export default async function webhookController(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      if (!Buffer.isBuffer(request.rawBody)) return reply.status(400).send({ message: "Raw callback body required" });
+      if (!Buffer.isBuffer(request.rawBody))
+        return reply
+          .status(400)
+          .send({ message: "Raw callback body required" });
       try {
         await receiveNewsletterWebhook({
           connectionId: request.params.connectionId,
@@ -103,7 +116,10 @@ export default async function webhookController(fastify: FastifyInstance) {
         });
         return reply.status(202).send();
       } catch (error) {
-        return reply.status(error instanceof NewsletterDeliveryError ? error.statusCode : 503)
+        return reply
+          .status(
+            error instanceof NewsletterDeliveryError ? error.statusCode : 503,
+          )
           .send({ message: "Callback could not be received" });
       }
     },
@@ -176,9 +192,12 @@ export default async function webhookController(fastify: FastifyInstance) {
     {
       bodyLimit: 1024 * 1024,
       schema: {
-        description: "Durably receive native Telnyx email events verified over the exact raw body.",
+        description:
+          "Durably receive native Telnyx email events verified over the exact raw body.",
         tags: ["Webhooks"],
-        querystring: Type.Object({ workspaceId: Type.String({ format: "uuid" }) }),
+        querystring: Type.Object({
+          workspaceId: Type.String({ format: "uuid" }),
+        }),
         headers: Type.Object({
           "telnyx-signature-ed25519": Type.String(),
           "telnyx-timestamp": Type.String(),
@@ -196,17 +215,26 @@ export default async function webhookController(fastify: FastifyInstance) {
         with: { workspace: true },
       });
       const publicKey = schemaValidateWithErr(secret?.configValue, TelnyxSecret)
-        .map((value) => value.publicKey).unwrapOr(undefined);
+        .map((value) => value.publicKey)
+        .unwrapOr(undefined);
       if (!request.rawBody) {
-        return reply.status(500).send({ message: "Raw request body unavailable." });
+        return reply
+          .status(500)
+          .send({ message: "Raw request body unavailable." });
       }
-      if (!secret?.workspace || secret.workspace.status !== WorkspaceStatusDbEnum.Active ||
-          !verifyTelnyxSignature({
-            rawBody: request.rawBody, publicKey,
-            signature: request.headers["telnyx-signature-ed25519"],
-            timestamp: request.headers["telnyx-timestamp"],
-          })) {
-        return reply.status(401).send({ message: "Invalid webhook authentication." });
+      if (
+        !secret?.workspace ||
+        secret.workspace.status !== WorkspaceStatusDbEnum.Active ||
+        !verifyTelnyxSignature({
+          rawBody: request.rawBody,
+          publicKey,
+          signature: request.headers["telnyx-signature-ed25519"],
+          timestamp: request.headers["telnyx-timestamp"],
+        })
+      ) {
+        return reply
+          .status(401)
+          .send({ message: "Invalid webhook authentication." });
       }
       try {
         await persistTelnyxEmailEvent({
@@ -216,10 +244,14 @@ export default async function webhookController(fastify: FastifyInstance) {
         });
       } catch (error) {
         if (error instanceof InvalidTelnyxEventError) {
-          return reply.status(400).send({ message: "Invalid Telnyx event envelope." });
+          return reply
+            .status(400)
+            .send({ message: "Invalid Telnyx event envelope." });
         }
         // Do not let framework error logging expose SQL parameters containing raw evidence.
-        return reply.status(500).send({ message: "Unable to persist webhook receipt." });
+        return reply
+          .status(500)
+          .send({ message: "Unable to persist webhook receipt." });
       }
       return reply.status(202).send();
     },

@@ -239,7 +239,7 @@ export async function drainTelnyxEmailEvents(): Promise<void> {
           await submitBatch({ workspaceId: row.send.workspaceId, data: {
             context: { source: SourceType.Webhook, provider: EmailProviderType.Telnyx },
             batch: [normalized.item],
-          } }, { workspaceLockHeld: true });
+          } }, { writeModeOverride: "ch-sync", workspaceLockHeld: true });
         }
         await tx.update(receipt).set({
           processedAt: sql`now()`, disposition: normalized.disposition,

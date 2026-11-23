@@ -1,18 +1,26 @@
-import { randomUUID } from "crypto";
 import { createAdminApiKey } from "backend-lib/src/adminApiKeys";
 import config from "backend-lib/src/config";
 import { db } from "backend-lib/src/db";
 import { publisherSendgridAccount } from "backend-lib/src/db/publisherSchema";
 import { workspace } from "backend-lib/src/db/schema";
 import { createNewsletter, createPublisher } from "backend-lib/src/newsletters";
+import { randomUUID } from "crypto";
 import { eq, inArray } from "drizzle-orm";
 import fastify, { FastifyInstance } from "fastify";
 import { API_OPERATION_SCOPES } from "isomorphic-lib/src/apiOperations";
 import { WORKSPACE_ID_HEADER } from "isomorphic-lib/src/constants";
+import { NewsletterTrackingResponse } from "isomorphic-lib/src/publications";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 
 import adminAuth from "../buildApp/adminAuth";
 import publicationsController from "./publicationsController";
+
+interface PublicationSummary {
+  workspaceId: string;
+  publisherId: string;
+  name: string;
+  slug: string;
+}
 
 let app: FastifyInstance;
 let publisherId: string;
@@ -77,7 +85,7 @@ describe("publication management API", () => {
       },
     });
     expect(created.statusCode).toBe(200);
-    const publication = created.json().data;
+    const publication = created.json<{ data: PublicationSummary }>().data;
     expect(publication).toMatchObject({
       publisherId,
       slug: "aistocknews",
@@ -91,7 +99,7 @@ describe("publication management API", () => {
       headers: headers(apiKey),
     });
     expect(list.statusCode).toBe(200);
-    expect(list.json().data).toEqual(
+    expect(list.json<{ data: PublicationSummary[] }>().data).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ workspaceId: publication.workspaceId }),
       ]),
@@ -111,7 +119,9 @@ describe("publication management API", () => {
       },
     });
     expect(search.statusCode).toBe(200);
-    expect(search.json().data.contacts).toEqual([]);
+    expect(
+      search.json<{ data: { contacts: unknown[] } }>().data.contacts,
+    ).toEqual([]);
     expect(
       (
         await app.inject({
@@ -144,26 +154,29 @@ describe("publication management API", () => {
   });
 
   it("requires all independent grants for stored management credentials and never returns the key", async () => {
-    for (const scopes of [
+    const partialGrants: (typeof API_OPERATION_SCOPES)[number][][] = [
       ["write"],
       ["sensitive"],
       ["read", "write", "sensitive"],
-    ] as (typeof API_OPERATION_SCOPES)[number][][]) {
-      const apiKey = await key(scopes);
-      expect(
-        (
-          await app.inject({
-            method: "PUT",
-            url: "/api/admin/publications/infrastructure/account",
-            headers: headers(apiKey),
-            payload: {
-              workspaceId: publisherId,
-              managementApiKey: "partial-grant-must-not-be-stored",
-            },
-          })
-        ).statusCode,
-      ).toBe(403);
-    }
+    ];
+    await Promise.all(
+      partialGrants.map(async (scopes) => {
+        const apiKey = await key(scopes);
+        expect(
+          (
+            await app.inject({
+              method: "PUT",
+              url: "/api/admin/publications/infrastructure/account",
+              headers: headers(apiKey),
+              payload: {
+                workspaceId: publisherId,
+                managementApiKey: "partial-grant-must-not-be-stored",
+              },
+            })
+          ).statusCode,
+        ).toBe(403);
+      }),
+    );
     const apiKey = await key([...API_OPERATION_SCOPES]);
     const value = "SG.management_test_id.management_test_secret";
     const configured = await app.inject({
@@ -264,7 +277,7 @@ describe("publication management API", () => {
       payload,
     });
     expect(configured.statusCode).toBe(200);
-    expect(configured.json().data.domains).toEqual([
+    expect(configured.json<NewsletterTrackingResponse>().data.domains).toEqual([
       expect.objectContaining({
         newsletterId: child.workspaceId,
         hostname: `dt.${payload.domain}`,
@@ -278,7 +291,9 @@ describe("publication management API", () => {
       headers: headers(readKey),
     });
     expect(list.statusCode).toBe(200);
-    expect(list.json().data.domains).toHaveLength(1);
+    expect(list.json<NewsletterTrackingResponse>().data.domains).toHaveLength(
+      1,
+    );
     for (const forbidden of [
       "customHostnameId",
       "cloudflareTrackingApiToken",

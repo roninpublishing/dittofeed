@@ -679,6 +679,12 @@ function parseRawConfig(rawConfig: RawConfig): Config {
 
   const blobStorageBucket = rawConfig.blobStorageBucket ?? "dittofeed";
   const enableColdStorage = rawConfig.enableColdStorage === "true";
+  let signoutUrl = rawConfig.signoutUrl;
+  if (authMode === "google") {
+    signoutUrl = "/api/account/logout";
+  } else if (authMode === "single-tenant") {
+    signoutUrl = "/api/public/single-tenant/signout";
+  }
   const parsedConfig: Config = {
     ...rawConfig,
     bootstrap: rawConfig.bootstrap === "true",
@@ -772,12 +778,7 @@ function parseRawConfig(rawConfig: RawConfig): Config {
       authMode === "google"
         ? "/api/public/auth/google/start"
         : rawConfig.oauthStartUrl,
-    signoutUrl:
-      authMode === "google"
-        ? "/api/account/logout"
-        : authMode === "single-tenant"
-          ? "/api/public/single-tenant/signout"
-          : rawConfig.signoutUrl,
+    signoutUrl,
     signoutRedirectUrl: rawConfig.signoutRedirectUrl ?? dashboardUrl,
     secretKey,
     password: rawConfig.password ?? DEFAULT_BACKEND_CONFIG.password,

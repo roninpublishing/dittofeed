@@ -70,6 +70,9 @@ describe("Google browser authorization boundaries", () => {
     expect(requiredGoogleApiRole("POST", "/api/content/templates")).toBe(
       RoleEnum.Author,
     );
+    expect(requiredGoogleApiRole("POST", "/api/content/templates/render")).toBe(
+      RoleEnum.Author,
+    );
     expect(requiredGoogleApiRole("PUT", "/api/journeys")).toBe(RoleEnum.Author);
   });
 

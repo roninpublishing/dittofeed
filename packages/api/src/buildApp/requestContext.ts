@@ -61,6 +61,13 @@ const requestContext = fp(async (fastify: FastifyInstance) => {
     const rc = await getRequestContextFastify(request);
 
     if (rc.isErr()) {
+      if (
+        backendConfig().authMode === "google" &&
+        (rc.error.type === RequestContextErrorType.NotOnboarded ||
+          rc.error.type === RequestContextErrorType.EmailNotVerified)
+      ) {
+        return reply.status(403).send({ code: "no_access" });
+      }
       switch (rc.error.type) {
         case RequestContextErrorType.ApplicationError:
           throw new Error(rc.error.message);

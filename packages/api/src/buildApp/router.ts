@@ -80,6 +80,7 @@ export default async function router(
   opts?: BuildAppOpts,
 ) {
   await fastify.register(indexController, { prefix: "/api" });
+  // Provider signatures authenticate this legacy webhook namespace.
   await fastify.register(webhooksController, { prefix: "/api/webhooks" });
 
   // endpoints with standard authorization

@@ -10,8 +10,8 @@ import { googleSessionPluginOptions } from "backend-lib/src/googleSessions";
 import logger from "backend-lib/src/logger";
 import { DittofeedFastifyInstance, Logger } from "backend-lib/src/types";
 import fastify, { FastifyHttpOptions, RawServerDefault } from "fastify";
-import { TYPE_REFS } from "isomorphic-lib/src/typeRefs";
 import { googleAuthSensitiveUrl } from "isomorphic-lib/src/accounts";
+import { TYPE_REFS } from "isomorphic-lib/src/typeRefs";
 import {
   DFRequestContext,
   PUBLIC_WRITE_KEY_DESCRIPTION,
@@ -33,13 +33,19 @@ declare module "@fastify/request-context" {
 
 export type FastifyAppOpts = FastifyHttpOptions<RawServerDefault, Logger>;
 
-export function configureOpenTrackingRequestLogging(server: DittofeedFastifyInstance) {
+export function configureOpenTrackingRequestLogging(
+  server: DittofeedFastifyInstance,
+) {
   server.setChildLoggerFactory((parent, bindings, options, request) => {
-    // Include unmatched/malformed pixel requests: routing errors must not leak
-    // the bearer URL or supplied query string into ordinary access logs.
-    return parent.child(bindings, request.url?.split("?")[0]?.includes("/api/public/email/open/") || googleAuthSensitiveUrl(request.url)
-      ? { ...options, level: "silent" }
-      : options);
+    // Routing failures must not leak sensitive URLs or supplied query strings.
+    const path = request.url?.split("?")[0] ?? "";
+    const sensitive =
+      path.includes("/api/public/email/open/") ||
+      googleAuthSensitiveUrl(request.url);
+    return parent.child(
+      bindings,
+      sensitive ? { ...options, level: "silent" } : options,
+    );
   });
 }
 
@@ -155,7 +161,10 @@ export async function registerApp(
   }
   if (authMode === "google") {
     fastifyPluginPromises.push(
-      server.register(secureSession, googleSessionPluginOptions(backendConfig())),
+      server.register(
+        secureSession,
+        googleSessionPluginOptions(backendConfig()),
+      ),
     );
   }
 

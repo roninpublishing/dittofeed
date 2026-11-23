@@ -88,6 +88,9 @@ beforeEach(async () => {
     scope.put("/api/content/templates", (_request, reply) =>
       reply.send({ allowed: true }),
     );
+    scope.post("/api/content/templates/render", (_request, reply) =>
+      reply.send({ allowed: true }),
+    );
     scope.get("/api/settings/probe", (_request, reply) =>
       reply.send({ allowed: true }),
     );
@@ -161,6 +164,16 @@ test("Viewers can browse and search but cannot enter settings or mutate drafts",
       await app.inject({
         method: "PUT",
         url: `/api/content/templates?workspaceId=${workspaceId}`,
+        cookies,
+        headers: { origin },
+      })
+    ).statusCode,
+  ).toBe(403);
+  expect(
+    (
+      await app.inject({
+        method: "POST",
+        url: `/api/content/templates/render?workspaceId=${workspaceId}`,
         cookies,
         headers: { origin },
       })

@@ -738,8 +738,11 @@ export const accountSession = pgTable(
     createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
       .defaultNow()
       .notNull(),
-    expiresAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
-      .notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
     revokedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
   },
   (table) => [
@@ -766,8 +769,11 @@ export const workspaceInvitation = pgTable(
     createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
       .defaultNow()
       .notNull(),
-    expiresAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
-      .notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
     acceptedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
     revokedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
   },
@@ -801,8 +807,11 @@ export const googleOAuthFlow = pgTable(
     createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
       .defaultNow()
       .notNull(),
-    expiresAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
-      .notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
     consumedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
   },
   (table) => [
@@ -820,12 +829,13 @@ export const accountRateLimit = pgTable(
   {
     key: text().primaryKey().notNull(),
     attempts: integer().notNull(),
-    expiresAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
-      .notNull(),
+    expiresAt: timestamp({
+      precision: 3,
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
   },
-  (table) => [
-    index("AccountRateLimit_expiresAt_idx").on(table.expiresAt),
-  ],
+  (table) => [index("AccountRateLimit_expiresAt_idx").on(table.expiresAt)],
 );
 
 export const segment = pgTable(

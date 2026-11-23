@@ -83,6 +83,7 @@ export enum EventType {
 
 export enum InternalEventType {
   MessageSent = "DFInternalMessageSent",
+  MessageQueued = "DFInternalMessageQueued",
   BadWorkspaceConfiguration = "DFBadWorkspaceConfiguration",
   MessageFailure = "DFMessageFailure",
   MessageSkipped = "DFMessageSkipped",
@@ -132,7 +133,7 @@ export const ChannelType = {
 export const EmailProviderType = {
   SendGrid: "SendGrid",
   AmazonSes: "AmazonSes",
-  Resend: "Resend",
+  Telnyx: "Telnyx",
   Smtp: "Smtp",
   Test: "Test",
   Gmail: "Gmail",
@@ -147,7 +148,7 @@ export type EmailProviderTypeSchema = Static<typeof EmailProviderTypeSchema>;
 export const WorkspaceWideEmailProviderType = {
   SendGrid: EmailProviderType.SendGrid,
   AmazonSes: EmailProviderType.AmazonSes,
-  Resend: EmailProviderType.Resend,
+  Telnyx: EmailProviderType.Telnyx,
   Smtp: EmailProviderType.Smtp,
   Test: EmailProviderType.Test,
 } as const;
@@ -167,6 +168,7 @@ export enum MobilePushProviderType {
 }
 
 export type ChannelType = (typeof ChannelType)[keyof typeof ChannelType];
+
 
 export const SubscriptionGroupResource = Type.Object({
   id: Type.String(),
@@ -209,6 +211,14 @@ export interface UserPropertyUpdate {
 }
 
 export type ComputedPropertyUpdate = SegmentUpdate | UserPropertyUpdate;
+
+export const EventValueSource = {
+  Property: "Property",
+  EventTime: "EventTime",
+} as const;
+
+export type EventValueSource =
+  (typeof EventValueSource)[keyof typeof EventValueSource];
 
 export enum UserPropertyOperatorType {
   Equals = "Equals",
@@ -447,10 +457,18 @@ export const LastPerformedSegmentNode = Type.Object({
   ),
   hasProperties: Type.Optional(
     Type.Array(
-      Type.Object({
-        path: Type.String(),
-        operator: SegmentOperator,
-      }),
+      Type.Union([
+        Type.Object({
+          path: Type.String(),
+          valueSource: Type.Optional(Type.Literal(EventValueSource.Property)),
+          operator: SegmentOperator,
+        }),
+        Type.Object({
+          valueSource: Type.Literal(EventValueSource.EventTime),
+          path: Type.Optional(Type.String()),
+          operator: SegmentOperator,
+        }),
+      ]),
       {
         description:
           "Used to evaluate whether the user is in the segment based on the properties of the selected event.",
@@ -653,27 +671,39 @@ export const UserPropertyOperator = Type.Union([UserPropertyEqualsOperator]);
 
 export type UserPropertyOperator = Static<typeof UserPropertyOperator>;
 
-export const PerformedUserPropertyDefinition = Type.Object(
-  {
-    // set to optional for backwards compatibility
-    id: Type.Optional(Type.String()),
-    type: Type.Literal(UserPropertyDefinitionType.Performed),
-    event: Type.String(),
-    path: Type.String(),
-    skipReCompute: Type.Optional(Type.Boolean()),
-    properties: Type.Optional(
-      Type.Array(
-        Type.Object({
-          path: Type.String(),
-          operator: UserPropertyOperator,
-        }),
-      ),
+const PerformedUserPropertyFields = {
+  // set to optional for backwards compatibility
+  id: Type.Optional(Type.String()),
+  type: Type.Literal(UserPropertyDefinitionType.Performed),
+  event: Type.String(),
+  skipReCompute: Type.Optional(Type.Boolean()),
+  properties: Type.Optional(
+    Type.Array(
+      Type.Object({
+        path: Type.String(),
+        operator: UserPropertyOperator,
+      }),
     ),
-  },
+  ),
+};
+
+export const PerformedUserPropertyDefinition = Type.Union(
+  [
+    Type.Object({
+      ...PerformedUserPropertyFields,
+      path: Type.String(),
+      valueSource: Type.Optional(Type.Literal(EventValueSource.Property)),
+    }),
+    Type.Object({
+      ...PerformedUserPropertyFields,
+      valueSource: Type.Literal(EventValueSource.EventTime),
+      path: Type.Optional(Type.String()),
+    }),
+  ],
   {
     title: "PerformedUserPropertyDefinition",
     description:
-      "A user property definition that renders the last matching track event.",
+      "A user property resolving the latest matching event's property or UTC event timestamp.",
   },
 );
 
@@ -1051,6 +1081,7 @@ export const MobilePushMessageVariant = Type.Object({
 });
 
 export type MobilePushMessageVariant = Static<typeof MobilePushMessageVariant>;
+
 
 export const WebhookMessageVariant = Type.Object({
   type: Type.Literal(ChannelType.Webhook),
@@ -1660,6 +1691,7 @@ export const MobilePushTemplateResource = Type.Object(
 export type MobilePushTemplateResource = Static<
   typeof MobilePushTemplateResource
 >;
+
 
 // Partial of AxiosRequestConfig.
 export const WebhookConfig = Type.Object({
@@ -2974,6 +3006,7 @@ export const RenderMessageTemplateRequest = Type.Object({
   workspaceId: Type.String(),
   channel: Type.Enum(ChannelType),
   subscriptionGroupId: Type.Optional(Type.String()),
+  identifierKey: Type.Optional(Type.String()),
   contents: RenderMessageTemplateRequestContents,
   userProperties: Type.Record(Type.String(), Type.Any()),
   tags: Type.Optional(Type.Record(Type.String(), Type.String())),
@@ -3748,7 +3781,9 @@ export const JourneyStatsRequest = Type.Object({
 
 export type JourneyStatsRequest = Static<typeof JourneyStatsRequest>;
 
+
 export const MessageTemplateTestErrorResponse = Type.Object({});
+
 
 export const EmailTestSuccess = Type.Object({
   type: Type.Literal(EmailProviderType.Test),
@@ -3784,16 +3819,17 @@ export const EmailSmtpSuccess = Type.Object({
 
 export type EmailSmtpSuccess = Static<typeof EmailSmtpSuccess>;
 
-export const EmailResendSuccess = Type.Object({
-  type: Type.Literal(EmailProviderType.Resend),
+export const EmailTelnyxSuccess = Type.Object({
+  type: Type.Literal(EmailProviderType.Telnyx),
+  messageId: Type.String(),
 });
 
-export type EmailResendSuccess = Static<typeof EmailResendSuccess>;
+export type EmailTelnyxSuccess = Static<typeof EmailTelnyxSuccess>;
 
 export const EmailServiceProviderSuccess = Type.Union([
   EmailSendgridSuccess,
   EmailAmazonSesSuccess,
-  EmailResendSuccess,
+  EmailTelnyxSuccess,
   EmailGmailSuccess,
   EmailSmtpSuccess,
   EmailTestSuccess,
@@ -3884,7 +3920,20 @@ export const MessageSendSuccess = Type.Composite([
 
 export type MessageSendSuccess = Static<typeof MessageSendSuccess>;
 
-export const MessageSuccess = Type.Union([MessageSendSuccess, MessageSkipped]);
+export const MessageQueued = Type.Object({
+  type: Type.Literal(InternalEventType.MessageQueued),
+  sendId: Type.String({ format: "uuid" }),
+  state: Type.Union([Type.Literal("queued"), Type.Literal("unknown")]),
+  nextAttemptAt: Type.Optional(Type.String({ format: "date-time" })),
+});
+
+export type MessageQueued = Static<typeof MessageQueued>;
+
+export const MessageSuccess = Type.Union([
+  MessageSendSuccess,
+  MessageSkipped,
+  MessageQueued,
+]);
 
 export type MessageSuccess = Static<typeof MessageSuccess>;
 
@@ -4075,18 +4124,19 @@ export const MessageSmtpFailure = Type.Object({
 
 export type MessageSmtpFailure = Static<typeof MessageSmtpFailure>;
 
-export const MessageResendFailure = Type.Object({
-  type: Type.Literal(EmailProviderType.Resend),
+export const MessageTelnyxFailure = Type.Object({
+  type: Type.Literal(EmailProviderType.Telnyx),
   message: Type.String(),
-  name: Type.String(),
+  code: Type.String(),
+  status: Type.Optional(Type.Integer()),
 });
 
-export type MessageResendFailure = Static<typeof MessageResendFailure>;
+export type MessageTelnyxFailure = Static<typeof MessageTelnyxFailure>;
 
 export const EmailServiceProviderFailure = Type.Union([
   MessageSendgridServiceFailure,
   MessageAmazonSesServiceFailure,
-  MessageResendFailure,
+  MessageTelnyxFailure,
   MessageSmtpFailure,
   MessageGmailServiceFailure,
 ]);
@@ -4103,6 +4153,7 @@ export const MessageEmailServiceFailure = Type.Object({
 export type MessageEmailServiceFailure = Static<
   typeof MessageEmailServiceFailure
 >;
+
 
 export const MessageWebhookServiceFailure = Type.Object({
   type: Type.Literal(ChannelType.Webhook),
@@ -4216,6 +4267,7 @@ export type EmailMessageTemplateTestRequest = Static<
   typeof EmailMessageTemplateTestRequest
 >;
 
+
 export const MobilePushMessageTemplateTestRequest = Type.Object({
   ...BaseMessageTemplateTestRequest,
   channel: Type.Literal(ChannelType.MobilePush),
@@ -4273,6 +4325,10 @@ export type GetPropertiesResponse = Static<typeof GetPropertiesResponse>;
 const BaseDeliveryItem = Type.Object({
   sentAt: Type.String(),
   updatedAt: Type.String(),
+  lastClickedAt: Nullable(Type.String()),
+  clickCount: Type.Integer({ minimum: 0 }),
+  lastOpenedAt: Nullable(Type.String()),
+  openCount: Type.Integer({ minimum: 0 }),
   journeyId: Type.Optional(Type.String()),
   broadcastId: Type.Optional(Type.String()),
   userId: UserId,
@@ -4321,6 +4377,85 @@ export const SearchDeliveriesResponse = Type.Object({
 });
 
 export type SearchDeliveriesResponse = Static<typeof SearchDeliveriesResponse>;
+
+export const DeliveryClick = Type.Object({
+  eventId: Type.String(),
+  clickedAt: Type.String(),
+  url: Nullable(Type.String()),
+  provider: Type.Optional(EmailProviderTypeSchema),
+  providerMessageId: Type.Optional(Type.String()),
+  providerEventId: Type.Optional(Type.String()),
+  classification: Type.Literal("observed_unqualified"),
+});
+
+export type DeliveryClick = Static<typeof DeliveryClick>;
+
+export const GetDeliveryClicksRequest = Type.Object({
+  workspaceId: Type.String(),
+  userId: Type.String(),
+  messageId: Type.String(),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+  cursor: Type.Optional(Type.String()),
+});
+
+export type GetDeliveryClicksRequest = Static<typeof GetDeliveryClicksRequest>;
+
+export const GetDeliveryClicksResponse = Type.Object({
+  workspaceId: Type.String(),
+  userId: Type.String(),
+  messageId: Type.String(),
+  lastClickedAt: Nullable(Type.String()),
+  clickCount: Type.Integer({ minimum: 0 }),
+  items: Type.Array(DeliveryClick),
+  cursor: Type.Optional(Type.String()),
+  previousCursor: Type.Optional(Type.String()),
+});
+
+export type GetDeliveryClicksResponse = Static<typeof GetDeliveryClicksResponse>;
+
+export const DeliveryOpen = Type.Object({
+  eventId: Type.String(),
+  openedAt: Type.String(),
+  evidenceSource: Type.String(),
+  evidenceId: Type.Optional(Type.String()),
+  provider: Type.Optional(EmailProviderTypeSchema),
+  providerMessageId: Type.Optional(Type.String()),
+  providerEventId: Type.Optional(Type.String()),
+  classification: Type.Literal("observed_unqualified"),
+});
+export type DeliveryOpen = Static<typeof DeliveryOpen>;
+
+export const GetDeliveryOpensRequest = Type.Object({
+  workspaceId: Type.String(),
+  userId: Type.String(),
+  messageId: Type.String(),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+  cursor: Type.Optional(Type.String()),
+});
+export type GetDeliveryOpensRequest = Static<typeof GetDeliveryOpensRequest>;
+export const GetDeliveryOpensResponse = Type.Object({
+  workspaceId: Type.String(),
+  userId: Type.String(),
+  messageId: Type.String(),
+  lastOpenedAt: Nullable(Type.String()),
+  openCount: Type.Integer({ minimum: 0 }),
+  items: Type.Array(DeliveryOpen),
+  cursor: Type.Optional(Type.String()),
+});
+export type GetDeliveryOpensResponse = Static<typeof GetDeliveryOpensResponse>;
+
+export const GetDeliveryOpenEvidenceRequest = Type.Object({
+  workspaceId: Type.String(),
+  userId: Type.String(),
+  messageId: Type.String(),
+  evidenceId: Type.String(),
+});
+export type GetDeliveryOpenEvidenceRequest = Static<typeof GetDeliveryOpenEvidenceRequest>;
+export const GetDeliveryOpenEvidenceResponse = Type.Object({
+  ...GetDeliveryOpenEvidenceRequest.properties,
+  evidence: Type.Record(Type.String(), Type.Unknown()),
+});
+export type GetDeliveryOpenEvidenceResponse = Static<typeof GetDeliveryOpenEvidenceResponse>;
 
 export const WorkspaceMemberSettingTypeEnum = {
   GmailTokens: "GmailTokens",
@@ -4432,13 +4567,14 @@ export const TestEmailSecret = Type.Object({
 
 export type TestEmailSecret = Static<typeof TestEmailSecret>;
 
-export const ResendSecret = Type.Object({
-  type: Type.Literal(EmailProviderType.Resend),
+export const TelnyxSecret = Type.Object({
+  type: Type.Literal(EmailProviderType.Telnyx),
   apiKey: Type.Optional(Type.String()),
-  webhookKey: Type.Optional(Type.String()),
+  publicKey: Type.Optional(Type.String()),
+  sandboxMode: Type.Optional(Type.Boolean()),
 });
 
-export type ResendSecret = Static<typeof ResendSecret>;
+export type TelnyxSecret = Static<typeof TelnyxSecret>;
 
 export const SmtpSecret = Type.Object({
   type: Type.Literal(EmailProviderType.Smtp),
@@ -4467,7 +4603,7 @@ export const EmailProviderSecret = Type.Union([
   SendgridSecret,
   AmazonSesSecret,
   SmtpSecret,
-  ResendSecret,
+  TelnyxSecret,
   TestEmailSecret,
   GmailSecret,
 ]);
@@ -4514,13 +4650,34 @@ export enum AdminApiKeyType {
   AdminApiKey = "AdminApiKey",
 }
 
-export const AdminApiKeyDefinition = Type.Object({
-  type: Type.Literal(AdminApiKeyType.AdminApiKey),
-  key: Type.String(),
-  permissions: Type.Array(
-    Type.Union([Type.Literal(AdminApiKeyPermission.Admin)]),
-  ),
-});
+export const AdminApiKeyScope = Type.Union([
+  Type.Literal("read"),
+  Type.Literal("write"),
+  Type.Literal("destructive"),
+  Type.Literal("sensitive"),
+]);
+
+export type AdminApiKeyScope = Static<typeof AdminApiKeyScope>;
+
+export const AdminApiKeyDefinition = Type.Intersect([
+  Type.Object({
+    type: Type.Literal(AdminApiKeyType.AdminApiKey),
+    permissions: Type.Array(
+      Type.Union([Type.Literal(AdminApiKeyPermission.Admin)]),
+    ),
+  }),
+  Type.Union([
+    Type.Object({
+      // Persisted legacy keys remain valid without rewriting their secrets.
+      key: Type.String(),
+      scopes: Type.Optional(Type.Array(AdminApiKeyScope, { uniqueItems: true })),
+    }),
+    Type.Object({
+      keyHash: Type.String({ pattern: "^[a-f0-9]{64}$" }),
+      scopes: Type.Array(AdminApiKeyScope, { uniqueItems: true }),
+    }),
+  ]),
+]);
 
 export type AdminApiKeyDefinition = Static<typeof AdminApiKeyDefinition>;
 
@@ -4529,6 +4686,7 @@ export const AdminApiKeyResource = Type.Object({
   id: Type.String(),
   name: Type.String(),
   createdAt: Type.Number(),
+  scopes: Type.Optional(Type.Array(AdminApiKeyScope, { uniqueItems: true })),
 });
 
 export type AdminApiKeyResource = Static<typeof AdminApiKeyResource>;
@@ -4536,6 +4694,7 @@ export type AdminApiKeyResource = Static<typeof AdminApiKeyResource>;
 export const CreateAdminApiKeyRequest = Type.Object({
   workspaceId: Type.String(),
   name: Type.String(),
+  scopes: Type.Optional(Type.Array(AdminApiKeyScope, { uniqueItems: true })),
 });
 
 export type CreateAdminApiKeyRequest = Static<typeof CreateAdminApiKeyRequest>;
@@ -4886,6 +5045,7 @@ export type UpsertEmailProviderRequest = Static<
   typeof UpsertEmailProviderRequest
 >;
 
+
 export const TombstoneWorkspaceRequest = WorkspaceIdentifier;
 
 export type TombstoneWorkspaceRequest = Static<
@@ -5025,6 +5185,8 @@ export const DeliveriesAllowedColumnEnum = {
   status: "status",
   origin: "origin",
   sentAt: "sentAt",
+  lastClickedAt: "lastClickedAt",
+  lastOpenedAt: "lastOpenedAt",
   template: "template",
   updatedAt: "updatedAt",
 } as const;
@@ -5909,6 +6071,7 @@ export type BatchMessageUsersRequest = Static<typeof BatchMessageUsersRequest>;
 export const BatchMessageUsersResultTypeEnum = {
   Success: "Success",
   Skipped: "Skipped",
+  Queued: "Queued",
   RetryableError: "RetryableError",
   NonRetryableError: "NonRetryableError",
 } as const;
@@ -5946,6 +6109,14 @@ export const BatchMessageUsersResult = Type.Union([
     ...BaseBatchMessageUsersResult,
     type: Type.Literal(BatchMessageUsersResultTypeEnum.Success),
     messageId: Type.String(),
+  }),
+  Type.Object({
+    ...BaseBatchMessageUsersResult,
+    type: Type.Literal(BatchMessageUsersResultTypeEnum.Queued),
+    messageId: Type.String(),
+    sendId: Type.String({ format: "uuid" }),
+    state: Type.Union([Type.Literal("queued"), Type.Literal("unknown")]),
+    nextAttemptAt: Type.Optional(Type.String({ format: "date-time" })),
   }),
   Type.Object({
     ...BaseBatchMessageUsersResult,

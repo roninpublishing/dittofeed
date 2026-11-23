@@ -628,6 +628,9 @@ export default function TemplateEditor({
     }
     return {
       channel,
+      ...(draftToRender.type === ChannelType.Email
+        ? { identifierKey: draftToRender.identifierKey }
+        : {}),
       userProperties: debouncedUserProperties,
       tags: buildTags({
         workspaceId: workspace.id,
@@ -1318,6 +1321,13 @@ export default function TemplateEditor({
                   enqueueSnackbar(
                     `Test message sent successfully to ${data.value.variant.to}.`,
                     { variant: "success", anchorOrigin },
+                  );
+                } else if (data.value.type === InternalEventType.MessageQueued) {
+                  enqueueSnackbar(
+                    data.value.state === "unknown"
+                      ? "Provider acceptance is uncertain. Review the send; do not resubmit."
+                      : "Test email queued under the shared IP budget. It has not been sent yet.",
+                    { variant: "info", anchorOrigin },
                   );
                 } else {
                   enqueueSnackbar(

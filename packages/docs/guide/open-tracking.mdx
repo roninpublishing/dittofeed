@@ -1,0 +1,188 @@
+---
+title: Open observations and raw evidence
+description: Observed last_opened per contact/send, with privacy-conscious request capture for future bot filtering.
+---
+
+## What last_opened means
+
+`last_opened` is the latest **observed** `DFEmailOpened` event time (UTC) across a contact's sends. It is not a verified human open. Apple Mail Privacy Protection, image proxies, link scanners, and forwarded copies can all generate observations. Missing image loads are not proof that an email was unread. No ten-minute cutoff, bot blocklist, Apple workaround, or click-to-open inference is applied.
+
+The protected built-in uses `{ "type": "Performed", "event": "DFEmailOpened", "valueSource": "EventTime" }`. Migration `0013_last_opened` provisions existing workspaces without overwriting conflicting custom definitions; resolve conflicts administratively before upgrading. New workspaces receive both engagement properties. Late older events cannot move the timestamp backward, and contacts with no open have no timestamp, not an epoch value. Contact assignment is eventually consistent and requires the existing computed-property worker.
+
+- Contact **Properties** shows Last opened with an observed-only warning.
+- Shared **Deliveries** tables show per-send **Last opened**, observation count, and **History**, independently of the latest delivery/click status.
+- The **Last opened** segment preset supports recency, before/after, exists, and no-open conditions using actual event time.
+- Existing contact property filters and Liquid `{{ user.last_opened }}` work normally. Handle absent values for never-opened contacts.
+
+A future human-engagement classifier must preserve this observed history and define its own policy/version. Do not silently reinterpret existing timestamps as verified human activity.
+
+## Newsletter-branded tracking domains
+
+Each native newsletter uses `dt.<newsletter-domain>` for its owned open pixel.
+For example, a newsletter with base domain `publisher.example` uses
+`https://dt.publisher.example/api/public/email/open/<opaque-token>.gif`.
+This hostname appears in the email image URL, not the From address or article
+links. It contains an opaque token, not the subscriber's email address.
+Newsletter identity is the independent Newsletter child workspace—not a
+subscription group or a provider sending sub-user.
+
+Open **Newsletters → Tracking domains** in the publisher management workspace:
+
+1. Choose a newsletter and enter its base domain, without `https://` or `dt.`.
+2. **Save pending tracking domain** records configuration locally. It does not
+   contact Cloudflare, publish DNS, issue certificates, enable capture, or send.
+3. After deployment/account setup is explicitly authorized, **Provision in
+   Cloudflare** creates or adopts the custom hostname using TXT certificate
+   validation. The server provisioning gate is closed by default.
+4. Publish the displayed DNS-only CNAME and any returned TXT validation records.
+5. **Verify DNS & TLS (read-only)** checks Cloudflare and DNS without provisioning.
+   Activation requires Cloudflare hostname `active`, certificate `active`, and
+   exactly the expected CNAME target. Proxied/flattened A/AAAA records do not
+   satisfy this deliberately DNS-only onboarding contract.
+
+Ownership is global and immutable: another newsletter cannot claim an existing
+tracking hostname. Changing a newsletter's current domain retains its previous
+domains. Keep old DNS, custom hostnames, certificates, and routing alive for
+already-delivered mail. Retrying an existing send preserves its original origin.
+Historical verified domains remain usable for their original tokens even when
+reselected or pending a fresh readiness check; new pixels require an active
+current domain. Registered newsletters never silently use a global fallback.
+
+### Cloudflare Worker and CNAME infrastructure
+
+The deployable `tracking-worker` workspace uses a shared Cloudflare Worker and
+[Cloudflare for SaaS custom hostnames](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/getting-started/).
+A CNAME alone does not provision ownership or HTTPS certificates. One Worker
+can handle all approved newsletter hostnames; no Worker per newsletter is needed.
+
+Operator prerequisites, **not performed by saving a domain**:
+
+The Worker is pinned to RONIN account
+`2c0f822ce2342b56b3998e7981c03332`. Authenticate specifically to that account;
+do not use ADVERTISE credentials or remove the account pin to bypass an access
+failure. Keep RONIN authentication separate from other projects' CLI sessions.
+The capture backend must have dedicated hosting, not share the existing servers.
+
+- Select the SaaS zone and configure its proxied, originless fallback and friendly
+  CNAME target using Cloudflare's
+  [Worker-as-origin setup](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/).
+- Assign the required Worker routes. A zone-wide `*/*` route also intercepts your
+  own app/API hosts: prefer a dedicated SaaS zone or reviewed exclusions, and
+  account for Cloudflare's documented CNAME proxy routing behavior. Do not
+  blindly install a catch-all over an existing application.
+- Deploy the Worker only with explicit authorization. Its checked-in configuration
+  has `ENABLED="false"`, no public routes, no workers.dev/preview URL, and logging
+  disabled. Set `TRACKING_ORIGIN` to the backend's HTTPS origin, without a path,
+  credentials, query, or fragment. Ensure this backend origin does not loop back
+  into the tracking Worker route.
+- Put the same explicit **32-byte base64 `OPEN_TRACKING_RELAY_SECRET`** in the
+  backend secret store and Worker secret store. It is separate from `SECRET_KEY`;
+  never commit it as a Wrangler variable or log it.
+- Configure backend `CLOUDFLARE_TRACKING_ZONE_ID`,
+  `CLOUDFLARE_TRACKING_CNAME_TARGET`, and secret
+  `CLOUDFLARE_TRACKING_API_TOKEN`. Use a scoped token for this zone's custom
+  hostnames. `CLOUDFLARE_TRACKING_ALLOW_PROVISIONING=false` is the default;
+  enabling the gate does not itself make a provider request.
+- Bypass caching and interactive challenges for pixel requests. Keep token-bearing
+  URLs/query strings out of Cloudflare Logpush, ingress/access logs, analytics,
+  request-body traces, and diagnostic dumps. Worker log defaults do not control
+  other zone-level logging products.
+
+The Worker exposes only branded pixel GET/HEAD requests. It does not forward the
+dashboard, arbitrary URLs, sending endpoints, cookies, authorization, or referers.
+It sends a bounded, HMAC-SHA256-authenticated envelope to
+`POST /api/public/email/open/relay` and waits for durable acknowledgement before
+returning its transparent image. The origin verifies raw body bytes and a
+five-minute timestamp window before any hostname/token lookup, then binds the
+request to both the saved hostname and newsletter. Redirects are not followed.
+Unknown tokens do not create evidence; storage failures return retryable errors,
+not a fake-success pixel. Signatures establish trusted transport, not human
+identity or exactly-once delivery.
+
+Local verification without deploying or sending email:
+
+```bash
+node .yarn/releases/yarn-4.1.1.cjs workspace tracking-worker check
+node .yarn/releases/yarn-4.1.1.cjs workspace tracking-worker test:workerd
+node .yarn/releases/yarn-4.1.1.cjs workspace tracking-worker deploy --dry-run
+```
+
+Explicit local-only `LOCAL_DEVELOPMENT=true` permits loopback HTTP origins and
+incoming `dt.*.localhost` HTTP requests. Never set that flag on a deployed Worker.
+Local workerd proof does not verify real public DNS, certificates, or mail-client
+behavior. No email deliveries or public account/DNS changes are part of this setup.
+
+### Enable owned request capture separately
+
+Both backend `ENABLE_OPEN_TRACKING` and Worker `ENABLED` remain off by default.
+Saving or verifying a hostname does not enable either one. Enable them only
+after deliberate rollout authorization. Keep `OPEN_TRACKING_RETENTION_DAYS`
+bounded (30 days by default) and set an explicit stable, private **32-byte base64
+`SECRET_KEY`** for encrypted mappings/evidence. Never rotate that key blindly.
+An explicit relay key permits newsletter-only capture without inventing a
+global `OPEN_TRACKING_BASE_URL`.
+
+Legacy non-newsletter workspaces may still use `OPEN_TRACKING_BASE_URL`: it must
+be an HTTPS origin without credentials, path, query, or fragment. Explicit
+loopback HTTP is permitted locally but cannot capture external recipient traffic.
+Existing direct pixel URLs remain supported. The infrastructure preview runs
+with capture and sender workers disabled.
+
+Migrations `0014_open_tracking` and `0017_newsletter_tracking_domains` add mappings,
+encrypted request receipts/outbox, erasure barriers, and hostname ownership without
+dropping historical data. No second data lake is required. Run the registered
+projection/retention cleanup worker only under the deployment's release policy.
+
+Future real sends with a stable internal message ID receive one owned 1×1 pixel
+in transport HTML. Previews, stored delivery HTML, and view-in-browser content omit
+it. CC/BCC copies skip the owned pixel because a shared HTML copy cannot identify
+the requesting recipient. Possession of a token does not establish identity.
+
+## Captured evidence and deliberate omissions
+
+Each valid-token GET is durably captured before the image is returned. Unknown/deleted tokens return the same image without creating evidence. Persistence failures return 503 instead of acknowledging durable capture. HEAD requests are retained as raw-only evidence and never become opens.
+
+The encrypted request envelope includes:
+
+- Receipt timestamp, GET/HEAD method, canonical token-redacted route, numeric `cb`/`v` cache-buster query values.
+- Allowlisted user-agent, accept/language/encoding, cache/conditional/range, and browser fetch/client-hint headers.
+- Socket-observed remote address, HTTP version, and socket TLS status. `request.encrypted` is the **transport TLS flag**, not a statement about encryption at rest; it is false on the local HTTP preview.
+- Bounded `forwarded`, `x-forwarded-for`, `x-real-ip`, `via`, and Cloudflare proxy hints, explicitly separated as **untrustedProxyHeaders**. Never use these as authoritative client identity.
+- Relayed requests separately retain bounded `edgeObserved` metadata: Cloudflare
+  Worker source, branded hostname, receipt time, client-address hint, and observed
+  HTTP/TLS versions when available. Origin socket fields still describe the
+  Worker-to-backend hop; they are never overwritten with a claimed client address.
+  Edge/proxy evidence does not establish a person's identity.
+
+Authorization, Cookie, Set-Cookie, Referer, arbitrary query parameters/headers, and literal bearer pixel URLs are not retained. GET/HEAD bodies are not captured. This is deliberately selected request evidence, not an untouched full HTTP wire dump. Header strings are bounded to 512 characters, arrays to four 128-character values, total header values to 3,072 characters, and the encrypted plaintext envelope to 16 KiB; individual values can be truncated. Query values are at most 20 numeric digits. Proxies may hide the original IP/user-agent completely; do not fabricate missing values.
+
+AES-256-GCM protects tokens and request envelopes at rest. Keep database, API, backups, and encryption-key access restricted. Raw data is not written to application logs or copied into normalized native events. The native event contains the evidence ID/source, send/contact identity, occurrence timestamp, and `observed_unqualified` classification.
+
+## Inspect evidence through the UI or API
+
+Open **Deliveries → Last opened → History → Raw request evidence** for explicit authenticated retrieval. Ordinary history responses do not expose IPs or headers.
+
+`POST /api/admin/deliveries/opens` (also `/api/deliveries/opens`) accepts `workspaceId`, `userId`, internal send `messageId`, optional `limit` (1–100), and an opaque `cursor`. Results contain `lastOpenedAt`, `openCount`, and items with `eventId`, `openedAt`, `evidenceSource`, available provider IDs, optional `evidenceId`, and `classification: "observed_unqualified"`. Retry projection deduplicates `(event ID, event time)`; live keyset pagination is not a snapshot. Provider and owned-pixel observations of the same message are distinct evidence, not unique human opens. Legacy SendGrid opens without event IDs can collapse same-second observations.
+
+`POST /api/admin/deliveries/opens/evidence` (also `/api/deliveries/opens/evidence`) accepts:
+
+```json
+{
+  "workspaceId": "workspace-id",
+  "userId": "stable-contact-id",
+  "messageId": "internal-send-id",
+  "evidenceId": "request-receipt-uuid"
+}
+```
+
+The response contains that scope and an `evidence` JSON object. Missing, expired, deleted, or mismatched evidence returns 404. Only owned-pixel receipts have this raw-request viewer. HEAD receipts remain in the encrypted receipt table without a native open/history entry; authorized backend analysis can retrieve a known receipt through the same scoped getter.
+
+Delivery API/CSV exports include nullable `lastOpenedAt` and `openCount`. Native ingestion keeps its existing permissions: client-supplied timestamps, provider/source labels, and evidence IDs are not signature verification or identity proof. Available SendGrid/SES/Telnyx open metadata remains provider evidence. Verified raw Telnyx callbacks remain separately retained in `TelnyxEmailReceipt`, under `TELNYX_WEBHOOK_RETENTION_DAYS`; they are not original browser requests. Owned open capture adds no click redirect. [Explicit URL contact tokens](/guide/click-tracking#explicit-url-contact-tokens) render only where authored; nothing is appended automatically, and they do not change open classification.
+
+## Retention, erasure, and operational limits
+
+Raw owned receipts default to 30 days (configurable whole days, 1–365). Expired evidence is immediately hidden by retrieval; bounded cron cleanup physically deletes it. Native events/aggregates use their existing separate retention. Projection is synchronous to native ClickHouse storage but PostgreSQL and ClickHouse do not share an atomic commit: a crash can replay the same native event. Stable event identity deduplicates delivery counts.
+
+Contact deletion serializes against capture/projection and removes its mapping, encrypted evidence, and pending outbox before native history erasure. Hash-only contact/send barriers remain to prevent stale requests and retries from recreating erased evidence; reusing an explicitly erased contact ID fails closed for owned tracking. These hashes are pseudonymous barriers, not a claim of anonymization. Workspace-wide contact erasure covers known owned correlations, does not permanently disable future new contact IDs, and is not a global shutdown of new ingestion/sending workflows.
+
+Cleanup handles at most 1,000 expired receipts per pass; projection handles up to 50 pending observations within its bounded drain. Monitor worker failures/backlog and size processing capacity for traffic. Evidence can expire while a prolonged projection outage persists. Keep raw data only as long as needed, and treat all observed counts as unqualified while developing the filtering policy.

@@ -12,7 +12,7 @@ import {
 } from "isomorphic-lib/src/types";
 
 import config from "./config";
-import { insert } from "./db";
+import { db, insert } from "./db";
 import { getStoredEmailForViewInBrowser } from "./viewInBrowser";
 import {
   defaultEmailProvider as dbDefaultEmailProvider,
@@ -110,6 +110,48 @@ describe("messaging", () => {
       }),
     );
   });
+
+  it.each([false, true])(
+    "replaces explicit tokens using the resolved destination, including actual test sends (preview=%s)",
+    async (isPreview) => {
+      const template = unwrap(await insert({
+        table: dbMessageTemplate,
+        values: {
+          id: randomUUID(), workspaceId: workspace.id, name: `attribution-${randomUUID()}`,
+          definition: {
+            type: ChannelType.Email, emailContentsType: EmailContentsType.Code,
+            identifierKey: "destination", from: "sender@example.invalid",
+            subject: "Attribution",
+            body: '<a href="https://example.invalid/read?subscriber_email={{subscriber_email}}&edition={{ user.edition | url_encode }}&hash={{subscriber_email_sha256}}#article">Read</a><a href="https://plain.invalid/?subscriber_email=authored">Literal</a>',
+            cc: "copy@example.invalid",
+          } satisfies EmailTemplateResource,
+          updatedAt: new Date(), createdAt: new Date(),
+        },
+      }));
+      await upsertEmailProvider({ workspaceId: workspace.id, config: { type: EmailProviderType.Test } });
+      const sent = unwrap(await sendEmail({
+        workspaceId: workspace.id, templateId: template.id, userId: randomUUID(),
+        providerOverride: EmailProviderType.Test, isPreview, useDraft: false,
+        userPropertyAssignments: {
+          email: "not-the-recipient@example.invalid",
+          destination: '"Actual Reader" <actual+edition@example.invalid>',
+          edition: "weekly & more",
+        },
+      }));
+      if (sent.type !== InternalEventType.MessageSent || sent.variant.type !== ChannelType.Email) {
+        throw new Error("Expected email delivery");
+      }
+      const match = /href="([^"]+)"/.exec(sent.variant.body);
+      if (!match?.[1]) throw new Error("Rendered destination missing");
+      const url = new URL(match[1].replace(/&amp;/g, "&"));
+      expect(url.searchParams.get("subscriber_email")).toBe("actual+edition@example.invalid");
+      expect(url.searchParams.get("edition")).toBe("weekly & more");
+      expect(url.searchParams.get("hash")).toBe("6fa50bd680b2d952ddad4025b09c0a0d130f2f107831b67a33cfdeea252f1338");
+      expect(sent.variant.body).toContain('href="https://plain.invalid/?subscriber_email=authored"');
+      expect(url.hash).toBe("#article");
+      expect(sent.variant.body).not.toContain("not-the-recipient");
+    },
+  );
 
   describe("sendEmail", () => {
     it.each(["PostMark", "MailChimp", "UnknownProvider", ""])(
@@ -303,6 +345,98 @@ describe("messaging", () => {
         const unwrapped = unwrap(payload);
         expect(unwrapped.type).toBe(InternalEventType.MessageSent);
       });
+
+      it.each([undefined, EmailProviderType.Telnyx])(
+        "correlates inherited Telnyx credentials and deduplicates retries (override %p)",
+        async (providerOverride) => {
+          await upsertEmailProvider({
+            workspaceId: parentWorkspace.id,
+            config: {
+              type: EmailProviderType.Telnyx,
+              apiKey: "parent-api-key",
+              publicKey: Buffer.alloc(32, 1).toString("base64"),
+              sandboxMode: true,
+            },
+            setDefault: true,
+          });
+          const providerMessageId = randomUUID();
+          const messageId = randomUUID();
+          mockAxios.post.mockClear();
+          mockAxios.post.mockResolvedValue({
+            status: 202,
+            data: {
+              data: {
+                id: providerMessageId,
+                record_type: "email_message",
+                status: "sandbox",
+              },
+            },
+          });
+          const request = {
+            workspaceId: childWorkspace.id,
+            templateId: template.id,
+            userId: "native-contact",
+            userPropertyAssignments: { email: "recipient@example.com" },
+            messageTags: {
+              workspaceId: "untrusted-workspace",
+              templateId: "untrusted-template",
+              userId: "untrusted-user",
+              messageId,
+              runId: "journey-run",
+              privateDetail: "must-not-leave-the-app",
+            } as MessageTags,
+            subscriptionGroupDetails: {
+              id: subscriptionGroup.id,
+              name: subscriptionGroup.name,
+              type: SubscriptionGroupType.OptOut,
+              action: null,
+            },
+            providerOverride,
+            useDraft: false,
+          };
+          const first = unwrap(await sendEmail(request));
+          const second = unwrap(await sendEmail(request));
+          expect(first).toEqual(second);
+          expect(first).toMatchObject({
+            type: InternalEventType.MessageSent,
+            variant: {
+              type: ChannelType.Email,
+              provider: { type: EmailProviderType.Telnyx, messageId: providerMessageId },
+            },
+          });
+          expect(mockAxios.post).toHaveBeenCalledTimes(1);
+          const payload = JSON.parse(mockAxios.post.mock.calls[0]?.[1] as string) as {
+            metadata: Record<string, string>;
+            sandbox_mode: boolean;
+            headers: Record<string, string>;
+          };
+          expect(payload.metadata).toEqual({
+            workspaceId: childWorkspace.id,
+            templateId: template.id,
+            userId: "native-contact",
+            messageId,
+            runId: "journey-run",
+            channel: ChannelType.Email,
+            subscriptionGroupId: subscriptionGroup.id,
+          });
+          expect(payload.sandbox_mode).toBe(true);
+          expect(payload.headers["List-Unsubscribe"]).toBeDefined();
+          expect(payload.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+          expect(mockAxios.post.mock.calls[0]?.[2]?.headers).toMatchObject({
+            Authorization: "Bearer parent-api-key",
+          });
+          const send = await db().query.telnyxEmailSend.findFirst({
+            where: (row, { eq }) => eq(row.messageId, messageId),
+          });
+          expect(send).toMatchObject({
+            workspaceId: childWorkspace.id,
+            credentialWorkspaceId: parentWorkspace.id,
+            userId: "native-contact",
+            primaryEmail: "recipient@example.com",
+            providerMessageId,
+          });
+        },
+      );
     });
 
     describe("when an email to a user with a numeric id includes an unsusbcribe link tag", () => {
@@ -340,10 +474,10 @@ describe("messaging", () => {
           providerOverride: EmailProviderType.Test,
         });
         const unwrapped = unwrap(payload);
-        if (unwrapped.type === InternalEventType.MessageSkipped) {
-          throw new Error("Message should not be skipped");
-        }
         expect(unwrapped.type).toBe(InternalEventType.MessageSent);
+        if (unwrapped.type !== InternalEventType.MessageSent) {
+          throw new Error("Expected an immediate legacy Test transport result");
+        }
         expect(unwrapped.variant.to).toBe(email);
 
         if (unwrapped.variant.type !== ChannelType.Email) {

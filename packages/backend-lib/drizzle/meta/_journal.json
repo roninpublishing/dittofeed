@@ -78,6 +78,55 @@
       "when": 1767720758408,
       "tag": "0010_subscription_management_template",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795200000000,
+      "tag": "0011_telnyx_email_inbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795210000000,
+      "tag": "0012_last_clicked",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795220000000,
+      "tag": "0013_last_opened",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795230000000,
+      "tag": "0014_open_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1795240000000,
+      "tag": "0015_google_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795250000000,
+      "tag": "0016_publisher_newsletters",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795251000000,
+      "tag": "0017_newsletter_tracking_domains",
+      "breakpoints": true
     }
   ]
 }

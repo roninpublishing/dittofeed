@@ -1,6 +1,11 @@
+import {
+  requiredGoogleApiRole,
+  requireGoogleOrigin,
+} from "backend-lib/src/accountAuthorization";
+import { AccountError, requireWorkspaceRole } from "backend-lib/src/accounts";
 import backendConfig from "backend-lib/src/config";
 import logger from "backend-lib/src/logger";
-import { getRequestContext, SESSION_KEY } from "backend-lib/src/requestContext";
+import { getRequestContext, SESSION_KEY, SESSION_WORKSPACE_KEY } from "backend-lib/src/requestContext";
 import {
   DBWorkspaceOccupantType,
   EmbeddedSession,
@@ -10,19 +15,24 @@ import {
 import { FastifyInstance, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 
-import { getWorkspaceId } from "../workspace";
+import { getWorkspaceIdFromReq } from "../workspace";
 
 export function requestToSessionValue(request: FastifyRequest):
   | {
       [SESSION_KEY]: "true" | "false";
+      [SESSION_WORKSPACE_KEY]: string;
     }
   | undefined {
-  if (backendConfig().authMode !== "single-tenant") {
+  if (!["single-tenant", "anonymous"].includes(backendConfig().authMode)) {
     return undefined;
   }
 
   const hasSession = request.session.get(SESSION_KEY) === true;
-  return { [SESSION_KEY]: hasSession ? "true" : "false" };
+  const selectedWorkspace = request.session.get(SESSION_WORKSPACE_KEY);
+  return {
+    [SESSION_KEY]: hasSession ? "true" : "false",
+    [SESSION_WORKSPACE_KEY]: typeof selectedWorkspace === "string" ? selectedWorkspace : "",
+  };
 }
 
 export function getRequestContextFastify(request: FastifyRequest) {
@@ -32,12 +42,22 @@ export function getRequestContextFastify(request: FastifyRequest) {
   };
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   const { user: profile } = request as { user?: OpenIdProfile };
-  return getRequestContext(headers, profile);
+  return getRequestContext(headers, profile, request.googleAccountPrincipal);
 }
 
 // eslint-disable-next-line @typescript-eslint/require-await
 const requestContext = fp(async (fastify: FastifyInstance) => {
   fastify.addHook("preHandler", async (request, reply) => {
+    if (
+      backendConfig().authMode === "google" &&
+      request.googleAccountPrincipal
+    ) {
+      try {
+        requireGoogleOrigin(request.headers.origin, request.method);
+      } catch {
+        return reply.status(403).send({ code: "forbidden" });
+      }
+    }
     const rc = await getRequestContextFastify(request);
 
     if (rc.isErr()) {
@@ -58,6 +78,9 @@ const requestContext = fp(async (fastify: FastifyInstance) => {
             "workspace inactive",
           );
           return reply.status(403).send();
+        case RequestContextErrorType.NotOnboarded:
+        case RequestContextErrorType.EmailNotVerified:
+          return reply.status(403).send({ code: "no_access" });
         default:
           logger().error(
             {
@@ -69,13 +92,13 @@ const requestContext = fp(async (fastify: FastifyInstance) => {
       }
     }
 
-    const requestWorkspaceIdResult = await getWorkspaceId(request);
+    const requestWorkspaceIdResult = getWorkspaceIdFromReq(request);
     if (requestWorkspaceIdResult.isErr()) {
       return reply.status(400).send();
     }
 
     const { workspace, member, memberRoles } = rc.value;
-    const workspaceId = requestWorkspaceIdResult.value;
+    const workspaceId = requestWorkspaceIdResult.value ?? workspace.id;
     if (workspaceId !== workspace.id) {
       logger().error(
         {
@@ -85,6 +108,27 @@ const requestContext = fp(async (fastify: FastifyInstance) => {
         "workspace id does not match",
       );
       return reply.status(403).send();
+    }
+    if (backendConfig().authMode === "google") {
+      if (!request.googleAccountPrincipal) {
+        return reply.status(401).send({ code: "not_authenticated" });
+      }
+      try {
+        await requireWorkspaceRole(
+          request.googleAccountPrincipal,
+          workspace.id,
+          requiredGoogleApiRole(request.method, request.routeOptions.url),
+        );
+      } catch (error) {
+        if (error instanceof AccountError) {
+          return reply.status(error.statusCode).send({ code: error.code });
+        }
+        logger().error(
+          { requestId: request.id },
+          "Google workspace authorization failed",
+        );
+        return reply.status(500).send({ code: "authorization_failed" });
+      }
     }
 
     request.requestContext.set("workspace", workspace);

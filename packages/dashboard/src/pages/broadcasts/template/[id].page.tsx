@@ -379,7 +379,7 @@ const BroadcastTemplateInner: NextPage<BroadcastTemplateProps> =
           onChange={(e) => {
             // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
             const nextChannel = e.target.value as ChannelType;
-            if (!isChannelVisible(nextChannel)) {
+            if (unavailable || !isChannelVisible(nextChannel)) {
               return;
             }
             setState((draft) => {

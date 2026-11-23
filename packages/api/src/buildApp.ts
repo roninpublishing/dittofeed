@@ -6,10 +6,12 @@ import fastifySwaggerUI from "@fastify/swagger-ui";
 import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import backendConfig from "backend-lib/src/config";
 import { trimTo32Bytes } from "backend-lib/src/crypto";
+import { googleSessionPluginOptions } from "backend-lib/src/googleSessions";
 import logger from "backend-lib/src/logger";
 import { DittofeedFastifyInstance, Logger } from "backend-lib/src/types";
 import fastify, { FastifyHttpOptions, RawServerDefault } from "fastify";
 import { TYPE_REFS } from "isomorphic-lib/src/typeRefs";
+import { googleAuthSensitiveUrl } from "isomorphic-lib/src/accounts";
 import {
   DFRequestContext,
   PUBLIC_WRITE_KEY_DESCRIPTION,
@@ -21,6 +23,7 @@ import cors from "./buildApp/cors";
 import multipart from "./buildApp/multipart";
 import router from "./buildApp/router";
 import config from "./config";
+import { registerGoogleAccounts } from "./googleAccounts";
 import { BuildAppOpts } from "./types";
 
 declare module "@fastify/request-context" {
@@ -29,6 +32,16 @@ declare module "@fastify/request-context" {
 }
 
 export type FastifyAppOpts = FastifyHttpOptions<RawServerDefault, Logger>;
+
+export function configureOpenTrackingRequestLogging(server: DittofeedFastifyInstance) {
+  server.setChildLoggerFactory((parent, bindings, options, request) => {
+    // Include unmatched/malformed pixel requests: routing errors must not leak
+    // the bearer URL or supplied query string into ordinary access logs.
+    return parent.child(bindings, request.url?.split("?")[0]?.includes("/api/public/email/open/") || googleAuthSensitiveUrl(request.url)
+      ? { ...options, level: "silent" }
+      : options);
+  });
+}
 
 export function buildFastifyAppOpts(): FastifyAppOpts {
   const fastifyLogger = logger();
@@ -55,6 +68,7 @@ export async function registerApp(
   originalServer: DittofeedFastifyInstance,
   opts?: BuildAppOpts,
 ) {
+  configureOpenTrackingRequestLogging(originalServer);
   const server = originalServer.withTypeProvider<TypeBoxTypeProvider>();
 
   let servers: OpenAPIV3_1.ServerObject[];
@@ -70,6 +84,13 @@ export async function registerApp(
       servers = [];
   }
 
+  // Authorize in adminAuth; declare the same boundary in Swagger and generated docs.
+  server.addHook("onRoute", (route) => {
+    if (route.url.startsWith("/api/admin/")) {
+      route.schema = { ...route.schema, security: [{ bearerAuth: [] }] };
+    }
+  });
+
   // needs to be registered before fastifySwaggerUI
   await server.register(fastifySwagger, {
     openapi: {
@@ -81,6 +102,11 @@ export async function registerApp(
       },
       components: {
         securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            description: "Workspace-scoped administrative API key. Required operation scopes are listed by /api/admin/operations.",
+          },
           publicWriteKey: {
             type: "apiKey",
             description: PUBLIC_WRITE_KEY_DESCRIPTION,
@@ -127,8 +153,14 @@ export async function registerApp(
       }),
     );
   }
+  if (authMode === "google") {
+    fastifyPluginPromises.push(
+      server.register(secureSession, googleSessionPluginOptions(backendConfig())),
+    );
+  }
 
   await Promise.all(fastifyPluginPromises);
+  await registerGoogleAccounts(server);
 
   await Promise.all([
     server.register((f) => router(f, opts)),

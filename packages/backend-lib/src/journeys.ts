@@ -75,6 +75,7 @@ import {
   WorkspaceQueueItemType,
 } from "./types";
 import { hasRetiredSmsChannel } from "./smsCutover";
+import { requireNewsletterCampaignWorkspace } from "./newsletters";
 
 const { journey: dbJourney } = schema;
 
@@ -947,6 +948,7 @@ export async function upsertJourney(
 ): Promise<Result<SavedJourneyResource, JourneyUpsertValidationError>> {
   const { id, name, definition, workspaceId, status, canRunMultiple, draft } =
     params;
+  await requireNewsletterCampaignWorkspace(workspaceId);
 
   if (id && !validateUuid(id)) {
     return err({

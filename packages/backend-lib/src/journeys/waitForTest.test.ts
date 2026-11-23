@@ -99,18 +99,21 @@ describe("journeys with wait-for nodes", () => {
   });
   it.each([
     {
+      label: "a removed channel",
       variant: { type: "Sms" },
       failureType: "UnsupportedMessageChannel",
     },
     {
+      label: "Postmark",
       variant: { type: ChannelType.Email, providerOverride: "PostMark" },
       failureType: "InvalidJourneyDefinition",
     },
     {
+      label: "Mailchimp",
       variant: { type: ChannelType.Email, providerOverride: "MailChimp" },
       failureType: "InvalidJourneyDefinition",
     },
-  ])("rejects a retired message variant $variant before preceding emails send", async ({ variant, failureType }) => {
+  ])("rejects $label before preceding emails send", async ({ variant, failureType }) => {
     senderMock.mockClear();
     const definition = {
       entryNode: {

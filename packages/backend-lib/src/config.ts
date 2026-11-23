@@ -38,6 +38,19 @@ const BaseRawConfigProps = {
   clickhouseUser: Type.String(),
   clickhousePassword: Type.String(),
   defaultUserJourneyMaxAttempts: Type.Optional(Type.String({ format: "naturalNumber" })),
+  telnyxWebhookRetentionDays: Type.Optional(
+    Type.String({ format: "naturalNumber", pattern: "^[1-9][0-9]*$" }),
+  ),
+  enableOpenTracking: Type.Optional(BoolStr),
+  openTrackingBaseUrl: Type.Optional(Type.String()),
+  openTrackingRelaySecret: Type.Optional(Type.String()),
+  cloudflareTrackingApiToken: Type.Optional(Type.String()),
+  cloudflareTrackingZoneId: Type.Optional(Type.String()),
+  cloudflareTrackingCnameTarget: Type.Optional(Type.String()),
+  cloudflareTrackingAllowProvisioning: Type.Optional(BoolStr),
+  openTrackingRetentionDays: Type.Optional(
+    Type.String({ pattern: "^[1-9][0-9]{0,2}$" }),
+  ),
   kafkaBrokers: Type.Optional(Type.String()),
   kafkaUsername: Type.Optional(Type.String()),
   kafkaPassword: Type.Optional(Type.String()),
@@ -112,6 +125,11 @@ const BaseRawConfigProps = {
   sessionCookieSecure: Type.Optional(BoolStr),
   openIdClientId: Type.Optional(Type.String()),
   openIdClientSecret: Type.Optional(Type.String()),
+  googleClientId: Type.Optional(Type.String()),
+  googleClientSecret: Type.Optional(Type.String()),
+  googleBootstrapAdminEmail: Type.Optional(Type.String()),
+  googleBootstrapWorkspaceId: Type.Optional(Type.String()),
+  googleBootstrapAdminSubject: Type.Optional(Type.String()),
   allowedOrigins: Type.Optional(Type.String()),
   blobStorageEndpoint: Type.Optional(Type.String()),
   blobStorageInternalEndpoint: Type.Optional(Type.String()),
@@ -302,6 +320,10 @@ export type Config = Overwrite<
     enableBlobStorage: boolean;
     enableMobilePush: boolean;
     enableSourceControl: boolean;
+    enableOpenTracking: boolean;
+    openTrackingBaseUrl?: string;
+    openTrackingRetentionDays: number;
+    cloudflareTrackingAllowProvisioning: boolean;
     exportLogsHyperDx: boolean;
     enableColdStorage: boolean;
     globalCronTaskQueue: string;
@@ -326,6 +348,7 @@ export type Config = Overwrite<
     temporalAddress: string;
     temporalNamespace: string;
     temporalConnectionTimeout?: number;
+    telnyxWebhookRetentionDays: number;
     trackDashboard: boolean;
     useGlobalComputedProperties?: boolean;
     userEventsTopicName: string;
@@ -360,8 +383,11 @@ export const SECRETS = new Set<keyof Config>([
   "kafkaPassword",
   "hubspotClientSecret",
   "secretKey",
+  "openTrackingRelaySecret",
+  "cloudflareTrackingApiToken",
   "password",
   "openIdClientSecret",
+  "googleClientSecret",
   "blobStorageAccessKeyId",
   "blobStorageSecretAccessKey",
   "hyperDxApiKey",
@@ -520,6 +546,61 @@ function buildDashboardUrl({
     : "https://app.dittofeed.com";
 }
 
+function parseOpenTrackingConfig(rawConfig: RawConfig): {
+  enableOpenTracking: boolean;
+  openTrackingBaseUrl?: string;
+  openTrackingRetentionDays: number;
+  cloudflareTrackingAllowProvisioning: boolean;
+} {
+  const openTrackingRetentionDays = rawConfig.openTrackingRetentionDays
+    ? Number(rawConfig.openTrackingRetentionDays)
+    : 30;
+  if (!Number.isInteger(openTrackingRetentionDays) ||
+      openTrackingRetentionDays < 1 || openTrackingRetentionDays > 365) {
+    throw new Error("OPEN_TRACKING_RETENTION_DAYS must be between 1 and 365.");
+  }
+  const enableOpenTracking = rawConfig.enableOpenTracking === "true";
+  if (rawConfig.openTrackingRelaySecret &&
+      (!/^[A-Za-z0-9+/]{43}=$/.test(rawConfig.openTrackingRelaySecret) ||
+       Buffer.from(rawConfig.openTrackingRelaySecret, "base64").length !== 32)) {
+    throw new Error("OPEN_TRACKING_RELAY_SECRET must be a 32-byte base64 secret.");
+  }
+  if (rawConfig.cloudflareTrackingZoneId && !/^[a-fA-F0-9]{32}$/.test(rawConfig.cloudflareTrackingZoneId)) {
+    throw new Error("CLOUDFLARE_TRACKING_ZONE_ID must be a zone identifier.");
+  }
+  if (rawConfig.cloudflareTrackingCnameTarget &&
+      (rawConfig.cloudflareTrackingCnameTarget.length > 253 ||
+       !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9](?:[a-z0-9-]{0,57}[a-z0-9])?)$/i.test(rawConfig.cloudflareTrackingCnameTarget))) {
+    throw new Error("CLOUDFLARE_TRACKING_CNAME_TARGET must be a DNS hostname.");
+  }
+  let openTrackingBaseUrl: string | undefined;
+  if (rawConfig.openTrackingBaseUrl) {
+    try {
+      const url = new URL(rawConfig.openTrackingBaseUrl);
+      const loopback = url.hostname === "localhost" ||
+        url.hostname === "[::1]" || /^127(?:\.\d{1,3}){3}$/.test(url.hostname);
+      if ((url.protocol !== "https:" && !(loopback && url.protocol === "http:")) ||
+          !url.hostname || url.username || url.password || url.search ||
+          url.hash || url.pathname !== "/") {
+        throw new Error();
+      }
+      openTrackingBaseUrl = url.origin;
+    } catch {
+      // Configuration can contain credentials; never echo the supplied URL.
+      throw new Error("OPEN_TRACKING_BASE_URL must be an HTTPS origin (HTTP is allowed only on loopback).");
+    }
+  }
+  if (enableOpenTracking && !openTrackingBaseUrl && !rawConfig.openTrackingRelaySecret) {
+    throw new Error("Enabling open tracking requires OPEN_TRACKING_BASE_URL or OPEN_TRACKING_RELAY_SECRET.");
+  }
+  if (enableOpenTracking &&
+      (!rawConfig.secretKey || Buffer.from(rawConfig.secretKey, "base64").length !== 32)) {
+    throw new Error("Enabling open tracking requires an explicit 32-byte base64 SECRET_KEY.");
+  }
+  return { enableOpenTracking, openTrackingBaseUrl, openTrackingRetentionDays,
+    cloudflareTrackingAllowProvisioning: rawConfig.cloudflareTrackingAllowProvisioning === "true" };
+}
+
 function parseRawConfig(rawConfig: RawConfig): Config {
   const suffix = rawConfig.databaseNameSuffix
     ? `_${rawConfig.databaseNameSuffix.replace(/-/g, "_")}`
@@ -676,6 +757,10 @@ function parseRawConfig(rawConfig: RawConfig): Config {
     readQueryConcurrency: rawConfig.readQueryConcurrency
       ? parseInt(rawConfig.readQueryConcurrency)
       : 10,
+    telnyxWebhookRetentionDays: rawConfig.telnyxWebhookRetentionDays
+      ? parseInt(rawConfig.telnyxWebhookRetentionDays)
+      : 30,
+    ...parseOpenTrackingConfig(rawConfig),
     // 2 minutes in ms
     computePropertiesInterval: rawConfig.computePropertiesInterval
       ? parseInt(rawConfig.computePropertiesInterval)
@@ -683,10 +768,16 @@ function parseRawConfig(rawConfig: RawConfig): Config {
     computePropertiesJitterMs: rawConfig.computePropertiesJitterMs
       ? parseInt(rawConfig.computePropertiesJitterMs)
       : 0,
+    oauthStartUrl:
+      authMode === "google"
+        ? "/api/public/auth/google/start"
+        : rawConfig.oauthStartUrl,
     signoutUrl:
-      authMode === "single-tenant"
-        ? "/api/public/single-tenant/signout"
-        : rawConfig.signoutUrl,
+      authMode === "google"
+        ? "/api/account/logout"
+        : authMode === "single-tenant"
+          ? "/api/public/single-tenant/signout"
+          : rawConfig.signoutUrl,
     signoutRedirectUrl: rawConfig.signoutRedirectUrl ?? dashboardUrl,
     secretKey,
     password: rawConfig.password ?? DEFAULT_BACKEND_CONFIG.password,

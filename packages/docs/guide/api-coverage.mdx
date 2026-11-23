@@ -1,0 +1,159 @@
+---
+title: API coverage and code inventory
+description: Supported workspace operations, live machine schemas, source mapping, and deliberate private boundaries.
+---
+
+## Authoritative operation discovery
+
+`GET /api/admin/openapi.json` returns the running application's registered
+`/api/admin/*` operations, excluding the discovery endpoint itself. It retains
+component schemas and annotates each operation with HTTP bearer security and the
+required `df-workspace-id` header. It is **authenticated**, not a public schema dump.
+`GET /api/admin/operations` returns `{ operations: [{ method, path, scope,
+requiredScopes, description }] }` derived from that document. Both require `read`.
+There is no separately maintained operation allowlist. Authentication mode and
+registered extensions determine availability; a source declaration alone does not
+prove a route is available in a running deployment.
+
+```bash
+curl --fail --silent --show-error "$DITTOFEED_API_URL/api/admin/openapi.json" \
+  -H "Authorization: Bearer $DITTOFEED_ADMIN_API_KEY" \
+  -H "df-workspace-id: $DITTOFEED_WORKSPACE_ID"
+```
+
+Use the JSON Schema/OpenAPI request parameters, bodies, responses, and component
+references from this endpoint rather than inferring an operation from its name.
+Streaming CSV uploads describe a multipart `file` part in the live document;
+ordinary JSON validation must not consume their streams. Downloads retain their
+HTTP content type and disposition. See [MCP](./mcp) for the local stdio bridge.
+
+## Workspace product coverage and source map
+
+The browser `/api` and bearer `/api/admin` product surfaces share one registration
+function in `packages/api/src/buildApp/router.ts`. Each prefix below is relative
+to `/api/admin`; source files are under `packages/api/src/controllers/`.
+
+| Prefix | Supported behavior | Source |
+| --- | --- | --- |
+| `/users` | Contact queries/counts, subscription inspection, contact erasure | `usersController.ts` |
+| `/events` | Event history, trait/event-property discovery, CSV export | `eventsController.ts` |
+| `/groups` | Contact/group membership queries | `groupsController.ts` |
+| `/user-properties` | User-property definitions and status | `userPropertiesController.ts` |
+| `/user-property-indices` | User-property index management | `userPropertyIndexController.ts` |
+| `/computed-properties` | Computation periods and explicit recomputation | `computedPropertiesController.ts` |
+| `/segments` | Audience definitions/status, manual membership, import/export | `segmentsController.ts` |
+| `/journeys` | Journey definitions, lifecycle and statistics | `journeysController.ts` |
+| `/content` | Templates, reset/deletion, rendering, test sends and batch sends | `contentController.ts` |
+| `/broadcasts` | Broadcast definitions, execution, lifecycle, cancellation/archive | `broadcastsController.ts` |
+| `/deliveries` | Delivery queries/export, observed click/open history, scoped raw evidence | `deliveriesController.ts` |
+| `/analysis` | Dashboard charts, summary and journey statistics | `analysisController.ts` |
+| `/subscription-groups` | Subscription definitions, assignment updates and CSV imports | `subscriptionGroupsController.ts` |
+| `/subscription-management-template` | Subscription-page template configuration and reset | `subscriptionManagementTemplateController.ts` |
+| `/resources` | Resource discovery and duplication | `resourcesController.ts` |
+| `/component-configurations` | Embedded component configuration | `componentConfigurationsController.ts` |
+| `/settings` | Supported provider/default configuration and native write keys | `settingsController.ts` |
+| `/integrations` | Retained integration configuration | `integrationsController.ts` |
+| `/secrets` | Existing secret-resource configuration APIs, not arbitrary decryption | `secretsController.ts` |
+| `/admin-keys` | Scoped API key creation/revocation | `apiKeyController.ts` |
+| `/apps` | Native identify, track, page, screen, group and batch ingestion | `publicAppsController.ts` |
+| `/operations`, `/openapi.json` | Live operation manifest and schemas | `operationsController.ts` |
+
+These describe controller families, not a promise that every HTTP method exists
+at each prefix. The generated [API source map](/generated/api-source-map.json)
+lists route declarations with source file and line, router registrations/prefixes,
+and dashboard page files. The live schema is authoritative for exact methods,
+paths, payloads, deployment-specific registration and availability.
+
+### Native ingestion authorization
+
+`POST /api/admin/apps/{identify,track,page,screen,group,batch}` shares the existing
+native ingestion handlers, schemas and backend functions. The bearer guard first
+authorizes the workspace and operation; handlers then resolve that same workspace
+and enforce native event-ingestion eligibility (active, non-parent workspace).
+They never decode an admin bearer key as a public write key. Workspace IDs in the
+header, query and body must agree. The original
+`/api/public/apps/{identify,track,page,screen,group,batch}` routes continue to
+validate their existing `Authorization` public-write-key encoding and determine
+the workspace from that credential. A public write key is not an admin credential.
+The inherited `/alias` endpoint is unimplemented and is **not** advertised or
+registered as a supported machine operation.
+
+### Authorization and scope boundaries
+
+API keys grant independent `read`, `write`, `destructive` and `sensitive` scopes.
+New keys default to `read`; legacy keys with no scopes preserve their historical
+admin behavior. Do not interpret HTTP POST as automatically mutating: contact
+queries, delivery/history queries and template rendering are read operations.
+Erasure/reset/clear/archive operations are destructive. Raw tracking evidence is
+sensitive. Secret, provider/settings, integration, key and permission administration
+requires full authority to prevent exchanging a partial grant for stronger
+credentials. Consult `requiredScopes` in the manifest and the shared classifier
+in `packages/isomorphic-lib/src/apiOperations.ts`; the server enforces it even
+without MCP. Do not log credentials or raw request evidence.
+
+Manual-segment CSV lookup is constrained by **both** workspace and segment ID;
+a foreign or missing segment returns 404 before any ingestion or membership
+update. Authentication does not make a caller-supplied resource ID tenant-safe.
+User-property index creation likewise requires the property to belong to the
+authorized workspace; foreign or missing properties return 404 before index
+configuration or backfill.
+
+## Deliberate human-only and public protocol surfaces
+
+The approved `human_only` boundary preserves existing human-authenticated APIs
+for login/OAuth, profile editing, workspace/session selection, session listing/
+revocation/logout, team invitations, member roles/removal and account disabling.
+Google account operations live in `packages/api/src/googleAccounts.ts` and the
+corresponding `backend-lib/src/accounts*` modules; an API key is not a member or
+session principal. No service-principal impersonation or cookie bypass is added.
+Legacy `/api/permissions` role management also stays browser-only and is not
+registered under `/api/admin` in any authentication mode.
+The Gmail authorization-status route belongs to the current browser member and
+is not registered under `/api/admin`; use the browser OAuth prerequisite.
+Configured-provider machine sends remain available through product operations.
+
+Recipient subscription links/pages, view-in-browser links, owned tracking pixels,
+and signed provider callbacks remain their existing public protocols with their
+own token/signature validation. They are not machine tools. Administrator
+subscription changes use `/subscription-groups/assignments`, rather than bypassing
+a recipient link's secret. Telnyx and other signed callbacks are not admin ingestion
+endpoints. Debug routes under `/internal-api`, health checks, login and OAuth are
+not added to the machine catalog.
+
+Removed SMS, Segment.io, Postmark, Mailchimp/Mandrill and Resend surfaces remain
+removed. Push and HubSpot implementations remain retained but hidden in the UI;
+this API work does not restore their UI entry points or retired providers.
+
+## Reproducible function-level code inventory
+
+From the repository root, with dependencies installed:
+
+```bash
+node packages/docs/scripts/generate-code-inventory.cjs
+# In CI, compare the committed artifacts without rewriting them:
+node packages/docs/scripts/generate-code-inventory.cjs --check
+```
+
+The TypeScript compiler AST walks JavaScript and TypeScript files throughout all
+application packages, including scripts and declarations. The generated
+[function inventory](/generated/code-functions.json) records **every function-like
+AST node**: declarations, expressions, arrow functions, callbacks, methods,
+constructors, accessors and signatures, with file, one-based line/column, inferred
+name, syntax kind, source parameters, declared return type, existing JSDoc, and
+body presence. Undeclared return types are explicitly marked as inferred from
+implementation; the generator does not invent behavioral documentation.
+Anonymous functions remain explicitly
+anonymous or have their call argument/assignment context; names are not invented
+API operation identifiers. Artifacts are sorted deterministically and contain no
+generation timestamp. Dependencies, compiled output, tests/mocks, generated output
+and historical Drizzle migration directories are excluded. Generator exclusions
+and scope are recorded in the artifact itself.
+
+This is implementation documentation, **not one API per function**. Controller
+functions and anonymous request handlers implement operations; backend helpers,
+credential decryption, database/migration code, Temporal activities/workflows,
+worker scheduling, internal parsing and UI components remain internal. The
+inventory's controller/internal boundary labels say precisely that functions are
+not independently exposed. Only explicitly registered authenticated product
+routes belong to the machine API. Use the source map and live request/response
+schemas together to trace an operation back to its implementation.

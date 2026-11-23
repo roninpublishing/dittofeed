@@ -1,3 +1,4 @@
+import backendConfig from "backend-lib/src/config";
 import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import logger from "backend-lib/src/logger";
@@ -38,6 +39,9 @@ function getValidatedRedirectPath(redirectTo: unknown): string {
 
 export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
   requestContext(async (ctx, dfContext) => {
+    if (backendConfig().authMode === "google") {
+      return { notFound: true };
+    }
     const { workspaceId, redirectTo } = ctx.query;
 
     if (typeof workspaceId !== "string" || !validate(workspaceId)) {

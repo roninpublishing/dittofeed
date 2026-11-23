@@ -16,6 +16,8 @@ export const useTextmenuStates = (editor: Editor) => {
       isUnderline: ctx.editor.isActive("underline"),
       isCode: ctx.editor.isActive("code"),
       isMarkupInline: ctx.editor.isActive("markupInline"),
+      currentLinkUrl: ctx.editor.getAttributes("link").href as string | undefined,
+      currentLinkInNewTab: ctx.editor.getAttributes("link").target === "_blank",
       isSubscript: ctx.editor.isActive("subscript"),
       isSuperscript: ctx.editor.isActive("superscript"),
       isAlignLeft: ctx.editor.isActive({ textAlign: "left" }),

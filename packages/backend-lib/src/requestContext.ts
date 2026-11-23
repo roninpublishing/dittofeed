@@ -1,13 +1,15 @@
 import { SpanStatusCode } from "@opentelemetry/api";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { IncomingHttpHeaders } from "http";
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import { err, ok } from "neverthrow";
 import { sortBy } from "remeda";
 
+import { getGoogleRequestContext, GoogleAccountPrincipal } from "./accounts";
 import { decodeJwtHeader } from "./auth";
 import config from "./config";
 import { db } from "./db";
+import { newsletter } from "./db/publisherSchema";
 import {
   workspace as dbWorkspace,
   workspaceMembeAccount as dbWorkspaceMembeAccount,
@@ -37,6 +39,7 @@ import {
 import { isValidWorkspaceDomain } from "./workspaceDomain";
 
 export const SESSION_KEY = "df-session-key";
+export const SESSION_WORKSPACE_KEY = "df-session-workspace-id";
 
 interface RolesWithWorkspace {
   workspace:
@@ -389,8 +392,24 @@ export async function getMultiTenantRequestContext({
   });
 }
 
-async function getAnonymousRequestContext(): Promise<RequestContextResult> {
-  const workspace = await db().query.workspace.findFirst();
+async function getAnonymousRequestContext(selectedWorkspaceId?: string): Promise<RequestContextResult> {
+  const root = await db().query.workspace.findFirst({
+    where: and(
+      eq(dbWorkspace.status, "Active"),
+      or(eq(dbWorkspace.type, "Root"), eq(dbWorkspace.type, "Parent")),
+    ),
+    orderBy: [asc(dbWorkspace.createdAt), asc(dbWorkspace.id)],
+  });
+  const children = root ? await db()
+    .select({ workspace: dbWorkspace })
+    .from(newsletter)
+    .innerJoin(dbWorkspace, eq(newsletter.workspaceId, dbWorkspace.id))
+    .where(and(eq(newsletter.publisherId, root.id), eq(dbWorkspace.status, "Active")))
+    : [];
+  const accessible = root ? [root, ...children.map((row) => row.workspace)] : [];
+  const workspace = selectedWorkspaceId
+    ? accessible.find((candidate) => candidate.id === selectedWorkspaceId)
+    : root;
   if (!workspace) {
     return err({
       type: RequestContextErrorType.ApplicationError,
@@ -402,6 +421,7 @@ async function getAnonymousRequestContext(): Promise<RequestContextResult> {
       id: workspace.id,
       name: workspace.name,
       type: workspace.type,
+      parentWorkspaceId: workspace.parentWorkspaceId ?? undefined,
     },
     member: {
       id: "anonymous",
@@ -409,27 +429,26 @@ async function getAnonymousRequestContext(): Promise<RequestContextResult> {
       emailVerified: true,
       createdAt: new Date().toISOString(),
     },
-    memberRoles: [
-      {
-        workspaceId: workspace.id,
-        workspaceName: workspace.name,
-        workspaceMemberId: "anonymous",
-        role: "Admin",
-      },
-    ],
+    memberRoles: accessible.map((candidate) => ({
+      workspaceId: candidate.id,
+      workspaceName: candidate.name,
+      workspaceMemberId: "anonymous",
+      role: "Admin",
+    })),
   });
 }
 
 export async function getRequestContext(
   headers: IncomingHttpHeaders,
   profile?: OpenIdProfile,
+  googleAccountPrincipal?: GoogleAccountPrincipal,
 ): Promise<RequestContextResult> {
   return withSpan({ name: "get-request-context" }, async (span) => {
     const { authMode } = config();
     let result: RequestContextResult;
     switch (authMode) {
       case "anonymous": {
-        result = await getAnonymousRequestContext();
+        result = await getAnonymousRequestContext(typeof headers[SESSION_WORKSPACE_KEY] === "string" ? headers[SESSION_WORKSPACE_KEY] : undefined);
         break;
       }
       case "single-tenant": {
@@ -438,7 +457,14 @@ export async function getRequestContext(
             type: RequestContextErrorType.NotAuthenticated,
           });
         }
-        result = await getAnonymousRequestContext();
+        result = await getAnonymousRequestContext(typeof headers[SESSION_WORKSPACE_KEY] === "string" ? headers[SESSION_WORKSPACE_KEY] : undefined);
+        break;
+      }
+      case "google": {
+        if (!googleAccountPrincipal) {
+          return err({ type: RequestContextErrorType.NotAuthenticated });
+        }
+        result = await getGoogleRequestContext(googleAccountPrincipal);
         break;
       }
       case "multi-tenant": {
@@ -458,17 +484,15 @@ export async function getRequestContext(
       }
     }
     if (result.isOk()) {
-      const { id: memberId, email: memberEmail } = result.value.member;
-      const { id: workspaceId, name: workspaceName } = result.value.workspace;
+      const { id: memberId } = result.value.member;
+      const { id: workspaceId } = result.value.workspace;
 
       const memberRoles = result.value.memberRoles.flatMap((r) =>
         r.workspaceId === workspaceId ? r.role : [],
       );
       span.setAttributes({
         memberId,
-        memberEmail,
         workspaceId,
-        workspaceName,
         memberRoles,
       });
       return result;

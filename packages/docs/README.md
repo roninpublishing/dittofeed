@@ -31,9 +31,11 @@ published at an owned destination.
 
 ## Individual accounts
 
-Account implementation is a dedicated follow-up. The
-[account-system plan](ACCOUNT_SYSTEM_PLAN.md) records the owned account/workspace
-model, Google OAuth as an option, security boundaries, and release acceptance.
+Google OIDC sign-in and application-owned accounts are implemented. The
+[account-system plan](ACCOUNT_SYSTEM_PLAN.md) records the security model;
+[Google SSO operations](guide/google-sso.mdx) covers setup, cutover, invitations,
+sessions, and operator recovery. Real Google client configuration and browser
+verification are required before enabling individual-account login.
 
 ## Contributing
 

@@ -91,7 +91,7 @@
                 "pages": [
                   "integrations/channels/email",
                   "integrations/channels/sendgrid",
-                  "integrations/channels/resend",
+                  "integrations/channels/telnyx",
                   "integrations/channels/smtp",
                   "integrations/channels/amazonses",
                   "integrations/channels/webhooks"
@@ -182,6 +182,10 @@
             "pages": [
               "guide/submitting-user-events",
               "guide/internal-events",
+              "guide/click-tracking",
+              "guide/open-tracking",
+              "guide/google-sso",
+              "guide/newsletters",
               "guide/roadmap",
               "guide/faq",
               "guide/creating-journeys",
@@ -193,6 +197,8 @@
                 ]
               },
               "guide/accessing-admin-api",
+              "guide/api-coverage",
+              "guide/mcp",
               "guide/submitting-broadcasts-api",
               "guide/mailing-list",
               "guide/view-in-browser",
@@ -252,6 +258,9 @@
               "api-reference/auto/groups/get-apiadmingroupsuser-groups",
               "api-reference/auto/groups/get-apiadmingroupsusers",
               "api-reference/auto/deliveries/get-apiadmindeliveries",
+              "api-reference/auto/deliveries/post-apiadmindeliveriesclicks",
+              "api-reference/auto/deliveries/post-apiadmindeliveriesopens",
+              "api-reference/auto/deliveries/post-apiadmindeliveriesopensevidence",
               "api-reference/auto/settings/put-apiadminsettingsemail-providers",
               "api-reference/auto/segments/post-apiadminsegmentsmanual-segmentupdate",
               "api-reference/auto/segments/post-apiadminsegmentsmanual-segmentclear",

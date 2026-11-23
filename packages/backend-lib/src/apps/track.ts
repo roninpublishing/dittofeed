@@ -3,6 +3,7 @@ import * as R from "remeda";
 
 import { TrackData } from "../types";
 import { InsertUserEvent, insertUserEvents } from "../userEvents";
+import { normalizeEngagementProperties } from "./engagementProperties";
 
 export async function submitTrack({
   workspaceId,
@@ -12,8 +13,12 @@ export async function submitTrack({
   data: TrackData;
 }) {
   const rest = R.omit(data, ["timestamp", "properties"]);
-  const properties = data.properties ?? {};
   const timestamp = data.timestamp ?? new Date().toISOString();
+  const properties = normalizeEngagementProperties(
+    data.event,
+    timestamp,
+    data.properties,
+  );
 
   const userEvent: InsertUserEvent = {
     messageRaw: JSON.stringify({

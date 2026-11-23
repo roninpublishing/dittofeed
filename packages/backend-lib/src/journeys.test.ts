@@ -112,8 +112,8 @@ describe("journeys", () => {
                 variant: {
                   type: ChannelType.Email,
                   provider: {
-                    type: EmailProviderType.Resend,
-                    name: "error name",
+                    type: EmailProviderType.Telnyx,
+                    code: "http_422",
                     message: "error message",
                   },
                 } satisfies MessageServiceFailureVariant,

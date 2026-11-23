@@ -1,0 +1,139 @@
+---
+title: Click tracking
+description: Observed last_clicked per contact and per send.
+---
+
+## Contact timestamp
+
+`last_clicked` is a protected, built-in contact property: the maximum UTC event time of that contact's `DFEmailClicked` events across sends. Late older events cannot move it backward. A contact with no click has no timestamp; the contact screen shows **No click observed**, not an epoch date.
+
+This is an **observation, not verified human engagement**. Email security scanners can generate clicks. Provider labels, a pixel load, an Apple privacy-proxy request, or waiting ten minutes do not establish a human interaction. Observed [`last_opened` and raw request capture](/guide/open-tracking) are available separately; qualified human-open filtering is not implemented.
+
+The native computed-property definition uses event time rather than a payload field:
+
+```json
+{
+  "type": "Performed",
+  "event": "DFEmailClicked",
+  "valueSource": "EventTime"
+}
+```
+
+Migration `0012_last_clicked` provisions existing workspaces; workspace creation provisions new ones. A conflicting custom definition named `last_clicked` fails explicitly rather than overwriting customer configuration. The built-in cannot be edited, paused, renamed, or deleted. Contact assignment is eventually consistent: the existing computed-property worker must run. No second contact database is introduced.
+
+## Using the property
+
+- **Users → contact → Properties:** latest observed timestamp and the ordinary `last_clicked` property.
+- **Deliveries**, including a contact's Deliveries tab: **Last clicked**, observation count, and **History**, independently of the most recent delivery status.
+- **Segments:** select the **Last clicked** preset for within/before/after and exists/no-click conditions. These compare actual event time; scanner observations can satisfy them.
+- **Contact API:** select the built-in property and use the existing user-property filters.
+- **Liquid templates:** `{{ user.last_clicked }}`. Handle an absent value explicitly for contacts that have never clicked.
+
+Provider click tracking must be enabled/configured with the provider. This feature does not silently change Telnyx's sending profile, rewrite message links, or introduce an owned redirect endpoint.
+
+## Per-send API
+
+Delivery results and CSV exports include `lastClickedAt` (UTC string or `null`) and `clickCount`. A later delivered/opened status does not erase click evidence.
+
+`POST /api/admin/deliveries/clicks` (or the existing authenticated `/api/deliveries/clicks` namespace) accepts:
+
+```json
+{
+  "workspaceId": "workspace-id",
+  "userId": "stable-contact-id",
+  "messageId": "internal-send-id",
+  "limit": 50
+}
+```
+
+The response contains the same scope, `lastClickedAt`, `clickCount`, and `items`. Each item includes `eventId`, `clickedAt`, `url` (nullable), available provider/message/event identifiers, and `classification: "observed_unqualified"`. IP addresses and raw headers are not returned by this endpoint.
+
+Pass the returned `cursor` or `previousCursor` unchanged in the next request. Limits are 1–100. Cursors are scoped to workspace/contact/send; malformed or mismatched cursors return 400. Pagination is a live keyset view, not a frozen snapshot: newly arriving events can change the summary between requests.
+
+## Evidence identity and trust
+
+The native event's top-level `messageId` identifies the **event**; `properties.messageId` identifies the **outbound send**. Never substitute a provider message ID for that internal send ID. Canonical `properties.clickedAt` comes from the event timestamp, not a caller-supplied property.
+
+History deduplicates the tuple `(event ID, event time, URL)`, ignoring processing time, so repeated processing does not inflate the count. SendGrid's event ID, SNS notification MessageId for SES, and Telnyx event IDs are retained separately from provider send IDs. Legacy SendGrid callbacks without an event ID can collapse same-second/same-URL observations; missing historical identity cannot be recovered.
+
+Direct native ingestion remains available under its existing permissions. Clients emitting `DFEmailClicked` must supply a stable event `messageId`, occurrence `timestamp`, and the internal send ID for retry-safe attribution. A client-provided provider label is not signature verification or identity proof. Existing SNS signature validation does not by itself establish ownership of the sending topic. Do not use these observations as an authentication or authorization signal.
+
+Native event history retains available URL/provider evidence under existing contact/event retention and deletion behavior. Telnyx's separately stored raw callback receipts default to 30-day retention; they are provider requests, not the original recipient browser request. Contact deletion purges its associated evidence; historical native events lacking a URL or provider identifier remain visibly incomplete rather than receiving fabricated values.
+
+## Explicit URL contact tokens
+
+Attribution is **opt-in**. URLs without tokens stay unchanged, including existing
+`subscriber_email` parameters. Nothing is appended or replaced automatically.
+Use the existing Liquid template engine:
+
+```liquid
+https://publisher.example/article?subscriber_email={{subscriber_email}}&contact={{ user.id | sha256 }}
+https://publisher.example/article?name={{ user.firstName | url_encode }}&email_md5={{ user.email | md5 }}
+```
+
+`{{subscriber_email}}` emits the resolved single **To mailbox** as a URL component,
+not necessarily `user.email`. Custom template `identifierKey` is honored in
+previews and sends; display names are removed. For `reader+edition@example.com`,
+the output is `reader%2Bedition%40example.com`. Recipient aliases are URL-oriented;
+use ordinary `user.*` expressions for unencoded display text.
+
+Other contact fields retain standard Liquid syntax, including
+`{{ user['first name'] | url_encode }}` and scalar nested fields. Explicitly use
+`url_encode` for URL components; ordinary `user.*` output is not automatically
+encoded. Do not encode a whole URL when only one query/path value needs encoding.
+In the email editor, **Body Message → URL tokens** helps choose a field,
+representation, and copyable expression. Visual link fields accept spaced
+Liquid expressions and preserve the authored template text.
+
+### SHA256 and MD5
+
+`sha256` and `md5` produce lowercase hexadecimal from the exact scalar value's
+UTF-8 bytes. Strings retain case and whitespace; numbers and booleans use their
+string representation. Select a scalar subfield rather than hashing an entire
+object or array. Normalize only deliberately:
+
+```liquid
+{{ subscriber_email | sha256 }}
+{{ user.email | strip | downcase | md5 }}
+{{ user['customer id'] | sha256 }}
+```
+
+Recipient filters hash the **raw mailbox before URL encoding**. The convenience
+aliases `{{subscriber_email_sha256}}` and `{{subscriber_email_md5}}` do the same.
+Do not put `url_encode` before a hash unless the receiving system explicitly
+expects a digest of the encoded value. Explicit `url_encode` is not applied
+twice to recipient expressions. Hashing an object/array fails rendering.
+
+Existing strict missing-variable behavior is preserved: required missing fields
+and missing/ambiguous recipient aliases fail rendering. Use `default` before
+encoding/hashing for optional fields, for example
+`{{ user.campaign | default: 'unknown' | url_encode }}`. Nullish hash inputs emit
+no digest; an explicitly chosen empty string hashes as the empty string.
+Contact values that resemble Liquid are data, never evaluated a second time.
+
+Only explicitly authored expressions change. Literal signed, subscription, and
+system URLs require no exclusions or opt-out attribute; do not insert contact
+tokens into signed URLs unless their signing contract supports it. There is no
+destination allowlist and no automatic suppression for shared CC/BCC copies:
+authors deliberately choose where the primary recipient's value is disclosed.
+Test sends, render previews, stored delivery HTML, and view-in-browser content
+use the same renderer. Historical emails/events are not retroactively rewritten.
+Contact/send identifiers and native/provider click-event identity are unchanged.
+
+Provider click tracking is configured separately. Tokens create no click redirect
+or qualified human engagement. A receiving site, including RC, can read the
+chosen query parameters; no RC-specific SDK or receiving endpoint is invented.
+
+**Privacy:** raw values and hashes can identify contacts. Hashes are not
+anonymization; MD5 is not a security primitive. URLs may expose data through logs,
+history, analytics, referrers, screenshots, forwarding, and HTTP. Shared or
+forwarded copies retain the primary recipient's token. Editable parameters are
+not authentication or proof of identity. Provider/native click evidence may
+retain attributed URLs under existing retention and contact-erasure rules; never
+dump recipient URLs into general application logs.
+
+Changing a template changes send content. An already-accepted Telnyx logical-send
+retry with changed content still fails its existing idempotency check instead of
+resending or silently substituting a provider. Account for in-flight work during
+cutover.
+

@@ -6,7 +6,7 @@ import * as schema from "backend-lib/src/db/schema";
 import { upsertEmailProvider } from "backend-lib/src/messaging/email";
 import { and, eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
-import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
+import { schemaValidate } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
   BadRequestResponse,
   DefaultEmailProviderResource,
@@ -23,6 +23,25 @@ import {
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export default async function settingsController(fastify: FastifyInstance) {
+  fastify.withTypeProvider<TypeBoxTypeProvider>().put(
+    "/email-providers",
+    {
+      schema: {
+        description: "Create or update email provider",
+        tags: ["Settings"],
+        body: UpsertEmailProviderRequest,
+        response: {
+          201: EmptyResponse,
+          400: BadRequestResponse,
+        },
+      },
+    },
+    async (request, reply) => {
+      await upsertEmailProvider(request.body);
+      return reply.status(201).send();
+    },
+  );
+
   fastify.withTypeProvider<TypeBoxTypeProvider>().put(
     "/email-providers/default",
     {
@@ -48,10 +67,7 @@ export default async function settingsController(fastify: FastifyInstance) {
       });
       if (
         !emailProvider ||
-        schemaValidateWithErr(
-          emailProvider.type,
-          WorkspaceWideEmailProviders,
-        ).isErr()
+        schemaValidate(emailProvider.type, WorkspaceWideEmailProviders).isErr()
       ) {
         return reply.status(400).send({
           message: "Invalid payload. Email provider is unavailable.",

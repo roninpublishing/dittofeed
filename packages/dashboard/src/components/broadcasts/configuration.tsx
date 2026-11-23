@@ -127,7 +127,7 @@ export default function Configuration({
         const options = [
           { id: EmailProviderType.Test, label: "Test" },
           { id: EmailProviderType.AmazonSes, label: "Amazon SES" },
-          { id: EmailProviderType.Resend, label: "Resend" },
+          { id: EmailProviderType.Telnyx, label: "Telnyx" },
           { id: EmailProviderType.SendGrid, label: "SendGrid" },
           { id: EmailProviderType.Smtp, label: "SMTP" },
           { id: EmailProviderType.Gmail, label: "Gmail" },

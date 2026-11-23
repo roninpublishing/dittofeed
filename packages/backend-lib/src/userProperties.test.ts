@@ -1,6 +1,12 @@
 import { randomUUID } from "crypto";
+import { and, eq } from "drizzle-orm";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 
+import {
+  LAST_CLICKED_DEFINITION,
+  LAST_OPENED_DEFINITION,
+  provisionBuiltinUserProperties,
+} from "./builtinUserProperties";
 import { db, insert } from "./db";
 import {
   userProperty as dbUserProperty,
@@ -9,22 +15,31 @@ import {
 import {
   AppFileType,
   BlobStorageFile,
+  EventValueSource,
   FileUserPropertyDefinition,
   InternalEventType,
   UserProperty,
   UserPropertyDefinition,
   UserPropertyDefinitionType,
   UserPropertyOperatorType,
+  UpdateUserPropertyStatusErrorType,
+  UpsertUserPropertyErrorType,
+  UpsertUserPropertyResource,
   Workspace,
 } from "./types";
 import {
   findAllUserPropertyAssignments,
+  deleteUserProperty,
+  findAllUserPropertyAssignmentsById,
   findAllUserPropertyAssignmentsForWorkspace,
   findAllUserPropertyResources,
   findUserIdsByUserPropertyValue,
   insertUserPropertyAssignments,
+  updateUserPropertyStatus,
+  upsertUserProperty,
   UserPropertyBulkUpsertItem,
 } from "./userProperties";
+import { getUsers } from "./users";
 
 describe("userProperties", () => {
   let workspace: Workspace;
@@ -40,6 +55,170 @@ describe("userProperties", () => {
         },
       }),
     );
+  });
+
+  describe("last_clicked", () => {
+    it("provisions idempotently and protects creation, ID-only edits, rename, deletion and status", async () => {
+      const property = await provisionBuiltinUserProperties(workspace.id);
+      expect(await provisionBuiltinUserProperties(workspace.id)).toMatchObject({
+        id: property.id, name: "last_clicked", status: "Running",
+        definition: LAST_CLICKED_DEFINITION,
+      });
+      for (const params of [
+        { workspaceId: workspace.id, name: "last_clicked", definition: LAST_CLICKED_DEFINITION },
+        { workspaceId: workspace.id, id: property.id, name: "other", definition: { type: UserPropertyDefinitionType.Trait, path: "bad" } },
+        { workspaceId: workspace.id, id: property.id, name: "renamed", definition: LAST_CLICKED_DEFINITION },
+      ] satisfies UpsertUserPropertyResource[]) {
+        expect((await upsertUserProperty(params))._unsafeUnwrapErr().type)
+          .toBe(UpsertUserPropertyErrorType.ProtectedUserProperty);
+      }
+      expect((await updateUserPropertyStatus({ workspaceId: workspace.id, id: property.id, status: "Paused" }))._unsafeUnwrapErr().type)
+        .toBe(UpdateUserPropertyStatusErrorType.ProtectedUserProperty);
+      expect(await deleteUserProperty({ workspaceId: workspace.id, id: property.id })).toBeNull();
+    });
+
+    it("fails explicitly without replacing an incompatible definition or assignment", async () => {
+      const [existing] = await db().insert(dbUserProperty).values({
+        workspaceId: workspace.id, name: "last_clicked",
+        definition: { type: UserPropertyDefinitionType.Trait, path: "custom" },
+      }).returning();
+      if (!existing) throw new Error("missing property");
+      await insertUserPropertyAssignments([{ workspaceId: workspace.id, userId: "user", userPropertyId: existing.id, value: "owned-value" }]);
+      await expect(provisionBuiltinUserProperties(workspace.id)).rejects.toThrow("incompatible property");
+      expect(await findAllUserPropertyAssignments({ workspaceId: workspace.id, userId: "user" }))
+        .toEqual({ id: "user", last_clicked: "owned-value" });
+    });
+
+    it("uses unordered matching context event times, not clickedAt, and never regresses persisted max", async () => {
+      const property = await provisionBuiltinUserProperties(workspace.id);
+      await insertUserPropertyAssignments([{ workspaceId: workspace.id, userId: "user", userPropertyId: property.id, value: "2026-10-03T12:00:00.789Z" }]);
+      const eventContext = [
+        { event: InternalEventType.EmailClicked, messageId: "new", timestamp: "2026-10-03T09:00:00.123-04:00", properties: { clickedAt: "2099-01-01T00:00:00Z" } },
+        { event: InternalEventType.EmailDelivered, messageId: "unrelated", timestamp: "2099-01-01T00:00:00Z" },
+        { event: InternalEventType.EmailClicked, messageId: "old", timestamp: "2026-10-01T00:00:00Z" },
+      ];
+      expect(await findAllUserPropertyAssignments({ workspaceId: workspace.id, userId: "user", eventContext }))
+        .toEqual({ id: "user", last_clicked: "2026-10-03T13:00:00.123Z" });
+      expect(await findAllUserPropertyAssignmentsById({ workspaceId: workspace.id, userId: "user", eventContext: eventContext.slice(1) }))
+        .toEqual({ id: "user", [property.id]: "2026-10-03T12:00:00.789Z" });
+      expect(await findUserIdsByUserPropertyValue({ workspaceId: workspace.id, userPropertyName: "last_clicked", value: "2026-10-03T12:00:00.789Z" }))
+        .toEqual(["user"]);
+      const users = unwrap(await getUsers({
+        workspaceId: workspace.id,
+        userPropertyFilter: [{ id: property.id, values: ["2026-10-03T12:00:00.789Z"] }],
+      }, { throwOnError: true }));
+      expect(users.users.map((user) => user.id)).toEqual(["user"]);
+      expect(users.users[0]?.properties[property.id]?.value).toBe("2026-10-03T12:00:00.789Z");
+    });
+
+    it("supports EventTime in grouped properties while keeping persisted maxima", async () => {
+      const [property] = await db().insert(dbUserProperty).values({
+        workspaceId: workspace.id, name: "grouped_click",
+        definition: {
+          type: UserPropertyDefinitionType.Group, entry: "any",
+          nodes: [
+            { type: UserPropertyDefinitionType.AnyOf, id: "any", children: ["click"] },
+            { ...LAST_CLICKED_DEFINITION, id: "click", valueSource: EventValueSource.EventTime },
+          ],
+        },
+      }).returning();
+      if (!property) throw new Error("missing property");
+      await insertUserPropertyAssignments([{ workspaceId: workspace.id, userId: "user", userPropertyId: property.id, value: "2026-10-03T12:00:00.789Z" }]);
+      expect(await findAllUserPropertyAssignments({
+        workspaceId: workspace.id, userId: "user",
+        eventContext: [{ event: InternalEventType.EmailClicked, messageId: "old", timestamp: "2026-10-01T00:00:00Z" }],
+      })).toEqual({ id: "user", grouped_click: "2026-10-03T12:00:00.789Z" });
+    });
+  });
+
+  describe("last_opened", () => {
+    async function openedProperty() {
+      await provisionBuiltinUserProperties(workspace.id);
+      const property = await db().query.userProperty.findFirst({
+        where: and(
+          eq(dbUserProperty.workspaceId, workspace.id),
+          eq(dbUserProperty.name, "last_opened"),
+        ),
+      });
+      if (!property) throw new Error("missing last_opened property");
+      return property;
+    }
+
+    it("provisions idempotently while preserving the click return and protecting its lifecycle", async () => {
+      const property = await openedProperty();
+      expect(await provisionBuiltinUserProperties(workspace.id)).toMatchObject({
+        name: "last_clicked", definition: LAST_CLICKED_DEFINITION,
+      });
+      expect(await openedProperty()).toMatchObject({
+        id: property.id, name: "last_opened", status: "Running",
+        definition: LAST_OPENED_DEFINITION,
+      });
+      for (const params of [
+        { workspaceId: workspace.id, name: "last_opened", definition: LAST_OPENED_DEFINITION },
+        { workspaceId: workspace.id, id: property.id, name: "other", definition: { type: UserPropertyDefinitionType.Trait, path: "bad" } },
+        { workspaceId: workspace.id, id: property.id, name: "renamed", definition: LAST_OPENED_DEFINITION },
+      ] satisfies UpsertUserPropertyResource[]) {
+        expect((await upsertUserProperty(params))._unsafeUnwrapErr().type)
+          .toBe(UpsertUserPropertyErrorType.ProtectedUserProperty);
+      }
+      expect((await updateUserPropertyStatus({ workspaceId: workspace.id, id: property.id, status: "Paused" }))._unsafeUnwrapErr().type)
+        .toBe(UpdateUserPropertyStatusErrorType.ProtectedUserProperty);
+      expect(await deleteUserProperty({ workspaceId: workspace.id, id: property.id })).toBeNull();
+    });
+
+    it("keeps conflicting definitions and assignments intact", async () => {
+      const [existing] = await db().insert(dbUserProperty).values({
+        workspaceId: workspace.id, name: "last_opened",
+        definition: { type: UserPropertyDefinitionType.Trait, path: "custom" },
+      }).returning();
+      if (!existing) throw new Error("missing property");
+      await insertUserPropertyAssignments([{ workspaceId: workspace.id, userId: "user", userPropertyId: existing.id, value: "owned-value" }]);
+      await expect(provisionBuiltinUserProperties(workspace.id)).rejects.toThrow("Cannot provision last_opened");
+      expect(await findAllUserPropertyAssignments({ workspaceId: workspace.id, userId: "user" }))
+        .toEqual({ id: "user", last_opened: "owned-value" });
+    });
+
+    it("restarts a canonical paused builtin without changing its ID or assignments", async () => {
+      const [existing] = await db().insert(dbUserProperty).values({
+        workspaceId: workspace.id, name: "last_opened",
+        definition: LAST_OPENED_DEFINITION, status: "Paused",
+      }).returning();
+      if (!existing) throw new Error("missing property");
+      await insertUserPropertyAssignments([{ workspaceId: workspace.id, userId: "user", userPropertyId: existing.id, value: "2026-10-03T12:00:00.789Z" }]);
+      expect(await openedProperty()).toMatchObject({ id: existing.id, status: "Running" });
+      expect(await findAllUserPropertyAssignments({ workspaceId: workspace.id, userId: "user" }))
+        .toEqual({ id: "user", last_opened: "2026-10-03T12:00:00.789Z" });
+    });
+
+    it("uses native open event time in unordered context, never clickedAt or openedAt payloads", async () => {
+      const property = await openedProperty();
+      expect(await findAllUserPropertyAssignments({
+        workspaceId: workspace.id, userId: "never-opened",
+        userProperties: ["last_opened"],
+        context: [{ openedAt: "2099-01-01T00:00:00Z" }],
+        eventContext: [
+          { event: InternalEventType.EmailClicked, messageId: "click-only", timestamp: "2099-01-01T00:00:00Z" },
+          { event: InternalEventType.EmailOpened, messageId: "invalid", timestamp: "invalid" },
+        ],
+      })).toEqual({ id: "never-opened" });
+      await insertUserPropertyAssignments([{ workspaceId: workspace.id, userId: "user", userPropertyId: property.id, value: "2026-10-03T12:00:00.789Z" }]);
+      const eventContext = [
+        { event: InternalEventType.EmailOpened, messageId: "new", timestamp: "2026-10-03T09:00:00.123-04:00", properties: { openedAt: "2099-01-01T00:00:00Z" } },
+        { event: InternalEventType.EmailOpened, messageId: "duplicate", timestamp: "2026-10-03T13:00:00.123Z" },
+        { event: InternalEventType.EmailClicked, messageId: "click", timestamp: "2099-01-01T00:00:00Z" },
+        { event: InternalEventType.EmailOpened, messageId: "old", timestamp: "2026-10-01T00:00:00Z" },
+      ];
+      expect(await findAllUserPropertyAssignments({ workspaceId: workspace.id, userId: "user", eventContext }))
+        .toEqual({ id: "user", last_opened: "2026-10-03T13:00:00.123Z", last_clicked: "2099-01-01T00:00:00.000Z" });
+      expect(await findAllUserPropertyAssignmentsById({ workspaceId: workspace.id, userId: "user", eventContext: eventContext.slice(3) }))
+        .toEqual({ id: "user", [property.id]: "2026-10-03T12:00:00.789Z" });
+      const users = unwrap(await getUsers({
+        workspaceId: workspace.id,
+        userPropertyFilter: [{ id: property.id, values: ["2026-10-03T12:00:00.789Z"] }],
+      }, { throwOnError: true }));
+      expect(users.users.map((user) => user.id)).toEqual(["user"]);
+      expect(users.users[0]?.properties[property.id]?.value).toBe("2026-10-03T12:00:00.789Z");
+    });
   });
 
   describe("findAllUserPropertyAssignments", () => {

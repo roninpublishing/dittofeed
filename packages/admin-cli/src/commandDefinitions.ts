@@ -103,7 +103,6 @@ import {
   backfillInternalEvents,
   createUnsubscribedSegmentsForExistingSubscriptionGroups,
   createUserSortingIndexTables,
-  disentangleResendSendgrid,
   migrateMessageIdIndexToBloomFilter,
   refreshNotExistsSegmentDefinitionUpdatedAt,
   transferComputedPropertyStateV2ToV3,
@@ -726,12 +725,6 @@ export function createCommands(yargs: Argv): Argv {
           );
         });
       },
-    )
-    .command(
-      "migrations disentangle-resend-sendgrid",
-      "Runs migration, disentangling the resend and sendgrid email providers.",
-      (y) => y,
-      () => disentangleResendSendgrid(),
     )
     .command(
       "admin-api-key create",

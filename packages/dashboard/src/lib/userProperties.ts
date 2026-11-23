@@ -1,5 +1,6 @@
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import {
+  EventValueSource,
   LeafUserPropertyDefinition,
   UserPropertyDefinition,
   UserPropertyDefinitionType,
@@ -27,7 +28,9 @@ export function getDefaultUserPropertyExampleValue(
     case UserPropertyDefinitionType.Trait:
       return '"myTraitValue"';
     case UserPropertyDefinitionType.Performed:
-      return DEFAULT_PERFORMED_EXAMPLE;
+      return definition.valueSource === EventValueSource.EventTime
+        ? '"2026-01-01T12:00:00.000Z"'
+        : DEFAULT_PERFORMED_EXAMPLE;
     case UserPropertyDefinitionType.File:
       return DEFAULT_FILE_EXAMPLE;
     case UserPropertyDefinitionType.Group: {

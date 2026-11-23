@@ -85,6 +85,7 @@ export async function broadcastWorkflowV2({
     if (updatedStatus) {
       status = updatedStatus;
     }
+    return updatedStatus;
   }
 
   async function updateStatus(newStatus: BroadcastV2Status) {
@@ -395,6 +396,23 @@ export async function broadcastWorkflowV2({
       await sendAllMessages({
         batchSize,
       });
+    }
+
+    if (wf.patched("newsletter-broadcast-queue-v1")) {
+      const { getNewsletterBroadcastQueueStatus } = proxyActivities<typeof activities>({
+        startToCloseTimeout: "2 minutes",
+      });
+      let queue = await getNewsletterBroadcastQueueStatus({ workspaceId, broadcastId });
+      while (queue.pending > 0) {
+        await sleep("15 seconds");
+        if (await refreshStatus() !== "Running") return;
+        queue = await getNewsletterBroadcastQueueStatus({ workspaceId, broadcastId });
+      }
+      if (queue.unknown > 0 || (queue.rejected > 0 && broadcast.config.errorHandling === "PauseOnError")) {
+        await updateStatus("Paused");
+        return;
+      }
+      if (await refreshStatus() !== "Running") return;
     }
 
     await updateStatus("Completed");

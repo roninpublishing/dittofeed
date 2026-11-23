@@ -9,7 +9,7 @@ import {
   workflowInfo,
 } from "@temporalio/workflow";
 import * as wf from "@temporalio/workflow";
-import { isEmailProviderType } from "isomorphic-lib/src/email";
+import { schemaValidate } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import { omit } from "remeda";
 import { v5 as uuidV5 } from "uuid";
@@ -281,17 +281,6 @@ export async function userJourneyWorkflow(
     const channel: string = node.variant.type;
     switch (channel) {
       case ChannelType.Email:
-        if (
-          node.variant.type === ChannelType.Email &&
-          node.variant.providerOverride !== undefined &&
-          !isEmailProviderType(node.variant.providerOverride)
-        ) {
-          throw wf.ApplicationFailure.nonRetryable(
-            `Journey ${journeyId} node ${node.id} uses an unsupported email provider`,
-            "InvalidJourneyDefinition",
-          );
-        }
-        break;
       case ChannelType.MobilePush:
       case ChannelType.Webhook:
         break;
@@ -301,6 +290,12 @@ export async function userJourneyWorkflow(
           "UnsupportedMessageChannel",
         );
     }
+  }
+  if (schemaValidate(definition, JourneyDefinition).isErr()) {
+    throw wf.ApplicationFailure.nonRetryable(
+      `Journey ${journeyId} has an invalid definition`,
+      "InvalidJourneyDefinition",
+    );
   }
 
   let entryEventProperties: Record<string, JSONValue> | undefined;
@@ -953,13 +948,29 @@ export async function userJourneyWorkflow(
           sendMesssageParams.eventIds = Array.from(keyedEventIds);
         }
 
-        const { sendMessageV2 } = proxyActivities<typeof activities>({
+        const { sendMessageV2, getNewsletterSendStatusByMessageId } = proxyActivities<typeof activities>({
           startToCloseTimeout: "2 minutes",
           retry: {
             maximumAttempts: currentNode.retryCount ?? 3,
           },
         });
-        const messageSucceeded = await sendMessageV2(sendMesssageParams);
+        let messageSucceeded = await sendMessageV2(sendMesssageParams);
+        if (wf.patched("newsletter-send-queue-v1") && !messageSucceeded) {
+          let queued = await getNewsletterSendStatusByMessageId({ workspaceId, messageId });
+          while (queued && !queued.terminal) {
+            await sleep("15 seconds");
+            queued = await getNewsletterSendStatusByMessageId({ workspaceId, messageId });
+          }
+          messageSucceeded = queued?.accepted ?? false;
+          if (queued?.state === "unknown") {
+            logger.warn("newsletter send requires acceptance reconciliation", {
+              ...defaultLoggingFields,
+              sendId: queued.sendId,
+            });
+            nextNode = definition.exitNode;
+            break;
+          }
+        }
 
         if (!messageSucceeded && !currentNode.skipOnFailure) {
           logger.info("message node early exit", {

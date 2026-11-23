@@ -5,6 +5,11 @@ import { pick, times } from "remeda";
 import { submitBatch } from "./apps/batch";
 import {
   getDeliveryBody,
+  getDeliveryClicks,
+  InvalidDeliveryClicksCursorError,
+  getDeliveryOpens,
+  InvalidDeliveryOpensCursorError,
+  buildDeliveriesFile,
   parseSearchDeliveryRow,
   searchDeliveries,
   searchDeliveriesCount,
@@ -35,6 +40,330 @@ describe("deliveries", () => {
     workspaceId = workspace.id;
   });
 
+  describe("observed click history", () => {
+    const firstAt = "2025-01-02T03:04:05.123Z";
+    const latestAt = "2025-01-03T03:04:05.987Z";
+    let userId: string;
+    let messageId: string;
+    let otherMessageId: string;
+    let otherUserId: string;
+    let otherWorkspaceId: string;
+    let latestClick: BatchItem;
+
+    function event(
+      eventName: string,
+      sendId: string,
+      timestamp: string,
+      properties: Record<string, unknown> = {},
+      contactId = userId,
+      eventId: string = randomUUID(),
+    ): BatchItem {
+      return {
+        type: EventType.Track, event: eventName, userId: contactId,
+        messageId: eventId, timestamp,
+        properties: { messageId: sendId, ...properties },
+      };
+    }
+
+    beforeEach(async () => {
+      userId = randomUUID();
+      otherUserId = randomUUID();
+      messageId = randomUUID();
+      otherMessageId = randomUUID();
+      otherWorkspaceId = unwrap(await createWorkspace({ name: randomUUID() })).id;
+      const sentProperties = {
+        templateId: randomUUID(),
+        variant: {
+          type: ChannelType.Email, from: "sender@example.com",
+          to: "reader@example.com", subject: "Click history", body: "body",
+          provider: { type: EmailProviderType.Telnyx, messageId: "provider-send" },
+        },
+        // An ingested send payload cannot forge the computed summary.
+        lastClickedAt: "2099-01-01T00:00:00.000Z", clickCount: 900,
+      };
+      latestClick = event(InternalEventType.EmailClicked, messageId, latestAt, {
+        url: "https://example.com/latest", provider: EmailProviderType.Telnyx,
+        providerMessageId: "provider-send", providerEventId: "provider-latest",
+        ip: "192.0.2.1", user_agent: "scanner",
+      });
+      await submitBatch({
+        workspaceId,
+        data: { batch: [
+          event(InternalEventType.MessageSent, messageId, "2025-01-01T00:00:00.000Z", sentProperties, userId, messageId),
+          event(InternalEventType.MessageSent, otherMessageId, "2025-01-01T00:00:01.000Z", sentProperties, userId, otherMessageId),
+          event(InternalEventType.MessageSent, messageId, "2025-01-01T00:00:02.000Z", sentProperties, otherUserId, messageId),
+          latestClick,
+          event(InternalEventType.EmailDelivered, messageId, "2025-01-04T00:00:00.000Z"),
+          event(InternalEventType.EmailClicked, otherMessageId, "2025-01-05T00:00:00.000Z", { url: "https://example.com/other-send" }),
+          event(InternalEventType.EmailClicked, messageId, "2025-01-06T00:00:00.000Z", { url: "https://example.com/other-user" }, otherUserId),
+        ] },
+      }, { processingTime: Date.parse("2025-02-01T00:00:00.000Z") });
+      // Retry/reprojection with a different receipt time and a late older click.
+      await submitBatch({ workspaceId, data: { batch: [
+        latestClick,
+        event(InternalEventType.EmailClicked, messageId, firstAt, { url: "https://example.com/first" }),
+      ] } }, { processingTime: Date.parse("2025-02-02T00:00:00.000Z") });
+      await submitBatch({ workspaceId: otherWorkspaceId, data: { batch: [
+        event(InternalEventType.EmailClicked, messageId, "2025-01-07T00:00:00.000Z", { url: "https://example.com/other-workspace" }),
+      ] } });
+    });
+
+    it("keeps max event time independent of later status, filters and tenant/contact/send scopes", async () => {
+      const deliveries = await searchDeliveries({ workspaceId, userId, statuses: [InternalEventType.EmailDelivered] });
+      expect(deliveries.items).toHaveLength(1);
+      expect(deliveries.items[0]).toMatchObject({
+        originMessageId: messageId, status: InternalEventType.EmailDelivered,
+        lastClickedAt: latestAt, clickCount: 2,
+      });
+      const allDeliveries = await searchDeliveries({ workspaceId });
+      expect(allDeliveries.items).toHaveLength(3);
+      expect(allDeliveries.items.find((item) => item.userId === userId && item.originMessageId === otherMessageId)).toMatchObject({
+        lastClickedAt: "2025-01-05T00:00:00.000Z", clickCount: 1,
+      });
+      expect(allDeliveries.items.find((item) => item.userId === otherUserId && item.originMessageId === messageId)).toMatchObject({
+        lastClickedAt: "2025-01-06T00:00:00.000Z", clickCount: 1,
+      });
+      const history = await getDeliveryClicks({ workspaceId, userId, messageId });
+      expect(history).toMatchObject({ workspaceId, userId, messageId, lastClickedAt: latestAt, clickCount: 2 });
+      expect(history.items.map((item) => item.clickedAt)).toEqual([latestAt, firstAt]);
+      expect(history.items[0]).toEqual({
+        eventId: latestClick.messageId, clickedAt: latestAt,
+        url: "https://example.com/latest", provider: EmailProviderType.Telnyx,
+        providerMessageId: "provider-send", providerEventId: "provider-latest",
+        classification: "observed_unqualified",
+      });
+      expect((await getDeliveryClicks({ workspaceId, userId, messageId: otherMessageId })).clickCount).toBe(1);
+      expect((await getDeliveryClicks({ workspaceId, userId: otherUserId, messageId })).lastClickedAt).toBe("2025-01-06T00:00:00.000Z");
+      expect((await getDeliveryClicks({ workspaceId: otherWorkspaceId, userId, messageId })).lastClickedAt).toBe("2025-01-07T00:00:00.000Z");
+    });
+
+    it("uses deterministic deduplicated keyset pages with stable summaries and scoped cursors", async () => {
+      const first = await getDeliveryClicks({ workspaceId, userId, messageId, limit: 1 });
+      expect(first.items.map((item) => item.clickedAt)).toEqual([latestAt]);
+      expect(first.cursor).toBeDefined();
+      const second = await getDeliveryClicks({ workspaceId, userId, messageId, limit: 1, cursor: first.cursor });
+      expect(second.items.map((item) => item.clickedAt)).toEqual([firstAt]);
+      expect(second).toMatchObject({ lastClickedAt: latestAt, clickCount: 2 });
+      expect(second.cursor).toBeUndefined();
+      await expect(getDeliveryClicks({ workspaceId, userId: otherUserId, messageId, cursor: first.cursor })).rejects.toBeInstanceOf(InvalidDeliveryClicksCursorError);
+      await expect(getDeliveryClicks({ workspaceId: otherWorkspaceId, userId, messageId, cursor: first.cursor })).rejects.toBeInstanceOf(InvalidDeliveryClicksCursorError);
+      await expect(getDeliveryClicks({ workspaceId, userId, messageId: otherMessageId, cursor: first.cursor })).rejects.toBeInstanceOf(InvalidDeliveryClicksCursorError);
+      await expect(getDeliveryClicks({ workspaceId, userId, messageId, cursor: "not-json" })).rejects.toBeInstanceOf(InvalidDeliveryClicksCursorError);
+    });
+
+    it("preserves distinct equal-time links and native event IDs, including Unicode cursors", async () => {
+      const tiedAt = "2025-01-08T00:00:00.123Z";
+      const sharedId = randomUUID();
+      const clicks = [
+        event(InternalEventType.EmailClicked, messageId, tiedAt, { url: "https://example.com/é" }, userId, sharedId),
+        event(InternalEventType.EmailClicked, messageId, tiedAt, { url: "https://example.com/a" }, userId, sharedId),
+        event(InternalEventType.EmailClicked, messageId, tiedAt, { url: "https://example.com/a" }),
+      ];
+      await submitBatch({ workspaceId, data: { batch: [...clicks, ...clicks] } });
+      const ids: string[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await getDeliveryClicks({ workspaceId, userId, messageId, limit: 1, cursor });
+        expect(page.clickCount).toBe(5);
+        const item = page.items[0];
+        expect(item).toBeDefined();
+        ids.push(JSON.stringify([item?.eventId, item?.clickedAt, item?.url]));
+        cursor = page.cursor;
+      } while (cursor);
+      expect(ids).toHaveLength(5);
+      expect(new Set(ids).size).toBe(5);
+    });
+
+    it("returns null and zero, never an epoch, for a send without observations", async () => {
+      const emptyId = randomUUID();
+      await submitBatch({ workspaceId, data: { batch: [
+        event(InternalEventType.MessageSent, emptyId, "2025-01-09T00:00:00.000Z", {
+          templateId: randomUUID(), variant: {
+            type: ChannelType.Email, from: "sender@example.com", to: "reader@example.com",
+            subject: "No clicks", body: "body", provider: { type: EmailProviderType.Test },
+          },
+        }, userId, emptyId),
+      ] } });
+      const deliveries = await searchDeliveries({ workspaceId, userId });
+      expect(deliveries.items.find((item) => item.originMessageId === emptyId)).toMatchObject({ lastClickedAt: null, clickCount: 0 });
+      expect(await getDeliveryClicks({ workspaceId, userId, messageId: emptyId })).toEqual({
+        workspaceId, userId, messageId: emptyId, lastClickedAt: null, clickCount: 0, items: [],
+      });
+    });
+  });
+
+  describe("observed open history", () => {
+    const firstAt = "2025-01-02T03:04:05.123Z";
+    const latestAt = "2025-01-03T03:04:05.987Z";
+    let userId: string;
+    let messageId: string;
+    let otherMessageId: string;
+    let otherUserId: string;
+    let otherWorkspaceId: string;
+    let latestOpen: BatchItem;
+
+    function event(
+      eventName: string,
+      sendId: string,
+      timestamp: string,
+      properties: Record<string, unknown> = {},
+      contactId = userId,
+      eventId: string = randomUUID(),
+    ): BatchItem {
+      return {
+        type: EventType.Track, event: eventName, userId: contactId,
+        messageId: eventId, timestamp,
+        properties: { messageId: sendId, ...properties },
+      };
+    }
+
+    beforeEach(async () => {
+      userId = randomUUID();
+      otherUserId = randomUUID();
+      messageId = randomUUID();
+      otherMessageId = randomUUID();
+      otherWorkspaceId = unwrap(await createWorkspace({ name: randomUUID() })).id;
+      const sentProperties = {
+        templateId: randomUUID(),
+        variant: {
+          type: ChannelType.Email, from: "sender@example.com",
+          to: "reader@example.com", subject: "Open history", body: "body",
+          provider: { type: EmailProviderType.Telnyx, messageId: "provider-send" },
+        },
+        // An ingested send payload cannot forge the computed summary.
+        lastOpenedAt: "2099-01-01T00:00:00.000Z", openCount: 900,
+      };
+      latestOpen = event(InternalEventType.EmailOpened, messageId, latestAt, {
+        evidenceSource: "provider", provider: EmailProviderType.Telnyx,
+        providerMessageId: "provider-send", providerEventId: "provider-latest",
+        ip: "192.0.2.1", user_agent: "scanner",
+      });
+      await submitBatch({
+        workspaceId,
+        data: { batch: [
+          event(InternalEventType.MessageSent, messageId, "2025-01-01T00:00:00.000Z", sentProperties, userId, messageId),
+          event(InternalEventType.MessageSent, otherMessageId, "2025-01-01T00:00:01.000Z", sentProperties, userId, otherMessageId),
+          event(InternalEventType.MessageSent, messageId, "2025-01-01T00:00:02.000Z", sentProperties, otherUserId, messageId),
+          latestOpen,
+          event(InternalEventType.EmailDelivered, messageId, "2025-01-04T00:00:00.000Z"),
+          event(InternalEventType.EmailOpened, otherMessageId, "2025-01-05T00:00:00.000Z", { url: "https://example.com/other-send" }),
+          event(InternalEventType.EmailOpened, messageId, "2025-01-06T00:00:00.000Z", { url: "https://example.com/other-user" }, otherUserId),
+        ] },
+      }, { processingTime: Date.parse("2025-02-01T00:00:00.000Z") });
+      // Retry/reprojection with a different receipt time and a late older open.
+      await submitBatch({ workspaceId, data: { batch: [
+        latestOpen,
+        event(InternalEventType.EmailOpened, messageId, firstAt, { url: "https://example.com/first" }),
+      ] } }, { processingTime: Date.parse("2025-02-02T00:00:00.000Z") });
+      await submitBatch({ workspaceId: otherWorkspaceId, data: { batch: [
+        event(InternalEventType.EmailOpened, messageId, "2025-01-07T00:00:00.000Z", { url: "https://example.com/other-workspace" }),
+      ] } });
+    });
+
+    it("keeps max event time independent of later status, filters and tenant/contact/send scopes", async () => {
+      const deliveries = await searchDeliveries({ workspaceId, userId, statuses: [InternalEventType.EmailDelivered] });
+      expect(deliveries.items).toHaveLength(1);
+      expect(deliveries.items[0]).toMatchObject({
+        originMessageId: messageId, status: InternalEventType.EmailDelivered,
+        lastOpenedAt: latestAt, openCount: 2,
+      });
+      const allDeliveries = await searchDeliveries({ workspaceId });
+      expect(allDeliveries.items).toHaveLength(3);
+      expect(allDeliveries.items.find((item) => item.userId === userId && item.originMessageId === otherMessageId)).toMatchObject({
+        lastOpenedAt: "2025-01-05T00:00:00.000Z", openCount: 1,
+      });
+      expect(allDeliveries.items.find((item) => item.userId === otherUserId && item.originMessageId === messageId)).toMatchObject({
+        lastOpenedAt: "2025-01-06T00:00:00.000Z", openCount: 1,
+      });
+      const history = await getDeliveryOpens({ workspaceId, userId, messageId });
+      expect(history).toMatchObject({ workspaceId, userId, messageId, lastOpenedAt: latestAt, openCount: 2 });
+      expect(history.items.map((item) => item.openedAt)).toEqual([latestAt, firstAt]);
+      expect(history.items[0]).toEqual({
+        eventId: latestOpen.messageId, openedAt: latestAt,
+        evidenceSource: "provider", provider: EmailProviderType.Telnyx,
+        providerMessageId: "provider-send", providerEventId: "provider-latest",
+        classification: "observed_unqualified",
+      });
+      expect((await getDeliveryOpens({ workspaceId, userId, messageId: otherMessageId })).openCount).toBe(1);
+      expect((await getDeliveryOpens({ workspaceId, userId: otherUserId, messageId })).lastOpenedAt).toBe("2025-01-06T00:00:00.000Z");
+      expect((await getDeliveryOpens({ workspaceId: otherWorkspaceId, userId, messageId })).lastOpenedAt).toBe("2025-01-07T00:00:00.000Z");
+    });
+
+    it("uses deterministic deduplicated keyset pages with stable summaries and scoped cursors", async () => {
+      const first = await getDeliveryOpens({ workspaceId, userId, messageId, limit: 1 });
+      expect(first.items.map((item) => item.openedAt)).toEqual([latestAt]);
+      expect(first.cursor).toBeDefined();
+      const second = await getDeliveryOpens({ workspaceId, userId, messageId, limit: 1, cursor: first.cursor });
+      expect(second.items.map((item) => item.openedAt)).toEqual([firstAt]);
+      expect(second).toMatchObject({ lastOpenedAt: latestAt, openCount: 2 });
+      expect(second.cursor).toBeUndefined();
+      await expect(getDeliveryOpens({ workspaceId, userId: otherUserId, messageId, cursor: first.cursor })).rejects.toBeInstanceOf(InvalidDeliveryOpensCursorError);
+      await expect(getDeliveryOpens({ workspaceId: otherWorkspaceId, userId, messageId, cursor: first.cursor })).rejects.toBeInstanceOf(InvalidDeliveryOpensCursorError);
+      await expect(getDeliveryOpens({ workspaceId, userId, messageId: otherMessageId, cursor: first.cursor })).rejects.toBeInstanceOf(InvalidDeliveryOpensCursorError);
+      await expect(getDeliveryOpens({ workspaceId, userId, messageId, cursor: "not-json" })).rejects.toBeInstanceOf(InvalidDeliveryOpensCursorError);
+    });
+
+    it("deduplicates equal-time observations by native identity rather than URL", async () => {
+      const tiedAt = "2025-01-08T00:00:00.123Z";
+      const sharedId = randomUUID();
+      const opens = [
+        event(InternalEventType.EmailOpened, messageId, tiedAt, { url: "https://example.com/é" }, userId, sharedId),
+        event(InternalEventType.EmailOpened, messageId, tiedAt, { url: "https://example.com/a" }, userId, sharedId),
+        event(InternalEventType.EmailOpened, messageId, tiedAt, { url: "https://example.com/a" }),
+      ];
+      await submitBatch({ workspaceId, data: { batch: [...opens, ...opens] } });
+      const ids: string[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await getDeliveryOpens({ workspaceId, userId, messageId, limit: 1, cursor });
+        expect(page.openCount).toBe(4);
+        const item = page.items[0];
+        expect(item).toBeDefined();
+        ids.push(JSON.stringify([item?.eventId, item?.openedAt, item?.evidenceSource]));
+        cursor = page.cursor;
+      } while (cursor);
+      expect(ids).toHaveLength(4);
+      expect(new Set(ids).size).toBe(4);
+    });
+
+    it("keeps live keyset pages stable as newer opens arrive and exposes CSV summaries", async () => {
+      const first = await getDeliveryOpens({ workspaceId, userId, messageId, limit: 1 });
+      const observedAt = "2025-01-10T00:00:00.000Z";
+      const evidenceId = randomUUID();
+      await submitBatch({ workspaceId, data: { batch: [
+        event(InternalEventType.EmailOpened, messageId, observedAt, {
+          evidenceSource: "owned_pixel", evidenceId, headers: { secret: "not-for-history" },
+        }),
+      ] } });
+      const second = await getDeliveryOpens({ workspaceId, userId, messageId, limit: 1, cursor: first.cursor });
+      expect(second.items.map((item) => item.openedAt)).toEqual([firstAt]);
+      expect(second).toMatchObject({ lastOpenedAt: observedAt, openCount: 3 });
+      const history = await getDeliveryOpens({ workspaceId, userId, messageId });
+      expect(history.items[0]).toMatchObject({ evidenceSource: "owned_pixel", evidenceId });
+      expect(history.items[0]).not.toHaveProperty("headers");
+      const csv = await buildDeliveriesFile({ workspaceId, userId });
+      expect(csv.fileContent).toContain("lastOpenedAt,openCount");
+      expect(csv.fileContent).toContain(`${observedAt},3`);
+    });
+
+    it("returns null and zero, never an epoch, for a send without observations", async () => {
+      const emptyId = randomUUID();
+      await submitBatch({ workspaceId, data: { batch: [
+        event(InternalEventType.MessageSent, emptyId, "2025-01-09T00:00:00.000Z", {
+          templateId: randomUUID(), variant: {
+            type: ChannelType.Email, from: "sender@example.com", to: "reader@example.com",
+            subject: "No opens", body: "body", provider: { type: EmailProviderType.Test },
+          },
+        }, userId, emptyId),
+        event(InternalEventType.EmailClicked, emptyId, "2025-01-10T00:00:00.000Z"),
+      ] } });
+      const deliveries = await searchDeliveries({ workspaceId, userId });
+      expect(deliveries.items.find((item) => item.originMessageId === emptyId)).toMatchObject({ lastOpenedAt: null, openCount: 0 });
+      expect(await getDeliveryOpens({ workspaceId, userId, messageId: emptyId })).toEqual({
+        workspaceId, userId, messageId: emptyId, lastOpenedAt: null, openCount: 0, items: [],
+      });
+    });
+  });
   describe("getDeliveryBody", () => {
     describe("when submitting a batch of events containing a hidden track event", () => {
       let messageId: string;
@@ -2419,6 +2748,10 @@ describe("deliveries", () => {
       const row: SearchDeliveryRow = {
         sent_at: "2023-08-01 01:41:18.585",
         updated_at: "2023-08-01 01:41:18.585",
+        last_clicked_at: null,
+        click_count: 0,
+        last_opened_at: null,
+        open_count: 0,
         last_event: "DFInternalMessageSent",
         origin_message_id: "043ddf20-b4a6-4e88-a7b6-15c88b9617de",
         user_or_anonymous_id: "3dae7dd0-cc99-4a76-b298-af33dd606b27",
@@ -2439,12 +2772,17 @@ describe("deliveries", () => {
       };
       const result = parseSearchDeliveryRow(row);
       expect(result).not.toBeNull();
+      expect(result).toMatchObject({ lastClickedAt: null, clickCount: 0 });
     });
 
     it("respects the deprecated format for deliveries events", () => {
       const row: SearchDeliveryRow = {
         sent_at: "2023-08-01 01:41:18.585",
         updated_at: "2023-08-01 01:41:18.585",
+        last_clicked_at: null,
+        click_count: 0,
+        last_opened_at: null,
+        open_count: 0,
         last_event: "DFInternalMessageSent",
         origin_message_id: randomUUID(),
         user_or_anonymous_id: randomUUID(),
@@ -2459,10 +2797,19 @@ describe("deliveries", () => {
           templateId: randomUUID(),
           userId: randomUUID(),
           workspaceId: randomUUID(),
+          lastClickedAt: "2099-01-01T00:00:00.000Z",
+          clickCount: 99,
+          originMessageId: randomUUID(),
         }),
       };
       const result = parseSearchDeliveryRow(row);
       expect(result).not.toBeNull();
+      expect(result).toMatchObject({
+        originMessageId: row.origin_message_id,
+        userId: row.user_or_anonymous_id,
+        lastClickedAt: null,
+        clickCount: 0,
+      });
     });
   });
   describe("getDeliveryBody", () => {

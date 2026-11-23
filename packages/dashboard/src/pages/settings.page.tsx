@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
 import { html } from "@codemirror/lang-html";
 import { EditorView } from "@codemirror/view";
-import {
-  Create,
-  InfoOutlined,
-  Key,
-  Mail,
-  Webhook,
-} from "@mui/icons-material";
+import { Create, InfoOutlined, Key, Mail, Webhook } from "@mui/icons-material";
 import { LoadingButton } from "@mui/lab";
 import {
   Autocomplete,
@@ -519,59 +513,150 @@ function AmazonSesConfig() {
   );
 }
 
-function ResendConfig() {
+function TelnyxConfig() {
   const secretAvailability = useSecretAvailability();
+  const { workspace, apiBase } = useAppStorePick(["workspace", "apiBase"]);
+  const [sandboxMode, setSandboxMode] = useState(false);
+  const [sandboxRequest, setSandboxRequest] =
+    useState<EphemeralRequestStatus<Error>>({
+      type: CompletionStatus.NotStarted,
+    });
+  const savedSandboxMode = isSecretSaved(
+    SecretNames.Telnyx,
+    "sandboxMode",
+    secretAvailability,
+  );
+
+  useEffect(() => {
+    if (savedSandboxMode !== undefined) {
+      setSandboxMode(savedSandboxMode);
+    }
+  }, [savedSandboxMode]);
+
+  const workspaceId =
+    workspace.type === CompletionStatus.Successful ? workspace.value.id : null;
+  const webhookUrl = workspaceId
+    ? `${apiBase}/api/public/webhooks/telnyx?${new URLSearchParams({ workspaceId }).toString()}`
+    : "";
+
+  const saveSandboxMode = (enabled: boolean) => {
+    if (!workspaceId) {
+      return;
+    }
+    apiRequestHandlerFactory({
+      request: sandboxRequest,
+      setRequest: setSandboxRequest,
+      responseSchema: EmptyResponse,
+      onSuccessNotice: "Successfully saved Telnyx sandbox mode",
+      onFailureNoticeHandler: () => "API Error: Failed to save Telnyx sandbox mode",
+      setResponse: () => setSandboxMode(enabled),
+      requestConfig: {
+        method: "PUT",
+        url: `${apiBase}/api/secrets`,
+        data: {
+          workspaceId,
+          name: SecretNames.Telnyx,
+          configValue: { type: EmailProviderType.Telnyx, sandboxMode: enabled },
+        },
+        headers: { "Content-Type": "application/json" },
+      },
+    })();
+  };
 
   return (
     <Fields
       sections={[
         {
-          id: "resend-section",
+          id: "telnyx-section",
           fieldGroups: [
             {
-              id: "resend-fields",
-              name: "Resend",
+              id: "telnyx-fields",
+              name: "Telnyx",
+              description:
+                "Send native Telnyx email from a verified sending domain. Configure these credentials in the workspace that owns the Telnyx account; child workspaces using inherited credentials must use that owner's webhook URL.",
               fields: [
                 {
-                  id: "resend-api-key",
+                  id: "telnyx-api-key",
                   type: "secret",
                   fieldProps: {
-                    name: SecretNames.Resend,
+                    name: SecretNames.Telnyx,
                     secretKey: "apiKey",
-                    label: "Resend API Key",
-                    helperText:
-                      "API key, used internally to send emails via resend.",
-                    type: EmailProviderType.Resend,
+                    label: "Telnyx API Key",
+                    helperText: "API key used to send email via Telnyx.",
+                    type: EmailProviderType.Telnyx,
                     saved: isSecretSaved(
-                      SecretNames.Resend,
+                      SecretNames.Telnyx,
                       "apiKey",
                       secretAvailability,
                     ),
                   },
                 },
                 {
-                  id: "resend-webhook-key",
+                  id: "telnyx-public-key",
                   type: "secret",
                   fieldProps: {
-                    name: SecretNames.Resend,
-                    secretKey: "webhookKey",
-                    label: "Webhook Key",
+                    name: SecretNames.Telnyx,
+                    secretKey: "publicKey",
+                    label: "Webhook Public Key",
                     helperText:
-                      "Resend webhook verification key, used to authenticate resend webhook requests.",
-                    type: EmailProviderType.Resend,
+                      "Account Ed25519 public key from Mission Control → Keys & Credentials (Base64, 32 bytes). Required with the API key. Telnyx signs the timestamp and exact raw body; no shared signing secret.",
+                    type: EmailProviderType.Telnyx,
                     saved: isSecretSaved(
-                      SecretNames.Resend,
-                      "webhookKey",
+                      SecretNames.Telnyx,
+                      "publicKey",
                       secretAvailability,
                     ),
                   },
                 },
+                {
+                  id: "telnyx-sandbox-mode",
+                  type: "toggle",
+                  fieldProps: {
+                    labelProps: {
+                      label: "Sandbox mode (validate without delivery)",
+                    },
+                    switchProps: {
+                      checked: sandboxMode,
+                      disabled:
+                        !workspaceId ||
+                        savedSandboxMode === undefined ||
+                        sandboxRequest.type === CompletionStatus.InProgress,
+                      onChange: (_, enabled) => saveSandboxMode(enabled),
+                    },
+                  },
+                },
+                copyToClipboardField({
+                  id: "telnyx-webhook-url",
+                  value: webhookUrl,
+                  helperText:
+                    "Webhook URL for credentials owned by this workspace. Use the credential-owner workspace URL when inheriting a parent account.",
+                  successNotice: "Copied Telnyx webhook URL.",
+                  failureNotice: "Failed to copy Telnyx webhook URL.",
+                }),
               ],
             },
           ],
         },
       ]}
-    />
+    >
+      <Typography variant="body2">
+        Use a publicly reachable HTTPS version of the callback URL above; Telnyx
+        cannot reach localhost. Subscribe to delivery, bounce, complaint, failure,
+        unsubscribe, and enabled tracking events. Requests must include
+        telnyx-signature-ed25519 and
+        telnyx-timestamp; signatures older than five minutes are rejected.
+        Open/click tracking is off by default and configured on the Telnyx sending
+        profile, not per send here. Opens are observations, not verified human
+        engagement; clicks may be scanners.{" "}
+        <a
+          href="https://developers.telnyx.com/docs/messaging/email/webhooks-events"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Telnyx setup and tracking documentation
+        </a>
+      </Typography>
+    </Fields>
   );
 }
 
@@ -792,7 +877,7 @@ function EmailChannelConfig() {
       <DefaultEmailConfig />
       <SendGridConfig />
       <AmazonSesConfig />
-      <ResendConfig />
+      <TelnyxConfig />
       <SmtpConfig />
     </>
   );

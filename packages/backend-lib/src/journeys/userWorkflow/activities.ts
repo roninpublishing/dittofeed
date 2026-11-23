@@ -187,8 +187,10 @@ async function sendMessageInner({
   ...rest
 }: SendParamsInner): Promise<SendMessageInnerResult> {
   let context: Record<string, JSONValue>[] | undefined;
+  let eventContext: UserWorkflowTrackEvent[] | undefined;
   // passing full events is also deprecated
   if (events) {
+    eventContext = events;
     context = events.flatMap((e) => e.properties ?? []);
   } else if (rest.eventIds) {
     const eventsById = await getEventsByIdWithRetry(
@@ -202,12 +204,13 @@ async function sendMessageInner({
       },
     );
     context = eventsById.flatMap((e) => e.properties ?? []);
+    eventContext = eventsById;
   } else if (deprecatedContext) {
     context = [deprecatedContext];
   }
   const [userPropertyAssignments, journey, subscriptionGroup] =
     await Promise.all([
-      findAllUserPropertyAssignments({ userId, workspaceId, context }),
+      findAllUserPropertyAssignments({ userId, workspaceId, context, eventContext }),
       db().query.journey.findFirst({ where: eq(dbJourney.id, journeyId) }),
       subscriptionGroupId
         ? getSubscriptionGroupWithAssignment({
@@ -359,7 +362,7 @@ export function sendMessageFactory(sender: Sender) {
           ...omit(sendResult.error, ["type"]),
         };
       } else {
-        shouldContinue = true;
+        shouldContinue = sendResult.value.type !== InternalEventType.MessageQueued;
         event = sendResult.value.type;
 
         trackingProperties = {

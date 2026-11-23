@@ -16,6 +16,7 @@ import { getOrCreateWriteKey } from "./auth";
 import { createBucket, storage } from "./blobStorage";
 import { getDefaultMessageTemplates } from "./bootstrap/messageTemplates";
 import { createClickhouseDb } from "./clickhouse";
+import { provisionBuiltinUserProperties } from "./builtinUserProperties";
 import {
   startComputePropertiesWorkflow,
   startComputePropertiesWorkflowGlobal,
@@ -127,6 +128,7 @@ export async function bootstrapPostgres({
     workspace = workspaceResult.value;
   }
   const workspaceId = workspace.id;
+  await provisionBuiltinUserProperties(workspaceId);
 
   if (features) {
     await addFeatures({ workspaceId, features });

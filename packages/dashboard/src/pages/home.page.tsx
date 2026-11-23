@@ -28,6 +28,7 @@ import {
 } from "@mui/material";
 import { db } from "backend-lib/src/db";
 import { broadcast, journey, segment } from "backend-lib/src/db/schema";
+import { getPublisherForWorkspace } from "backend-lib/src/newsletters";
 import { and, desc, eq } from "drizzle-orm";
 import { GetServerSideProps } from "next";
 import Link from "next/link";
@@ -52,6 +53,9 @@ type HomeProps = PropsWithInitialState<{
 export const getServerSideProps: GetServerSideProps<HomeProps> = requestContext(
   async (_ctx, dfContext) => {
     const workspaceId = dfContext.workspace.id;
+    if (await getPublisherForWorkspace(workspaceId) === workspaceId) {
+      return { redirect: { destination: "/publications", permanent: false } };
+    }
     const visibleJourneys = and(
       eq(journey.workspaceId, workspaceId),
       eq(journey.resourceType, "Declarative"),

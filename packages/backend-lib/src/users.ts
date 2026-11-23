@@ -24,6 +24,10 @@ import {
   workspace as dbWorkspace,
 } from "./db/schema";
 import logger from "./logger";
+import { deleteTelnyxUserData } from "./messaging/telnyxState";
+import { deleteEmailOpenData } from "./messaging/openTracking";
+import { deleteNewsletterDeliveryData } from "./newsletterDelivery";
+import { deletePublicationAutomationData } from "./publicationAutomations";
 import { withSpan } from "./openTelemetry";
 import { deserializeCursor, serializeCursor } from "./pagination";
 import {
@@ -1491,6 +1495,11 @@ export async function deleteUsers({
   workspaceId,
   userIds,
 }: DeleteUsersRequest): Promise<void> {
+  // Wait for any in-flight inbox projection before deleting native event history.
+  await deleteTelnyxUserData({ workspaceId, userIds });
+  await deleteEmailOpenData({ workspaceId, userIds });
+  await deleteNewsletterDeliveryData({ workspaceId, userIds });
+  await deletePublicationAutomationData({ workspaceId, userIds });
   const qb = new ClickHouseQueryBuilder();
 
   // Define shared query values
@@ -1560,6 +1569,10 @@ export async function deleteAllUsers({
 }: {
   workspaceId: string;
 }): Promise<void> {
+  await deleteTelnyxUserData({ workspaceId });
+  await deleteEmailOpenData({ workspaceId });
+  await deleteNewsletterDeliveryData({ workspaceId });
+  await deletePublicationAutomationData({ workspaceId });
   const qb = new ClickHouseQueryBuilder();
 
   // Define shared query value

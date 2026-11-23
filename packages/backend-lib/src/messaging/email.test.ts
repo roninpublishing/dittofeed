@@ -24,6 +24,7 @@ describe("email", () => {
       .values([
         { workspaceId: workspace.id, type: "PostMark" },
         { workspaceId: workspace.id, type: "MailChimp" },
+        { workspaceId: workspace.id, type: "Resend" },
       ])
       .returning({ id: dbEmailProvider.id });
 
@@ -33,6 +34,7 @@ describe("email", () => {
     expect(providers).toContainEqual(retained);
     expect(providers.map((provider) => provider.type)).not.toContain("PostMark");
     expect(providers.map((provider) => provider.type)).not.toContain("MailChimp");
+    expect(providers.map((provider) => provider.type)).not.toContain("Resend");
     const historical = await db().query.emailProvider.findMany({
       where: inArray(
         dbEmailProvider.id,
@@ -48,6 +50,7 @@ describe("email", () => {
     });
     expect(selected?.emailProviderId).toBe(retained.id);
   });
+
   describe("upsertEmailProvider", () => {
     it("should be able to update an existing email provider", async () => {
       const workspace = await createWorkspace({

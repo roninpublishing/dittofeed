@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 
+import { isValidLinkUrl } from "../../utils/isValidLinkUrl";
 import { Button } from "../button";
 import { Icon } from "../icon";
 import { Surface } from "../surface";
@@ -25,7 +26,7 @@ export const useLinkEditorState = ({
     setUrl(event.target.value);
   }, []);
 
-  const isValidUrl = useMemo(() => /^(\S+):(\/\/)?\S+$/.test(url), [url]);
+  const isValidUrl = useMemo(() => isValidLinkUrl(url), [url]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -66,7 +67,9 @@ export function LinkEditorPanel({
         <label className="flex items-center gap-2 p-2 rounded-lg bg-neutral-100 dark:bg-neutral-900 cursor-text">
           <Icon name="Link" className="flex-none text-black dark:text-white" />
           <input
-            type="url"
+            type="text"
+            inputMode="url"
+            aria-label="Link URL"
             className="flex-1 bg-transparent outline-none min-w-[12rem] text-black text-sm dark:text-white"
             placeholder="Enter URL"
             value={state.url}
@@ -82,6 +85,11 @@ export function LinkEditorPanel({
           Set Link
         </Button>
       </form>
+      <p className="mt-2 max-w-md text-xs text-neutral-500 dark:text-neutral-400">
+        {"Use {{ subscriber_email }} for the recipient, "}
+        {"{{ user.firstName | url_encode }} for a field, or "}
+        {"{{ user.id | sha256 }} for a hash. Tokens are saved exactly as entered."}
+      </p>
       <div className="mt-3">
         {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label className="flex items-center justify-start gap-2 text-sm font-semibold cursor-pointer select-none text-neutral-500 dark:text-neutral-400">

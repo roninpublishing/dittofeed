@@ -283,6 +283,18 @@ export default async function segmentsController(fastify: FastifyInstance) {
         tags: ["Segments"],
         description:
           "Upload a CSV file to add or remove users from a manual segment.",
+        "x-machine-request-body": {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["file"],
+                properties: { file: { type: "string", format: "binary" } },
+              },
+            },
+          },
+        },
         headers: ManualSegmentUploadCsvHeaders,
       },
     },
@@ -362,9 +374,15 @@ export default async function segmentsController(fastify: FastifyInstance) {
       const [rows, segment] = await Promise.all([
         csvPromise,
         db().query.segment.findFirst({
-          where: eq(schema.segment.id, segmentId),
+          where: and(
+            eq(schema.segment.id, segmentId),
+            eq(schema.segment.workspaceId, workspaceId),
+          ),
         }),
       ]);
+      if (!segment) {
+        return reply.status(404).send({ message: "Segment not found." });
+      }
       const definitionResult = schemaValidateWithErr(
         segment?.definition,
         SegmentDefinition,

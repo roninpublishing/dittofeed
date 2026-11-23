@@ -11,6 +11,8 @@ import { Toolbar } from "./toolbar";
 export type EditLinkPopoverProps = {
   onSetLink: (link: string, openInNewTab?: boolean) => void;
   isUnsubscribeLinkSelected: boolean;
+  initialUrl?: string;
+  initialOpenInNewTab?: boolean;
 };
 
 export function useEditLinkPopover({ editor }: { editor: Editor }) {
@@ -25,6 +27,8 @@ export function useEditLinkPopover({ editor }: { editor: Editor }) {
 export function EditLinkPopover({
   isUnsubscribeLinkSelected,
   onSetLink,
+  initialUrl,
+  initialOpenInNewTab,
 }: EditLinkPopoverProps) {
   return (
     <Popover.Root>
@@ -34,7 +38,11 @@ export function EditLinkPopover({
         </Toolbar.Button>
       </Popover.Trigger>
       <Popover.Content>
-        <LinkEditorPanel onSetLink={onSetLink} />
+        <LinkEditorPanel
+          onSetLink={onSetLink}
+          initialUrl={initialUrl}
+          initialOpenInNewTab={initialOpenInNewTab}
+        />
       </Popover.Content>
     </Popover.Root>
   );

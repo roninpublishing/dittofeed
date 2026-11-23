@@ -44,6 +44,7 @@ import {
   ComputedPropertyStep,
   ComputedPropertyStepEnum,
   CursorDirectionEnum,
+  EventValueSource,
   EventType,
   GetUsersRequest,
   GetUsersResponseItem,
@@ -893,6 +894,122 @@ jest.setTimeout(3000000);
 
 describe("computeProperties", () => {
   const tests: TableTest[] = [
+    {
+      description: "EventTime grouped properties and absolute segments preserve millisecond boundaries",
+      userProperties: [
+        { name: "grouped", definition: { type: UserPropertyDefinitionType.Group, entry: "any", nodes: [
+          { id: "any", type: UserPropertyDefinitionType.AnyOf, children: ["click"] },
+          { id: "click", type: UserPropertyDefinitionType.Performed, event: InternalEventType.EmailClicked, valueSource: EventValueSource.EventTime },
+        ] } },
+      ],
+      segments: [
+        { name: "after_at", definition: { entryNode: { id: "click", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailClicked, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.AbsoluteTimestamp, direction: CursorDirectionEnum.After, absoluteTimestamp: "2026-10-03T12:00:00.789Z" } }] }, nodes: [] } },
+        { name: "before_at", definition: { entryNode: { id: "click", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailClicked, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.AbsoluteTimestamp, direction: CursorDirectionEnum.Before, absoluteTimestamp: "2026-10-03T12:00:00.789Z" } }] }, nodes: [] } },
+        { name: "before_next", definition: { entryNode: { id: "click", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailClicked, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.AbsoluteTimestamp, direction: CursorDirectionEnum.Before, absoluteTimestamp: "2026-10-03T12:00:00.790Z" } }] }, nodes: [] } },
+      ],
+      steps: [
+        { type: EventsStepType.SubmitEvents, events: [
+          (ctx) => ({ type: EventType.Track, userId: "clicked", event: InternalEventType.EmailClicked, offsetMs: Date.parse("2026-10-03T12:00:00.789Z") - ctx.now, processingOffsetMs: -100, properties: {} }),
+          (ctx) => ({ type: EventType.Track, userId: "clicked", event: InternalEventType.EmailClicked, offsetMs: Date.parse("2026-10-03T12:00:00.788Z") - ctx.now, processingOffsetMs: -50, properties: {} }),
+        ] },
+        { type: EventsStepType.ComputeProperties },
+        { type: EventsStepType.Assert, users: [
+          { id: "clicked", properties: { grouped: "2026-10-03T12:00:00.789Z" }, segments: { after_at: true, before_at: null, before_next: true } },
+        ] },
+      ],
+    },
+    {
+      description: "last_clicked uses maximum observed event time across sends and late duplicate projections",
+      userProperties: [
+        { name: "last_clicked", definition: { type: UserPropertyDefinitionType.Performed, event: InternalEventType.EmailClicked, valueSource: EventValueSource.EventTime } },
+        { name: "id", definition: { type: UserPropertyDefinitionType.Id } },
+      ],
+      segments: [
+        { name: "recent", definition: { entryNode: { id: "click", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailClicked, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.Within, windowSeconds: 60 } }] }, nodes: [] } },
+        { name: "no_click", definition: { entryNode: { id: "click", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailClicked, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.NotExists } }] }, nodes: [] } },
+        { name: "after", definition: { entryNode: { id: "click", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailClicked, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.AbsoluteTimestamp, direction: CursorDirectionEnum.After, absoluteTimestamp: "2000-01-01T00:00:00.000Z" } }] }, nodes: [] } },
+        { name: "before", definition: { entryNode: { id: "click", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailClicked, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.AbsoluteTimestamp, direction: CursorDirectionEnum.Before, absoluteTimestamp: "2099-01-01T00:00:00.000Z" } }] }, nodes: [] } },
+      ],
+      steps: [
+        { type: EventsStepType.SubmitEvents, events: [
+          { type: EventType.Track, userId: "clicked", messageId: "click-1", event: InternalEventType.EmailClicked, offsetMs: -1234, processingOffsetMs: -100, properties: { messageId: "send-2", clickedAt: "2099-01-01T00:00:00.000Z" } },
+          { type: EventType.Track, userId: "clicked", messageId: "click-1", event: InternalEventType.EmailClicked, offsetMs: -1234, processingOffsetMs: -50, properties: { messageId: "send-2" } },
+          { type: EventType.Track, userId: "clicked", event: InternalEventType.EmailClicked, offsetMs: -10000, processingOffsetMs: -10, properties: { messageId: "send-1" } },
+          { type: EventType.Identify, userId: "unclicked", offsetMs: -100, traits: {} },
+        ] },
+        { type: EventsStepType.ComputeProperties },
+        { type: EventsStepType.Assert, users: [
+          (ctx) => ({ id: "clicked", properties: { id: "clicked", last_clicked: new Date(ctx.now - 1234).toISOString() }, segments: { recent: true, no_click: null, before: true, after: true } }),
+          { id: "unclicked", properties: { id: "unclicked" }, segments: { recent: null, no_click: true, before: null, after: null } },
+        ] },
+        { type: EventsStepType.Assert, verifyUsersSearch: () => ({}), users: [
+          (ctx) => ({ id: "clicked", properties: { id: "clicked", last_clicked: new Date(ctx.now - 1234).toISOString() } }),
+        ] },
+        { type: EventsStepType.Sleep, timeMs: 2000 },
+        { type: EventsStepType.SubmitEvents, events: [
+          { type: EventType.Track, userId: "clicked", event: InternalEventType.EmailClicked, offsetMs: -50000, processingOffsetMs: -100, properties: { messageId: "send-3" } },
+          { type: EventType.Track, userId: "clicked", event: InternalEventType.EmailDelivered, offsetMs: -100, properties: { messageId: "send-2" } },
+        ] },
+        { type: EventsStepType.ComputeProperties },
+        { type: EventsStepType.Assert, users: [
+          (ctx) => ({ id: "clicked", properties: { id: "clicked", last_clicked: new Date(ctx.now - 3234).toISOString() }, segments: { recent: true, no_click: null, before: true, after: true } }),
+        ] },
+        { type: EventsStepType.Sleep, timeMs: 60000 },
+        { type: EventsStepType.ComputeProperties },
+        { type: EventsStepType.Assert, users: [
+          (ctx) => ({ id: "clicked", properties: { id: "clicked", last_clicked: new Date(ctx.now - 63234).toISOString() }, segments: { recent: null, no_click: null, before: true, after: true } }),
+          { id: "unclicked", segments: { recent: null, no_click: true, before: null, after: null } },
+        ] },
+      ],
+    },
+    {
+      description: "last_opened preserves observed event-time maxima across sends, retries and late arrivals without click inference",
+      userProperties: [
+        { name: "last_opened", definition: { type: UserPropertyDefinitionType.Performed, event: InternalEventType.EmailOpened, valueSource: EventValueSource.EventTime } },
+        { name: "last_clicked", definition: { type: UserPropertyDefinitionType.Performed, event: InternalEventType.EmailClicked, valueSource: EventValueSource.EventTime } },
+        { name: "id", definition: { type: UserPropertyDefinitionType.Id } },
+      ],
+      segments: [
+        { name: "recent", definition: { entryNode: { id: "open", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailOpened, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.Within, windowSeconds: 60 } }] }, nodes: [] } },
+        { name: "no_open", definition: { entryNode: { id: "open", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailOpened, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.NotExists } }] }, nodes: [] } },
+        { name: "exists", definition: { entryNode: { id: "open", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailOpened, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.Exists } }] }, nodes: [] } },
+        { name: "after", definition: { entryNode: { id: "open", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailOpened, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.AbsoluteTimestamp, direction: CursorDirectionEnum.After, absoluteTimestamp: "2000-01-01T00:00:00.000Z" } }] }, nodes: [] } },
+        { name: "before", definition: { entryNode: { id: "open", type: SegmentNodeType.LastPerformed, event: InternalEventType.EmailOpened, hasProperties: [{ valueSource: EventValueSource.EventTime, operator: { type: SegmentOperatorType.AbsoluteTimestamp, direction: CursorDirectionEnum.Before, absoluteTimestamp: "2099-01-01T00:00:00.000Z" } }] }, nodes: [] } },
+      ],
+      steps: [
+        { type: EventsStepType.SubmitEvents, events: [
+          { type: EventType.Track, userId: "opened", messageId: "open-1", event: InternalEventType.EmailOpened, offsetMs: -1234, processingOffsetMs: -100, properties: { messageId: "send-2", openedAt: "2099-01-01T00:00:00.000Z", evidenceSource: "owned_pixel", engagementClassification: "observed_unqualified" } },
+          { type: EventType.Track, userId: "opened", messageId: "open-1", event: InternalEventType.EmailOpened, offsetMs: -1234, processingOffsetMs: -50, properties: { messageId: "send-2" } },
+          { type: EventType.Track, userId: "opened", event: InternalEventType.EmailOpened, offsetMs: -10000, processingOffsetMs: -10, properties: { messageId: "send-1" } },
+          { type: EventType.Track, userId: "click-only", event: InternalEventType.EmailClicked, offsetMs: -1000, properties: { messageId: "send-3", openedAt: "2099-01-01T00:00:00.000Z" } },
+          { type: EventType.Identify, userId: "unopened", offsetMs: -100, traits: {} },
+        ] },
+        { type: EventsStepType.ComputeProperties },
+        { type: EventsStepType.Assert, users: [
+          (ctx) => ({ id: "opened", properties: { id: "opened", last_opened: new Date(ctx.now - 1234).toISOString() }, segments: { recent: true, no_open: null, exists: true, before: true, after: true } }),
+          (ctx) => ({ id: "click-only", properties: { id: "click-only", last_clicked: new Date(ctx.now - 1000).toISOString() }, segments: { recent: null, no_open: true, exists: null, before: null, after: null } }),
+          { id: "unopened", properties: { id: "unopened" }, segments: { recent: null, no_open: true, exists: null, before: null, after: null } },
+        ] },
+        { type: EventsStepType.Assert, verifyUsersSearch: () => ({}), users: [
+          (ctx) => ({ id: "opened", properties: { id: "opened", last_opened: new Date(ctx.now - 1234).toISOString() } }),
+        ] },
+        { type: EventsStepType.Sleep, timeMs: 2000 },
+        { type: EventsStepType.SubmitEvents, events: [
+          { type: EventType.Track, userId: "opened", event: InternalEventType.EmailOpened, offsetMs: -50000, processingOffsetMs: -100, properties: { messageId: "send-4" } },
+          { type: EventType.Track, userId: "opened", event: InternalEventType.EmailDelivered, offsetMs: -100, properties: { messageId: "send-2" } },
+        ] },
+        { type: EventsStepType.ComputeProperties },
+        { type: EventsStepType.Assert, users: [
+          (ctx) => ({ id: "opened", properties: { id: "opened", last_opened: new Date(ctx.now - 3234).toISOString() }, segments: { recent: true, no_open: null, exists: true, before: true, after: true } }),
+        ] },
+        { type: EventsStepType.Sleep, timeMs: 60000 },
+        { type: EventsStepType.ComputeProperties },
+        { type: EventsStepType.Assert, users: [
+          (ctx) => ({ id: "opened", properties: { id: "opened", last_opened: new Date(ctx.now - 63234).toISOString() }, segments: { recent: null, no_open: null, exists: true, before: true, after: true } }),
+          { id: "unopened", segments: { recent: null, no_open: true, exists: null, before: null, after: null } },
+        ] },
+      ],
+    },
     {
       description: "computes a trait user property",
       userProperties: [

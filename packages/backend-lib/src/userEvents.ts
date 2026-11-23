@@ -19,6 +19,8 @@ import {
 } from "./db/schema";
 import { kafkaProducer } from "./kafka";
 import logger from "./logger";
+import { enqueuePublicationAutomationEvents } from "./publicationAutomations";
+import { synchronizeNewsletterSubscriptionEvents } from "./newsletterSubscriptions";
 import {
   DownloadEventsRequest,
   EventType,
@@ -89,7 +91,7 @@ async function insertUserEventsDirect({
 
 export async function insertUserEvents(
   { workspaceId, userEvents, events }: InsertUserEventsParams,
-  options?: { writeModeOverride?: WriteMode },
+  options?: { writeModeOverride?: WriteMode; publicationAutomationLockHeld?: boolean },
 ): Promise<void> {
   const { userEventsTopicName } = config();
   const userEventsWithDefault: InsertUserEventInternal[] = arrayDefault(
@@ -104,6 +106,13 @@ export async function insertUserEvents(
   }));
 
   const effectiveWriteMode = options?.writeModeOverride ?? config().writeMode;
+  // Durable intent precedes the native write; the worker verifies exact native
+  // persistence before taking any destination action (including Kafka lag).
+  await enqueuePublicationAutomationEvents({
+    workspaceId,
+    userEvents: userEventsWithDefault,
+    workspaceLockHeld: options?.publicationAutomationLockHeld,
+  });
 
   switch (effectiveWriteMode) {
     // TODO migrate over to new table structure
@@ -142,10 +151,16 @@ export async function insertUserEvents(
       break;
     }
   }
+  await synchronizeNewsletterSubscriptionEvents({
+    workspaceId,
+    userEvents: userEventsWithDefault,
+    workspaceLockHeld: options?.publicationAutomationLockHeld,
+  });
 }
 
 export type UserEventsWithTraits = UserEvent & {
   properties: string;
+  traits?: string;
   context?: string;
 };
 

@@ -125,7 +125,9 @@ export default async function contentController(fastify: FastifyInstance) {
 
       let identifierKey: string | undefined;
       if (channel !== ChannelType.Webhook) {
-        identifierKey = CHANNEL_IDENTIFIERS[channel];
+        identifierKey = channel === ChannelType.Email
+          ? request.body.identifierKey ?? CHANNEL_IDENTIFIERS[channel]
+          : CHANNEL_IDENTIFIERS[channel];
       }
 
       const responseContents: RenderMessageTemplateResponse["contents"] =
@@ -394,10 +396,14 @@ export default async function contentController(fastify: FastifyInstance) {
                   },
                 });
               }
-              case EmailProviderType.Resend: {
-                const { message } = result.error.variant.provider;
-                const suggestions: string[] = [];
-                suggestions.push(message);
+              case EmailProviderType.Telnyx: {
+                const { message, code, status } = result.error.variant.provider;
+                const suggestions = [message, `Telnyx error code: ${code}`];
+                if (status === 401 || status === 403) {
+                  suggestions.push(
+                    "Check the Telnyx API key and verified sending domain.",
+                  );
+                }
                 return reply.status(200).send({
                   type: JsonResultType.Err,
                   err: {

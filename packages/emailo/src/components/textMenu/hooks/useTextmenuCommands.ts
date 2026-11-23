@@ -80,6 +80,7 @@ export const useTextmenuCommands = (editor: Editor) => {
       editor
         .chain()
         .focus()
+        .extendMarkRange("link")
         .setLink({ href: url, target: inNewTab ? "_blank" : "" })
         .run(),
     [editor],

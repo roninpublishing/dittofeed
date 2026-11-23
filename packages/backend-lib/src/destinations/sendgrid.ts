@@ -1,7 +1,8 @@
+import { Client } from "@sendgrid/client";
 import responseError from "@sendgrid/helpers/classes/response-error";
 import sendgridMail from "@sendgrid/mail";
 import { and, eq } from "drizzle-orm";
-import { SecretNames } from "isomorphic-lib/src/constants";
+import { SecretNames, SourceType } from "isomorphic-lib/src/constants";
 import {
   jsonParseSafeWithSchema,
   schemaValidateWithErr,
@@ -16,11 +17,13 @@ import { MESSAGE_METADATA_FIELDS } from "../constants";
 import { verifyTimestampedSignature } from "../crypto";
 import { db } from "../db";
 import * as schema from "../db/schema";
+import { publisher, newsletter } from "../db/publisherSchema";
 import logger from "../logger";
 import {
   BatchAppData,
   BatchItem,
   BatchTrackData,
+  EmailProviderType,
   EventType,
   InternalEventType,
   MessageMetadataFields,
@@ -43,16 +46,29 @@ export const SENDGRID_ID_HEADER = "smtp-id";
 export async function sendMail({
   apiKey,
   mailData,
+  region = "global",
 }: {
   apiKey: string;
   mailData: sendgridMail.MailDataRequired;
+  region?: "global" | "eu";
 }): Promise<
   Result<sendgridMail.ClientResponse | null, sendgridMail.ResponseError>
 > {
-  sendgridMail.setApiKey(apiKey);
-
+  // MailService constructs its own Client: concurrent tenants never share auth.
+  // The package exposes this constructor at runtime but omits it from its singleton type.
+  const { MailService } = sendgridMail as typeof sendgridMail & {
+    MailService: new () => typeof sendgridMail;
+  };
+  const client = new MailService();
+  if (region === "eu") {
+    const regionalClient = new Client();
+    regionalClient.setDefaultRequest("baseUrl", "https://api.eu.sendgrid.com/");
+    client.setClient(regionalClient);
+  }
+  client.setApiKey(apiKey);
+  client.setTimeout(30_000);
   return ResultAsync.fromPromise(
-    sendgridMail.send(mailData),
+    client.send(mailData),
     guardResponseError,
   ).map((resultArray) => resultArray[0]);
 }
@@ -72,6 +88,10 @@ type RelevantSendgridFields = Pick<
   | "templateId"
   | "nodeId"
   | "sg_message_id"
+  | "sg_event_id"
+  | "url"
+  | "useragent"
+  | "ip"
 >;
 
 export function sendgridEventToDF({
@@ -127,21 +147,35 @@ export function sendgridEventToDF({
           ),
         );
       }
-      messageId = uuidv5(
-        `${event}:${sg_message_id}`,
-        sendgridEvent.workspaceId,
-      );
+      // Provider IDs distinguish repeat observations. Legacy events without IDs
+      // can only distinguish occurrence time (and destination for clicks).
+      const identity = event === "click" || event === "open"
+        ? sendgridEvent.sg_event_id
+          ? `${event}:${sendgridEvent.sg_event_id}`
+          : JSON.stringify([event, sg_message_id, timestamp, event === "click" ? sendgridEvent.url ?? null : null])
+        : `${event}:${sg_message_id}`;
+      messageId = uuidv5(identity, sendgridEvent.workspaceId);
       break;
     }
   }
 
   let eventName: InternalEventType;
-  const properties: Record<string, string> = R.merge(
+  const properties: Record<string, unknown> = R.merge(
     { email },
     R.pick(sendgridEvent, MESSAGE_METADATA_FIELDS),
   );
   if (smtpId) {
     properties.smtpId = smtpId;
+  }
+  properties.provider = EmailProviderType.SendGrid;
+  properties.evidenceSource = "sendgrid_webhook";
+  if (sg_message_id) properties.providerMessageId = sg_message_id;
+  if (sendgridEvent.sg_event_id) properties.providerEventId = sendgridEvent.sg_event_id;
+  if (event === "click" || event === "open") {
+    properties.engagementClassification = "observed_unqualified";
+    if (sendgridEvent.url) properties.url = sendgridEvent.url;
+    if (sendgridEvent.useragent) properties.user_agent = sendgridEvent.useragent;
+    if (sendgridEvent.ip) properties.ip = sendgridEvent.ip;
   }
 
   switch (event) {
@@ -171,6 +205,8 @@ export function sendgridEventToDF({
   }
 
   const itemTimestamp = new Date(timestamp * 1000).toISOString();
+  if (eventName === InternalEventType.EmailClicked) properties.clickedAt = itemTimestamp;
+  if (eventName === InternalEventType.EmailOpened) properties.openedAt = itemTimestamp;
   let item: BatchTrackData;
   if (sendgridEvent.userId) {
     item = {
@@ -180,6 +216,7 @@ export function sendgridEventToDF({
       properties,
       messageId,
       timestamp: itemTimestamp,
+      context: { source: SourceType.Webhook, provider: EmailProviderType.SendGrid },
     };
   } else {
     return err(new Error("Missing userId."));
@@ -196,13 +233,11 @@ export async function submitSendgridEvents({
   events: SendgridEvent[];
 }) {
   const data: BatchAppData = {
+    context: { source: SourceType.Webhook, provider: EmailProviderType.SendGrid },
     batch: events.flatMap((e) =>
       sendgridEventToDF({ sendgridEvent: e })
         .mapErr((error) => {
-          logger().error(
-            { err: error },
-            "Failed to convert sendgrid event to DF.",
-          );
+          logger().error("Failed to convert sendgrid event to DF.");
           return error;
         })
         .unwrapOr([]),
@@ -315,6 +350,15 @@ export async function handleSendgridEvents({
   if (!workspaceId) {
     return err({ message: "No workspaceId found in events." });
   }
+  // Central newsletter callbacks must use the signed connection endpoint, never
+  // the legacy metadata-selected credential path.
+  const [centralPublisher, centralNewsletter] = await Promise.all([
+    db().select().from(publisher).where(eq(publisher.workspaceId, workspaceId)).limit(1),
+    db().select().from(newsletter).where(eq(newsletter.workspaceId, workspaceId)).limit(1),
+  ]);
+  if (centralPublisher.length || centralNewsletter.length) {
+    return err({ message: "Use the connection callback endpoint." });
+  }
 
   // - lookup the webhook secret for the workspace id
   const secret = await db().query.secret.findFirst({
@@ -337,7 +381,7 @@ export async function handleSendgridEvents({
   // - use the webhook signature and timestamp to verify the request
   const publicKey = `-----BEGIN PUBLIC KEY-----\n${webhookKey}\n-----END PUBLIC KEY-----`;
 
-  if (!rawBody || typeof rawBody !== "string") {
+  if (!rawBody) {
     logger().error({ workspaceId }, "Missing rawBody on sendgrid webhook.");
     throw new Error("Missing rawBody on sendgrid webhook.");
   }

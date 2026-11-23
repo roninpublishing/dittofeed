@@ -23,7 +23,6 @@ import { validate as validateUuid } from "uuid";
 
 import { submitBatch } from "./apps/batch";
 import { getObject, storage } from "./blobStorage";
-import { MESSAGE_METADATA_FIELDS } from "./constants";
 import { db, TxQueryError, txQueryResult } from "./db";
 import {
   defaultEmailProvider as dbDefaultEmailProvider,
@@ -39,9 +38,9 @@ import {
   SesMailData,
 } from "./destinations/amazonses";
 import {
-  ResendRequiredData,
-  sendMail as sendMailResend,
-} from "./destinations/resend";
+  sendMail as sendMailTelnyx,
+  TelnyxMailData,
+} from "./destinations/telnyx";
 import { sendMail as sendMailSendgrid } from "./destinations/sendgrid";
 import {
   sendMail as sendMailSmtp,
@@ -53,6 +52,7 @@ import {
   SendGmailEmailParams,
 } from "./gmail";
 import config from "./config";
+import { MESSAGE_METADATA_FIELDS } from "./constants";
 import { renderLiquid } from "./liquid";
 import { storeEmailForViewInBrowser } from "./viewInBrowser";
 import logger from "./logger";
@@ -60,6 +60,8 @@ import {
   constructUnsubscribeHeaders,
   UnsubscribeHeaders,
 } from "./messaging/email";
+import { prepareEmailOpenTracking } from "./messaging/openTracking";
+import { getNewsletterEmailContext, NewsletterEmailContext, sendNewsletterEmail } from "./newsletterDelivery";
 import { withSpan } from "./openTelemetry";
 import {
   getSubscriptionGroupDetails,
@@ -632,7 +634,10 @@ function validateSelectedEmailProvider(
   if (!provider) {
     return ok(null);
   }
-  const providerType = schemaValidateWithErr(provider.type, EmailProviderTypeSchema);
+  const providerType = schemaValidateWithErr(
+    provider.type,
+    EmailProviderTypeSchema,
+  );
   const secretConfig = schemaValidateWithErr(
     provider.secret?.configValue,
     EmailProviderSecret,
@@ -698,7 +703,12 @@ async function getEmailProvider({
   providerOverride?: EmailProviderTypeSchema;
   workspaceOccupantId?: string;
   workspaceOccupantType?: string;
-}): Promise<Result<EmailProviderSecret, MessageSendFailure>> {
+}): Promise<
+  Result<
+    { secret: EmailProviderSecret; credentialWorkspaceId: string },
+    MessageSendFailure
+  >
+> {
   if (
     providerOverride !== undefined &&
     schemaValidateWithErr(providerOverride, EmailProviderTypeSchema).isErr()
@@ -706,6 +716,7 @@ async function getEmailProvider({
     return err(PROVIDER_NOT_FOUND_ERROR);
   }
   let emailProviderSecret: EmailProviderSecret | null = null;
+  let credentialWorkspaceId = workspaceId;
   if (providerOverride && !isWorkspaceWideProvider(providerOverride)) {
     if (
       !workspaceOccupantId ||
@@ -771,6 +782,7 @@ async function getEmailProvider({
       return err(PROVIDER_NOT_FOUND_ERROR);
     }
 
+    credentialWorkspaceId = secret.workspaceId;
     const secretConfigResult = schemaValidateWithErr(
       secret.configValue,
       EmailProviderSecret,
@@ -787,7 +799,7 @@ async function getEmailProvider({
     }
     emailProviderSecret = secretConfigResult.value;
   }
-  return ok(emailProviderSecret);
+  return ok({ secret: emailProviderSecret, credentialWorkspaceId });
 }
 
 export async function sendEmail({
@@ -804,6 +816,27 @@ export async function sendEmail({
   SendMessageParametersEmail,
   "channel"
 >): Promise<BackendMessageSendResult> {
+  let newsletterContext: NewsletterEmailContext | null;
+  try {
+    newsletterContext = await getNewsletterEmailContext(workspaceId);
+  } catch {
+    return err({
+      type: InternalEventType.BadWorkspaceConfiguration,
+      variant: {
+        type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
+        message: "Publisher workspaces cannot send email",
+      },
+    });
+  }
+  if (newsletterContext && !messageTags?.messageId) {
+    return err({
+      type: InternalEventType.BadWorkspaceConfiguration,
+      variant: {
+        type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
+        message: "Newsletter email requires a stable logical message ID",
+      },
+    });
+  }
   const [getSendModelsResult, emailProviderResult, viewInBrowserSecretRecord] =
     await Promise.all([
       getSendMessageModels({
@@ -813,12 +846,14 @@ export async function sendEmail({
         useDraft,
         subscriptionGroupDetails,
       }),
-      getEmailProvider({
-        workspaceId,
-        providerOverride,
-        workspaceOccupantId: messageTags?.workspaceOccupantId,
-        workspaceOccupantType: messageTags?.workspaceOccupantType,
-      }),
+      newsletterContext
+        ? Promise.resolve(null)
+        : getEmailProvider({
+            workspaceId,
+            providerOverride,
+            workspaceOccupantId: messageTags?.workspaceOccupantId,
+            workspaceOccupantType: messageTags?.workspaceOccupantType,
+          }),
       db().query.secret.findFirst({
         where: and(
           eq(dbSecret.workspaceId, workspaceId),
@@ -1108,11 +1143,54 @@ export async function sendEmail({
     mimeType,
   }));
 
-  if (emailProviderResult.isErr()) {
-    return err(emailProviderResult.error);
+  if (emailProviderResult) {
+    if (emailProviderResult.isErr()) return err(emailProviderResult.error);
   }
-  const emailProvider = emailProviderResult.value;
-
+  // Keep stored/native previews untracked; only the actual transport gets a pixel.
+  // A shared CC/BCC copy cannot identify which recipient loaded its image.
+  const transportBody =
+    config().enableOpenTracking &&
+    !isPreview &&
+    messageTags?.messageId &&
+    !cc?.length &&
+    !bcc?.length
+      ? await prepareEmailOpenTracking({
+          workspaceId,
+          userId,
+          messageId: messageTags.messageId,
+          html: body,
+        })
+      : body;
+  if (newsletterContext) {
+    return sendNewsletterEmail({
+      workspaceId,
+      publisherId: newsletterContext.publisherId,
+      userId,
+      logicalMessageId: messageTags?.messageId ?? randomUUID(),
+      tags: messageTags,
+      subscriptionGroupId: subscriptionGroupDetails?.id,
+      from,
+      recipients: [to, ...(cc ?? []), ...(bcc ?? [])],
+      mailData: {
+        to, from: { email: from, name: emailName }, subject, html: transportBody,
+        replyTo, headers, cc, bcc,
+        attachments: attachments?.map((attachment) => ({
+          content: attachment.data, type: attachment.mimeType, filename: attachment.name,
+        })),
+        customArgs: { ...messageTags, workspaceId, userId, templateId },
+      },
+      success: {
+        type: InternalEventType.MessageSent,
+        variant: {
+          type: ChannelType.Email, from, body, to, subject, headers, replyTo,
+          cc: unsplitCc, bcc: unsplitBcc, name: emailName, attachments: attachmentsSent,
+          provider: { type: EmailProviderType.SendGrid },
+        },
+      },
+    });
+  }
+  if (!emailProviderResult) return err(PROVIDER_NOT_FOUND_ERROR);
+  const { secret: emailProvider, credentialWorkspaceId } = emailProviderResult.value;
   switch (emailProvider.type) {
     case EmailProviderType.Smtp: {
       const { host, port } = emailProvider;
@@ -1150,7 +1228,7 @@ export async function sendEmail({
         subject,
         replyTo,
         name: emailName,
-        body,
+        body: transportBody,
         host,
         port: numPort,
         headers,
@@ -1207,7 +1285,7 @@ export async function sendEmail({
           name: emailName,
         },
         subject,
-        html: body,
+        html: transportBody,
         replyTo,
         headers,
         cc,
@@ -1281,7 +1359,7 @@ export async function sendEmail({
         to,
         from: fromWithName,
         subject,
-        html: body,
+        html: transportBody,
         replyTo,
         cc,
         bcc,
@@ -1395,7 +1473,7 @@ export async function sendEmail({
           to,
           from: overriddenFrom,
           subject,
-          bodyHtml: body,
+          bodyHtml: transportBody,
           replyTo,
           cc,
           bcc,
@@ -1436,55 +1514,76 @@ export async function sendEmail({
       });
     }
 
-    case EmailProviderType.Resend: {
-      const resendAttachments: ResendRequiredData["attachments"] =
-        attachments?.map((attachment) => ({
-          filename: attachment.name,
-          content: attachment.data,
-        }));
-      const fromWithName = emailName ? `${emailName} <${from}>` : from;
-      const mailData: ResendRequiredData = {
-        to,
-        from: fromWithName,
-        subject,
-        html: body,
-        replyTo,
-        headers,
-        cc,
-        bcc,
-        tags: messageTags
-          ? Object.entries(messageTags).map(([name, value]) => ({
-              name,
-              value,
-            }))
-          : [],
-        attachments: resendAttachments,
-      };
-
-      if (!emailProvider.apiKey) {
+    case EmailProviderType.Telnyx: {
+      if (!emailProvider.apiKey || !emailProvider.publicKey) {
         return err({
           type: InternalEventType.BadWorkspaceConfiguration,
           variant: {
             type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: `missing apiKey in resend secret config`,
+            message: "Telnyx requires an API key and webhook public key.",
           },
         });
       }
-
-      const result = await sendMailResend({
-        mailData,
-        apiKey: emailProvider.apiKey,
+      const metadata: Record<string, string> = {};
+      const correlationFields = [
+        ...MESSAGE_METADATA_FIELDS,
+        "channel",
+        "triggeringMessageId",
+        "subscriptionGroupId",
+      ];
+      for (const field of correlationFields) {
+        const value = (messageTags as Record<string, unknown> | undefined)?.[
+          field
+        ];
+        if (typeof value === "string") {
+          metadata[field] = value;
+        }
+      }
+      Object.assign(metadata, {
+        workspaceId,
+        userId,
+        messageId: messageTags?.messageId ?? "",
+        templateId,
+        channel: ChannelType.Email,
       });
-
+      if (subscriptionGroupDetails) {
+        metadata.subscriptionGroupId = subscriptionGroupDetails.id;
+      }
+      const mailData: TelnyxMailData = {
+        from: emailName ? { email: from, name: emailName } : from,
+        to: [to],
+        subject,
+        html_body: transportBody,
+        reply_to: replyTo,
+        cc,
+        bcc,
+        headers,
+        metadata,
+        attachments: attachments?.map((attachment) => ({
+          filename: attachment.name,
+          content_type: attachment.mimeType,
+          content: attachment.data,
+        })),
+        sandbox_mode: emailProvider.sandboxMode,
+      };
+      const result = await sendMailTelnyx({
+        apiKey: emailProvider.apiKey,
+        publicKey: emailProvider.publicKey,
+        mailData,
+        workspaceId,
+        credentialWorkspaceId,
+        messageId: messageTags?.messageId ?? "",
+        userId,
+        primaryEmail: to,
+      });
       if (result.isErr()) {
         return err({
           type: InternalEventType.MessageFailure,
           variant: {
             type: ChannelType.Email,
             provider: {
-              type: EmailProviderType.Resend,
-              name: result.error.name,
-              message: result.error.message,
+              type: EmailProviderType.Telnyx,
+              ...result.error,
             },
           },
         });
@@ -1504,7 +1603,8 @@ export async function sendEmail({
           replyTo,
           attachments: attachmentsSent,
           provider: {
-            type: EmailProviderType.Resend,
+            type: EmailProviderType.Telnyx,
+            messageId: result.value.messageId,
           },
         },
       });
@@ -1551,6 +1651,17 @@ export async function sendWebhook({
   SendMessageParametersWebhook,
   "channel"
 >): Promise<BackendMessageSendResult> {
+  try {
+    await getNewsletterEmailContext(workspaceId);
+  } catch {
+    return err({
+      type: InternalEventType.BadWorkspaceConfiguration,
+      variant: {
+        type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
+        message: "Publisher workspaces cannot send messages",
+      },
+    });
+  }
   const [getSendModelsResult, secret] = await Promise.all([
     getSendMessageModels({
       workspaceId,
@@ -2051,6 +2162,18 @@ export async function batchMessageUsers(
                   userId: user.id,
                   type: BatchMessageUsersResultTypeEnum.Success,
                   messageId,
+                },
+                messageResult,
+              ] satisfies MessageSendResultWithResponseItem;
+            case InternalEventType.MessageQueued:
+              return [
+                {
+                  userId: user.id,
+                  type: BatchMessageUsersResultTypeEnum.Queued,
+                  messageId,
+                  sendId: messageResult.value.sendId,
+                  state: messageResult.value.state,
+                  nextAttemptAt: messageResult.value.nextAttemptAt,
                 },
                 messageResult,
               ] satisfies MessageSendResultWithResponseItem;

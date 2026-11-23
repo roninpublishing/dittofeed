@@ -1,8 +1,10 @@
 /* eslint-disable no-underscore-dangle */
+import { createHash } from "crypto";
 import { SecretNames } from "isomorphic-lib/src/constants";
-import { Liquid } from "liquidjs";
+import { Context, Liquid, Tokenizer, TokenKind, toValue } from "liquidjs";
 import MarkdownIt from "markdown-it";
 import mjml2html from "mjml";
+import addressparser from "nodemailer/lib/addressparser";
 
 import config from "./config";
 import logger from "./logger";
@@ -75,11 +77,86 @@ export const liquidEngine = new Liquid({
 
 liquidEngine.registerFilter("markdown", (value) => md.render(value as string));
 
+function hashScalar(value: unknown, algorithm: "sha256" | "md5"): string {
+  const scalar: unknown = toValue(value);
+  if (scalar === null || scalar === undefined) return "";
+  if (!["string", "number", "boolean"].includes(typeof scalar)) {
+    throw new Error("Hash input must be a string, number, or boolean.");
+  }
+  return createHash(algorithm).update(String(scalar), "utf8").digest("hex");
+}
+
+liquidEngine.registerFilter("sha256", (value: unknown) => hashScalar(value, "sha256"));
+liquidEngine.registerFilter("md5", (value: unknown) => hashScalar(value, "md5"));
+
+// Encode explicit recipient outputs, not rendered HTML or inserted contact data.
+// The tokenizer preserves raw blocks and whitespace-control delimiters.
+function encodeSubscriberOutputs(template: string): string {
+  if (!template.includes("subscriber_email")) return template;
+  const tokens = new Tokenizer(template).readTopLevelTokens(liquidEngine.options);
+  let result = "";
+  let start = 0;
+  for (const token of tokens) {
+    if (token.kind !== TokenKind.Output) continue;
+    const expression = token.getText().slice(2, -2).replace(/^-/, "").replace(/-$/, "");
+    if (!/^\s*subscriber_email(?:_sha256|_md5)?\s*(?:\||$)/.test(expression)) continue;
+    const tokenizer = new Tokenizer(expression);
+    tokenizer.readValue();
+    if (tokenizer.readFilters().some((filter) => filter.name === "url_encode")) continue;
+    let insertion = token.end - 2;
+    if (template[insertion - 1] === "-") insertion -= 1;
+    result += `${template.slice(start, insertion)} | url_encode `;
+    start = insertion;
+  }
+  return start ? result + template.slice(start) : template;
+}
+
+function addSubscriberTokens(scope: Record<string, unknown>, recipient: unknown): void {
+  let resolved = false;
+  let mailbox: string | undefined;
+  let sha256: string | undefined;
+  let md5: string | undefined;
+  const resolveMailbox = () => {
+    if (!resolved) {
+      resolved = true;
+      if (typeof recipient === "string" && !/[\r\n\0]/.test(recipient)) {
+        const addresses = addressparser(recipient, { flatten: true });
+        const address = addresses.length === 1 ? addresses[0]?.address : undefined;
+        if (address?.includes("@")) mailbox = address;
+      }
+    }
+    return mailbox;
+  };
+  // Non-enumerable getters stay lazy when system tags inspect context.getAll().
+  // Missing/ambiguous recipients remain undefined for Liquid's strict/default rules.
+  Object.defineProperties(scope, {
+    subscriber_email: { get: resolveMailbox },
+    subscriber_email_sha256: {
+      get: () => {
+        const email = resolveMailbox();
+        if (email === undefined) return undefined;
+        sha256 ??= hashScalar(email, "sha256");
+        return sha256;
+      },
+    },
+    subscriber_email_md5: {
+      get: () => {
+        const email = resolveMailbox();
+        if (email === undefined) return undefined;
+        md5 ??= hashScalar(email, "md5");
+        return md5;
+      },
+    },
+  });
+}
+
 type Secrets = Record<string, string>;
 
-function generateUnsubscribeUrl(scope: any): string {
+// Signing material must never enter the template-visible Liquid environment.
+const subscriptionSecrets = new WeakMap<Context, string>();
+
+function generateUnsubscribeUrl(scope: Context): string {
   const allScope = scope.getAll() as Record<string, unknown>;
-  const secrets = allScope.secrets as Secrets | undefined;
   const workspaceId = allScope.workspace_id as string;
   const subscriptionGroupId = allScope.subscription_group_id as
     | string
@@ -93,7 +170,7 @@ function generateUnsubscribeUrl(scope: any): string {
     : null;
   const userId = assignmentAsString(userProperties, "id");
 
-  const subscriptionSecret = secrets?.[SecretNames.Subscription];
+  const subscriptionSecret = subscriptionSecrets.get(scope);
   if (subscriptionSecret && identifierKey && identifier && userId) {
     return generateSubscriptionChangeUrl({
       workspaceId,
@@ -119,9 +196,8 @@ function generateUnsubscribeUrl(scope: any): string {
   return "";
 }
 
-function generateSubscriptionManagementUrl(scope: any): string {
+function generateSubscriptionManagementUrl(scope: Context): string {
   const allScope = scope.getAll() as Record<string, unknown>;
-  const secrets = allScope.secrets as Secrets | undefined;
   const workspaceId = allScope.workspace_id as string;
   const userProperties = allScope.user as UserPropertyAssignments;
   const identifierKey = allScope.identifier_key as string | undefined;
@@ -132,7 +208,7 @@ function generateSubscriptionManagementUrl(scope: any): string {
     : null;
   const userId = assignmentAsString(userProperties, "id");
 
-  const subscriptionSecret = secrets?.[SecretNames.Subscription];
+  const subscriptionSecret = subscriptionSecrets.get(scope);
   if (subscriptionSecret && identifierKey && identifier && userId) {
     return generateSubscriptionChangeUrl({
       workspaceId,
@@ -271,17 +347,34 @@ export function renderLiquid({
     return "";
   }
 
-  const liquidRendered = liquidEngine.parseAndRenderSync(template, {
+  const {
+    [SecretNames.Subscription]: subscriptionSecret,
+    ...templateSecrets
+  } = secrets;
+  const scope = {
     user: userProperties,
     workspace_id: workspaceId,
     subscription_group_id: subscriptionGroupId,
-    secrets,
+    secrets: templateSecrets,
     identifier_key: identifierKey,
     // TODO [DF-471] remove default
     tags: tags ?? {},
     is_preview: isPreview,
     message_id: messageId,
-  }) as string;
+  };
+  addSubscriberTokens(scope, userProperties[identifierKey ?? "email"]);
+  const context = new Context(
+    scope,
+    liquidEngine.options,
+    { sync: true },
+  );
+  if (subscriptionSecret) {
+    subscriptionSecrets.set(context, subscriptionSecret);
+  }
+  const liquidRendered = liquidEngine.parseAndRenderSync(
+    encodeSubscriberOutputs(template),
+    context,
+  ) as string;
   if (!mjml) {
     return liquidRendered;
   }

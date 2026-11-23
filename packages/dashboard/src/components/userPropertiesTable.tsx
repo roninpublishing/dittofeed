@@ -189,7 +189,7 @@ function ActionsCell({ row, table }: CellContext<Row, unknown>) {
   };
 
   const handleToggleStatus = () => {
-    if (!toggleUserPropertyStatus) {
+    if (!toggleUserPropertyStatus || isProtected) {
       return;
     }
     const newStatus =
@@ -201,7 +201,7 @@ function ActionsCell({ row, table }: CellContext<Row, unknown>) {
   };
 
   const handleDelete = () => {
-    if (!deleteUserProperty) {
+    if (!deleteUserProperty || isProtected) {
       return;
     }
     deleteUserProperty(rowId);

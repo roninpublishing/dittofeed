@@ -31,6 +31,14 @@ const menuItems: { items: MenuItemGroup[] } = {
           icon: HomeOutlined,
           description: "Open your workspace home dashboard.",
         },
+        {
+          id: "publications",
+          title: "Newsletters",
+          type: "item",
+          url: "/publications",
+          icon: BookOutlined,
+          description: "Manage independent publications and publisher-wide sending infrastructure.",
+        },
       ],
     },
     {

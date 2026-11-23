@@ -7,6 +7,7 @@ import { sleep } from "isomorphic-lib/src/time";
 import { ok } from "neverthrow";
 
 import { submitBatch } from "../../apps/batch";
+import { provisionBuiltinUserProperties } from "../../builtinUserProperties";
 import { getEarliestComputePropertyPeriod } from "../../computedProperties/periods";
 import { db } from "../../db";
 import * as schema from "../../db/schema";
@@ -206,6 +207,31 @@ describe("user workflows activity test", () => {
         });
       });
 
+      it("passes the newest matching EventTime assignment to message templates", async () => {
+        const property = await provisionBuiltinUserProperties(workspaceId);
+        await insertUserPropertyAssignments([{
+          workspaceId, userId: user1Id, userPropertyId: property.id,
+          value: "2026-10-01T12:00:00.789Z",
+        }]);
+        const sendMessage = sendMessageFactory(senderMock);
+        expect(await sendMessage({
+          journeyId, workspaceId, userId: user1Id, messageId: randomUUID(),
+          runId: randomUUID(), nodeId: randomUUID(), channel: ChannelType.Email, templateId,
+          events: [
+            { event: InternalEventType.EmailClicked, messageId: randomUUID(), timestamp: "2026-10-03T09:00:00.123-04:00" },
+            { event: InternalEventType.EmailDelivered, messageId: randomUUID(), timestamp: "2099-01-01T00:00:00Z" },
+            { event: InternalEventType.EmailClicked, messageId: randomUUID(), timestamp: "2026-09-01T00:00:00Z" },
+            { event: InternalEventType.EmailOpened, messageId: randomUUID(), timestamp: "2026-10-02T12:00:00.456Z", properties: { openedAt: "2099-01-01T00:00:00Z" } },
+            { event: InternalEventType.EmailOpened, messageId: randomUUID(), timestamp: "2026-09-01T00:00:00Z" },
+          ],
+        })).toBe(true);
+        expect(senderMock).toHaveBeenLastCalledWith(expect.objectContaining({
+          userPropertyAssignments: expect.objectContaining({
+            last_clicked: "2026-10-03T13:00:00.123Z",
+            last_opened: "2026-10-02T12:00:00.456Z",
+          }),
+        }));
+      });
       it("should calculate AnyOf Performed user properties", async () => {
         const sendMessage = sendMessageFactory(senderMock);
         const result = await sendMessage({

@@ -31,6 +31,7 @@ import {
   ComputedPropertyUpdate,
   CursorDirectionEnum,
   EmailSegmentNode,
+  EventValueSource,
   GroupChildrenUserPropertyDefinitions,
   GroupUserPropertyDefinition,
   HasStartedJourneyResource,
@@ -63,6 +64,9 @@ import {
   Period,
   PeriodByComputedPropertyId,
 } from "./periods";
+
+const EVENT_TIME_VALUE =
+  "concat(formatDateTime(ue.event_time, '%Y-%m-%dT%H:%i:%S', 'UTC'), '.', leftPad(toString(modulo(toUnixTimestamp64Milli(ue.event_time), 1000)), 3, '0'), 'Z')";
 
 type AsyncWrapper = <T>(fn: () => Promise<T>) => Promise<T>;
 
@@ -1396,13 +1400,15 @@ function segmentToResolvedState({
       });
     }
     case SegmentNodeType.LastPerformed: {
+      const eventTimeSource = node.hasProperties?.some((p) => p.valueSource === EventValueSource.EventTime);
+      const lastValue = eventTimeSource ? "coalesce(clicks.last_value, '')" : "argMaxMerge(last_value)";
       const varName = qb.getVariableName();
       const hasPropertyConditions =
         node.hasProperties?.flatMap((property, i) => {
           const operatorType = property.operator.type;
           const reference =
             i === 0
-              ? `(JSONExtract(argMaxMerge(last_value), 'Array(String)') as ${varName})`
+              ? `(JSONExtract(${lastValue}, 'Array(String)') as ${varName})`
               : varName;
           const indexedReference = `${reference}[${i + 1}]`;
 
@@ -1433,6 +1439,16 @@ function segmentToResolvedState({
                 "Float64",
               )}`;
             }
+            case SegmentOperatorType.Within:
+            case SegmentOperatorType.AbsoluteTimestamp: {
+              const timestamp = `parseDateTime64BestEffortOrNull(${indexedReference}, 3, 'UTC')`;
+              if (property.operator.type === SegmentOperatorType.Within) {
+                const lowerBound = (now - property.operator.windowSeconds * 1000) / 1000;
+                return `${timestamp} >= toDateTime64(${qb.addQueryValue(lowerBound, "Float64")}, 3, 'UTC')`;
+              }
+              const comparator = property.operator.direction === CursorDirectionEnum.After ? ">=" : "<";
+              return `${timestamp} ${comparator} parseDateTime64BestEffort(${qb.addQueryValue(property.operator.absoluteTimestamp, "String")}, 3, 'UTC')`;
+            }
             case SegmentOperatorType.Exists: {
               return `${indexedReference} != ''`;
             }
@@ -1449,6 +1465,44 @@ function segmentToResolvedState({
         ? `(${hasPropertyConditions.join(" and ")})`
         : `1=1`;
 
+      if (eventTimeSource) {
+        const workspaceParam = qb.addQueryValue(workspaceId, "String");
+        const segmentParam = qb.addQueryValue(segment.id, "String");
+        const stateParam = qb.addQueryValue(stateId, "String");
+        const clickStates = `
+          select user_id, argMaxMerge(last_value) as last_value,
+            max(event_time) as max_event_time
+          from computed_property_state_v3
+          where workspace_id = ${workspaceParam} and type = 'segment'
+            and computed_property_id = ${segmentParam} and state_id = ${stateParam}
+            and computed_at <= toDateTime64(${nowSeconds}, 3)
+          group by user_id
+        `;
+        const includesAbsent = node.hasProperties?.some((property) =>
+          property.valueSource === EventValueSource.EventTime &&
+          property.operator.type === SegmentOperatorType.NotExists,
+        );
+        // Only absence needs the full contact registry. Other conditions scan
+        // existing click state so time windows expire without new events.
+        const source = includesAbsent
+          ? `(
+              select distinct user_or_anonymous_id as user_id
+              from user_events_v2
+              where workspace_id = ${workspaceParam}
+                and processing_time <= toDateTime64(${nowSeconds}, 3)
+            ) contacts left join (${clickStates}) clicks on contacts.user_id = clicks.user_id`
+          : `(${clickStates}) clicks`;
+        return [`
+          insert into resolved_segment_state
+          select
+            ${workspaceParam}, ${segmentParam}, ${stateParam},
+            ${includesAbsent ? "contacts" : "clicks"}.user_id,
+            coalesce(${expression}, False),
+            coalesce(clicks.max_event_time, toDateTime64(0, 3)),
+            toDateTime64(${nowSeconds}, 3)
+          from ${source}
+        `];
+      }
       return [
         buildRecentUpdateSegmentQuery({
           workspaceId,
@@ -2056,8 +2110,11 @@ export function segmentNodeToStateSubQuery({
       });
       const propertyValues =
         node.hasProperties?.flatMap((property) => {
+          if (property.valueSource === EventValueSource.EventTime) {
+            return EVENT_TIME_VALUE;
+          }
           const path = toJsonPathParamCh({
-            path: property.path,
+            path: property.path ?? "",
             qb,
           });
           if (!path) {
@@ -2221,14 +2278,14 @@ function leafUserPropertyToSubQuery({
         return null;
       }
       const stateId = userPropertyStateId(userProperty, child.id);
-      if (child.path.length === 0 || !stateId) {
+      const eventTimeSource = child.valueSource === EventValueSource.EventTime;
+      if (!stateId || (!eventTimeSource && !child.path?.length)) {
         return null;
       }
-      const path = toJsonPathParamCh({
-        path: child.path,
-        qb,
-      });
-      if (!path) {
+      const path = eventTimeSource
+        ? null
+        : toJsonPathParamCh({ path: child.path ?? "", qb });
+      if (!eventTimeSource && !path) {
         return null;
       }
       let propertiesCondition: string | null = null;
@@ -2263,7 +2320,7 @@ function leafUserPropertyToSubQuery({
       if (prefixCondition) {
         conditions.push(prefixCondition);
       }
-      if (excludeNulls) {
+      if (excludeNulls && !eventTimeSource) {
         conditions.push(`JSON_VALUE(properties, ${path}) != 'null'`);
       }
       if (propertiesCondition) {
@@ -2273,7 +2330,9 @@ function leafUserPropertyToSubQuery({
         condition: conditions.join(" and "),
         type: "user_property",
         uniqValue: "''",
-        argMaxValue: `JSON_VALUE(properties, ${path})`,
+        argMaxValue: eventTimeSource
+          ? EVENT_TIME_VALUE
+          : `JSON_VALUE(properties, ${path})`,
         computedPropertyId: userProperty.id,
         stateId,
       };
@@ -4355,15 +4414,15 @@ function leafUserPropertyToPruned({
     }
     case UserPropertyDefinitionType.Performed: {
       const varName = qb.getVariableName();
-      const path = toJsonPathParamCh({
-        path: node.path,
-        qb,
-      });
-      if (!path) {
+      const eventTimeSource = node.valueSource === EventValueSource.EventTime;
+      const path = eventTimeSource
+        ? null
+        : toJsonPathParamCh({ path: node.path ?? "", qb });
+      if (!eventTimeSource && !path) {
         return [];
       }
       const conditions: string[] = ["event_type == 'track'"];
-      if (!config().skipPruneJsonExists) {
+      if (!eventTimeSource && !config().skipPruneJsonExists) {
         conditions.push(`JSON_EXISTS(properties, ${path})`);
       }
       const prefixCondition = getPrefixCondition({
@@ -4570,6 +4629,10 @@ function segmentNodeToPruned({
       });
     }
     case SegmentNodeType.LastPerformed: {
+      // Recency can expire without new events; no-click must see new contacts.
+      if (node.hasProperties?.some((p) => p.valueSource === EventValueSource.EventTime)) {
+        return [];
+      }
       const varName = qb.getVariableName();
       const conditions: string[] = ["event_type == 'track'"];
       const prefixCondition = getPrefixCondition({

@@ -1,0 +1,85 @@
+---
+title: Telnyx Email Integration
+---
+
+Dittofeed sends native Telnyx email using [the Email API](https://developers.telnyx.com/docs/messaging/email/send-email) and receives [signed native events](https://developers.telnyx.com/docs/messaging/email/webhooks-events). A successful API response means queued acceptance, not delivery. No live Telnyx delivery has been verified for this fork.
+
+## Account and settings
+
+Verify your sending domain in Telnyx and complete its required DNS records before sending production email. Use a sender on that verified domain and observe your account's sending limits. Sandbox mode is for Telnyx's sandbox behavior, not evidence of delivery to a real mailbox.
+
+In `/dashboard/settings`, select **Telnyx**, configure **API Key** and **Webhook Public Key**, choose **Sandbox Mode** deliberately, and save. Select Telnyx as the default email provider or as an explicit supported override. The webhook public key comes from Mission Control **Keys & Credentials**: it is the account's base64-encoded 32-byte Ed25519 public key, not an API key or shared signing secret. Sending requires both API key and a valid public key.
+
+The stored configuration contract is:
+
+```json
+{
+  "type": "Telnyx",
+  "apiKey": "<API key>",
+  "publicKey": "<base64 account public key>",
+  "sandboxMode": true
+}
+```
+
+The three configuration fields are optional in the API schema to support configuration management; an incomplete configuration does not authorize an actual send. Never publish credentials in examples, templates, or application logs.
+
+## Native sending contract
+
+The adapter posts JSON to `https://api.telnyx.com/v2/email_messages` with Bearer authentication. Native fields include `from` (string or email/name object), recipient arrays `to`/`cc`/`bcc`, `subject`, `html_body`, optional `text_body`, `reply_to`, `headers`, `metadata`, `attachments` (`filename`, `content_type`, base64 `content`), and `sandbox_mode`. These are provider transport fields, not a replacement for Dittofeed's template API.
+
+Telnyx returns HTTP 202 with `data.id` and queued status. Dittofeed records success as `{ type: "Telnyx", messageId: "<provider message UUID>" }`. Terminal provider failures use `{ type: "Telnyx", code: "...", message: "...", status?: number }`; throttling, server failures, and network failures remain retryable.
+
+Each logical send has durable correlation and a stable UUID `Idempotency-Key`. Telnyx's replay window is 24 hours. The same key with a different body returns 422; concurrent submissions may return 409. Dittofeed reuses the saved key and accepted provider ID on retries, rejects conflicting send identities, and fails closed for an unresolved send older than 24 hours rather than risking duplicate delivery.
+
+## Callback setup and signature verification
+
+Configure Telnyx to POST callbacks to:
+
+```text
+https://<your-host>/api/public/webhooks/telnyx?workspaceId=<credential-owner-workspace-UUID>
+```
+
+The equivalent private route is `/api/webhooks/telnyx` with the same query and signature contract. If a child workspace inherits credentials, use the workspace that **owns those credentials**, not the child workspace. The query chooses the verification key; it is not authority to assign callbacks to contacts or tenants.
+
+Telnyx sends `telnyx-signature-ed25519` (base64) and `telnyx-timestamp` (Unix seconds). Dittofeed verifies Ed25519 over the exact timestamp, a literal `|`, and the original raw request bytes, with a ±300-second timestamp window. Reformatting JSON invalidates the signature.
+
+The native envelope is:
+
+```json
+{
+  "data": {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "event_type": "email.delivered",
+    "occurred_at": "2026-11-20T12:00:00Z",
+    "record_type": "event",
+    "payload": {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "to": { "email": "reader@example.com", "kind": "to" },
+      "status": "delivered"
+    }
+  },
+  "meta": { "attempt": 1 }
+}
+```
+
+`data.id` identifies the event; `data.payload.id`, when present, identifies the provider message. `canonical_event_type` and `recipient_id` are optional. The payload accepts arbitrary fields and values so unknown or historical event shapes remain available as raw evidence. Known recipient events have one of `to`, `cc`, or `bcc` as an email/name/kind object; Telnyx redacts BCC addresses. Unexpected recipient shapes remain raw-only. Do not assume send metadata or tags are echoed.
+
+Subscribe to relevant queued/sent, delivered, opened, clicked, bounced, complained, deferred, failed, cancelled, daily-limit-exceeded, and unsubscribed events available for your account. Queued/sent represent processing, delivered represents delivery to a recipient server, bounced/complained map to bounce/spam, and terminal failed/cancelled/daily-limit-exceeded map to dropped. Deferred is retained without falsely marking a terminal drop. Unknown and domain events remain raw evidence without generating guessed contact events.
+
+## Tracking and contact attribution
+
+Open/click tracking is **off by default** and configured on the account's sending profile through Telnyx's domain tracking API. Dittofeed does not silently enable it or add per-message tracking switches. Configure the intended profile deliberately; respect its unsubscribe/suppression settings and keep Dittofeed's native unsubscribe headers intact.
+
+Optional [owned open capture](/guide/open-tracking) is configured separately with `ENABLE_OPEN_TRACKING` and a public `OPEN_TRACKING_BASE_URL`; it does not change the Telnyx profile. It captures requests reaching this application, not hidden recipient information behind a proxy.
+
+An opened event means an observed pixel request, not a verified human open. Privacy proxies can load pixels and scanners can click links. A raw provider callback is provider evidence, not the original browser request or a complete record of its headers/network context. Observations populate protected `last_clicked` / `last_opened` properties and per-send history. Links can opt into [explicit recipient/contact and hash tokens](/guide/click-tracking#explicit-url-contact-tokens); attribution is never automatically appended. This does not enable Telnyx profile tracking or implement an RC-specific receiving integration. Qualified human-open filtering remains unimplemented. Raw evidence and attributed URLs contain PII: restrict access and do not dump them into general logs.
+
+Dittofeed correlates verified callbacks through durable provider-message/account mappings. Only an object-shaped primary `to.email` matching the original send's primary recipient, with no `cc` or `bcc` field, can update that contact. CC/BCC events remain raw, and callbacks never create contacts from email addresses. Unsubscribed events update a native subscription group only when durable send metadata identifies an existing group in the sending workspace; otherwise they remain provider suppression/raw evidence, not a guessed global opt-out. Native contact ingestion, event history, and audience segmentation are unchanged.
+
+## Durable evidence and retention
+
+HTTP 202 normally acknowledges durable receipt, not completion of analytics projection; authenticated callbacks matching a deleted contact's tombstone are instead discarded as described below. Verified raw request bytes, receipt time, event identity, and allowlisted evidence headers are stored separately from normalized events. Authorization, Cookie, and arbitrary forwarding headers are not captured. Unmapped callbacks stay pending, including callbacks arriving before the send response is saved.
+
+Repeated delivery of the same event ID in the same credential-owner workspace does not create a second receipt or ordinary duplicate projection; changing `meta.attempt` does not overwrite the first evidence. Bounded background processing uses provider occurrence time and deterministic native event IDs. The PostgreSQL-to-ClickHouse crash window remains **at-least-once**, not an exactly-once guarantee.
+
+Raw receipt retention defaults to **30 days** (`TELNYX_WEBHOOK_RETENTION_DAYS`) with bounded background cleanup. Send correlation remains available for late callbacks until contact deletion. Contact deletion purges associated raw receipts and send PII before deleting native history, retaining only an opaque tombstone with send/provider/workspace IDs and a SHA256 hash of the logical message ID, not the recipient address, user ID, or raw body. Authenticated late callbacks matching a tombstone receive HTTP 202 but are discarded without new raw evidence or projection; logical send retries fail closed. A provider acceptance arriving after deletion attaches its provider ID to the tombstone and purges early receipts. Already accepted external email cannot be recalled. Other contacts' data is not deleted, and unmatched events are never attributed using untrusted callback metadata.

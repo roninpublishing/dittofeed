@@ -705,6 +705,129 @@ export const workspaceMember = pgTable(
   ],
 );
 
+export const googleAccount = pgTable(
+  "GoogleAccount",
+  {
+    memberId: uuid().primaryKey().notNull(),
+    googleSubject: text().notNull(),
+    normalizedEmail: text().notNull(),
+    isInstanceAdmin: boolean().default(false).notNull(),
+    disabledAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("GoogleAccount_googleSubject_key").on(table.googleSubject),
+    uniqueIndex("GoogleAccount_normalizedEmail_key").on(table.normalizedEmail),
+    foreignKey({
+      columns: [table.memberId],
+      foreignColumns: [workspaceMember.id],
+      name: "GoogleAccount_memberId_fkey",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const accountSession = pgTable(
+  "AccountSession",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    memberId: uuid().notNull(),
+    tokenHash: text().notNull(),
+    userAgent: text(),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .notNull(),
+    revokedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("AccountSession_tokenHash_key").on(table.tokenHash),
+    index("AccountSession_memberId_idx").on(table.memberId),
+    foreignKey({
+      columns: [table.memberId],
+      foreignColumns: [googleAccount.memberId],
+      name: "AccountSession_memberId_fkey",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const workspaceInvitation = pgTable(
+  "WorkspaceInvitation",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    workspaceId: uuid().notNull(),
+    normalizedEmail: text().notNull(),
+    role: dbRoleType().notNull(),
+    tokenHash: text().notNull(),
+    createdByMemberId: uuid().notNull(),
+    acceptedByMemberId: uuid(),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .notNull(),
+    acceptedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+    revokedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("WorkspaceInvitation_tokenHash_key").on(table.tokenHash),
+    index("WorkspaceInvitation_workspaceId_idx").on(table.workspaceId),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspace.id],
+      name: "WorkspaceInvitation_workspaceId_fkey",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.createdByMemberId],
+      foreignColumns: [googleAccount.memberId],
+      name: "WorkspaceInvitation_createdByMemberId_fkey",
+    }),
+    foreignKey({
+      columns: [table.acceptedByMemberId],
+      foreignColumns: [googleAccount.memberId],
+      name: "WorkspaceInvitation_acceptedByMemberId_fkey",
+    }),
+  ],
+);
+
+export const googleOAuthFlow = pgTable(
+  "GoogleOAuthFlow",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    stateHash: text().notNull(),
+    invitationId: uuid(),
+    createdAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .notNull(),
+    consumedAt: timestamp({ precision: 3, mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("GoogleOAuthFlow_stateHash_key").on(table.stateHash),
+    foreignKey({
+      columns: [table.invitationId],
+      foreignColumns: [workspaceInvitation.id],
+      name: "GoogleOAuthFlow_invitationId_fkey",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const accountRateLimit = pgTable(
+  "AccountRateLimit",
+  {
+    key: text().primaryKey().notNull(),
+    attempts: integer().notNull(),
+    expiresAt: timestamp({ precision: 3, mode: "date", withTimezone: true })
+      .notNull(),
+  },
+  (table) => [
+    index("AccountRateLimit_expiresAt_idx").on(table.expiresAt),
+  ],
+);
+
 export const segment = pgTable(
   "Segment",
   {
@@ -1046,3 +1169,124 @@ export const subscriptionManagementTemplate = pgTable(
       .onDelete("cascade"),
   ],
 );
+
+// Durable correlation contains no rendered body or credentials.
+export const telnyxEmailSend = pgTable(
+  "TelnyxEmailSend",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    workspaceId: uuid().notNull().references(() => workspace.id, { onDelete: "cascade" }),
+    credentialWorkspaceId: uuid().notNull().references(() => workspace.id, { onDelete: "cascade" }),
+    messageId: text().notNull(),
+    userId: text().notNull(),
+    primaryEmail: text().notNull(),
+    metadata: jsonb().$type<Record<string, string>>().notNull(),
+    requestHash: text().notNull(),
+    providerMessageId: text(),
+    createdAt: timestamp({ withTimezone: true, mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique().on(table.workspaceId, table.messageId),
+    unique().on(table.credentialWorkspaceId, table.providerMessageId),
+    index().on(table.workspaceId, table.userId),
+  ],
+);
+
+export const telnyxEmailReceipt = pgTable(
+  "TelnyxEmailReceipt",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    credentialWorkspaceId: uuid().notNull().references(() => workspace.id, { onDelete: "cascade" }),
+    eventId: text().notNull(),
+    eventType: text().notNull(),
+    providerMessageId: text(),
+    rawBody: text().notNull(),
+    evidenceHeaders: jsonb().$type<Record<string, string>>().notNull(),
+    receivedAt: timestamp({ withTimezone: true, mode: "date" }).defaultNow().notNull(),
+    processedAt: timestamp({ withTimezone: true, mode: "date" }),
+    disposition: text().notNull().default("pending"),
+    attempts: integer().notNull().default(0),
+    nextAttemptAt: timestamp({ withTimezone: true, mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique().on(table.credentialWorkspaceId, table.eventId),
+    index().on(table.disposition, table.nextAttemptAt),
+    index().on(table.credentialWorkspaceId, table.providerMessageId),
+    index().on(table.receivedAt),
+  ],
+);
+
+// Tombstones retain only opaque IDs and a hash of the caller's logical message ID.
+export const telnyxEmailDeletedSend = pgTable(
+  "TelnyxEmailDeletedSend",
+  {
+    id: uuid().primaryKey().notNull(),
+    workspaceId: uuid().notNull().references(() => workspace.id, { onDelete: "cascade" }),
+    credentialWorkspaceId: uuid().notNull().references(() => workspace.id, { onDelete: "cascade" }),
+    messageIdHash: text().notNull(),
+    providerMessageId: text(),
+  },
+  (table) => [
+    unique().on(table.workspaceId, table.messageIdHash),
+    index().on(table.credentialWorkspaceId, table.providerMessageId),
+  ],
+);
+
+// Owned pixels are per logical send. Tokens and bounded request envelopes use
+// the existing AES-256-GCM secret key; only token hashes are publicly searchable.
+export const emailOpenTrackingSend = pgTable(
+  "EmailOpenTrackingSend",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    workspaceId: uuid().notNull().references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text().notNull(),
+    messageId: text().notNull(),
+    tokenHash: text().notNull(),
+    encryptedToken: jsonb().$type<{ iv: string; encryptedData: string; authTag: string }>().notNull(),
+    baseUrl: text().notNull(),
+    createdAt: timestamp({ withTimezone: true, mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique().on(table.workspaceId, table.messageId),
+    unique().on(table.tokenHash),
+    index().on(table.workspaceId, table.userId),
+  ],
+);
+
+// A GET is both encrypted evidence and a durable native-event outbox entry.
+// HEAD requests are retained as raw_only_head and can never become opens.
+export const emailOpenTrackingReceipt = pgTable(
+  "EmailOpenTrackingReceipt",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    sendId: uuid().notNull().references(() => emailOpenTrackingSend.id, { onDelete: "cascade" }),
+    encryptedRequest: jsonb().$type<{ iv: string; encryptedData: string; authTag: string }>().notNull(),
+    receivedAt: timestamp({ withTimezone: true, mode: "date" }).notNull(),
+    method: text().notNull(),
+    disposition: text().notNull().default("pending"),
+    attempts: integer().notNull().default(0),
+    nextAttemptAt: timestamp({ withTimezone: true, mode: "date" }).defaultNow().notNull(),
+    processedAt: timestamp({ withTimezone: true, mode: "date" }),
+  },
+  (table) => [
+    index().on(table.sendId, table.receivedAt),
+    index().on(table.disposition, table.nextAttemptAt),
+    index().on(table.receivedAt),
+  ],
+);
+
+// Erasure barriers contain only tenant-scoped hashes, never contact/send IDs or
+// reusable pixel tokens. Contact barriers also cover a send not yet prepared.
+export const emailOpenTrackingTombstone = pgTable(
+  "EmailOpenTrackingTombstone",
+  {
+    workspaceId: uuid().notNull().references(() => workspace.id, { onDelete: "cascade" }),
+    kind: text().notNull(),
+    identityHash: text().notNull(),
+  },
+  (table) => [
+    unique().on(table.workspaceId, table.kind, table.identityHash),
+  ],
+);
+
+export * from "./publisherSchema";

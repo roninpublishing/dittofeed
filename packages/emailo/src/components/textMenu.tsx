@@ -126,6 +126,8 @@ export function TextMenu({ state }: TextMenuProps) {
           <MemoEditLinkPopover
             onSetLink={commands.onLink}
             isUnsubscribeLinkSelected={isUnsubscribeLinkSelected}
+            initialUrl={states.currentLinkUrl}
+            initialOpenInNewTab={states.currentLinkInNewTab}
           />
           <Popover.Root>
             {/* <Popover.Trigger asChild>

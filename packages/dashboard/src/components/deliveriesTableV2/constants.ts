@@ -10,4 +10,6 @@ export const DEFAULT_ALLOWED_COLUMNS: DeliveriesAllowedColumn[] = [
   "origin",
   "template",
   "sentAt",
+  "lastClickedAt",
+  "lastOpenedAt",
 ];

@@ -3,6 +3,7 @@ import * as R from "remeda";
 import config from "../config";
 import { BatchAppData, EventType, WriteMode } from "../types";
 import { InsertUserEvent, insertUserEvents } from "../userEvents";
+import { normalizeEngagementProperties } from "./engagementProperties";
 import { splitGroupEvents } from "./group";
 
 export interface SubmitBatchOptions {
@@ -42,7 +43,9 @@ export function buildBatchUserEvents(
       rest = R.omit(message, ["timestamp", "properties", "context"]);
       timestamp = message.timestamp ?? new Date().toISOString();
 
-      const properties = message.properties ?? {};
+      const properties = message.type === EventType.Track
+        ? normalizeEngagementProperties(message.event, timestamp, message.properties)
+        : message.properties ?? {};
       messageRaw.properties = properties;
     }
 
@@ -70,9 +73,11 @@ export async function submitBatchChunk(
   {
     processingTime,
     writeModeOverride,
+    workspaceLockHeld,
   }: {
     processingTime?: number;
     writeModeOverride?: WriteMode;
+    workspaceLockHeld?: boolean;
   } = {},
 ) {
   const userEvents = buildBatchUserEvents(data, { processingTime });
@@ -82,7 +87,7 @@ export async function submitBatchChunk(
       workspaceId,
       userEvents,
     },
-    { writeModeOverride },
+    { writeModeOverride, publicationAutomationLockHeld: workspaceLockHeld },
   );
 }
 
@@ -91,9 +96,11 @@ export async function submitBatch(
   {
     processingTime,
     writeModeOverride,
+    workspaceLockHeld,
   }: {
     processingTime?: number;
     writeModeOverride?: WriteMode;
+    workspaceLockHeld?: boolean;
   } = {},
 ) {
   const { batchChunkSize } = config();
@@ -104,7 +111,7 @@ export async function submitBatch(
       const chunkData = { ...data, batch: chunk };
       return submitBatchChunk(
         { workspaceId, data: chunkData },
-        { processingTime, writeModeOverride },
+        { processingTime, writeModeOverride, workspaceLockHeld },
       );
     }),
   );

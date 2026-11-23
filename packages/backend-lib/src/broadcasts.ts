@@ -49,6 +49,7 @@ import { toJourneyResource } from "./journeys";
 import logger from "./logger";
 import { enrichMessageTemplate } from "./messaging";
 import { defaultEmailDefinition } from "./messaging/email";
+import { requireNewsletterCampaignWorkspace } from "./newsletters";
 import { toSegmentResource } from "./segments";
 import connectWorkflowClient from "./temporal/connectWorkflowClient";
 import { isAlreadyStartedError } from "./temporal/workflow";
@@ -171,6 +172,7 @@ export async function upsertBroadcast({
   segmentDefinition?: SegmentDefinition;
   messageTemplateDefinition?: MessageTemplateResourceDefinition;
 }): Promise<BroadcastResources> {
+  await requireNewsletterCampaignWorkspace(workspaceId);
   const broadcastSegmentName = getBroadcastSegmentName({ broadcastId: id });
   const broadcastTemplateName = getBroadcastTemplateName({ broadcastId: id });
   const broadcastJourneyName = getBroadcastJourneyName({ broadcastId: id });
@@ -450,6 +452,7 @@ export async function upsertBroadcastV2({
 }: UpsertBroadcastV2Request): Promise<
   Result<BroadcastResourceV2, UpsertBroadcastV2Error>
 > {
+  await requireNewsletterCampaignWorkspace(workspaceId);
   if (id && !validateUuid(id)) {
     return err({
       type: UpsertBroadcastV2ErrorTypeEnum.IdError,

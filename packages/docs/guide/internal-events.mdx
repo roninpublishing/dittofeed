@@ -5,7 +5,7 @@ description: "System-generated events emitted by Dittofeed for bookkeeping, mess
 
 Dittofeed emits internal events on your behalf to power analytics, journey logic, and status tracking. These are stored in the event stream just like user-submitted events and can be used in segments and journeys.
 
-Status events include email outcomes like delivered, opened, clicked, bounced, spam, and failures. These typically originate from provider webhooks (e.g., SendGrid and Resend).
+Status events include email outcomes like delivered, opened, clicked, bounced, spam, and failures. These typically originate from provider webhooks (e.g., SendGrid and Telnyx).
 
 Below is a reference of the internal event types and their purpose.
 
@@ -21,9 +21,9 @@ Below is a reference of the internal event types and their purpose.
 - `DFSubscriptionChange` — Emitted when a user’s subscription group state changes. Properties: `subscriptionId`, `action` (Subscribe | Unsubscribe).
 - `DFEmailDropped` — Email was dropped by the provider (e.g., suppression, invalid address). Originates from email provider webhooks.
 - `DFEmailDelivered` — Email delivered to the recipient’s server (provider webhook).
-- `DFEmailOpened` — Email open tracked by the provider (provider webhook).
+- `DFEmailOpened` — Provider-observed pixel load, not proof of a human open.
 - `DFEmailProcessed` — Email accepted for processing by the provider (pre-delivery status; provider webhook).
-- `DFEmailClicked` — Email link click tracked by the provider (provider webhook).
+- `DFEmailClicked` — Provider-observed link click; automated scanners may generate clicks.
 - `DFEmailBounced` — Email bounced (provider webhook).
 - `DFEmailMarkedSpam` — Recipient reported email as spam (provider webhook).
 - `DFJourneyNodeProcessed` — A journey node executed for a user. Properties include `journeyId`, `nodeId`, `type` (node type), and `eventKey`.
@@ -39,6 +39,11 @@ Below is a reference of the internal event types and their purpose.
 - Status events used for delivery analytics include: `DFEmailDropped`, `DFEmailDelivered`, `DFEmailOpened`, `DFEmailClicked`, `DFEmailBounced`, `DFEmailMarkedSpam`.
 - Internal events appear as `track` events and can be filtered in segments just like user events.
 - Message-related internal events also carry message tags that enable attribution within analytics and journeys.
+- Telnyx queued/sent callbacks represent processing, not delivery. Deferred callbacks are retained as raw evidence, not terminal drops. Failed, cancelled, and daily-limit-exceeded callbacks map to dropped.
+- Telnyx callbacks are durably correlated to the original send and contact, not trusted callback metadata. Only a matching primary `to.email` updates that contact; cc/bcc and unmapped callbacks remain raw evidence.
+- Ordinary repeated Telnyx event IDs are deduplicated. Projection uses deterministic native event IDs and provider occurrence time, but the PostgreSQL-to-ClickHouse crash window is at-least-once, not exactly-once.
+- Native contact ingestion, event history, audience segmentation, and subscription groups remain independent of the email provider. Protected `last_clicked` and `last_opened` take the maximum observed event time across sends. Neither certifies human engagement. See [Click tracking](/guide/click-tracking) and [Open observations and raw evidence](/guide/open-tracking).
+- `DFEmailOpened` may originate from a provider callback or the optional owned pixel. Sources remain distinct; HEAD requests do not become opens. Owned request headers/IPs are encrypted separately and accessed explicitly, not included in ordinary native event/history responses.
 
 ## Retries
 

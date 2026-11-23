@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "newsletter-tracking",
+  "account_id": "2c0f822ce2342b56b3998e7981c03332",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-11-09",
+  "workers_dev": false,
+  "preview_urls": false,
+  // No routes/custom domains are provisioned here. Configure Cloudflare for SaaS
+  // explicitly; never attach a zone-wide catch-all over the application.
+  "vars": {
+    "ENABLED": "false"
+  },
+  // TRACKING_ORIGIN must be an operator-configured HTTPS origin (no path).
+  // Set OPEN_TRACKING_RELAY_SECRET using Wrangler's secret store, never vars.
+  // Local development may explicitly set LOCAL_DEVELOPMENT=true and a loopback
+  // HTTP origin. Incoming HTTP is then restricted to dt.*.localhost hosts.
+  "observability": {
+    "enabled": false,
+    "logs": {
+      "enabled": false,
+      "invocation_logs": false
+    }
+  }
+}

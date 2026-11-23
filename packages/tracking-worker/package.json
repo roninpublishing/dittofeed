@@ -1,0 +1,25 @@
+{
+  "name": "tracking-worker",
+  "version": "0.0.3",
+  "private": true,
+  "description": "Fail-closed branded newsletter pixel relay",
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "test:workerd": "node --test test/*.test.mjs",
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20251109.0",
+    "esbuild": "0.25.4",
+    "miniflare": "4.20251109.0",
+    "typescript": "5.6.3",
+    "wrangler": "4.47.0"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "license": "MIT"
+}

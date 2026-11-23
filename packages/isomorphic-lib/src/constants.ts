@@ -17,11 +17,13 @@ export const SINGLE_TENANT_LOGIN_PAGE = "/auth/single-tenant" as const;
 export const SUBSCRIPTION_MANAGEMENT_PAGE =
   "/public/subscription-management" as const;
 export const DEBUG_USER_ID1 = "1b9858de-907d-493f-a067-b3c8effecb0b" as const;
+export const LAST_CLICKED_PROPERTY_NAME = "last_clicked" as const;
+export const LAST_OPENED_PROPERTY_NAME = "last_opened" as const;
 
 export enum SecretNames {
   SendGrid = "sendgrid",
   AmazonSes = "amazonses",
-  Resend = "resend",
+  Telnyx = "telnyx",
   Fcm = "fcm-key",
   Smtp = "smtp",
   Subscription = "subscription-key",
@@ -34,6 +36,7 @@ export enum DataSources {
   ManualSegment = "DfManualSegment",
 }
 
+
 export const EMAIL_PROVIDER_TYPE_TO_SECRET_NAME: Record<
   WorkspaceWideEmailProviders,
   string
@@ -41,7 +44,7 @@ export const EMAIL_PROVIDER_TYPE_TO_SECRET_NAME: Record<
   [EmailProviderType.SendGrid]: SecretNames.SendGrid,
   [EmailProviderType.AmazonSes]: SecretNames.AmazonSes,
   [EmailProviderType.Smtp]: SecretNames.Smtp,
-  [EmailProviderType.Resend]: SecretNames.Resend,
+  [EmailProviderType.Telnyx]: SecretNames.Telnyx,
   [EmailProviderType.Test]: SecretNames.EmailTestProvider,
 };
 

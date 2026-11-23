@@ -1,0 +1,211 @@
+---
+title: API and MCP access
+---
+
+## Coverage and security boundary
+
+The `mcp` workspace provides a **stdio MCP server** backed by the running
+application's authenticated HTTP API. It opens no listening port. The MCP client
+launches a process bound to an authorized workspace and dedicated API key.
+A publisher-bound process can target its verified direct-child newsletters
+without a separate process per publication. There is no arbitrary function
+invocation, SQL tool, shell tool, credential-decryption tool, or worker/migration
+control surface.
+
+Tools are generated from `GET /api/admin/openapi.json`, not from a second,
+hand-maintained list. The running server is the contract: new machine API routes
+become typed tools on the next MCP process start. `GET /api/admin/operations`
+lists methods, paths and required scopes. See [Application API coverage](/guide/api-coverage)
+for source ownership and the complete generated function inventory. A function
+inventory is a code map, not permission to execute every implementation helper.
+
+**Explicit identity boundary:** login/OAuth, personal profiles, personal sessions,
+team invitations, role changes and account disabling remain human-authenticated
+HTTP APIs. They are deliberately not machine tools. A workspace key cannot
+impersonate a Google account. Provider callbacks, public pixels, signed recipient
+links, debug endpoints, migrations and worker primitives are also excluded.
+Machine-native ingestion covers identify, track, page, screen, group and batch;
+the inherited unimplemented alias endpoint is not advertised as a capability.
+
+## Create a dedicated key
+
+From an authorized administrator session, use Settings → Admin API Keys for a
+read-only key, or the authenticated API with explicit `scopes`:
+
+```http
+POST /api/admin-keys/
+Content-Type: application/json
+
+{"workspaceId":"YOUR_WORKSPACE_UUID","name":"mcp-reader","scopes":["read"]}
+```
+
+Browser authentication and its existing CSRF/Origin rules still apply. An
+existing fully privileged bearer key can instead call the equivalent
+`POST /api/admin/admin-keys/`. New keys store only a SHA-256 digest and are returned
+only at creation; authentication uses constant-time digest comparison. Do not put
+real keys in tracked configuration, prompts, URLs or tickets. Duplicate live
+names conflict rather than returning an existing secret. Delete a key to revoke
+it; deletion takes effect on the next API request, including an already-running
+MCP process. Creating a key with a previously revoked name produces a new secret.
+
+New keys default to `read`. Persisted pre-scope keys retain their legacy broad
+administrative authority: replace those used by automation with scoped keys.
+Existing parent-key access to active child workspaces is preserved; a child key
+does not authorize its parent or a sibling.
+
+| Scope | Access |
+| --- | --- |
+| `read` | Product queries, including POST contact/history queries and template rendering. |
+| `write` | Product mutations, ingestion, sends, triggers and workflow actions. Not implied by `read`. |
+| `destructive` | Deletes, cancellations and explicit destructive operations. |
+| `sensitive` | Explicit sensitive data such as owned raw tracking evidence. |
+
+Credential, key and access administration requires **all four scopes**, not
+`sensitive` alone, because returning write keys or creating credentials could
+otherwise escalate a scoped caller. `/api/admin/operations` is authoritative
+for each route. All grants are enforced on HTTP requests, not just MCP tool
+visibility. These grants are coarse workspace capabilities, not per-contact or
+per-segment ACLs. Read access can export contact PII.
+
+Startup discovery requires the API key's `read` grant even when the process will
+perform writes. Provision `read,write` for a normal mutation-capable integration;
+the grants remain independently enforced.
+
+## Build and connect
+
+From the repository root with Node.js 20 or later:
+
+```bash
+yarn install
+yarn workspace mcp build
+```
+
+Configure your MCP client using absolute paths (replace placeholders privately):
+
+```json
+{
+  "mcpServers": {
+    "ronin": {
+      "command": "node",
+      "args": ["/absolute/path/to/dittofeed/packages/mcp/dist/src/index.js"],
+      "env": {
+        "DITTOFEED_API_URL": "https://your-application.example",
+        "DITTOFEED_WORKSPACE_ID": "YOUR_WORKSPACE_UUID",
+        "DITTOFEED_API_KEY": "YOUR_DEDICATED_KEY",
+        "DITTOFEED_MCP_SCOPES": "read"
+      }
+    }
+  }
+}
+```
+
+For the combined local Lite preview use `http://localhost:3000`; HTTP is allowed
+only for loopback. Non-loopback connections require HTTPS. The configured URL
+may include an API deployment prefix, but not credentials, query or fragment.
+Redirects are rejected to prevent credential forwarding. No browser cookie is
+read or forwarded. No `.env` file is loaded implicitly; inject the key using the
+MCP client's private environment or a secret manager.
+
+`DITTOFEED_MCP_SCOPES` is an additional local ceiling, defaulting to `read`.
+For an intentionally privileged automation process, explicitly set
+`read,write,destructive,sensitive` **and** provision a key with the needed API
+grants. Increasing the local ceiling cannot grant authority the API key lacks.
+Use separate processes and keys for read-only research and outbound campaigns.
+
+### Configured local OMP client
+
+The local preview's `RONIN` workspace has a dedicated `read` credential named
+`omp-local-reader-20261120`. OMP discovers the ignored project configuration at
+`.omp/mcp.json`; it launches the compiled server with Node's explicit
+`--env-file=.env.mcp.local` option. The credential file contains only the four
+`DITTOFEED_*` connection variables, is ignored by Git, and has owner-only `0600`
+permissions. The client JSON contains no API key. This optional env-file launch
+requires Node.js 20.6 or later.
+
+Run `/mcp reload` in an already-open OMP session, or open a new session in this
+checkout. `/mcp test ronin-dittofeed` checks the registered connection. The API
+must be running at `http://localhost:3000`; neither the MCP process nor its client
+configuration starts infrastructure or changes browser authentication.
+
+The local secret file is plaintext protected by filesystem permissions: protect
+backups and never paste its contents into a prompt or commit it. Revocation uses
+Settings → Admin API Keys or the authenticated key-deletion API; rotate by issuing
+a new dedicated key and privately replacing the local credential. Do not turn up
+the scopes of this reader as a substitute for a separate write-enabled client.
+
+
+## Tools and resources
+
+Each supported operation gets a stable tool name derived from HTTP method/path,
+with a collision-resistant suffix. Tool descriptions contain the method, path
+and required scopes. Tool input JSON Schema comes from request schemas:
+
+- `body`: JSON request body, with workspace assigned by the process.
+- `newsletterId`: optional top-level selector on native product tools for a
+  publisher's direct-child newsletter. The bridge verifies the live relationship
+  before applying child scope consistently to headers/query/body. It cannot
+  target foreign workspaces; publisher-management tools stay publisher-bound.
+- `query`: typed query parameters; nested objects and arrays use the API's `qs`
+  encoding.
+- `path`: declared URL parameters, encoded individually.
+- `headers`: only declared application headers, such as `df-segment-id`.
+  Authorization, workspace, cookie, host and proxy headers cannot be supplied.
+- CSV upload tools take `file: {filename, contentBase64}` and declared headers.
+  No local filesystem path is read. The decoded file is sent as multipart CSV.
+
+For example, find the POST `/api/admin/users/` tool in `tools/list`, then invoke
+it with `{"body":{"limit":10}}` plus any required query schema fields. Follow
+the returned cursors rather than assuming the first page is the full dataset.
+The server fixes `df-workspace-id`; conflicting workspace selectors are rejected.
+
+For publisher/newsletter lifecycle, deliberate cross-publication automations,
+managed SendGrid connections, shared-IP budgets and release gates, see
+[Ronin multi-newsletter operations](/guide/newsletters).
+
+Tool results contain `{status, contentType, encoding, body}`. JSON remains JSON
+text inside `body`; CSV/text are UTF-8, and binary downloads are base64. HTTP
+4xx/5xx responses set MCP `isError`. No background retries are performed. Calls
+have a 60-second deadline, a 5 MiB serialized request/file bound and a 16 MiB
+response bound; larger results fail explicitly rather than silently truncating.
+Use direct HTTP for larger exports. Cancellation/deadline does not undo a send
+or other mutation already accepted by the server; inspect state before retrying.
+
+`dittofeed://api/openapi` is a read-only MCP resource containing the discovery
+contract loaded at startup. Restart the process after changing the API contract
+or local scope ceiling. Key revocation and server-side authorization are checked
+on every call; the MCP process never caches permission to execute an operation.
+A tool may be visible under the local ceiling but rejected by the key's narrower
+API grants.
+
+Tool annotations are hints, not authorization or a substitute for client-side
+human approval. Contact traits, templates and external content can contain prompt
+injection; treat results as untrusted data. Require confirmation in the MCP client
+before sends, bulk edits or deletions. Standard input/output is JSON-RPC only;
+startup/protocol diagnostics go to stderr without credentials or response bodies.
+
+## Direct HTTP and deployment
+
+Use the same dedicated bearer credential and explicit tenant:
+
+```bash
+curl --fail-with-body "$DITTOFEED_API_URL/api/admin/operations" \
+  -H "Authorization: Bearer $DITTOFEED_API_KEY" \
+  -H "df-workspace-id: $DITTOFEED_WORKSPACE_ID"
+```
+
+The MCP bearer guard does not secure an otherwise anonymous browser deployment.
+Configure a supported non-anonymous authentication mode (for example
+`AUTH_MODE=google` or `single-tenant`) before exposing the application publicly.
+
+Keep the API behind TLS, normal ingress request limits and access controls.
+Do not log Authorization headers, private MCP environment configuration, raw
+tracking evidence or export bodies. Secure MCP client logs/transcripts: they can
+contain contact PII and sensitive operation results. This stdio server is not a
+remote OAuth authorization server and does not add a public `/mcp` listener.
+Expose neither stdio over an unauthenticated TCP proxy nor the API through an
+unrestricted agent execution service.
+
+Email provider acceptance is not delivery. `last_clicked`, `last_opened` and pixel
+receipts remain observed, unqualified evidence; MCP does not introduce a human
+engagement classifier. Tracking retention, encryption and erasure rules are
+unchanged. API keys authorize application work, not changes to those semantics.

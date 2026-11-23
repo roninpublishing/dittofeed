@@ -9,13 +9,15 @@ const CommandPalette = dynamic(() => import("./commandPalette"), {
 
 export default function DashboardContent({
   children,
+  publisherManagement = false,
 }: {
   children?: React.ReactNode;
+  publisherManagement?: boolean;
 }) {
   return (
     <>
       <DashboardHead />
-      <MainLayout>
+      <MainLayout publisherManagement={publisherManagement}>
         <>{children}</>
       </MainLayout>
       <CommandPalette />

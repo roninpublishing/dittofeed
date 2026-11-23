@@ -45,7 +45,10 @@ import { v5 as uuidv5 } from "uuid";
 import { getOccupantFromRequest } from "../buildApp/requestContext";
 
 // eslint-disable-next-line @typescript-eslint/require-await
-export default async function broadcastsController(fastify: FastifyInstance) {
+export default async function broadcastsController(
+  fastify: FastifyInstance,
+  opts: { admin?: boolean },
+) {
   fastify.withTypeProvider<TypeBoxTypeProvider>().put(
     "/archive",
     {
@@ -270,7 +273,8 @@ export default async function broadcastsController(fastify: FastifyInstance) {
     },
   );
 
-  fastify.withTypeProvider<TypeBoxTypeProvider>().get(
+  // Gmail authorization belongs to the current browser member, not an API key.
+  if (!opts.admin) fastify.withTypeProvider<TypeBoxTypeProvider>().get(
     "/gmail-authorization",
     {
       schema: {

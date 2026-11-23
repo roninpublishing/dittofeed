@@ -1,7 +1,7 @@
 import { v4 as uuid } from "uuid";
 
 import { query } from "../clickhouse";
-import { EventType } from "../types";
+import { BatchAppData, EventType, InternalEventType } from "../types";
 import { findUserEvents } from "../userEvents";
 import { buildBatchUserEvents, submitBatch } from "./batch";
 
@@ -207,6 +207,76 @@ describe("batch", () => {
         } else {
           throw new Error("Expected messageRaw to be a string");
         }
+      });
+    });
+
+    describe("click event-time normalization", () => {
+      it("overrides a caller clickedAt without losing provider/source evidence or send identity", () => {
+        const timestamp = "2026-11-20T07:23:45.123-05:00";
+        const properties = {
+          clickedAt: "2099-01-01T00:00:00Z", messageId: "internal-send",
+          url: "https://example.com/article", providerMessageId: "provider-send",
+          providerEventId: "provider-click", evidenceSource: "telnyx_webhook",
+          engagementClassification: "human",
+        };
+        const data: BatchAppData = {
+          context: { source: "webhook", provider: "Telnyx" },
+          batch: [{
+            type: EventType.Track, event: InternalEventType.EmailClicked,
+            userId: "contact", messageId: "stable-click-id", timestamp, properties,
+          }],
+        };
+        const first = buildBatchUserEvents(data, { processingTime: Date.parse("2026-11-21T00:00:00Z") })[0];
+        const retry = buildBatchUserEvents(data, { processingTime: Date.parse("2026-11-22T00:00:00Z") })[0];
+        expect(first?.messageId).toBe("stable-click-id");
+        expect(retry?.messageRaw).toEqual(first?.messageRaw);
+        expect(JSON.parse(String(first?.messageRaw))).toMatchObject({
+          timestamp, context: data.context,
+          properties: {
+            ...properties, clickedAt: "2026-11-20T12:23:45.123Z",
+            engagementClassification: "observed_unqualified",
+          },
+        });
+        expect(properties.clickedAt).toBe("2099-01-01T00:00:00Z");
+      });
+
+      it("normalizes direct clicks with omitted properties and leaves non-click events alone", () => {
+        const timestamp = "2026-11-20T12:23:45.123Z";
+        const events = buildBatchUserEvents({ batch: [
+          { type: EventType.Track, event: InternalEventType.EmailClicked, userId: "contact", messageId: "click", timestamp },
+          { type: EventType.Track, event: "ArticleClicked", userId: "contact", messageId: "custom", timestamp, properties: { clickedAt: "custom" } },
+          { type: EventType.Identify, userId: "contact", messageId: "identify", timestamp, traits: { email: "contact@example.com" } },
+        ] });
+        expect(JSON.parse(String(events[0]?.messageRaw)).properties).toEqual({
+          clickedAt: timestamp, evidenceSource: "native_ingestion", engagementClassification: "observed_unqualified",
+        });
+        expect(JSON.parse(String(events[1]?.messageRaw)).properties).toEqual({ clickedAt: "custom" });
+        expect(JSON.parse(String(events[2]?.messageRaw))).toMatchObject({ traits: { email: "contact@example.com" } });
+        expect(JSON.parse(String(events[2]?.messageRaw))).not.toHaveProperty("properties");
+      });
+
+      it("keeps open occurrence time and identity stable across processing retries", () => {
+        const properties = {
+          messageId: "internal-send", openedAt: "2099-01-01T00:00:00Z",
+          providerEventId: "provider-open", evidenceSource: "telnyx_webhook",
+          engagementClassification: "human",
+        };
+        const data: BatchAppData = { batch: [{
+          type: EventType.Track, event: InternalEventType.EmailOpened,
+          userId: "contact", messageId: "stable-open-id",
+          timestamp: "2026-11-20T14:23:45.123+02:00", properties,
+        }] };
+        const first = buildBatchUserEvents(data, { processingTime: 1795200000000 })[0];
+        const retry = buildBatchUserEvents(data, { processingTime: 1795300000000 })[0];
+        expect(retry?.messageRaw).toEqual(first?.messageRaw);
+        expect(JSON.parse(String(first?.messageRaw))).toMatchObject({
+          messageId: "stable-open-id",
+          properties: {
+            ...properties, openedAt: "2026-11-20T12:23:45.123Z",
+            engagementClassification: "observed_unqualified",
+          },
+        });
+        expect(properties.openedAt).toBe("2099-01-01T00:00:00Z");
       });
     });
 

@@ -83,6 +83,8 @@ import EmailPreviewBody from "../messages/emailPreview";
 import { WebhookPreviewBody } from "../messages/webhookPreview";
 import TemplatePreview from "../templatePreview";
 import { DEFAULT_ALLOWED_COLUMNS } from "./constants";
+import { DeliveryClicksCell } from "./deliveryClicksCell";
+import { DeliveryOpensCell } from "./deliveryOpensCell";
 
 function getSortByLabel(sortBy: SearchDeliveriesRequestSortBy): string {
   switch (sortBy) {
@@ -310,6 +312,10 @@ interface BaseDelivery {
   templateName?: string;
   sentAt: number;
   updatedAt: number;
+  lastClickedAt: string | null;
+  clickCount: number;
+  lastOpenedAt: string | null;
+  openCount: number;
   from?: string;
   to?: string;
   subject?: string;
@@ -763,6 +769,10 @@ export function useDeliveryBodyState({
         broadcastId: item.broadcastId,
         sentAt: new Date(item.sentAt).getTime(),
         updatedAt: new Date(item.updatedAt).getTime(),
+        lastClickedAt: item.lastClickedAt,
+        clickCount: item.clickCount,
+        lastOpenedAt: item.lastOpenedAt,
+        openCount: item.openCount,
       };
 
       let delivery: Delivery;
@@ -974,6 +984,32 @@ export function DeliveriesBody({
         header: "Sent At",
         accessorKey: "sentAt",
         cell: TimeCell,
+      },
+      lastClickedAt: {
+        id: "lastClickedAt",
+        header: "Last clicked",
+        accessorKey: "lastClickedAt",
+        cell: ({ row }) => (
+          <DeliveryClicksCell
+            userId={row.original.userId}
+            messageId={row.original.messageId}
+            lastClickedAt={row.original.lastClickedAt}
+            clickCount={row.original.clickCount}
+          />
+        ),
+      },
+      lastOpenedAt: {
+        id: "lastOpenedAt",
+        header: "Last opened",
+        accessorKey: "lastOpenedAt",
+        cell: ({ row }) => (
+          <DeliveryOpensCell
+            userId={row.original.userId}
+            messageId={row.original.messageId}
+            lastOpenedAt={row.original.lastOpenedAt}
+            openCount={row.original.openCount}
+          />
+        ),
       },
       updatedAt: {
         id: "updatedAt",

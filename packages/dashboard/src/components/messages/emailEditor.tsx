@@ -1,7 +1,9 @@
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
+import ContentCopyOutlined from "@mui/icons-material/ContentCopyOutlined";
 import DeleteIcon from "@mui/icons-material/Delete";
 import {
+  Alert,
   Autocomplete,
   Button,
   Chip,
@@ -9,10 +11,12 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  MenuItem,
   Stack,
   SxProps,
   TextField,
   Theme,
+  Typography,
   useTheme,
 } from "@mui/material";
 import {
@@ -32,6 +36,7 @@ import Link from "next/link";
 import React, { useMemo } from "react";
 
 import { useAppStorePick } from "../../lib/appStore";
+import { copyToClipboard } from "../../lib/copyToClipboard";
 import EmailPreviewHeader from "../emailPreviewHeader";
 import TemplateEditor, {
   DraftToPreview,
@@ -88,6 +93,146 @@ function PreviewIframe({ body }: { body?: string }) {
         backgroundColor: "white",
       }}
     />
+  );
+}
+
+function EmailUrlTokens({
+  disabled,
+  identifierKey,
+}: {
+  disabled?: boolean;
+  identifierKey?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [source, setSource] = React.useState("recipient");
+  const [field, setField] = React.useState("email");
+  const [representation, setRepresentation] = React.useState("url_encode");
+  const { userProperties } = useAppStorePick(["userProperties"]);
+  const fieldOptions = useMemo(
+    () =>
+      userProperties.type === CompletionStatus.Successful
+        ? userProperties.value.map((property) => property.name)
+        : [],
+    [userProperties],
+  );
+  const fieldExpression = /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(field)
+    ? `user.${field}`
+    : `user['${field.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}']`;
+  const variable = source === "recipient" ? "subscriber_email" : fieldExpression;
+  const expression = `{{ ${variable} | ${representation} }}`;
+  const canCopy = source === "recipient" || field.length > 0;
+
+  return (
+    <>
+      <Button onClick={() => setOpen(true)} disabled={disabled}>
+        URL tokens
+      </Button>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            URL tokens
+            <IconButton
+              aria-label="Close URL tokens"
+              onClick={() => setOpen(false)}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography variant="body2">
+              Copy a Liquid expression into a link URL, for example after
+              ?contact=. Only explicit tokens add contact data; links without
+              tokens stay unchanged.
+            </Typography>
+            <TextField
+              select
+              label="Token source"
+              value={source}
+              onChange={(event) => setSource(event.target.value)}
+              helperText={
+                source === "recipient"
+                  ? `Resolved single To mailbox, using the "${identifierKey ?? DEFAULT_EMAIL_IDENTIFIER}" contact field.`
+                  : "Choose an existing contact field or enter a scalar field name."
+              }
+            >
+              <MenuItem value="recipient">Resolved recipient (To)</MenuItem>
+              <MenuItem value="contact">Contact field</MenuItem>
+            </TextField>
+            {source === "contact" && (
+              <Autocomplete
+                freeSolo
+                options={fieldOptions}
+                inputValue={field}
+                onInputChange={(_event, value) => setField(value)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Contact field"
+                    error={!canCopy}
+                    helperText="Use a scalar value, not an object or array. For nested values, select a scalar subfield in the expression."
+                  />
+                )}
+              />
+            )}
+            <TextField
+              select
+              label="Representation"
+              value={representation}
+              onChange={(event) => setRepresentation(event.target.value)}
+            >
+              <MenuItem value="url_encode">URL-encoded value</MenuItem>
+              <MenuItem value="sha256">SHA256 hash</MenuItem>
+              <MenuItem value="md5">MD5 hash</MenuItem>
+            </TextField>
+            <TextField
+              label="Liquid expression"
+              value={canCopy ? expression : ""}
+              InputProps={{
+                readOnly: true,
+                sx: { fontFamily: "monospace" },
+              }}
+              fullWidth
+              multiline
+            />
+            <Button
+              startIcon={<ContentCopyOutlined />}
+              disabled={!canCopy}
+              onClick={() =>
+                copyToClipboard({
+                  value: expression,
+                  successNotice: "URL token copied.",
+                  failureNotice: "Unable to copy URL token.",
+                })
+              }
+            >
+              Copy expression
+            </Button>
+            <Typography variant="body2" color="text.secondary">
+              Hashes use the exact raw value, before URL encoding, without
+              trimming or lowercasing. Add strip or downcase before the hash
+              only if needed. Missing required values fail rendering; use
+              default before encoding or hashing for optional fields.
+            </Typography>
+            <Alert severity="warning">
+              Opt in only when needed: URL values and hashes can identify
+              contacts and be shared with link destinations, logs, or other
+              recipients. Hashing is not anonymization.
+            </Alert>
+          </Stack>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -461,7 +606,19 @@ export default function EmailEditor({
       hideTitle={hideTitle}
       hidePublisher={hidePublisher}
       mode={mode}
-      renderEditorOptions={(params) => <EmailOptions {...params} />}
+      renderEditorOptions={(params) => (
+        <>
+          <EmailUrlTokens
+            disabled={params.disabled}
+            identifierKey={
+              params.draft.type === ChannelType.Email
+                ? params.draft.identifierKey
+                : undefined
+            }
+          />
+          <EmailOptions {...params} />
+        </>
+      )}
       renderEditorHeader={({ draft, setDraft }) => {
         if (draft.type !== ChannelType.Email) {
           return null;

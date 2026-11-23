@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { and, eq, inArray } from "drizzle-orm";
+import { SecretNames } from "isomorphic-lib/src/constants";
 import { isStringPresent } from "isomorphic-lib/src/strings";
 
 import config from "./config";
@@ -24,10 +25,14 @@ export async function getSecretAvailability({
   return secrets.map((secret) => {
     let configValue: Record<string, boolean> | undefined;
     if (secret.configValue) {
-      const existingConfigValue = secret.configValue as Record<string, string>;
+      const existingConfigValue = secret.configValue as Record<string, unknown>;
       configValue = {};
       for (const key in existingConfigValue) {
-        configValue[key] = isStringPresent(existingConfigValue[key]);
+        const value = existingConfigValue[key];
+        configValue[key] =
+          secret.name === SecretNames.Telnyx && key === "sandboxMode"
+            ? value === true
+            : typeof value === "string" && isStringPresent(value);
       }
     } else {
       configValue = undefined;

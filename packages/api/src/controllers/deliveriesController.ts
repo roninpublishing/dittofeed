@@ -2,12 +2,23 @@ import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { Type } from "@sinclair/typebox";
 import {
   buildDeliveriesFile,
+  getDeliveryClicks,
+  getDeliveryOpens,
+  InvalidDeliveryOpensCursorError,
+  InvalidDeliveryClicksCursorError,
   searchDeliveries,
   searchDeliveriesCount,
 } from "backend-lib/src/deliveries";
 import logger from "backend-lib/src/logger";
+import { getEmailOpenEvidence } from "backend-lib/src/messaging/openTracking";
 import {
   DownloadDeliveriesRequest,
+  GetDeliveryClicksRequest,
+  GetDeliveryClicksResponse,
+  GetDeliveryOpensRequest,
+  GetDeliveryOpensResponse,
+  GetDeliveryOpenEvidenceRequest,
+  GetDeliveryOpenEvidenceResponse,
   SearchDeliveriesRequest,
   SearchDeliveriesResponse,
 } from "backend-lib/src/types";
@@ -15,6 +26,70 @@ import { FastifyInstance } from "fastify";
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export default async function deliveriesController(fastify: FastifyInstance) {
+  fastify.withTypeProvider<TypeBoxTypeProvider>().post(
+    "/clicks",
+    {
+      schema: {
+        description: "Observed, unqualified click history for one contact and send.",
+        tags: ["Deliveries"],
+        body: GetDeliveryClicksRequest,
+        response: {
+          200: GetDeliveryClicksResponse,
+          400: Type.Object({ message: Type.String() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.status(200).send(await getDeliveryClicks(request.body));
+      } catch (error) {
+        if (error instanceof InvalidDeliveryClicksCursorError) {
+          return reply.status(400).send({ message: error.message });
+        }
+        throw error;
+      }
+    },
+  );
+
+  fastify.withTypeProvider<TypeBoxTypeProvider>().post(
+    "/opens",
+    {
+      schema: {
+        description: "Observed, unqualified open history for one contact and send.",
+        tags: ["Deliveries"],
+        body: GetDeliveryOpensRequest,
+        response: { 200: GetDeliveryOpensResponse, 400: Type.Object({ message: Type.String() }) },
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.status(200).send(await getDeliveryOpens(request.body));
+      } catch (error) {
+        if (error instanceof InvalidDeliveryOpensCursorError) {
+          return reply.status(400).send({ message: error.message });
+        }
+        throw error;
+      }
+    },
+  );
+
+  fastify.withTypeProvider<TypeBoxTypeProvider>().post(
+    "/opens/evidence",
+    {
+      schema: {
+        description: "Explicit scoped retrieval of retained raw open request evidence.",
+        tags: ["Deliveries"],
+        body: GetDeliveryOpenEvidenceRequest,
+        response: { 200: GetDeliveryOpenEvidenceResponse, 404: Type.Object({ message: Type.String() }) },
+      },
+    },
+    async (request, reply) => {
+      const evidence = await getEmailOpenEvidence(request.body);
+      if (!evidence) return reply.status(404).send({ message: "Open evidence not found" });
+      return reply.status(200).send({ ...request.body, evidence });
+    },
+  );
+
   fastify.withTypeProvider<TypeBoxTypeProvider>().get(
     "/",
     {

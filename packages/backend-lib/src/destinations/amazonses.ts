@@ -107,7 +107,6 @@ export async function sendMail({
   } catch (error) {
     logger().info(
       {
-        err: error,
         templateId: mailData.tags?.templateId,
         workspaceId: mailData.tags?.workspaceId,
       },
@@ -139,15 +138,6 @@ export async function sendMail({
       : [mailData.replyTo];
   }
 
-  logger().debug(
-    {
-      from: input.FromEmailAddress,
-      destination: input.Destination,
-      tags: input.EmailTags,
-    },
-    "sending ses email",
-  );
-
   const command = new SendEmailCommand(input);
 
   try {
@@ -157,7 +147,6 @@ export async function sendMail({
     if (error instanceof SESv2ServiceException && !error.$retryable) {
       logger().info(
         {
-          err: error,
           workspaceId: mailData.tags?.workspaceId,
           templateId: mailData.tags?.templateId,
         },
@@ -167,7 +156,6 @@ export async function sendMail({
     }
     logger().error(
       {
-        err: error,
         workspaceId: mailData.tags?.workspaceId,
         templateId: mailData.tags?.templateId,
       },
@@ -179,8 +167,9 @@ export async function sendMail({
 
 export async function submitAmazonSesEvents(
   event: AmazonSesEventPayload,
+  notificationId: string,
 ): Promise<ResultAsync<void, Error>> {
-  return withSpan({ name: "submit-amazon-ses-events" }, async (span) => {
+  return withSpan({ name: "submit-amazon-ses-events" }, async () => {
     // TODO: Amazon may batch requests (if we send with multiple To: addresses? or with the BatchTemplated endpoint).  We should map over the receipients.
     let tags: Record<string, string>;
     if (event.mail.tags) {
@@ -198,10 +187,6 @@ export async function submitAmazonSesEvents(
 
     const workspaceId = tags.workspaceId ?? null;
     const userId = tags.userId ?? null;
-
-    for (const [key, value] of Object.entries(tags)) {
-      span.setAttribute(key, value);
-    }
 
     if (!workspaceId) {
       return err(new Error("Workspace id not found"));
@@ -240,11 +225,32 @@ export async function submitAmazonSesEvents(
         );
     }
 
-    const messageId = uuidv5(
-      `${event.eventType}:${event.mail.messageId}`,
-      workspaceId,
-    );
+    // SNS MessageId identifies this notification. mail.messageId identifies the
+    // outbound provider send and is shared by all of its click notifications.
+    const messageId = uuidv5(`${event.eventType}:${notificationId}`, workspaceId);
     const metadataTags = R.pick(tags, MESSAGE_METADATA_FIELDS);
+    const properties: Record<string, unknown> = {
+      email: event.mail.destination?.[0],
+      ...metadataTags,
+      provider: EmailProviderType.AmazonSes,
+      providerMessageId: event.mail.messageId,
+      providerEventId: notificationId,
+      evidenceSource: "amazonses_webhook",
+    };
+    if (event.eventType === AmazonSesNotificationType.Click) {
+      properties.clickedAt = new Date(timestamp).toISOString();
+      properties.engagementClassification = "observed_unqualified";
+      if (event.click.link) properties.url = event.click.link;
+      if (event.click.ipAddress) properties.ip = event.click.ipAddress;
+      if (event.click.userAgent) properties.user_agent = event.click.userAgent;
+      if (event.click.linkTags) properties.linkTags = event.click.linkTags;
+    }
+    if (event.eventType === AmazonSesNotificationType.Open) {
+      properties.openedAt = new Date(timestamp).toISOString();
+      properties.engagementClassification = "observed_unqualified";
+      if (event.open.ipAddress) properties.ip = event.open.ipAddress;
+      if (event.open.userAgent) properties.user_agent = event.open.userAgent;
+    }
 
     const items: BatchTrackData[] = [];
     if (userId) {
@@ -254,10 +260,7 @@ export async function submitAmazonSesEvents(
         userId,
         messageId,
         timestamp,
-        properties: {
-          email: event.mail.destination?.[0],
-          ...metadataTags,
-        },
+        properties,
       });
     }
     return ResultAsync.fromPromise(
@@ -302,42 +305,21 @@ export async function handleSesNotification(
       schemaValidateWithErr(parsed, AmazonSesEventPayload),
     );
     if (validated.isErr()) {
-      logger().error(
-        {
-          err: validated.error,
-        },
-        "Invalid AmazonSes event payload.",
-      );
+      logger().error("Invalid AmazonSes event payload.");
 
       span.setStatus({
         code: SpanStatusCode.ERROR,
-        message: validated.error.message,
+        message: "Invalid AmazonSes event payload.",
       });
       return err(validated.error);
     }
-    for (const [key, values] of Object.entries(
-      validated.value.mail.tags ?? {},
-    )) {
-      const [value] = values;
-      if (!value) {
-        continue;
-      }
-
-      span.setAttribute(key, value);
-    }
-    const result = await submitAmazonSesEvents(validated.value);
+    const result = await submitAmazonSesEvents(validated.value, payload.MessageId);
     if (result.isErr()) {
-      logger().error(
-        {
-          err: result.error,
-          notification: validated.value,
-        },
-        "Error submitting AmazonSes events.",
-      );
+      logger().error("Error submitting AmazonSes events.");
 
       span.setStatus({
         code: SpanStatusCode.ERROR,
-        message: result.error.message,
+        message: "Error submitting AmazonSes events.",
       });
       return err(result.error);
     }

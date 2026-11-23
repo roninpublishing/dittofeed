@@ -1,9 +1,13 @@
 import { json as codeMirrorJson } from "@codemirror/lang-json";
 import { EditorView } from "@codemirror/view";
-import { useTheme } from "@mui/material";
+import { Stack, Typography, useTheme } from "@mui/material";
 import ReactCodeMirror from "@uiw/react-codemirror";
 import logger from "backend-lib/src/logger";
 import { getUsers } from "backend-lib/src/users";
+import {
+  LAST_CLICKED_PROPERTY_NAME,
+  LAST_OPENED_PROPERTY_NAME,
+} from "isomorphic-lib/src/constants";
 import { GetUsersResponse } from "isomorphic-lib/src/types";
 import { GetServerSideProps, NextPage } from "next";
 
@@ -53,6 +57,12 @@ export const getServerSideProps: GetServerSideProps<
 const User: NextPage<UserPageProps> = function User(props) {
   const { user } = props;
   const theme = useTheme();
+  const lastClicked = Object.values(user.properties).find(
+    (property) => property.name === LAST_CLICKED_PROPERTY_NAME,
+  )?.value;
+  const lastOpened = Object.values(user.properties).find(
+    (property) => property.name === LAST_OPENED_PROPERTY_NAME,
+  )?.value;
   const properties = JSON.stringify(
     Object.values(user.properties).reduce<Record<string, string>>(
       (acc, property) => {
@@ -67,6 +77,31 @@ const User: NextPage<UserPageProps> = function User(props) {
 
   return (
     <UserLayout userId={user.id}>
+      <Stack spacing={1} sx={{ mb: 3 }}>
+        <SubtleHeader>Last clicked</SubtleHeader>
+        <Typography>
+          {typeof lastClicked === "string" && lastClicked
+            ? lastClicked
+            : "No click observed"}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Latest observed email click, by event time (UTC), across sends.
+          Automated scanners can count; this is not verified human engagement.
+        </Typography>
+      </Stack>
+      <Stack spacing={1} sx={{ mb: 3 }}>
+        <SubtleHeader>Last opened</SubtleHeader>
+        <Typography>
+          {typeof lastOpened === "string" && lastOpened
+            ? lastOpened
+            : "No open observed"}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Latest observed email open, by event time (UTC), across sends.
+          Privacy proxies and automated scanners can count; this is not verified
+          human engagement.
+        </Typography>
+      </Stack>
       <SubtleHeader>User Properties</SubtleHeader>
       <ReactCodeMirror
         value={properties}

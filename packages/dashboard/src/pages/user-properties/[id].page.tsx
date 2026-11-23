@@ -32,6 +32,7 @@ import {
   AnyOfUserPropertyDefinition,
   CompletionStatus,
   DuplicateResourceTypeEnum,
+  EventValueSource,
   FileUserPropertyDefinition,
   GroupChildrenUserPropertyDefinitions,
   GroupUserPropertyDefinition,
@@ -629,7 +630,9 @@ function PerformedUserPropertyDefinitionEditor({
       } else {
         return current;
       }
-      d.path = newPath;
+      if (d.valueSource !== EventValueSource.EventTime) {
+        d.path = newPath;
+      }
       return current;
     });
   };
@@ -666,6 +669,20 @@ function PerformedUserPropertyDefinitionEditor({
     },
     [updateUserPropertyDefinition, definition.id],
   );
+
+  const handleValueSourceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updatePerformedNode((current) => {
+      if (e.target.value === EventValueSource.EventTime) {
+        current.valueSource = EventValueSource.EventTime;
+      } else {
+        Object.assign(current, {
+          valueSource: EventValueSource.Property,
+          path: current.path ?? "",
+        });
+      }
+      return current;
+    });
+  };
 
   const handleEventNameChange = (newEventName: string | null) => {
     if (newEventName === null) {
@@ -790,18 +807,30 @@ function PerformedUserPropertyDefinitionEditor({
             <TextField label="Event Name" {...params} variant="outlined" />
           )}
         />
-        <Autocomplete
-          value={definition.path}
-          freeSolo
+        <TextField
+          select
+          label="Value Source"
+          value={definition.valueSource ?? EventValueSource.Property}
+          onChange={handleValueSourceChange}
           sx={{ width: selectorWidth }}
-          options={properties[definition.event] ?? []}
-          onInputChange={(e, newPath) => {
-            handlePathChange(newPath);
-          }}
-          renderInput={(params) => (
-            <TextField label="Property Path" {...params} variant="outlined" />
-          )}
-        />
+        >
+          <MenuItem value={EventValueSource.Property}>Event property</MenuItem>
+          <MenuItem value={EventValueSource.EventTime}>Event time (UTC)</MenuItem>
+        </TextField>
+        {definition.valueSource !== EventValueSource.EventTime && (
+          <Autocomplete
+            value={definition.path}
+            freeSolo
+            sx={{ width: selectorWidth }}
+            options={properties[definition.event] ?? []}
+            onInputChange={(_e, newPath) => {
+              handlePathChange(newPath);
+            }}
+            renderInput={(params) => (
+              <TextField label="Property Path" {...params} variant="outlined" />
+            )}
+          />
+        )}
         <Button variant="contained" onClick={() => handleAddProperty()}>
           Property
         </Button>
@@ -1044,7 +1073,13 @@ function UserPropertyDefinitionEditor({
     <Stack spacing={1} direction="row">
       <Stack spacing={2} sx={{ flex: 1 }}>
         <SubtleHeader>Definition</SubtleHeader>
-        <Stack spacing={1} direction="row">
+        <Stack
+          component="fieldset"
+          disabled={isProtected}
+          spacing={1}
+          direction="row"
+          sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
+        >
           {selectUserPropertyType}
           <DefinitionComponent definition={definition} />
         </Stack>
@@ -1056,6 +1091,7 @@ function UserPropertyDefinitionEditor({
         </Stack>
         <ReactCodeMirror
           value={editedUserProperty?.exampleValue ?? ""}
+          readOnly={isProtected}
           onChange={(json) => {
             updateEditedUserProperty({
               exampleValue: json,
@@ -1206,6 +1242,7 @@ export default function NewUserProperty() {
           alignContent="center"
         >
           <EditableTitle
+            disabled={isProtected}
             text={name}
             onSubmit={(val) =>
               updateEditedUserProperty({
@@ -1214,7 +1251,11 @@ export default function NewUserProperty() {
             }
           />
           <Stack direction="row" spacing={1} alignItems="center">
-            <Button variant="contained" onClick={handleSave}>
+            <Button
+              variant="contained"
+              onClick={handleSave}
+              disabled={isProtected}
+            >
               Save
             </Button>
             <SettingsMenu commands={commands} />
@@ -1228,6 +1269,12 @@ export default function NewUserProperty() {
             border: `1px solid ${theme.palette.grey[200]}`,
           }}
         >
+          {isProtected && (
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              Built-in user property. Its name, definition, and status are managed
+              automatically and cannot be edited.
+            </Typography>
+          )}
           <UserPropertyDefinitionEditor
             isProtected={isProtected}
             definition={editedUserProperty.definition}

@@ -27,6 +27,7 @@ import logger from "./logger";
 import {
   DeleteUserPropertyRequest,
   EnrichedUserProperty,
+  EventValueSource,
   GroupChildrenUserPropertyDefinitions,
   JSONValue,
   KeyedPerformedUserPropertyDefinition,
@@ -44,6 +45,7 @@ import {
   UserPropertyDefinitionType,
   UserPropertyOperatorType,
   UserPropertyResource,
+  UserWorkflowTrackEvent,
 } from "./types";
 
 export function enrichUserProperty(
@@ -204,16 +206,45 @@ interface UserPropertyAssignmentOverrideProps {
   userPropertyId: string;
   definition: UserPropertyDefinition;
   context: Record<string, JSONValue>[];
+  eventContext?: UserWorkflowTrackEvent[];
 }
 
 function getPerformedAssignmentOverride({
   userPropertyId,
   node,
   context,
+  eventContext,
 }: UserPropertyAssignmentOverrideProps & {
   node: PerformedUserPropertyDefinition | KeyedPerformedUserPropertyDefinition;
 }): JSONValue | null {
-  const path = toJsonPathParam({ path: node.path }).unwrapOr(null);
+  if (node.type === UserPropertyDefinitionType.Performed && node.valueSource === EventValueSource.EventTime) {
+    let latest: string | null = null;
+    for (const event of eventContext ?? []) {
+      const matchesEvent = node.event.endsWith("*")
+        ? event.event.startsWith(node.event.slice(0, -1))
+        : event.event === node.event;
+      if (!matchesEvent || !event.timestamp) {
+        continue;
+      }
+      const matchesProperties = (node.properties ?? []).every((property) => {
+        const path = toJsonPathParam({ path: property.path }).unwrapOr(null);
+        return path !== null &&
+          jp.query(event.properties ?? {}, path)[0] === property.operator.value;
+      });
+      if (!matchesProperties) {
+        continue;
+      }
+      const timestamp = event.timestamp.includes("T")
+        ? event.timestamp
+        : `${event.timestamp.replace(" ", "T")}Z`;
+      const time = new Date(timestamp).getTime();
+      if (Number.isFinite(time) && (latest === null || time > Date.parse(latest))) {
+        latest = new Date(time).toISOString();
+      }
+    }
+    return latest;
+  }
+  const path = toJsonPathParam({ path: node.path ?? "" }).unwrapOr(null);
   let value: JSONValue | null = null;
   // assuming events are ordered by timestamps ascending want to check the most
   // recent event contexts first
@@ -270,7 +301,8 @@ function getAssignmentOverride({
   userPropertyId,
   definition,
   context,
-}: UserPropertyAssignmentOverrideProps): JSONValue | null {
+  eventContext,
+}: UserPropertyAssignmentOverrideProps): { value: JSONValue; eventTime: boolean } | null {
   const nodes: UserPropertyDefinition[] = [definition];
   while (nodes.length) {
     const node = nodes.shift();
@@ -286,10 +318,14 @@ function getAssignmentOverride({
         node,
         definition,
         context,
+        eventContext,
       });
 
       if (value !== null) {
-        return value;
+        return {
+          value,
+          eventTime: node.type === UserPropertyDefinitionType.Performed && node.valueSource === EventValueSource.EventTime,
+        };
       }
     } else if (node.type === UserPropertyDefinitionType.File) {
       const performed = fileUserPropertyToPerformed({
@@ -307,7 +343,7 @@ function getAssignmentOverride({
           ...value,
           name: node.name,
         };
-        return withName;
+        return { value: withName, eventTime: false };
       }
     } else if (node.type === UserPropertyDefinitionType.Group) {
       const groupNodesById: Map<string, GroupChildrenUserPropertyDefinitions> =
@@ -347,21 +383,33 @@ function transformAssignmentValue({
   definition,
   context,
   assignment,
+  eventContext,
 }: {
   workspaceId: string;
   userPropertyId: string;
   definition: UserPropertyDefinition;
   context?: Record<string, JSONValue>[];
+  eventContext?: UserWorkflowTrackEvent[];
   assignment?: string;
 }): JSONValue {
-  const contextAssignment = context
+  const override = context || eventContext
     ? getAssignmentOverride({
         definition,
-        context,
+        context: context ?? [],
+        eventContext,
         userPropertyId,
       })
     : null;
+  const contextAssignment = override?.value ?? null;
   let transformed: JSONValue = null;
+  if (
+    override?.eventTime &&
+    typeof contextAssignment === "string" &&
+    assignment &&
+    Date.parse(assignment) >= Date.parse(contextAssignment)
+  ) {
+    return assignment;
+  }
   if (contextAssignment !== null) {
     transformed = contextAssignment;
   } else if (assignment) {
@@ -394,6 +442,7 @@ export interface FindAllUserPropertyAssignmentsProps {
   userProperties?: string[];
   userPropertyIds?: string[];
   context?: Record<string, JSONValue>[];
+  eventContext?: UserWorkflowTrackEvent[];
 }
 
 async function findAllUserPropertyAssignmentsComponents({
@@ -454,6 +503,7 @@ export async function findAllUserPropertyAssignments({
   workspaceId,
   userProperties: userPropertiesFilter,
   context,
+  eventContext,
   userPropertyIds,
 }: FindAllUserPropertyAssignmentsProps): Promise<UserPropertyAssignments> {
   const { userProperties, assignmentMap } =
@@ -484,6 +534,7 @@ export async function findAllUserPropertyAssignments({
       userPropertyId: userProperty.id,
       definition,
       context,
+      eventContext,
       assignment: assignmentMap.get(userProperty.id),
     });
 
@@ -505,10 +556,12 @@ export async function findAllUserPropertyAssignmentsForWorkspace({
   workspaceId,
   userProperties: userPropertiesFilter,
   context,
+  eventContext,
 }: {
   workspaceId: string;
   userProperties?: string[];
   context?: Record<string, JSONValue>[];
+  eventContext?: UserWorkflowTrackEvent[];
 }): Promise<Record<string, UserPropertyAssignments>> {
   const conditions: SQL[] = [eq(dbUserProperty.workspaceId, workspaceId)];
   if (userPropertiesFilter?.length) {
@@ -594,6 +647,7 @@ export async function findAllUserPropertyAssignmentsForWorkspace({
         userPropertyId: userProperty.id,
         definition,
         context,
+        eventContext,
         assignment: assignment.value,
       });
       transformedForUser[userProperty.name] = transformed;
@@ -617,6 +671,7 @@ export async function findAllUserPropertyAssignmentsById({
   workspaceId,
   userProperties: userPropertiesFilter,
   context,
+  eventContext,
   userPropertyIds,
 }: FindAllUserPropertyAssignmentsProps): Promise<UserPropertyAssignments> {
   const { userProperties, assignmentMap } =
@@ -642,33 +697,16 @@ export async function findAllUserPropertyAssignmentsById({
       continue;
     }
     const definition = definitionResult.value;
-    const contextAssignment = context
-      ? getAssignmentOverride({
-          definition,
-          context,
-          userPropertyId: userProperty.id,
-        })
-      : null;
-    if (contextAssignment !== null) {
-      combinedAssignments[userProperty.id] = contextAssignment;
-    } else {
-      const assignment = assignmentMap.get(userProperty.id);
-      if (assignment) {
-        const parsed = parseUserPropertyAssignment(definition, assignment);
-        if (parsed.isErr()) {
-          logger().error(
-            {
-              err: parsed.error,
-              workspaceId,
-              userProperty,
-              assignment,
-            },
-            "failed to parse user property assignment",
-          );
-          continue;
-        }
-        combinedAssignments[userProperty.id] = parsed.value;
-      }
+    const transformed = transformAssignmentValue({
+      workspaceId,
+      userPropertyId: userProperty.id,
+      definition,
+      context,
+      eventContext,
+      assignment: assignmentMap.get(userProperty.id),
+    });
+    if (transformed !== null) {
+      combinedAssignments[userProperty.id] = transformed;
     }
   }
 
@@ -707,6 +745,17 @@ export async function upsertUserProperty(
       type: UpsertUserPropertyErrorType.ProtectedUserProperty,
       message: "User property name is protected",
     });
+  }
+  if (!opts.skipProtectedCheck && id) {
+    const existing = await db().query.userProperty.findFirst({
+      where: and(eq(dbUserProperty.id, id), eq(dbUserProperty.workspaceId, workspaceId)),
+    });
+    if (existing && protectedUserProperties.has(existing.name)) {
+      return err({
+        type: UpsertUserPropertyErrorType.ProtectedUserProperty,
+        message: "Cannot modify or rename a protected user property",
+      });
+    }
   }
 
   let result: Result<UserProperty, QueryError>;
@@ -760,7 +809,7 @@ export async function upsertUserProperty(
             definitionUpdatedAt,
             exampleValue,
           })
-          .where(eq(dbUserProperty.id, id))
+          .where(and(eq(dbUserProperty.id, id), eq(dbUserProperty.workspaceId, workspaceId)))
           .returning(),
       );
     } else {

@@ -35,6 +35,7 @@ import {
   CompletionStatus,
   CursorDirectionEnum,
   EmailSegmentNode,
+  EventValueSource,
   IncludesSegmentNode,
   InternalEventType,
   KeyedPerformedPropertiesOperator,
@@ -81,6 +82,13 @@ import { v4 as uuid } from "uuid";
 
 import { useAppStorePick } from "../../lib/appStore";
 import { toCalendarDate } from "../../lib/dates";
+import {
+  createLastClickedSegmentNode,
+  createLastOpenedSegmentNode,
+  getDefaultLastPerformedOperator,
+  isLastClickedSegmentNode,
+  isLastOpenedSegmentNode,
+} from "../../lib/segments";
 import { GroupedOption } from "../../lib/types";
 import { useSegmentQuery } from "../../lib/useSegmentQuery";
 import { useUploadCsvMutation } from "../../lib/useUploadCsvMutation";
@@ -98,7 +106,9 @@ import { MessageTemplateAutocomplete } from "../messageTemplateAutocomplete";
 import { SubscriptionGroupAutocompleteV2 } from "../subscriptionGroupAutocomplete";
 import TraitAutocomplete from "../traitAutocomplete";
 
-type SegmentGroupedOption = GroupedOption<SegmentNodeType>;
+type SegmentGroupedOption = GroupedOption<
+  SegmentNodeType | "LastClicked" | "LastOpened"
+>;
 
 const selectorWidth = "192px";
 const secondarySelectorWidth = "128px";
@@ -139,9 +149,13 @@ function updateEditableSegmentNodeData(
 
 function mapSegmentNodeToNewType(
   node: SegmentNode,
-  type: SegmentNodeType,
+  type: SegmentNodeType | "LastClicked" | "LastOpened",
 ): { primary: SegmentNode; secondary: BodySegmentNode[] } {
   switch (type) {
+    case "LastClicked":
+      return { primary: createLastClickedSegmentNode(node.id), secondary: [] };
+    case "LastOpened":
+      return { primary: createLastOpenedSegmentNode(node.id), secondary: [] };
     case SegmentNodeType.And: {
       let children: string[];
       let secondary: BodySegmentNode[];
@@ -375,7 +389,7 @@ function removeOrphanedSegmentNodes(segmentDefinition: SegmentDefinition) {
 function updateEditableSegmentNodeType(
   setState: Updater<SegmentEditorState>,
   nodeId: string,
-  nodeType: SegmentNodeType,
+  nodeType: SegmentNodeType | "LastClicked" | "LastOpened",
 ) {
   setState((draft) => {
     const { definition } = draft.editedSegment;
@@ -383,7 +397,11 @@ function updateEditableSegmentNodeType(
     if (nodeId === definition.entryNode.id) {
       const node = definition.entryNode;
       // No need to update node, already desired type
-      if (node.type === nodeType) {
+      if (
+        node.type === nodeType &&
+        !isLastClickedSegmentNode(node) &&
+        !isLastOpenedSegmentNode(node)
+      ) {
         return draft;
       }
       const newType = mapSegmentNodeToNewType(node, nodeType);
@@ -397,7 +415,11 @@ function updateEditableSegmentNodeType(
         }
 
         // No need to update node, already desired type
-        if (node.type === nodeType) {
+        if (
+          node.type === nodeType &&
+          !isLastClickedSegmentNode(node) &&
+          !isLastOpenedSegmentNode(node)
+        ) {
           return;
         }
 
@@ -563,6 +585,18 @@ const lastPerformedOption = {
   label: "Last Performed",
 };
 
+const lastClickedOption: SegmentGroupedOption = {
+  id: "LastClicked",
+  group: "Messages",
+  label: "Last clicked",
+};
+
+const lastOpenedOption: SegmentGroupedOption = {
+  id: "LastOpened",
+  group: "Messages",
+  label: "Last opened",
+};
+
 const includesOption = {
   id: SegmentNodeType.Includes,
   group: "User Data",
@@ -581,6 +615,8 @@ const SEGMENT_OPTIONS: SegmentGroupedOption[] = [
   andGroupedOption,
   orGroupedOption,
   emailOption,
+  lastClickedOption,
+  lastOpenedOption,
 ];
 
 const keyedSegmentOptions: Record<
@@ -804,9 +840,11 @@ function NumericValueSelect({
 function DurationValueSelect({
   nodeId,
   operator,
+  hasPropertyIndex,
 }: {
   nodeId: string;
   operator: SegmentWithinOperator | SegmentHasBeenOperator;
+  hasPropertyIndex?: number;
 }) {
   const value = operator.windowSeconds;
 
@@ -815,12 +853,12 @@ function DurationValueSelect({
 
   const handleChange = (seconds: number) => {
     updateEditableSegmentNodeData(setState, nodeId, (node) => {
+      const currentOperator = getEditableOperator(node, hasPropertyIndex);
       if (
-        node.type === SegmentNodeType.Trait &&
-        (node.operator.type === SegmentOperatorType.Within ||
-          node.operator.type === SegmentOperatorType.HasBeen)
+        currentOperator?.type === SegmentOperatorType.Within ||
+        currentOperator?.type === SegmentOperatorType.HasBeen
       ) {
-        node.operator.windowSeconds = seconds;
+        currentOperator.windowSeconds = seconds;
       }
     });
   };
@@ -834,6 +872,22 @@ function DurationValueSelect({
       inputLabel="Time Value"
     />
   );
+}
+
+function getEditableOperator(
+  node: Draft<SegmentNode>,
+  hasPropertyIndex?: number,
+): Draft<SegmentOperator> | undefined {
+  if (node.type === SegmentNodeType.Trait) {
+    return node.operator;
+  }
+  if (
+    node.type === SegmentNodeType.LastPerformed &&
+    hasPropertyIndex !== undefined
+  ) {
+    return node.hasProperties?.[hasPropertyIndex]?.operator;
+  }
+  return undefined;
 }
 
 function LastPerformedSelect({ node }: { node: LastPerformedSegmentNode }) {
@@ -927,6 +981,30 @@ function LastPerformedSelect({ node }: { node: LastPerformedSegmentNode }) {
       });
     };
 
+    const handleValueSourceChange = (e: SelectChangeEvent<EventValueSource>) => {
+      updateEditableSegmentNodeData(setState, node.id, (n) => {
+        if (n.type !== SegmentNodeType.LastPerformed || !n.hasProperties?.[i]) {
+          return;
+        }
+        const existingProperty = n.hasProperties[i];
+        n.hasProperties[i] =
+          e.target.value === EventValueSource.EventTime
+            ? {
+                valueSource: EventValueSource.EventTime,
+                operator: getDefaultLastPerformedOperator(
+                  SegmentOperatorType.Within,
+                ),
+              }
+            : {
+                path: existingProperty.path ?? "",
+                valueSource: EventValueSource.Property,
+                operator: getDefaultLastPerformedOperator(
+                  SegmentOperatorType.Equals,
+                ),
+              };
+      });
+    };
+
     const handleOperatorChange = (
       e: SelectChangeEvent<SegmentOperatorType>,
     ) => {
@@ -938,7 +1016,8 @@ function LastPerformedSelect({ node }: { node: LastPerformedSegmentNode }) {
           if (!existingProperty) {
             return;
           }
-          existingProperty.operator.type = newOperator;
+          existingProperty.operator =
+            getDefaultLastPerformedOperator(newOperator);
         }
       });
     };
@@ -947,6 +1026,26 @@ function LastPerformedSelect({ node }: { node: LastPerformedSegmentNode }) {
     }
     let operatorEl: React.ReactNode;
     switch (property.operator.type) {
+      case SegmentOperatorType.Within: {
+        operatorEl = (
+          <DurationValueSelect
+            nodeId={node.id}
+            operator={property.operator}
+            hasPropertyIndex={i}
+          />
+        );
+        break;
+      }
+      case SegmentOperatorType.AbsoluteTimestamp: {
+        operatorEl = (
+          <AbsoluteTimestampValueSelect
+            nodeId={node.id}
+            operator={property.operator}
+            hasPropertyIndex={i}
+          />
+        );
+        break;
+      }
       case SegmentOperatorType.Equals: {
         const handlePropertyValueChange = (
           e: React.ChangeEvent<HTMLInputElement>,
@@ -1104,36 +1203,50 @@ function LastPerformedSelect({ node }: { node: LastPerformedSegmentNode }) {
           alignItems: "center",
         }}
       >
-        <PropertiesAutocomplete
+        <Select
           disabled={disabled}
-          event={node.event}
-          property={property.path}
-          onPropertyChange={handlePropertyPathChange}
-          sx={{ width: selectorWidth }}
-        />
+          value={property.valueSource ?? EventValueSource.Property}
+          onChange={handleValueSourceChange}
+          inputProps={{ "aria-label": "Value source" }}
+        >
+          <MenuItem value={EventValueSource.Property}>Event property</MenuItem>
+          <MenuItem value={EventValueSource.EventTime}>Event time (UTC)</MenuItem>
+        </Select>
+        {property.valueSource !== EventValueSource.EventTime && (
+          <PropertiesAutocomplete
+            disabled={disabled}
+            event={node.event}
+            property={property.path}
+            onPropertyChange={handlePropertyPathChange}
+            sx={{ width: selectorWidth }}
+          />
+        )}
         <Select
           disabled={disabled}
           value={operator.id}
           onChange={handleOperatorChange}
         >
-          <MenuItem value={SegmentOperatorType.Equals}>
-            {keyedOperatorOptions[SegmentOperatorType.Equals].label}
-          </MenuItem>
-          <MenuItem value={SegmentOperatorType.NotEquals}>
-            {keyedOperatorOptions[SegmentOperatorType.NotEquals].label}
-          </MenuItem>
-          <MenuItem value={SegmentOperatorType.GreaterThanOrEqual}>
-            {keyedOperatorOptions[SegmentOperatorType.GreaterThanOrEqual].label}
-          </MenuItem>
-          <MenuItem value={SegmentOperatorType.LessThan}>
-            {keyedOperatorOptions[SegmentOperatorType.LessThan].label}
-          </MenuItem>
-          <MenuItem value={SegmentOperatorType.Exists}>
-            {keyedOperatorOptions[SegmentOperatorType.Exists].label}
-          </MenuItem>
-          <MenuItem value={SegmentOperatorType.NotExists}>
-            {keyedOperatorOptions[SegmentOperatorType.NotExists].label}
-          </MenuItem>
+          {property.valueSource !== EventValueSource.EventTime &&
+            [
+              equalsOperatorOption,
+              notEqualsOperatorOption,
+              greaterThanOrEqualOperatorOption,
+              lessThanOperatorOption,
+            ].map((option) => (
+              <MenuItem key={option.id} value={option.id}>
+                {option.label}
+              </MenuItem>
+            ))}
+          {[
+            withinOperatorOption,
+            absoluteTimestampOperatorOption,
+            existsOperatorOption,
+            notExistsOperatorOption,
+          ].map((option) => (
+            <MenuItem key={option.id} value={option.id}>
+              {option.label}
+            </MenuItem>
+          ))}
         </Select>
         {operatorEl}
         <IconButton
@@ -1343,6 +1456,21 @@ function LastPerformedSelect({ node }: { node: LastPerformedSegmentNode }) {
           <InfoTooltip title="A user is in the segment if the selected event has the propertties." />
         </Button>
       </Stack>
+      {isLastClickedSegmentNode(node) && (
+        <Typography variant="body2" color="text.secondary">
+          Latest observed click by event time, not verified human engagement.
+          Within selects recent clicks; Absolute Date &amp; Time supports before
+          or after. Exists means a click was observed; Not Exists means none.
+        </Typography>
+      )}
+      {isLastOpenedSegmentNode(node) && (
+        <Typography variant="body2" color="text.secondary">
+          Latest observed open by event time, not verified human engagement.
+          Privacy proxies and automated scanners can count. Within selects recent
+          opens; Absolute Date &amp; Time supports before or after. Exists means
+          an open was observed; Not Exists means none.
+        </Typography>
+      )}
       {wherePropertyRows?.length ? (
         <SubtleHeader>Where Properties</SubtleHeader>
       ) : null}
@@ -2189,9 +2317,11 @@ function SubscriptionGroupSelect({
 function AbsoluteTimestampValueSelect({
   nodeId,
   operator,
+  hasPropertyIndex,
 }: {
   nodeId: string;
   operator: SegmentAbsoluteTimestampOperator;
+  hasPropertyIndex?: number;
 }) {
   const { state, setState } = useSegmentEditorContext();
   const { disabled } = state;
@@ -2235,12 +2365,10 @@ function AbsoluteTimestampValueSelect({
     dateObj.setHours(time.hour, 0, 0); // Set to hour precision, no minutes or seconds
 
     updateEditableSegmentNodeData(setState, nodeId, (node) => {
-      if (
-        node.type === SegmentNodeType.Trait &&
-        node.operator.type === SegmentOperatorType.AbsoluteTimestamp
-      ) {
-        // Store as ISO string (UTC) - Date.toISOString() automatically converts to UTC
-        node.operator.absoluteTimestamp = dateObj.toISOString();
+      const currentOperator = getEditableOperator(node, hasPropertyIndex);
+      if (currentOperator?.type === SegmentOperatorType.AbsoluteTimestamp) {
+        // Store as ISO string (UTC).
+        currentOperator.absoluteTimestamp = dateObj.toISOString();
       }
     });
   };
@@ -2261,12 +2389,10 @@ function AbsoluteTimestampValueSelect({
 
   const handleDirectionChange = (e: SelectChangeEvent<CursorDirectionEnum>) => {
     updateEditableSegmentNodeData(setState, nodeId, (node) => {
-      if (
-        node.type === SegmentNodeType.Trait &&
-        node.operator.type === SegmentOperatorType.AbsoluteTimestamp
-      ) {
+      const currentOperator = getEditableOperator(node, hasPropertyIndex);
+      if (currentOperator?.type === SegmentOperatorType.AbsoluteTimestamp) {
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-        node.operator.direction = e.target.value as CursorDirectionEnum;
+        currentOperator.direction = e.target.value as CursorDirectionEnum;
       }
     });
   };
@@ -2804,7 +2930,11 @@ function SegmentNodeComponent({
     return null;
   }
 
-  const condition = keyedSegmentOptions[node.type];
+  const condition = isLastOpenedSegmentNode(node)
+    ? lastOpenedOption
+    : isLastClickedSegmentNode(node)
+      ? lastClickedOption
+      : keyedSegmentOptions[node.type];
   const conditionSelect = (
     <Box sx={{ width: selectorWidth }}>
       <Autocomplete

@@ -14,7 +14,6 @@ import {
   Typography,
 } from "@mui/material";
 import Popover from "@mui/material/Popover";
-import { CHANNEL_NAMES } from "isomorphic-lib/src/constants";
 import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import {
   AnalysisChartFilters,
@@ -413,21 +412,25 @@ export function NewAnalysisFilterButton({
                   break;
                 }
                 case "channels": {
-                  const children: SelectItemCommand[] = [
-                    ChannelType.Email,
-                    ChannelType.MobilePush,
-                    ChannelType.Webhook,
-                  ]
-                    .filter(isChannelVisible)
-                    .filter(
-                      (channel) =>
-                        !allowedChannels || allowedChannels.includes(channel),
-                    )
-                    .map((channel) => ({
-                      label: CHANNEL_NAMES[channel],
+                  const allChannels: SelectItemCommand[] = [
+                    {
+                      label: "Email",
                       type: AnalysisFilterCommandType.SelectItem,
-                      id: channel,
-                    }));
+                      id: ChannelType.Email,
+                    },
+                    {
+                      label: "Webhook",
+                      type: AnalysisFilterCommandType.SelectItem,
+                      id: ChannelType.Webhook,
+                    },
+                  ];
+                  // Filter channels based on allowedChannels configuration
+                  const children = allowedChannels
+                    ? allChannels.filter((channel) =>
+                        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+                        (allowedChannels as string[]).includes(channel.id),
+                      )
+                    : allChannels;
                   draft.stage = {
                     type: StageType.SelectItem,
                     filterKey: value.filterKey,
@@ -449,9 +452,9 @@ export function NewAnalysisFilterButton({
                       id: "AmazonSes",
                     },
                     {
-                      label: "Resend",
+                      label: "Telnyx",
                       type: AnalysisFilterCommandType.SelectItem,
-                      id: "Resend",
+                      id: "Telnyx",
                     },
                     {
                       label: "SMTP",

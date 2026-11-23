@@ -1,15 +1,13 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { EMAIL_PROVIDER_TYPE_TO_SECRET_NAME } from "isomorphic-lib/src/constants";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
-import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
   BadWorkspaceConfigurationType,
-  EmailProviderType,
   MessageTemplateRenderError,
   PersistedEmailProvider,
   SubscriptionChange,
   UpsertEmailProviderRequest,
-  WorkspaceWideEmailProviders,
+  WorkspaceWideEmailProviderType,
 } from "isomorphic-lib/src/types";
 import { err, ok, Result } from "neverthrow";
 
@@ -19,11 +17,11 @@ import {
   emailProvider as dbEmailProvider,
   secret as dbSecret,
 } from "../db/schema";
-import logger from "../logger";
 import { generateSubscriptionChangeUrl } from "../subscriptionGroups";
 import { EmailProvider } from "../types";
 
 const LIST_UNSUBSCRIBE_POST = "List-Unsubscribe=One-Click" as const;
+const WORKSPACE_PROVIDER_TYPES = Object.values(WorkspaceWideEmailProviderType);
 
 export interface UnsubscribeHeaders {
   "List-Unsubscribe-Post": typeof LIST_UNSUBSCRIBE_POST;
@@ -148,58 +146,26 @@ export async function getOrCreateEmailProviders({
 }: {
   workspaceId: string;
 }): Promise<PersistedEmailProvider[]> {
-  const emailProviders: PersistedEmailProvider[] = (
-    await db().query.emailProvider.findMany({
-      where: eq(dbEmailProvider.workspaceId, workspaceId),
-      with: {
-        secret: true,
-      },
-    })
-  ).flatMap((ep) => {
-    const typeResult = schemaValidateWithErr(
-      ep.type,
-      WorkspaceWideEmailProviders,
-    );
-    if (typeResult.isErr()) {
-      logger().error(
-        {
-          workspaceId,
-          err: typeResult.error,
-        },
-        "Unknown email provider type",
-      );
-      return [];
-    }
-    const type: WorkspaceWideEmailProviders = typeResult.value;
-
-    return {
-      workspaceId: ep.workspaceId,
-      id: ep.id,
-      type,
-    };
+  const existingProviders = await db().query.emailProvider.findMany({
+    where: and(
+      eq(dbEmailProvider.workspaceId, workspaceId),
+      inArray(dbEmailProvider.type, WORKSPACE_PROVIDER_TYPES),
+    ),
+    columns: { id: true, type: true },
   });
-
-  const upsertPromises: Promise<unknown>[] = [];
-  for (const typeKey in EmailProviderType) {
-    const type = EmailProviderType[typeKey as keyof typeof EmailProviderType];
-    // Impossible, but TypeScript doesn't know that.
-    if (type === EmailProviderType.Gmail) {
+  const emailProviders: PersistedEmailProvider[] = [];
+  const upsertPromises: Promise<void>[] = [];
+  for (const type of WORKSPACE_PROVIDER_TYPES) {
+    const existing = existingProviders.find((provider) => provider.type === type);
+    if (existing) {
+      emailProviders.push({ id: existing.id, workspaceId, type });
       continue;
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-    const missing = emailProviders.find((ep) => ep.type === type) === undefined;
-    if (missing) {
-      upsertPromises.push(
-        upsertEmailProvider({
-          workspaceId,
-          config: { type },
-        }).then((ep) => {
-          if (ep) {
-            emailProviders.push(ep);
-          }
-        }),
-      );
-    }
+    upsertPromises.push(
+      upsertEmailProvider({ workspaceId, config: { type } }).then((provider) => {
+        emailProviders.push(provider);
+      }),
+    );
   }
   await Promise.all(upsertPromises);
   return emailProviders;

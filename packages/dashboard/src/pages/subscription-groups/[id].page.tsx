@@ -158,27 +158,26 @@ export default function SubscriptionGroupConfig() {
     workspace,
     id,
     editedSubscriptionGroup,
-    subscriptionGroups,
     subscriptionGroupUpdateRequest,
     setSubscriptionGroupUpdateRequest,
     apiBase,
     upsertSubscriptionGroup,
+    subscriptionGroups,
   ]);
 
   if (!id) {
     return null;
   }
 
+  // Show loading while fetching subscription group
   if (
+    !editedSubscriptionGroup ||
+    editedSubscriptionGroup.id !== id ||
+    !isChannelVisible(editedSubscriptionGroup.channel) ||
     subscriptionGroups?.some(
       (sg) => sg.id === id && !isChannelVisible(sg.channel),
     )
   ) {
-    return null;
-  }
-
-  // Show loading while fetching subscription group
-  if (!editedSubscriptionGroup || editedSubscriptionGroup.id !== id) {
     return (
       <SubscriptionGroupLayout
         tab={SubscriptionGroupTabLabel.Configure}

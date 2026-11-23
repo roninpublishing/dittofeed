@@ -4,7 +4,9 @@
   "private": true,
   "license": "LicenseRef-LICENSE",
   "scripts": {
-    "dev": "mintlify dev"
+    "dev": "mintlify dev",
+    "inventory": "node scripts/generate-code-inventory.cjs",
+    "inventory:check": "node scripts/generate-code-inventory.cjs --check"
   },
   "devDependencies": {
     "@mintlify/scraping": "^3.0.102"

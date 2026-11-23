@@ -194,6 +194,7 @@ export const AuthMode = Type.Union([
   Type.Literal("anonymous"),
   Type.Literal("multi-tenant"),
   Type.Literal("single-tenant"),
+  Type.Literal("google"),
 ]);
 
 export type AuthMode = Static<typeof AuthMode>;
@@ -224,7 +225,6 @@ export const OpenIdProfile = Type.Object({
 });
 
 export type OpenIdProfile = Static<typeof OpenIdProfile>;
-
 
 export enum AmazonSesNotificationType {
   Bounce = "Bounce",
@@ -322,7 +322,9 @@ export const AmazonSesClickEvent = Type.Object({
         ipAddress: NullableAndOptional(Type.String()),
         userAgent: NullableAndOptional(Type.String()),
         link: NullableAndOptional(Type.String()),
-        linkTags: NullableAndOptional(Type.String()),
+        linkTags: NullableAndOptional(
+          Type.Record(Type.String(), Type.Array(Type.String())),
+        ),
       }),
     ),
   ]),
@@ -551,9 +553,11 @@ export const SendgridEvent = Type.Composite([
     timestamp: Type.Integer(),
     event: Type.Enum(SendgridEventType),
     "smtp-id": Type.Optional(Type.String()),
-    sg_event_id: Type.String(),
+    sg_event_id: Type.Optional(Type.String()),
     sg_message_id: Type.Optional(Type.String()),
     ip: Type.Optional(Type.String()),
+    url: Type.Optional(Type.String()),
+    useragent: Type.Optional(Type.String()),
     reason: Type.Optional(Type.String()),
     pool: Type.Optional(
       Type.Object({
@@ -565,32 +569,22 @@ export const SendgridEvent = Type.Composite([
   MessageMetadataFields,
 ]);
 
-export enum ResendEventType {
-  Sent = "email.sent",
-  Delivered = "email.delivered",
-  DeliveryDelayed = "email.delivery_delayed",
-  Complained = "email.complained",
-  Bounced = "email.bounced",
-  Opened = "email.opened",
-  Clicked = "email.clicked",
-}
-
-export const ResendEvent = Type.Object({
-  created_at: Type.String(),
+// Shape only; the receipt boundary validates UUID/RFC3339 without global format registries.
+export const TelnyxEvent = Type.Object({
   data: Type.Object({
-    created_at: Type.String(),
-    email_id: Type.String(),
-    from: Type.String(),
-    subject: Type.String(),
-    to: Type.Array(Type.String()),
-    tags: MessageMetadataFields,
-  }),
-  type: Type.Enum(ResendEventType),
-});
+    event_type: Type.String(),
+    canonical_event_type: Type.Optional(Type.String()),
+    id: Type.String(),
+    occurred_at: Type.String(),
+    record_type: Type.Literal("event"),
+    payload: Type.Record(Type.String(), Type.Unknown()),
+  }, { additionalProperties: true }),
+  meta: Type.Optional(Type.Object({}, { additionalProperties: true })),
+}, { additionalProperties: true });
 
 export type SendgridEvent = Static<typeof SendgridEvent>;
 
-export type ResendEvent = Static<typeof ResendEvent>;
+export type TelnyxEvent = Static<typeof TelnyxEvent>;
 
 export type IntegrationCreateDefinition = Omit<
   Overwrite<

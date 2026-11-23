@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Result } from "neverthrow";
 
+import { provisionBuiltinUserProperties } from "../builtinUserProperties";
 import { insert, QueryError, upsert } from "../db";
 import { workspace as dbWorkspace } from "../db/schema";
 import logger from "../logger";
@@ -14,12 +15,16 @@ export async function createWorkspace(
     },
     "creating workspace",
   );
-  return insert({
+  const result = await insert({
     table: dbWorkspace,
     values,
     doNothingOnConflict: true,
     lookupExisting: eq(dbWorkspace.name, values.name),
   });
+  if (result.isOk()) {
+    await provisionBuiltinUserProperties(result.value.id);
+  }
+  return result;
 }
 
 export async function upsertWorkspace(
@@ -32,14 +37,9 @@ export async function upsertWorkspace(
     values.status === undefined &&
     values.parentWorkspaceId === undefined
   ) {
-    return insert({
-      table: dbWorkspace,
-      values,
-      doNothingOnConflict: true,
-      lookupExisting: eq(dbWorkspace.name, values.name),
-    });
+    return createWorkspace(values);
   }
-  return upsert({
+  const result = await upsert({
     table: dbWorkspace,
     values,
     target: [dbWorkspace.parentWorkspaceId, dbWorkspace.name],
@@ -51,4 +51,8 @@ export async function upsertWorkspace(
       parentWorkspaceId: values.parentWorkspaceId,
     },
   });
+  if (result.isOk()) {
+    await provisionBuiltinUserProperties(result.value.id);
+  }
+  return result;
 }

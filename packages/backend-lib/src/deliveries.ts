@@ -27,6 +27,13 @@ import { withSpan } from "./openTelemetry";
 import { deserializeCursor, serializeCursor } from "./pagination";
 import {
   ChannelType,
+  DeliveryClick,
+  DeliveryOpen,
+  GetDeliveryOpensRequest,
+  GetDeliveryOpensResponse,
+  EmailProviderTypeSchema,
+  GetDeliveryClicksRequest,
+  GetDeliveryClicksResponse,
   GetDeliveryBodyRequest,
   InternalEventType,
   MessageSendSuccessContents,
@@ -78,6 +85,8 @@ interface DeliverySearchQueryBody {
     tail: string;
   };
   statusEventsCte: string;
+  clickEventsCte: string;
+  openEventsCte: string;
   triggeringEventsCte?: string;
   fromClause: string;
   hasContextOrTriggeringFilters: boolean;
@@ -412,6 +421,32 @@ export function buildDeliverySearchQueryBody({
         )
       GROUP BY workspace_id, user_or_anonymous_id, origin_message_id`;
 
+  // Click summaries deliberately ignore delivery-status/date filters. A late
+  // observation belongs to its send even when another status arrived afterward.
+  const clickEventsCte = `
+      SELECT workspace_id, user_or_anonymous_id, origin_message_id,
+        maxOrNull(event_time) AS last_clicked_at,
+        uniqExact(tuple(message_id, event_time, JSONExtractString(properties, 'url'))) AS click_count
+      FROM internal_events
+      WHERE workspace_id = ${workspaceIdParam}
+        AND event = '${InternalEventType.EmailClicked}'
+        AND (workspace_id, user_or_anonymous_id, origin_message_id) IN (
+          SELECT workspace_id, user_or_anonymous_id, message_id FROM message_sends
+        )
+      GROUP BY workspace_id, user_or_anonymous_id, origin_message_id`;
+
+  const openEventsCte = `
+      SELECT workspace_id, user_or_anonymous_id, origin_message_id,
+        maxOrNull(event_time) AS last_opened_at,
+        uniqExact(tuple(message_id, event_time)) AS open_count
+      FROM internal_events
+      WHERE workspace_id = ${workspaceIdParam}
+        AND event = '${InternalEventType.EmailOpened}'
+        AND (workspace_id, user_or_anonymous_id, origin_message_id) IN (
+          SELECT workspace_id, user_or_anonymous_id, message_id FROM message_sends
+        )
+      GROUP BY workspace_id, user_or_anonymous_id, origin_message_id`;
+
   const triggeringEventsCte = hasValidTriggeringPropsTrigger
     ? `
       SELECT
@@ -433,6 +468,14 @@ export function buildDeliverySearchQueryBody({
       ms.workspace_id = se.workspace_id
       AND ms.message_id = se.origin_message_id
       AND ms.user_or_anonymous_id = se.user_or_anonymous_id
+    LEFT JOIN click_events ce ON
+      ms.workspace_id = ce.workspace_id
+      AND ms.message_id = ce.origin_message_id
+      AND ms.user_or_anonymous_id = ce.user_or_anonymous_id
+    LEFT JOIN open_events oe ON
+      ms.workspace_id = oe.workspace_id
+      AND ms.message_id = oe.origin_message_id
+      AND ms.user_or_anonymous_id = oe.user_or_anonymous_id
     INNER JOIN (
       SELECT DISTINCT
         workspace_id,
@@ -475,6 +518,8 @@ export function buildDeliverySearchQueryBody({
       tail: messageSendsCteTail,
     },
     statusEventsCte,
+    clickEventsCte,
+    openEventsCte,
     triggeringEventsCte,
     fromClause,
     hasContextOrTriggeringFilters,
@@ -547,6 +592,12 @@ ${messageSendsCteQuery}
     ),
     status_events AS (
 ${queryBody.statusEventsCte}
+    ),
+    click_events AS (
+${queryBody.clickEventsCte}
+    ),
+    open_events AS (
+${queryBody.openEventsCte}
     )${
       queryBody.triggeringEventsCte
         ? `,
@@ -561,6 +612,10 @@ ${queryBody.triggeringEventsCte}
       JSONExtractString(uev.message_raw, 'context') as context,
       if(se.origin_message_id != '', se.max_event_time, ms.event_time) as updated_at,
       ms.event_time as sent_at,
+      ce.last_clicked_at as last_clicked_at,
+      ce.click_count as click_count,
+      oe.last_opened_at as last_opened_at,
+      oe.open_count as open_count,
       ms.user_or_anonymous_id as user_or_anonymous_id,
       ms.message_id as origin_message_id,
       ms.triggering_message_id as triggering_message_id,
@@ -602,6 +657,12 @@ ${messageSendsCteQuery}
     ),
     status_events AS (
 ${queryBody.statusEventsCte}
+    ),
+    click_events AS (
+${queryBody.clickEventsCte}
+    ),
+    open_events AS (
+${queryBody.openEventsCte}
     )${
       queryBody.triggeringEventsCte
         ? `,
@@ -638,11 +699,282 @@ ${queryBody.fromClause}
   return typeof rawCount === "number" ? rawCount : Number(rawCount ?? 0);
 }
 
+const DeliveryClicksCursor = Type.Object({
+  workspaceId: Type.String(),
+  userId: Type.String(),
+  messageId: Type.String(),
+  clickedAt: Type.String(),
+  eventId: Type.String(),
+  url: Type.String(),
+});
+
+export class InvalidDeliveryClicksCursorError extends Error {
+  constructor() {
+    super("Invalid click history cursor for this delivery");
+    Object.setPrototypeOf(this, InvalidDeliveryClicksCursorError.prototype);
+  }
+}
+
+// Live keyset pagination: newer observations do not shift subsequent pages.
+// Late older events may appear on later pages; this is not a snapshot.
+export async function getDeliveryClicks({
+  workspaceId,
+  userId,
+  messageId,
+  limit: requestedLimit = 20,
+  cursor,
+}: GetDeliveryClicksRequest): Promise<GetDeliveryClicksResponse> {
+  const limit = Math.min(100, Math.max(1, Math.trunc(requestedLimit)));
+  const qb = new ClickHouseQueryBuilder();
+  const workspaceParam = qb.addQueryValue(workspaceId, "String");
+  const userParam = qb.addQueryValue(userId, "String");
+  const messageParam = qb.addQueryValue(messageId, "String");
+  let pageCondition = "";
+  if (cursor) {
+    const parsed = jsonParseSafe(
+      Buffer.from(cursor, "base64").toString("utf8"),
+    ).andThen((value) => schemaValidateWithErr(value, DeliveryClicksCursor));
+    if (
+      parsed.isErr() ||
+      parsed.value.workspaceId !== workspaceId ||
+      parsed.value.userId !== userId ||
+      parsed.value.messageId !== messageId ||
+      !Number.isFinite(Date.parse(parsed.value.clickedAt))
+    ) {
+      throw new InvalidDeliveryClicksCursorError();
+    }
+    pageCondition = `WHERE (event_time, event_id, url) < (
+      parseDateTime64BestEffort(${qb.addQueryValue(parsed.value.clickedAt, "String")}, 3, 'UTC'),
+      ${qb.addQueryValue(parsed.value.eventId, "String")},
+      ${qb.addQueryValue(parsed.value.url, "String")})`;
+  }
+
+  const clicksCte = `
+    SELECT message_id AS event_id, event_time,
+      JSONExtractString(properties, 'url') AS url,
+      max(if(JSONExtractString(properties, 'provider') != '',
+        JSONExtractString(properties, 'provider'),
+        JSONExtractString(message_raw, 'context', 'provider'))) AS provider,
+      max(JSONExtractString(properties, 'providerMessageId')) AS provider_message_id,
+      max(JSONExtractString(properties, 'providerEventId')) AS provider_event_id
+    FROM user_events_v2
+    WHERE workspace_id = ${workspaceParam}
+      AND user_or_anonymous_id = ${userParam}
+      AND event_type = 'track'
+      AND event = '${InternalEventType.EmailClicked}'
+      AND JSONExtractString(properties, 'messageId') = ${messageParam}
+    GROUP BY message_id, event_time, url`;
+  const settings = { date_time_output_format: "iso" as const };
+  const summaryResult = await chQuery({
+    query: `WITH clicks AS (${clicksCte})
+      SELECT maxOrNull(event_time) AS last_clicked_at, count() AS click_count FROM clicks`,
+    query_params: qb.getQueries(),
+    format: "JSONEachRow",
+    clickhouse_settings: settings,
+  });
+  const [summary] = await summaryResult.json<{
+    last_clicked_at: string | null;
+    click_count: number | string;
+  }>();
+
+  const result = await chQuery({
+    query: `WITH clicks AS (${clicksCte})
+      SELECT * FROM clicks ${pageCondition}
+      ORDER BY event_time DESC, event_id DESC, url DESC
+      LIMIT ${qb.addQueryValue(limit + 1, "UInt64")}`,
+    query_params: qb.getQueries(),
+    format: "JSONEachRow",
+    clickhouse_settings: settings,
+  });
+  const rows = await result.json<{
+    event_id: string;
+    event_time: string;
+    url: string;
+    provider: string;
+    provider_message_id: string;
+    provider_event_id: string;
+  }>();
+  const items = rows.slice(0, limit).map((row): DeliveryClick => {
+    const provider = schemaValidateWithErr(row.provider, EmailProviderTypeSchema);
+    return {
+      eventId: row.event_id,
+      clickedAt: new Date(row.event_time).toISOString(),
+      url: row.url || null,
+      ...(provider.isOk() ? { provider: provider.value } : {}),
+      ...(row.provider_message_id
+        ? { providerMessageId: row.provider_message_id }
+        : {}),
+      ...(row.provider_event_id ? { providerEventId: row.provider_event_id } : {}),
+      classification: "observed_unqualified",
+    };
+  });
+  const last = items[items.length - 1];
+  return {
+    workspaceId,
+    userId,
+    messageId,
+    lastClickedAt: summary?.last_clicked_at
+      ? new Date(summary.last_clicked_at).toISOString()
+      : null,
+    clickCount: Number(summary?.click_count ?? 0),
+    items,
+    ...(rows.length > limit && last
+      ? {
+          cursor: serializeCursor({
+            workspaceId,
+            userId,
+            messageId,
+            clickedAt: last.clickedAt,
+            eventId: last.eventId,
+            url: last.url ?? "",
+          }),
+        }
+      : {}),
+  };
+}
+const DeliveryOpensCursor = Type.Object({
+  workspaceId: Type.String(),
+  userId: Type.String(),
+  messageId: Type.String(),
+  openedAt: Type.String(),
+  eventId: Type.String(),
+});
+
+export class InvalidDeliveryOpensCursorError extends Error {
+  constructor() {
+    super("Invalid open history cursor for this delivery");
+    Object.setPrototypeOf(this, InvalidDeliveryOpensCursorError.prototype);
+  }
+}
+
+// Live keyset pagination: newer observations do not shift subsequent pages.
+// Late older events may appear on later pages; this is not a snapshot.
+export async function getDeliveryOpens({
+  workspaceId,
+  userId,
+  messageId,
+  limit: requestedLimit = 20,
+  cursor,
+}: GetDeliveryOpensRequest): Promise<GetDeliveryOpensResponse> {
+  const limit = Math.min(100, Math.max(1, Math.trunc(requestedLimit)));
+  const qb = new ClickHouseQueryBuilder();
+  const workspaceParam = qb.addQueryValue(workspaceId, "String");
+  const userParam = qb.addQueryValue(userId, "String");
+  const messageParam = qb.addQueryValue(messageId, "String");
+  let pageCondition = "";
+  if (cursor) {
+    const parsed = jsonParseSafe(
+      Buffer.from(cursor, "base64").toString("utf8"),
+    ).andThen((value) => schemaValidateWithErr(value, DeliveryOpensCursor));
+    if (
+      parsed.isErr() ||
+      parsed.value.workspaceId !== workspaceId ||
+      parsed.value.userId !== userId ||
+      parsed.value.messageId !== messageId ||
+      !Number.isFinite(Date.parse(parsed.value.openedAt))
+    ) {
+      throw new InvalidDeliveryOpensCursorError();
+    }
+    pageCondition = `WHERE (event_time, event_id) < (
+      parseDateTime64BestEffort(${qb.addQueryValue(parsed.value.openedAt, "String")}, 3, 'UTC'),
+      ${qb.addQueryValue(parsed.value.eventId, "String")})`;
+  }
+
+  const opensCte = `
+    SELECT message_id AS event_id, event_time,
+      max(JSONExtractString(properties, 'evidenceSource')) AS evidence_source,
+      max(JSONExtractString(properties, 'evidenceId')) AS evidence_id,
+      max(if(JSONExtractString(properties, 'provider') != '',
+        JSONExtractString(properties, 'provider'),
+        JSONExtractString(message_raw, 'context', 'provider'))) AS provider,
+      max(JSONExtractString(properties, 'providerMessageId')) AS provider_message_id,
+      max(JSONExtractString(properties, 'providerEventId')) AS provider_event_id
+    FROM user_events_v2
+    WHERE workspace_id = ${workspaceParam}
+      AND user_or_anonymous_id = ${userParam}
+      AND event_type = 'track'
+      AND event = '${InternalEventType.EmailOpened}'
+      AND JSONExtractString(properties, 'messageId') = ${messageParam}
+    GROUP BY message_id, event_time`;
+  const settings = { date_time_output_format: "iso" as const };
+  const summaryResult = await chQuery({
+    query: `WITH opens AS (${opensCte})
+      SELECT maxOrNull(event_time) AS last_opened_at, count() AS open_count FROM opens`,
+    query_params: qb.getQueries(),
+    format: "JSONEachRow",
+    clickhouse_settings: settings,
+  });
+  const [summary] = await summaryResult.json<{
+    last_opened_at: string | null;
+    open_count: number | string;
+  }>();
+
+  const result = await chQuery({
+    query: `WITH opens AS (${opensCte})
+      SELECT * FROM opens ${pageCondition}
+      ORDER BY event_time DESC, event_id DESC
+      LIMIT ${qb.addQueryValue(limit + 1, "UInt64")}`,
+    query_params: qb.getQueries(),
+    format: "JSONEachRow",
+    clickhouse_settings: settings,
+  });
+  const rows = await result.json<{
+    event_id: string;
+    event_time: string;
+    evidence_source: string;
+    evidence_id: string;
+    provider: string;
+    provider_message_id: string;
+    provider_event_id: string;
+  }>();
+  const items = rows.slice(0, limit).map((row): DeliveryOpen => {
+    const provider = schemaValidateWithErr(row.provider, EmailProviderTypeSchema);
+    return {
+      eventId: row.event_id,
+      openedAt: new Date(row.event_time).toISOString(),
+      evidenceSource: row.evidence_source || "unknown",
+      ...(row.evidence_id ? { evidenceId: row.evidence_id } : {}),
+      ...(provider.isOk() ? { provider: provider.value } : {}),
+      ...(row.provider_message_id
+        ? { providerMessageId: row.provider_message_id }
+        : {}),
+      ...(row.provider_event_id ? { providerEventId: row.provider_event_id } : {}),
+      classification: "observed_unqualified",
+    };
+  });
+  const last = items[items.length - 1];
+  return {
+    workspaceId,
+    userId,
+    messageId,
+    lastOpenedAt: summary?.last_opened_at
+      ? new Date(summary.last_opened_at).toISOString()
+      : null,
+    openCount: Number(summary?.open_count ?? 0),
+    items,
+    ...(rows.length > limit && last
+      ? {
+          cursor: serializeCursor({
+            workspaceId,
+            userId,
+            messageId,
+            openedAt: last.openedAt,
+            eventId: last.eventId,
+          }),
+        }
+      : {}),
+  };
+}
+
 export const SearchDeliveryRow = Type.Object({
   last_event: Type.String(),
   properties: Type.String(),
   updated_at: Type.String(),
   sent_at: Type.String(),
+  last_clicked_at: Type.Union([Type.String(), Type.Null()]),
+  click_count: Type.Union([Type.Number(), Type.String()]),
+  last_opened_at: Type.Union([Type.String(), Type.Null()]),
+  open_count: Type.Union([Type.Number(), Type.String()]),
   origin_message_id: Type.String(),
   triggering_message_id: Type.Optional(Type.String()),
   workspace_id: Type.String(),
@@ -663,9 +995,7 @@ export function parseSearchDeliveryRow(
       sentAt: row.sent_at,
       updatedAt: row.updated_at,
       status: row.last_event,
-      originMessageId: row.origin_message_id,
       triggeringMessageId: row.triggering_message_id,
-      userId: row.user_or_anonymous_id,
       isAnonymous: row.is_anonymous === 1 ? true : undefined,
       channel:
         properties.channnel ??
@@ -674,6 +1004,13 @@ export function parseSearchDeliveryRow(
         ChannelType.Email,
       to: properties.to ?? properties.email,
       ...properties,
+      originMessageId: row.origin_message_id,
+      userId: row.user_or_anonymous_id,
+      // Computed values must not be overridden by user-supplied send properties.
+      lastClickedAt: row.last_clicked_at,
+      clickCount: Number(row.click_count),
+      lastOpenedAt: row.last_opened_at,
+      openCount: Number(row.open_count),
     } as Record<string, unknown>,
     ["email"],
   );
@@ -963,6 +1300,10 @@ export async function buildDeliveriesFile(
   const csvData = deliveries.items.map((delivery) => ({
     sentAt: delivery.sentAt,
     updatedAt: delivery.updatedAt,
+    lastClickedAt: delivery.lastClickedAt ?? "",
+    clickCount: delivery.clickCount,
+    lastOpenedAt: delivery.lastOpenedAt ?? "",
+    openCount: delivery.openCount,
     journeyId: delivery.journeyId || "",
     broadcastId: delivery.broadcastId || "",
     userId: delivery.userId,
@@ -978,6 +1319,10 @@ export async function buildDeliveriesFile(
     headers: [
       "sentAt",
       "updatedAt",
+      "lastClickedAt",
+      "clickCount",
+      "lastOpenedAt",
+      "openCount",
       "journeyId",
       "broadcastId",
       "userId",

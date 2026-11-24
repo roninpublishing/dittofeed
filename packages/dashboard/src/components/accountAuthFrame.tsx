@@ -7,7 +7,7 @@ export default function AccountAuthFrame({
   title,
   children,
 }: {
-  title: string;
+  title?: string;
   children: ReactNode;
 }) {
   return (
@@ -34,10 +34,14 @@ export default function AccountAuthFrame({
               alt="Ronin Publishing"
               sx={{ width: 208, maxWidth: "100%", height: "auto" }}
             />
-            <Typography variant="h5">DITTO Email Client</Typography>
-            <Typography component="h1" variant="h3">
-              {title}
+            <Typography component={title ? "p" : "h1"} variant="h5">
+              DITTO Email Client
             </Typography>
+            {title && (
+              <Typography component="h1" variant="h3">
+                {title}
+              </Typography>
+            )}
             {children}
           </Stack>
         </Paper>

@@ -1134,3 +1134,20 @@ as the production connection source.
 - [ ] Separately review SSH hardening: the monitoring session reported
   `PermitRootLogin yes` with key-based root access and no fail2ban. Report only;
   no SSH or firewall change was authorized or made during this rollout.
+
+## Minimal Google entry screen: development preview
+
+- Removed the duplicate `Sign in with Google` heading and both instructional
+  paragraphs. The normal page now shows Ronin branding, `DITTO Email Client` as
+  its accessible heading, and one `Continue with Google` action. Authentication,
+  invitations, access checks, loading/error handling and the other auth-page
+  titles are unchanged.
+- The optimized dashboard build passed; the actual local browser showed only
+  the branding/title/button, with the Google-start link targeting localhost.
+  Current preview output is `NEXT_DIST_DIR=dist/auth-preview`, isolated from the
+  earlier preview and excluded by the source inventory's existing `dist` rule.
+- Restarted combined Lite with resolved development-target guards: Neon
+  `ep-soft-darkness-bcw72x10.c-16.us-east-1.aws.neon.tech`, ClickHouse
+  `dittofeed_dev`, and Temporal `ditto-dev.lrwcc`. Worker and bootstrap flags are
+  false; owned tracking and Cloudflare provisioning remain disabled.
+- This UI change is local-only, not a production deployment.

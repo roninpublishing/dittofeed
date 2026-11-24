@@ -44,11 +44,7 @@ export default function GoogleSignIn({ apiBase }: GoogleSignInProps) {
     typeof router.query.error === "string" ? router.query.error : null;
 
   return (
-    <AccountAuthFrame title="Sign in with Google">
-      <Typography color="text.secondary">
-        Use the Google account invited to your workspace. Google verifies your
-        identity; DITTO Email Client manages workspace access.
-      </Typography>
+    <AccountAuthFrame>
       {errorCode && (
         <Alert severity="error">{authErrorMessage(errorCode)}</Alert>
       )}
@@ -91,10 +87,6 @@ export default function GoogleSignIn({ apiBase }: GoogleSignInProps) {
           Continue with Google
         </Button>
       )}
-      <Typography variant="body2" color="text.secondary">
-        No invitation? Contact your workspace administrator. Your password,
-        two-step verification, and recovery options are managed by Google.
-      </Typography>
     </AccountAuthFrame>
   );
 }

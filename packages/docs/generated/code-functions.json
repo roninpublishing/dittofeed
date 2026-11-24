@@ -2440040,7 +2440040,7 @@
       "name": "AccountAuthFrame",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "{\n  title,\n  children,\n}: {\n  title: string;\n  children: ReactNode;\n}"
+        "{\n  title,\n  children,\n}: {\n  title?: string;\n  children: ReactNode;\n}"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -2482851,7 +2482851,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/auth/google.page.tsx",
-      "line": 62,
+      "line": 58,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",

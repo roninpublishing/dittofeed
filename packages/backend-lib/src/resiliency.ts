@@ -1,6 +1,5 @@
 import { aliasedTable, and, eq, inArray, max, not, or } from "drizzle-orm";
 
-import { query as chQuery } from "./clickhouse";
 import config from "./config";
 import { WORKSPACE_COMPUTE_LATENCY_METRIC } from "./constants";
 import { db } from "./db";
@@ -10,7 +9,7 @@ import {
   userProperty as dbUserProperty,
   workspace as dbWorkspace,
 } from "./db/schema";
-import logger, { publicLogger } from "./logger";
+import logger from "./logger";
 import { getMeter } from "./openTelemetry";
 import {
   ComputedPropertyStepEnum,
@@ -19,13 +18,6 @@ import {
   WorkspaceTypeAppEnum,
 } from "./types";
 import { getRecomputableWorkspaces } from "./workspaces";
-
-const PUBLIC_PREFIX = "DF_PUBLIC";
-
-const PUBLIC_LOGS = {
-  userCounts: `${PUBLIC_PREFIX}_USER_COUNTS`,
-  messageCounts: `${PUBLIC_PREFIX}_MESSAGE_COUNTS`,
-};
 
 function observeWorkspaceComputeLatencyInner({
   workspaces,
@@ -89,70 +81,6 @@ function observeWorkspaceComputeLatencyInner({
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 export async function observeWorkspaceComputeLatency() {}
-
-async function emitPublicSignals({ workspaces }: { workspaces: Workspace[] }) {
-  const [userCountsRes, messageCountsRes] = await Promise.all([
-    chQuery({
-      query: `select workspace_id, uniq(user_id) as count from user_events_v2 group by workspace_id`,
-      format: "JSONEachRow",
-    }),
-    chQuery({
-      query: `select workspace_id, uniq(message_id) as count from user_events_v2 where event = 'DFInternalMessageSent'group by workspace_id`,
-      format: "JSONEachRow",
-    }),
-  ]);
-
-  const [userCountRows, messageCountRows] = await Promise.all([
-    userCountsRes.json<{ workspace_id: string; count: string }>(),
-    messageCountsRes.json<{ workspace_id: string; count: string }>(),
-  ]);
-  const userCounts: [string, number][] = [];
-
-  for (const row of userCountRows) {
-    const count = Number.parseInt(row.count, 10);
-    if (Number.isNaN(count)) {
-      publicLogger().error(
-        { workspaceId: row.workspace_id, count: row.count },
-        "Could not parse user count",
-      );
-      continue;
-    }
-    userCounts.push([row.workspace_id, count]);
-  }
-
-  const messageCounts: [string, number][] = [];
-
-  for (const row of messageCountRows) {
-    const count = Number.parseInt(row.count, 10);
-    if (Number.isNaN(count)) {
-      publicLogger().error(
-        { workspaceId: row.workspace_id, count: row.count },
-        "Could not parse message count",
-      );
-      continue;
-    }
-    messageCounts.push([row.workspace_id, count]);
-  }
-
-  // Sort workspaces by createdAt and take the first ID
-  const firstWorkspace = workspaces
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-    .at(0)?.id;
-
-  for (const [workspaceId, count] of userCounts) {
-    publicLogger().info(
-      { workspaceId, count, firstWorkspace },
-      PUBLIC_LOGS.userCounts,
-    );
-  }
-
-  for (const [workspaceId, count] of messageCounts) {
-    publicLogger().info(
-      { workspaceId, count, firstWorkspace },
-      PUBLIC_LOGS.messageCounts,
-    );
-  }
-}
 
 export async function findActiveWorkspaces(): Promise<{
   workspaces: Workspace[];
@@ -222,11 +150,4 @@ export async function emitGlobalSignals() {
     periods,
   });
 
-  const { dittofeedTelemetryDisabled } = config();
-
-  if (!dittofeedTelemetryDisabled) {
-    await emitPublicSignals({
-      workspaces,
-    });
-  }
 }

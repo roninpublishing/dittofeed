@@ -684,15 +684,13 @@
     "packages/mcp/src/api.ts",
     "packages/mcp/src/index.ts",
     "packages/mcp/src/server.ts",
-    "packages/tracking-worker/.wrangler/dry-run/index.js",
-    "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
     "packages/tracking-worker/src/index.ts",
     "packages/worker/scripts/startWorker.ts",
     "packages/worker/src/buildWorker.ts",
     "packages/worker/src/config.ts",
     "packages/worker/src/openTelemetry.ts"
   ],
-  "functionCount": 6422,
+  "functionCount": 6389,
   "functions": [
     {
       "file": "packages/admin-cli/scripts/cli.ts",
@@ -4456,9 +4454,7 @@
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
-      "parameters": [
-        "request"
-      ],
+      "parameters": [],
       "returnType": "inferred from implementation",
       "documentation": null,
       "hasBody": true,
@@ -15216,7 +15212,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 904,
+      "line": 902,
       "column": 1,
       "name": "config",
       "kind": "FunctionDeclaration",
@@ -15228,7 +15224,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 916,
+      "line": 914,
       "column": 1,
       "name": "databaseUrlWithoutName",
       "kind": "FunctionDeclaration",
@@ -15240,7 +15236,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 923,
+      "line": 921,
       "column": 1,
       "name": "assignmentSequentialConsistency",
       "kind": "FunctionDeclaration",
@@ -21497,7 +21493,7 @@
     },
     {
       "file": "packages/backend-lib/src/logger.ts",
-      "line": 12,
+      "line": 11,
       "column": 57,
       "name": "Array.from(SECRETS).flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -21511,7 +21507,7 @@
     },
     {
       "file": "packages/backend-lib/src/logger.ts",
-      "line": 30,
+      "line": 29,
       "column": 1,
       "name": "isPinoLevel",
       "kind": "FunctionDeclaration",
@@ -21525,7 +21521,7 @@
     },
     {
       "file": "packages/backend-lib/src/logger.ts",
-      "line": 39,
+      "line": 38,
       "column": 5,
       "name": "level",
       "kind": "MethodDeclaration",
@@ -21540,19 +21536,7 @@
     },
     {
       "file": "packages/backend-lib/src/logger.ts",
-      "line": 52,
-      "column": 1,
-      "name": "publicLogger",
-      "kind": "FunctionDeclaration",
-      "parameters": [],
-      "returnType": "Logger",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/backend-lib/src/logger.ts",
-      "line": 89,
+      "line": 51,
       "column": 1,
       "name": "logger",
       "kind": "FunctionDeclaration",
@@ -27728,7 +27712,7 @@
     },
     {
       "file": "packages/backend-lib/src/resiliency.ts",
-      "line": 30,
+      "line": 22,
       "column": 1,
       "name": "observeWorkspaceComputeLatencyInner",
       "kind": "FunctionDeclaration",
@@ -27742,7 +27726,7 @@
     },
     {
       "file": "packages/backend-lib/src/resiliency.ts",
-      "line": 38,
+      "line": 30,
       "column": 5,
       "name": "periods.reduce callback[0]",
       "kind": "ArrowFunction",
@@ -27757,7 +27741,7 @@
     },
     {
       "file": "packages/backend-lib/src/resiliency.ts",
-      "line": 91,
+      "line": 83,
       "column": 1,
       "name": "observeWorkspaceComputeLatency",
       "kind": "FunctionDeclaration",
@@ -27769,36 +27753,7 @@
     },
     {
       "file": "packages/backend-lib/src/resiliency.ts",
-      "line": 93,
-      "column": 1,
-      "name": "emitPublicSignals",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "{ workspaces }: { workspaces: Workspace[] }"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/backend-lib/src/resiliency.ts",
-      "line": 139,
-      "column": 11,
-      "name": "workspaces .sort callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "a",
-        "b"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/backend-lib/src/resiliency.ts",
-      "line": 157,
+      "line": 85,
       "column": 1,
       "name": "findActiveWorkspaces",
       "kind": "FunctionDeclaration",
@@ -27810,7 +27765,7 @@
     },
     {
       "file": "packages/backend-lib/src/resiliency.ts",
-      "line": 196,
+      "line": 124,
       "column": 38,
       "name": "periodsRaw.flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -27824,7 +27779,7 @@
     },
     {
       "file": "packages/backend-lib/src/resiliency.ts",
-      "line": 216,
+      "line": 144,
       "column": 1,
       "name": "emitGlobalSignals",
       "kind": "FunctionDeclaration",
@@ -87838,434 +87793,6 @@
       "boundary": "internal implementation; not independently exposed"
     },
     {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 2,
-      "column": 14,
-      "name": "__name",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "target",
-        "value"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 12,
-      "column": 3,
-      "name": "Uint8Array.from callback[1]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "character"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 38,
-      "column": 1,
-      "name": "response",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "status",
-        "method",
-        "pixel = false"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 57,
-      "column": 1,
-      "name": "brandedHostname",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "hostname"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 59,
-      "column": 93,
-      "name": "labels.every callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "label"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 62,
-      "column": 1,
-      "name": "relayUrl",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "env"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 73,
-      "column": 1,
-      "name": "secretBytes",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "secret"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 77,
-      "column": 35,
-      "name": "Uint8Array.from callback[1]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "character"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 80,
-      "column": 1,
-      "name": "evidenceHeaders",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "headers"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 94,
-      "column": 1,
-      "name": "evidenceQuery",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "url"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 104,
-      "column": 1,
-      "name": "boundedHint",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "value",
-        "limit"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 108,
-      "column": 1,
-      "name": "handle",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "request",
-        "env"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 149,
-      "column": 56,
-      "name": "Array.from callback[1]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "byte"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 151,
-      "column": 30,
-      "name": "setTimeout callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/dry-run/index.js",
-      "line": 176,
-      "column": 3,
-      "name": "fetch",
-      "kind": "MethodDeclaration",
-      "parameters": [
-        "request",
-        "env"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 2,
-      "column": 14,
-      "name": "__name",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "target",
-        "value"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 12,
-      "column": 3,
-      "name": "Uint8Array.from callback[1]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "character"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 38,
-      "column": 1,
-      "name": "response",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "status",
-        "method",
-        "pixel = false"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 57,
-      "column": 1,
-      "name": "brandedHostname",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "hostname"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 59,
-      "column": 93,
-      "name": "labels.every callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "label"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 62,
-      "column": 1,
-      "name": "relayUrl",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "env"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 73,
-      "column": 1,
-      "name": "secretBytes",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "secret"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 77,
-      "column": 35,
-      "name": "Uint8Array.from callback[1]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "character"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 80,
-      "column": 1,
-      "name": "evidenceHeaders",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "headers"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 94,
-      "column": 1,
-      "name": "evidenceQuery",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "url"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 104,
-      "column": 1,
-      "name": "boundedHint",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "value",
-        "limit"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 108,
-      "column": 1,
-      "name": "handle",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "request",
-        "env"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 149,
-      "column": 56,
-      "name": "Array.from callback[1]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "byte"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 151,
-      "column": 30,
-      "name": "setTimeout callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
-      "line": 176,
-      "column": 3,
-      "name": "fetch",
-      "kind": "MethodDeclaration",
-      "parameters": [
-        "request",
-        "env"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
       "file": "packages/tracking-worker/src/index.ts",
       "line": 16,
       "column": 3,
@@ -88506,7 +88033,7 @@
     },
     {
       "file": "packages/worker/src/buildWorker.ts",
-      "line": 60,
+      "line": 68,
       "column": 11,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -88520,7 +88047,7 @@
     },
     {
       "file": "packages/worker/src/buildWorker.ts",
-      "line": 64,
+      "line": 72,
       "column": 11,
       "name": "<anonymous>",
       "kind": "ArrowFunction",

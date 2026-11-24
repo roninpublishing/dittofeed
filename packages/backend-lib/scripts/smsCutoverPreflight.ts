@@ -82,12 +82,16 @@ async function inspectTemporal(): Promise<number> {
   if (!process.env.TEMPORAL_ADDRESS) {
     throw new Error("TEMPORAL_ADDRESS is required");
   }
+  const namespace = process.env.TEMPORAL_NAMESPACE ?? "default";
+  const apiKey = process.env.TEMPORAL_API_KEY;
   const connection = await Connection.connect({
     address: process.env.TEMPORAL_ADDRESS,
     connectTimeout: 10000,
+    ...(apiKey
+      ? { tls: true, apiKey, metadata: { "temporal-namespace": namespace } }
+      : {}),
   });
   try {
-    const namespace = process.env.TEMPORAL_NAMESPACE ?? "default";
     const client = new Client({ connection, namespace });
     let count = 0;
     let inspected = 0;

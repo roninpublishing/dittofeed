@@ -16,7 +16,7 @@ const root = path.resolve(__dirname, '..');
 
 // Only explicitly allowed imports can execute; any accidental external transport
 // import (including net/http/child_process) fails closed before test execution.
-function load(relative, imports = {}, env = {}) {
+function load(relative, imports = {}, env = {}, onLog = () => {}) {
   const filename = path.join(root, relative);
   const compiled = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true },
@@ -33,7 +33,8 @@ function load(relative, imports = {}, env = {}) {
   };
   vm.runInNewContext(compiled, {
     module, exports: module.exports, require: safeRequire,
-    process: { env }, URL, URLSearchParams, console: { log() {}, info() {}, error() {} },
+    process: { env }, URL, URLSearchParams,
+    console: { log: onLog, info: onLog, error: onLog },
   }, { filename });
   return module.exports;
 }
@@ -143,5 +144,51 @@ test('config keeps no-key and empty-key local defaults', () => {
     assert.equal(config.temporalApiKey, key);
     assert.equal(config.temporalNamespace, 'default');
     assert.equal(config.temporalAddress, 'localhost:7233');
+  }
+});
+
+test('cutover preflight authenticates Cloud inspection while preserving no-key local options', { timeout: 5000 }, async () => {
+  for (const key of ['synthetic-test-key', '', undefined]) {
+    const calls = [];
+    let clientNamespace;
+    await new Promise((resolve, reject) => {
+      load('packages/backend-lib/scripts/smsCutoverPreflight.ts', {
+        '@temporalio/client': {
+          Connection: { connect: async (options) => {
+            calls.push(plain(options));
+            return { close: async () => {} };
+          } },
+          Client: class {
+            constructor(options) {
+              clientNamespace = options.namespace;
+              this.workflow = { list: async function* () {} };
+            }
+          },
+        },
+        '@temporalio/common': { defaultPayloadConverter: {
+          fromPayload() { throw new Error('Unexpected workflow payload'); },
+        } },
+        pg: { Pool: class {
+          async connect() {
+            return { query: async () => ({ rows: [] }), release() {} };
+          }
+          async end() {}
+        } },
+      }, {
+        DATABASE_URL: 'postgresql://fixture',
+        TEMPORAL_ADDRESS: 'test:7233',
+        TEMPORAL_NAMESPACE: 'test.namespace',
+        ...(key === undefined ? {} : { TEMPORAL_API_KEY: key }),
+      }, (message) => {
+        if (/^Cutover preflight passed/.test(message)) resolve();
+        else if (/incomplete|Cutover blocked/.test(message)) reject(new Error(message));
+      });
+    });
+    assert.equal(clientNamespace, 'test.namespace');
+    assert.deepEqual(calls, [{
+      address: 'test:7233',
+      connectTimeout: 10000,
+      ...(key ? { tls: true, apiKey: key, metadata: { 'temporal-namespace': 'test.namespace' } } : {}),
+    }]);
   }
 });

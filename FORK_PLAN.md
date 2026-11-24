@@ -101,6 +101,7 @@ Before replacing API/worker code on an existing deployment:
 
 ```bash
 # Requires DATABASE_URL and TEMPORAL_ADDRESS; TEMPORAL_NAMESPACE is optional.
+# Temporal Cloud additionally requires TEMPORAL_API_KEY (TLS/namespace metadata).
 yarn workspace backend-lib sms-cutover-preflight
 ```
 
@@ -1047,3 +1048,39 @@ development publisher/workspace. The MCP setup guide documents the single
 `.env`, reload/reconnect distinction and live verification.
 
 - [x] Reload the active OMP session and verify its mounted read-only MCP tool.
+
+## Production rollout preparation: 2026-11-24
+
+The operator explicitly approved the production database upgrade, targeted SMS
+retirement, separate production Google client, and app deployment with workers
+and tracking disabled. Production was still `v0.23.0-cloud`, shared-login mode,
+and 11 migrations before this cutover; the development environment was not used
+as the production connection source.
+
+- A private production PostgreSQL custom-format backup, runtime configuration
+  and previous Compose contract are preserved under
+  `/opt/dittofeed-backups/pre-ea178796-20261124T220643Z` on the production host.
+  The 90,314-byte database archive passed `pg_restore --list` verification.
+- The legacy `Default - SMS` group was archived in that directory, then retired
+  with explicit approval. Its two generated segments were paused, not deleted;
+  segment assignments and contact/event history were preserved. No campaigns
+  referenced those segments.
+- The mandatory SMS preflight now supports Temporal Cloud API-key/TLS and
+  namespace metadata. It passed against production after retirement: zero legacy
+  database resources and zero legacy inputs among two running workflows.
+  Six isolated Temporal regressions and the backend TypeScript check passed.
+  Existing preflight lint violations outside the changed Cloud-auth lines remain.
+- The first 11 production migration hashes matched the release files. Seven
+  additive migrations then applied through `0017`, leaving 18 total; original
+  workspace identity and legacy core-table row counts were verified unchanged.
+- Production's resolved Lite worker setting is false; bootstrap, bootstrap
+  events, bootstrap worker, owned tracking and Cloudflare provisioning are off.
+  The existing image remained healthy. No workflow was cancelled and no email
+  was sent. The current production ClickHouse/network/volumes were not changed.
+- A separate `DITTO Email Client — Production` Google client was created in the
+  existing dedicated Google project for the exact HTTPS production callback.
+  An unused secret exposed through a copy-button diagnostic was disabled and
+  replaced before installation. Local Google credentials were not changed.
+
+The new image activation and real production Google acceptance remain pending
+until recorded below; these preparation checks are not a completed deployment.

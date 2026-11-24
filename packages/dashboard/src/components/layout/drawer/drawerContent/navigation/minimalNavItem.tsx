@@ -1,4 +1,3 @@
-import { SvgIconComponent } from "@mui/icons-material";
 import {
   ListItemButton,
   ListItemIcon,
@@ -8,20 +7,21 @@ import {
 } from "@mui/material";
 // material-ui
 import Link from "next/link";
-import { useRouter } from "next/router";
 
-import { useAppStore } from "../../../../../lib/appStore";
-// project import
 import { MenuItem } from "../../../../menuItems/types";
 
 // ==============================|| NAVIGATION - LIST ITEM ||============================== //
 
-function MinimalNavItem({ item, level }: { level: number; item: MenuItem }) {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  const Icon = item.icon as SvgIconComponent;
-  const path = useRouter();
-  const isSelected = item.url === path.asPath;
-  const drawerOpen = useAppStore((state) => state.drawerOpen);
+function MinimalNavItem({
+  item,
+  level,
+  isSelected,
+}: {
+  level: number;
+  item: MenuItem;
+  isSelected: boolean;
+}) {
+  const Icon = item.icon;
   const description = item.disabled
     ? `Coming Soon: ${item.description}`
     : item.description;
@@ -33,23 +33,29 @@ function MinimalNavItem({ item, level }: { level: number; item: MenuItem }) {
           href={item.url}
           disabled={item.disabled}
           target={item.external ? "_blank" : "_self"}
+          rel={item.external ? "noopener noreferrer" : undefined}
           component={item.external ? "a" : Link}
           selected={isSelected}
+          aria-current={isSelected ? "page" : undefined}
           sx={{
-            borderRadius: 2,
-            paddingX: 1,
-            paddingY: 0.5,
-            ml: level * 1.5,
+            minHeight: 36,
+            borderRadius: 1,
+            px: 1,
+            py: 0.5,
+            ml: level,
+            "&.Mui-focusVisible": {
+              outline: "2px solid",
+              outlineColor: "primary.main",
+              outlineOffset: -2,
+            },
           }}
         >
-          <ListItemIcon>
-            <Icon sx={{ fontSize: "1rem" }} />
+          <ListItemIcon sx={{ minWidth: 28, "& svg": { fontSize: 18 } }}>
+            <Icon />
           </ListItemIcon>
-          {(drawerOpen || level !== 1) && (
-            <ListItemText
-              primary={<Typography variant="h6">{item.title}</Typography>}
-            />
-          )}
+          <ListItemText
+            primary={<Typography variant="body2">{item.title}</Typography>}
+          />
         </ListItemButton>
       </span>
     </Tooltip>

@@ -22,10 +22,15 @@ import { DragEvent, DragEventHandler } from "react";
 import { v4 as uuid } from "uuid";
 
 import { useAppStorePick } from "../../lib/appStore";
-import { AppState, JourneyUiEdge, JourneyUiNode } from "../../lib/types";
+import {
+  JourneyEditorContent,
+  JourneyUiEdge,
+  JourneyUiNode,
+} from "../../lib/types";
 import { useJourneyStats } from "../../lib/useJourneyStats";
 import { useSubscriptionGroupsQuery } from "../../lib/useSubscriptionGroupsQuery";
 import edgeTypes from "./edgeTypes";
+import { useJourneyStorePick } from "./editorStore";
 import NodeEditor from "./nodeEditor";
 import nodeTypes from "./nodeTypes";
 import { defaultBodyNodeTypeProps } from "./nodeTypes/defaultNodeTypeProps";
@@ -53,12 +58,12 @@ export function createNewConnections({
   newTargetId: newTargetIdOverride,
 }: {
   nodeType: JourneyUiBodyNodeTypeProps["type"];
-  nodes: AppState["journeyNodes"];
-  addNodes: AppState["addNodes"];
+  nodes: JourneyEditorContent["journeyNodes"];
+  addNodes: JourneyEditorContent["addNodes"];
   source: string;
   target: string;
   subscriptionGroups: SavedSubscriptionGroupResource[];
-  setSelectedNodeId: AppState["setSelectedNodeId"];
+  setSelectedNodeId: JourneyEditorContent["setSelectedNodeId"];
   newTargetId?: string;
 }) {
   // TODO create an incremental ID based on the number of elements already in the graph
@@ -76,6 +81,12 @@ export function createNewConnections({
 }
 
 function JourneysBuilderInner({ journeyId }: { journeyId: string }) {
+  const { upsertJourneyStats, setJourneyStatsRequest, viewDraft } =
+    useAppStorePick([
+      "upsertJourneyStats",
+      "setJourneyStatsRequest",
+      "viewDraft",
+    ]);
   const {
     setNodes,
     addNodes,
@@ -83,20 +94,14 @@ function JourneysBuilderInner({ journeyId }: { journeyId: string }) {
     journeyNodes: nodes,
     journeyEdges: edges,
     journeyDraggedComponentType: draggedComponentType,
-    upsertJourneyStats,
-    setJourneyStatsRequest,
-    viewDraft,
     setSelectedNodeId,
-  } = useAppStorePick([
+  } = useJourneyStorePick([
     "setNodes",
     "addNodes",
     "setEdges",
     "journeyNodes",
     "journeyEdges",
     "journeyDraggedComponentType",
-    "setJourneyStatsRequest",
-    "upsertJourneyStats",
-    "viewDraft",
     "setSelectedNodeId",
   ]);
   const { data: subscriptionGroups } = useSubscriptionGroupsQuery();

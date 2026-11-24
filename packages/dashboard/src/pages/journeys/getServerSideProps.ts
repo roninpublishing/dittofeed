@@ -24,10 +24,15 @@ import {
 } from "../../components/journeys/store";
 import { addInitialStateToProps } from "../../lib/addInitialStateToProps";
 import { requestContext } from "../../lib/requestContext";
-import { PreloadedState, PropsWithInitialState } from "../../lib/types";
+import {
+  JourneyStateForResource,
+  PreloadedState,
+  PropsWithInitialState,
+} from "../../lib/types";
 
-export type JourneyGetServerSideProps =
-  GetServerSideProps<PropsWithInitialState>;
+export type JourneyGetServerSideProps = GetServerSideProps<
+  PropsWithInitialState<{ journeyInitialState: JourneyStateForResource }>
+>;
 
 export const journeyGetServerSideProps: JourneyGetServerSideProps =
   requestContext(async (ctx, dfContext) => {
@@ -69,6 +74,7 @@ export const journeyGetServerSideProps: JourneyGetServerSideProps =
     const journeyResourceResult =
       journey?.workspaceId === workspaceId ? toJourneyResource(journey) : null;
 
+    let journeyInitialState: JourneyStateForResource;
     if (journeyResourceResult) {
       if (!journeyResourceResult.isOk()) {
         logger().error(
@@ -87,11 +93,7 @@ export const journeyGetServerSideProps: JourneyGetServerSideProps =
         value: [journeyResource],
       };
 
-      const stateFromJourney = journeyResourceToState(journeyResource);
-      serverInitialState.journeyName = stateFromJourney.journeyName;
-      serverInitialState.journeyEdges = stateFromJourney.journeyEdges;
-      serverInitialState.journeyNodes = stateFromJourney.journeyNodes;
-      serverInitialState.journeyNodesIndex = stateFromJourney.journeyNodesIndex;
+      journeyInitialState = journeyResourceToState(journeyResource);
     } else {
       const stateForDraft: JourneyStateForDraft = {
         journeyNodes: DEFAULT_JOURNEY_NODES,
@@ -115,12 +117,12 @@ export const journeyGetServerSideProps: JourneyGetServerSideProps =
         doNothingOnConflict: true,
       }).then(unwrap);
 
-      serverInitialState.journeyName = name;
-      serverInitialState.journeyEdges = DEFAULT_EDGES;
-      serverInitialState.journeyNodes = DEFAULT_JOURNEY_NODES;
-      serverInitialState.journeyNodesIndex = buildNodesIndex(
-        DEFAULT_JOURNEY_NODES,
-      );
+      journeyInitialState = {
+        journeyName: name,
+        journeyEdges: DEFAULT_EDGES,
+        journeyNodes: DEFAULT_JOURNEY_NODES,
+        journeyNodesIndex: buildNodesIndex(DEFAULT_JOURNEY_NODES),
+      };
       serverInitialState.journeys = {
         type: CompletionStatus.Successful,
         value: [unwrap(toJourneyResource(newJourney))],
@@ -137,9 +139,12 @@ export const journeyGetServerSideProps: JourneyGetServerSideProps =
       value: userProperties,
     };
 
+    const serializedJourneyInitialState: JourneyStateForResource = JSON.parse(
+      JSON.stringify(journeyInitialState),
+    );
     const props = addInitialStateToProps({
       serverInitialState,
-      props: {},
+      props: { journeyInitialState: serializedJourneyInitialState },
       dfContext,
     });
 

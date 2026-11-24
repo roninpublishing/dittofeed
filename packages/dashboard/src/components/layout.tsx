@@ -1,6 +1,7 @@
 // material-ui
-import { Box, Toolbar } from "@mui/material";
-import React, { useMemo } from "react";
+import { Box, Toolbar, useMediaQuery, useTheme } from "@mui/material";
+import { useRouter } from "next/router";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { useAppStore } from "../lib/appStore";
 import { LayoutContext, LayoutContextValues } from "./layout/context";
@@ -19,6 +20,30 @@ function Layout({
 } & LayoutContextValues) {
   const drawerOpen = useAppStore((state) => state.drawerOpen);
   const toggleDrawer = useAppStore((state) => state.toggleDrawer);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const open = isMobile ? mobileOpen : drawerOpen;
+  const router = useRouter();
+
+  useEffect(() => {
+    const closeMobileNavigation = () => setMobileOpen(false);
+    router.events.on("routeChangeComplete", closeMobileNavigation);
+    return () =>
+      router.events.off("routeChangeComplete", closeMobileNavigation);
+  }, [router.events]);
+
+  useEffect(() => {
+    if (!isMobile) setMobileOpen(false);
+  }, [isMobile]);
+
+  const handleDrawerToggle = () => {
+    if (isMobile) {
+      setMobileOpen((previous) => !previous);
+    } else {
+      toggleDrawer();
+    }
+  };
   const layoutProps = useMemo(
     () => ({
       items,
@@ -31,9 +56,16 @@ function Layout({
 
   return (
     <LayoutContext.Provider value={layoutProps}>
-      <Box sx={{ display: "flex", width: "100%", height: "100vh" }}>
-        <Header open={drawerOpen} handleDrawerToggle={toggleDrawer} />
-        <Drawer open={drawerOpen} handleDrawerToggle={toggleDrawer} />
+      <Box
+        sx={{
+          display: "flex",
+          width: "100%",
+          height: "100dvh",
+          overflow: "hidden",
+        }}
+      >
+        <Header open={open} handleDrawerToggle={handleDrawerToggle} />
+        <Drawer open={open} onClose={() => setMobileOpen(false)} />
         <Box
           component="main"
           sx={{
@@ -46,12 +78,15 @@ function Layout({
           }}
         >
           <Toolbar />
+
           <Box
             id="layout-contents"
             sx={{
               display: "flex",
               alignItems: "stretch",
               flex: 1,
+              minWidth: 0,
+              overflow: "hidden",
               minHeight: 0,
             }}
           >

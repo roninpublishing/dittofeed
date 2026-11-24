@@ -29,11 +29,12 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { isObject } from "isomorphic-lib/src/objects";
 import { CompletionStatus } from "isomorphic-lib/src/types";
 import { useRouter } from "next/router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAppStorePick } from "../../lib/appStore";
 import CreateNewsletterDialog from "./createNewsletterDialog";
@@ -102,7 +103,10 @@ function DataTable({
     return <Typography color="text.secondary">No records.</Typography>;
   return (
     <Box sx={{ overflowX: "auto" }}>
-      <Table size="small">
+      <Table
+        size="small"
+        sx={{ minWidth: Math.max(360, columns.length * 120) }}
+      >
         <TableHead>
           <TableRow>
             {columns.map(([key, label]) => (
@@ -383,6 +387,7 @@ export default function PublicationManagement({
     "authMode",
   ]);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const workspaceId =
     workspace.type === CompletionStatus.Successful ? workspace.value.id : "";
   const [tab, setTab] = useState(0);
@@ -398,9 +403,10 @@ export default function PublicationManagement({
   const [openingNewsletter, setOpeningNewsletter] = useState<string | null>(
     null,
   );
-  const [data, setData] = useState<RecordValue>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [historyData, setData] = useState<RecordValue>({});
+  const [busy, setLoading] = useState(false);
+  const [operationError, setError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<RecordValue>({});
   const [selectedContacts, setSelectedContacts] = useState<RecordValue[]>([]);
@@ -412,56 +418,83 @@ export default function PublicationManagement({
   });
   const [suppressionEmail, setSuppressionEmail] = useState("");
   const isPublisher = publisherId === workspaceId;
-  const refresh = useCallback(async () => {
-    if (!publisherId || !isPublisher) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const paths: Record<string, string> = {
-        newsletters: "/",
-        overview: "/overview",
-      };
-      if (section === "settings") {
-        paths.infrastructure = "/infrastructure";
-        if (tab === 3) {
-          paths.automations = "/automations";
-          paths.actions = "/automations/actions";
-        }
-        if (tab === 4) paths.suppressions = "/suppressions";
-        if (tab === 5) {
-          paths.health = "/delivery-health";
-          paths.sends = "/sends";
-        }
-      }
-      if (section === "reports") paths.health = "/delivery-health";
-      const entries = await Promise.all(
-        Object.entries(paths).map(async ([key, path]) => {
-          const response = await axios.get<{ data: unknown }>(
-            `${apiBase}/api/publications${path}`,
-            {
-              params: {
-                workspaceId,
-                ...(["actions", "suppressions", "sends"].includes(key)
-                  ? { limit: 25 }
-                  : {}),
-              },
-            },
-          );
-          return [key, response.data.data];
-        }),
-      );
-      setData((current) => ({ ...current, ...Object.fromEntries(entries) }));
-      setHistoryOffsets({ actions: 0, suppressions: 0, sends: 0 });
-      setSuppressionEmail("");
-    } catch (failure) {
-      setError(errorText(failure));
-    } finally {
-      setLoading(false);
+  const paths = useMemo(() => {
+    const required: Record<string, string> = { newsletters: "/" };
+    if (section === "newsletters" || section === "reports") {
+      required.overview = "/overview";
     }
-  }, [apiBase, isPublisher, publisherId, workspaceId, section, tab]);
+    if (section === "settings") {
+      if (tab === 1 || tab === 2) required.infrastructure = "/infrastructure";
+      if (tab === 3) {
+        required.automations = "/automations";
+        required.actions = "/automations/actions";
+      }
+      if (tab === 4) required.suppressions = "/suppressions";
+      if (tab === 5) {
+        required.health = "/delivery-health";
+        required.sends = "/sends";
+      }
+    }
+    if (section === "reports") required.health = "/delivery-health";
+    return Object.entries(required);
+  }, [section, tab]);
+  const publicationQueries = useQueries({
+    queries: paths.map(([key, path]) => ({
+      queryKey: ["publication-management", apiBase, workspaceId, key],
+      enabled: Boolean(publisherId) && isPublisher,
+      staleTime: 15_000,
+      queryFn: async ({ signal }: { signal: AbortSignal }) => {
+        const response = await axios.get<{ data: unknown }>(
+          `${apiBase}/api/publications${path}`,
+          {
+            signal,
+            params: {
+              workspaceId,
+              ...(["actions", "suppressions", "sends"].includes(key)
+                ? { limit: 25 }
+                : {}),
+            },
+          },
+        );
+        return response.data.data;
+      },
+    })),
+  });
+  const data: RecordValue = {
+    ...Object.fromEntries(
+      paths.map(([key], index) => [key, publicationQueries[index]?.data]),
+    ),
+    ...historyData,
+  };
+  const queryFailure = publicationQueries.find((query) => query.isError)?.error;
+  const error =
+    operationError ?? (queryFailure ? errorText(queryFailure) : null);
+  const loading = busy || publicationQueries.some((query) => query.isPending);
+  const newslettersLoading = publicationQueries[0]?.isPending;
+  const healthQuery = publicationQueries.find(
+    (_query, index) => paths[index]?.[0] === "health",
+  );
+  let emailActivityMessage = "No email activity yet.";
+  if (healthQuery?.isPending) {
+    emailActivityMessage = "Loading email activity…";
+  } else if (healthQuery?.isError) {
+    emailActivityMessage = "Email activity is unavailable.";
+  }
+  const refresh = useCallback(async () => {
+    setData({});
+    setHistoryOffsets({ actions: 0, suppressions: 0, sends: 0 });
+    setSuppressionEmail("");
+    setError(null);
+    await queryClient.invalidateQueries({
+      queryKey: ["publication-management", apiBase, workspaceId],
+    });
+  }, [apiBase, queryClient, workspaceId]);
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    setData({});
+    setHistoryOffsets({ actions: 0, suppressions: 0, sends: 0 });
+    setSuppressionEmail("");
+    setError(null);
+  }, [section, tab, workspaceId]);
   const historyPage = async (
     key: "actions" | "suppressions" | "sends",
     offset: number,
@@ -607,7 +640,7 @@ export default function PublicationManagement({
     );
 
   return (
-    <Stack spacing={3} sx={{ width: "100%" }}>
+    <Stack spacing={2} sx={{ width: "100%", minWidth: 0 }}>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={2}
@@ -615,10 +648,7 @@ export default function PublicationManagement({
         alignItems={{ sm: "center" }}
       >
         <Box>
-          <Typography
-            variant="h2"
-            sx={{ fontWeight: 700, letterSpacing: -0.5 }}
-          >
+          <Typography component="h1" variant="h2">
             {
               {
                 newsletters: "Newsletters",
@@ -628,7 +658,7 @@ export default function PublicationManagement({
               }[section]
             }
           </Typography>
-          <Typography color="text.secondary" sx={{ mt: 1 }}>
+          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
             {
               {
                 newsletters:
@@ -654,6 +684,7 @@ export default function PublicationManagement({
           <Button
             startIcon={<ArrowBackOutlined />}
             onClick={() => void router.push("/publications")}
+            sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
           >
             Newsletters
           </Button>
@@ -685,13 +716,13 @@ export default function PublicationManagement({
       {section === "newsletters" && (
         <>
           <Typography variant="body2" color="text.secondary">
-            {loading
+            {newslettersLoading
               ? "Loading newsletters…"
               : `${newsletters.length} ${newsletters.length === 1 ? "newsletter" : "newsletters"}`}
           </Typography>
           <Paper
             variant="outlined"
-            sx={{ borderRadius: 2, overflow: "hidden" }}
+            sx={{ borderRadius: 1, overflow: "hidden" }}
           >
             {newsletters.length > 0 ? (
               <Box sx={{ overflowX: "auto" }}>
@@ -699,7 +730,12 @@ export default function PublicationManagement({
                   <TableHead sx={{ bgcolor: "action.hover" }}>
                     <TableRow>
                       <TableCell>Newsletter</TableCell>
-                      <TableCell align="right">Subscribers</TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ display: { xs: "none", sm: "table-cell" } }}
+                      >
+                        Subscribers
+                      </TableCell>
                       <TableCell>Status</TableCell>
                       <TableCell />
                     </TableRow>
@@ -711,29 +747,50 @@ export default function PublicationManagement({
                         hover
                         sx={{ "&:last-child td": { borderBottom: 0 } }}
                       >
-                        <TableCell sx={{ py: 3 }}>
+                        <TableCell sx={{ py: 1.5 }}>
                           <Stack
                             direction="row"
-                            spacing={2}
+                            spacing={1.5}
                             alignItems="center"
                           >
                             <Box
                               sx={{
                                 display: "flex",
-                                p: 1.25,
-                                borderRadius: 2,
+                                p: 1,
+                                borderRadius: 1,
                                 bgcolor: "action.hover",
                                 color: "primary.main",
                               }}
                             >
                               <MailOutline />
                             </Box>
-                            <Typography fontWeight={600}>
-                              {text(newsletter.name)}
-                            </Typography>
+                            <Stack minWidth={0}>
+                              <Typography
+                                fontWeight={600}
+                                noWrap
+                                title={text(newsletter.name)}
+                                sx={{ maxWidth: { xs: 108, sm: 480 } }}
+                              >
+                                {text(newsletter.name)}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ display: { sm: "none" } }}
+                              >
+                                {text(
+                                  statsById.get(text(newsletter.workspaceId))
+                                    ?.subscriptionCount,
+                                )}{" "}
+                                subscribers
+                              </Typography>
+                            </Stack>
                           </Stack>
                         </TableCell>
-                        <TableCell align="right">
+                        <TableCell
+                          align="right"
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
                           {text(
                             statsById.get(text(newsletter.workspaceId))
                               ?.subscriptionCount,
@@ -774,18 +831,24 @@ export default function PublicationManagement({
                 </Table>
               </Box>
             ) : (
-              <Stack spacing={2} alignItems="center" sx={{ py: 8, px: 3 }}>
-                {loading ? (
+              <Stack spacing={1.5} alignItems="center" sx={{ py: 4, px: 2 }}>
+                {newslettersLoading ? (
                   <CircularProgress size={28} />
                 ) : (
                   <>
                     <MailOutline
                       sx={{ fontSize: 40, color: "text.secondary" }}
                     />
-                    <Typography variant="h4">No newsletters yet</Typography>
-                    <Typography color="text.secondary">
-                      Create your first newsletter to get started.
+                    <Typography variant="h4">
+                      {publicationQueries[0]?.isError
+                        ? "Newsletters could not be loaded."
+                        : "No newsletters yet"}
                     </Typography>
+                    {!publicationQueries[0]?.isError && (
+                      <Typography color="text.secondary">
+                        Create your first newsletter to get started.
+                      </Typography>
+                    )}
                   </>
                 )}
               </Stack>
@@ -794,7 +857,7 @@ export default function PublicationManagement({
         </>
       )}
       {section === "reports" && (
-        <Stack spacing={3}>
+        <Stack spacing={2}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
             {(
               [
@@ -818,7 +881,7 @@ export default function PublicationManagement({
               <Paper
                 key={key}
                 variant="outlined"
-                sx={{ p: 3, flex: 1, borderRadius: 2 }}
+                sx={{ p: 2, flex: 1, borderRadius: 1, minWidth: 0 }}
               >
                 <Stack spacing={1}>
                   <Typography color="text.secondary">{label}</Typography>
@@ -832,7 +895,7 @@ export default function PublicationManagement({
               </Paper>
             ))}
           </Stack>
-          <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
             <Typography variant="h4" sx={{ mb: 2 }}>
               By newsletter
             </Typography>
@@ -845,7 +908,7 @@ export default function PublicationManagement({
               ]}
             />
           </Paper>
-          <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
             <Typography variant="h4" sx={{ mb: 1 }}>
               Email activity
             </Typography>
@@ -869,19 +932,25 @@ export default function PublicationManagement({
                 ]}
               />
             ) : (
-              <Typography color="text.secondary">
-                No email activity yet.
+              <Typography
+                color="text.secondary"
+                role={healthQuery?.isPending ? "status" : undefined}
+              >
+                {emailActivityMessage}
               </Typography>
             )}
           </Paper>
         </Stack>
       )}
       {section === "subscribers" && (
-        <Stack spacing={3}>
+        <Stack spacing={2}>
           <Box
             component="form"
             onSubmit={async (event) => {
               event.preventDefault();
+              if (searching) return;
+              setSearching(true);
+              setError(null);
               try {
                 const response = await axios.post<{ data: RecordValue }>(
                   `${apiBase}/api/publications/contacts/search`,
@@ -891,17 +960,30 @@ export default function PublicationManagement({
                 setSelectedContacts([]);
               } catch (failure) {
                 setError(errorText(failure));
+              } finally {
+                setSearching(false);
               }
             }}
           >
-            <Stack direction="row" spacing={2}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1.5}
+              alignItems={{ sm: "flex-start" }}
+            >
               <TextField
                 label="Search subscriber records"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 fullWidth
               />
-              <Button type="submit">Search</Button>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={searching}
+                sx={{ minWidth: 88, minHeight: 38 }}
+              >
+                {searching ? "Searching…" : "Search"}
+              </Button>
             </Stack>
           </Box>
           <Typography color="text.secondary">
@@ -993,7 +1075,7 @@ export default function PublicationManagement({
         </Stack>
       )}
       {section === "settings" && (
-        <Stack spacing={3}>
+        <Stack spacing={2}>
           <Alert severity="info">
             Provider changes and real sends require explicit release
             authorization. Shared-IP limits cover Ditto-managed traffic;

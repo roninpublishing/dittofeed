@@ -19,7 +19,7 @@ import axios from "axios";
 import { CompletionStatus } from "isomorphic-lib/src/types";
 import { useRouter } from "next/router";
 import { enqueueSnackbar } from "notistack";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 
 import { useAppStorePick } from "../../../../lib/appStore";
 import isNode from "../../../../lib/isNode";
@@ -36,6 +36,12 @@ function Profile() {
 
   const anchorRef = useRef<null | HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const menuId = useId();
+  useEffect(() => {
+    const closeOnNavigation = () => setOpen(false);
+    path.events.on("routeChangeStart", closeOnNavigation);
+    return () => path.events.off("routeChangeStart", closeOnNavigation);
+  }, [path.events]);
   const [switchingWorkspace, setSwitchingWorkspace] = useState(false);
   const handleToggle = () => {
     setOpen((prevOpen) => !prevOpen);
@@ -107,28 +113,40 @@ function Profile() {
   };
 
   return (
-    <Box sx={{ flexShrink: 0, ml: 0.75 }}>
+    <Box sx={{ flexShrink: 0, ml: "auto" }}>
       <ButtonBase
         sx={{
           p: 0.25,
+          minWidth: 32,
+          height: 36,
           bgcolor: open ? iconBackColorOpen : "transparent",
           borderRadius: 1,
           "&:hover": { bgcolor: "secondary.lighter" },
+          "&.Mui-focusVisible": {
+            outline: "2px solid",
+            outlineColor: "primary.main",
+          },
         }}
         aria-label={
           hasPersonalIdentity ? "Open account menu" : "Open workspace menu"
         }
         ref={anchorRef}
-        aria-controls={open ? "profile-grow" : undefined}
-        aria-haspopup="true"
+        aria-controls={open ? menuId : undefined}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         onClick={handleToggle}
       >
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ p: 0.5 }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{ px: 0.25 }}
+        >
           <Avatar
             alt={hasPersonalIdentity ? name : "Workspace"}
             sx={{
-              width: 32,
-              height: 32,
+              width: 28,
+              height: 28,
               bgcolor: "primary.lighter",
               color: "primary.main",
             }}
@@ -140,7 +158,7 @@ function Profile() {
             variant="subtitle1"
             noWrap
             title={name}
-            sx={{ maxWidth: { xs: 100, md: 160 } }}
+            sx={{ display: { xs: "none", md: "block" }, maxWidth: 160 }}
           >
             {name}
           </Typography>
@@ -157,7 +175,7 @@ function Profile() {
             {
               name: "offset",
               options: {
-                offset: [0, 9],
+                offset: [0, 8],
               },
             },
           ],
@@ -169,19 +187,27 @@ function Profile() {
           <Transitions type="fade" in={open} {...TransitionProps}>
             {open ? (
               <Paper
+                id={menuId}
+                role="dialog"
+                aria-label={
+                  hasPersonalIdentity ? "Account menu" : "Workspace menu"
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.stopPropagation();
+                    setOpen(false);
+                    anchorRef.current?.focus();
+                  }
+                }}
                 sx={{
                   boxShadow: theme.customShadows.z1,
                   width: 290,
-                  minWidth: 240,
-                  maxWidth: 290,
-                  [theme.breakpoints.down("md")]: {
-                    maxWidth: 250,
-                  },
+                  maxWidth: "calc(100vw - 32px)",
                 }}
               >
                 <ClickAwayListener onClickAway={handleClose}>
                   <MainCard elevation={0} border={false}>
-                    <CardContent sx={{ px: 2.5, pt: 3 }}>
+                    <CardContent sx={{ p: 2 }}>
                       <Grid
                         container
                         justifyContent="space-between"
@@ -209,8 +235,13 @@ function Profile() {
                                 <WorkspacesOutlined />
                               ) : null}
                             </Avatar>
-                            <Stack>
-                              <Typography variant="h6">{name}</Typography>
+                            <Stack sx={{ minWidth: 0 }}>
+                              <Typography
+                                variant="h6"
+                                sx={{ overflowWrap: "anywhere" }}
+                              >
+                                {name}
+                              </Typography>
                               {!hasPersonalIdentity ? (
                                 <Typography
                                   variant="caption"
@@ -232,6 +263,7 @@ function Profile() {
                         options={options}
                         disableClearable
                         disabled={switchingWorkspace}
+                        size="small"
                         onChange={(_e, newValue) => {
                           void changeWorkspace(newValue.id);
                         }}

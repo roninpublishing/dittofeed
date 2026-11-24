@@ -6,6 +6,7 @@ const nextConfig = {
     tsconfigPath: "./tsconfig.build.json",
   },
   basePath: "/dashboard",
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   output: process.env.NEXT_STANDALONE !== "false" ? "standalone" : undefined,
   pageExtensions: ["page.tsx", "page.ts"],
   poweredByHeader: false,
@@ -44,11 +45,11 @@ const nextConfig = {
     ];
   },
   experimental: {
-    newNextLinkBehavior: true,
     instrumentationHook: true,
+    // MUI and date-fns are already optimized by Next; Remeda is not.
+    optimizePackageImports: ["remeda"],
     outputFileTracingRoot: path.join(__dirname, "../../"),
   },
 };
 
-console.log("nextConfig", nextConfig);
 module.exports = nextConfig;

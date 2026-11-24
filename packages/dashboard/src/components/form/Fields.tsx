@@ -8,14 +8,14 @@ function Fields({ sections, children, disableChildStyling }: FieldsProps) {
   return (
     <Stack
       sx={{
-        backgroundColor: "white",
-        borderRadius: 3,
-        px: 4,
-        py: 2,
-        marginTop: 4,
+        backgroundColor: "background.paper",
+        borderRadius: 1,
+        px: { xs: 2, sm: 3 },
+        py: 1,
+        marginTop: 2,
         borderWidth: "1px",
         borderStyle: "solid",
-        borderColor: "grey.200",
+        borderColor: "divider",
       }}
     >
       {sections.map((section) => (
@@ -28,7 +28,7 @@ function Fields({ sections, children, disableChildStyling }: FieldsProps) {
             borderTopStyle: "solid",
             borderTopColor: "grey.200",
             pt: 2,
-            mt: 4,
+            mt: 2,
             display: "flex",
             justifyContent: "end",
           }}

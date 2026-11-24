@@ -7,24 +7,18 @@ import { drawerWidth } from "../../config";
 
 const openedMixin = (theme) => ({
   width: drawerWidth,
+  visibility: "visible",
   borderRight: `1px solid ${theme.palette.divider}`,
-  transition: theme.transitions.create("width", {
-    easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.enteringScreen,
-  }),
   overflowX: "hidden",
   boxShadow: "none",
 });
 
-const closedMixin = (theme) => ({
-  transition: theme.transitions.create("width", {
-    easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.leavingScreen,
-  }),
+const closedMixin = () => ({
   overflowX: "hidden",
+  visibility: "hidden",
   width: 0,
   borderRight: "none",
-  boxShadow: theme.customShadows.z1,
+  boxShadow: "none",
 });
 
 // ==============================|| DRAWER - MINI STYLED ||============================== //
@@ -41,8 +35,8 @@ const MiniDrawerStyled = styled(Drawer, {
     "& .MuiDrawer-paper": openedMixin(theme),
   }),
   ...(!open && {
-    ...closedMixin(theme),
-    "& .MuiDrawer-paper": closedMixin(theme),
+    ...closedMixin(),
+    "& .MuiDrawer-paper": closedMixin(),
   }),
 }));
 

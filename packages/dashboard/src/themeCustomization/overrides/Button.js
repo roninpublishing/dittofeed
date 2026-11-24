@@ -12,15 +12,17 @@ export default function Button(theme) {
     MuiButton: {
       defaultProps: {
         disableElevation: true,
+        size: "small",
       },
       styleOverrides: {
         root: {
           fontWeight: 600,
           borderRadius: theme.shape.borderRadius,
-          padding: "8px 16px",
+          minHeight: 32,
+          padding: "6px 12px",
           transition: theme.transitions.create(
             ["background-color", "border-color", "box-shadow"],
-            { duration: theme.transitions.duration.short },
+            { duration: theme.transitions.duration.shortest },
           ),
         },
         contained: {
@@ -30,10 +32,10 @@ export default function Button(theme) {
           ...disabledStyle,
         },
         sizeSmall: {
-          padding: "5px 12px",
+          padding: "5px 10px",
         },
         sizeLarge: {
-          padding: "11px 20px",
+          padding: "9px 16px",
         },
       },
     },

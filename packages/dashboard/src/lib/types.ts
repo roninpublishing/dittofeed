@@ -373,12 +373,27 @@ export interface JourneyContent extends JourneyState {
   }) => void;
 }
 
+export type JourneyReportingContent = Pick<
+  JourneyContent,
+  | "journeyUpdateRequest"
+  | "setJourneyUpdateRequest"
+  | "journeyStats"
+  | "journeyStatsRequest"
+  | "setJourneyStatsRequest"
+  | "upsertJourneyStats"
+>;
+
+export type JourneyEditorContent = Omit<
+  JourneyContent,
+  keyof JourneyReportingContent
+>;
+
 export type PageStoreContents = UserPropertyIndexContent &
   JourneyIndexContent &
   UserIndexContent &
   MessageTemplateIndexContent &
   UserPropertyEditorContent &
-  JourneyContent &
+  JourneyReportingContent &
   BroadcastEditorContents &
   SubscriptionGroupEditorContents;
 

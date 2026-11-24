@@ -493,8 +493,15 @@ export default function AccessPage() {
   return (
     <DashboardContent>
       <Stack
-        spacing={3}
-        sx={{ maxWidth: 1100, mx: "auto", p: { xs: 2, md: 4 } }}
+        spacing={2}
+        sx={{
+          width: "100%",
+          maxWidth: 1100,
+          mx: "auto",
+          p: { xs: 2, md: 3 },
+          minHeight: 0,
+          overflowY: "auto",
+        }}
       >
         <Typography component="h1" variant="h3">
           Team &amp; access

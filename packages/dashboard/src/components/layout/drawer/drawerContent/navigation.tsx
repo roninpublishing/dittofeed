@@ -48,15 +48,24 @@ function Navigation() {
     : null;
 
   return (
-    <Box sx={{ pt: 2, px: isMinimal ? 3 : undefined }}>
+    <Box sx={{ py: 1, px: 1 }}>
       {title ? (
-        <Stack direction="row" sx={{ ml: -1, alignItems: "center" }}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{ px: 1, pb: 1, alignItems: "center" }}
+        >
           {backLink ? (
-            <IconButton component={Link} href={backLink}>
+            <IconButton
+              component={Link}
+              href={backLink}
+              aria-label="Back"
+              size="small"
+            >
               <ArrowBackIos fontSize="inherit" />
             </IconButton>
           ) : null}
-          <Typography variant="h1" fontSize={21}>
+          <Typography variant="subtitle1" sx={{ minWidth: 0 }}>
             {title}
           </Typography>
         </Stack>

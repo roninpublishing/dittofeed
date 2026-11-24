@@ -404,7 +404,11 @@ export function EditableTitle(props: EditableNameProps & { sx?: SxProps }) {
     <ClickAwayListener onClickAway={handleClickAway}>
       <Stack direction="row" alignItems="center" spacing={1} sx={{ ...sx }}>
         <EditableNameV2 {...rest} ref={editableNameRef} />
-        <IconButton size="small" onClick={handleEditClick}>
+        <IconButton
+          size="small"
+          aria-label="Edit name"
+          onClick={handleEditClick}
+        >
           <Edit sx={{ fontSize: "1rem" }} />
         </IconButton>
       </Stack>

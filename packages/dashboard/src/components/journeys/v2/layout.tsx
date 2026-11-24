@@ -9,7 +9,6 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  Divider,
   FormControlLabel,
   IconButton,
   Snackbar,
@@ -53,6 +52,7 @@ import {
   PublisherUpToDateStatus,
 } from "../../publisher";
 import { SettingsCommand, SettingsMenu } from "../../settingsMenu";
+import { useJourneyStorePick } from "../editorStore";
 import { getGlobalJourneyErrors } from "../globalJourneyErrors";
 import {
   journeyDefinitionFromState,
@@ -182,14 +182,10 @@ function JourneyStatusControl() {
     state.id,
   );
   const { data: segmentsResponse } = useSegmentsQuery();
-  const { workspace, journeyNodes, journeyEdges, journeyNodesIndex, member } =
-    useAppStorePick([
-      "workspace",
-      "journeyNodes",
-      "journeyEdges",
-      "journeyNodesIndex",
-      "member",
-    ]);
+  const { workspace, member } = useAppStorePick(["workspace", "member"]);
+  const { journeyNodes, journeyEdges, journeyNodesIndex } = useJourneyStorePick(
+    ["journeyNodes", "journeyEdges", "journeyNodesIndex"],
+  );
 
   const segments = useMemo(
     () => segmentsResponse?.segments ?? [],
@@ -329,8 +325,7 @@ export default function JourneyV2Layout({
   const theme = useTheme();
   const { state } = useJourneyV2Context();
   const { id } = state;
-  const { isPending: isJourneyQueryPending, data: journey } =
-    useJourneyQuery(id);
+  const { data: journey } = useJourneyQuery(id);
   const { mutate: updateJourney, isPending: isJourneyMutationPending } =
     useJourneyMutation(state.id);
 
@@ -351,23 +346,18 @@ export default function JourneyV2Layout({
       setSnackbarMessage("Failed to duplicate journey.");
     },
   });
-  const {
-    workspace,
-    journeyNodes,
-    journeyEdges,
-    journeyNodesIndex,
-    viewDraft,
-    resetJourneyState,
-    setViewDraft,
-  } = useAppStorePick([
+  const { workspace, viewDraft, setViewDraft } = useAppStorePick([
     "workspace",
-    "journeyNodes",
-    "journeyEdges",
-    "journeyNodesIndex",
     "viewDraft",
-    "resetJourneyState",
     "setViewDraft",
   ]);
+  const { journeyNodes, journeyEdges, journeyNodesIndex, resetJourneyState } =
+    useJourneyStorePick([
+      "journeyNodes",
+      "journeyEdges",
+      "journeyNodesIndex",
+      "resetJourneyState",
+    ]);
 
   useEffect(() => {
     if (journey) {
@@ -608,43 +598,45 @@ export default function JourneyV2Layout({
       sx={{
         height: "100%",
         width: "100%",
+        minHeight: 0,
       }}
     >
       <Stack
         direction="row"
+        useFlexGap
         justifyContent="space-between"
         alignItems="center"
         spacing={1}
         sx={{
-          padding: 1,
-          alignItems: "center",
-          height: theme.spacing(8),
-          borderBottom: `2px solid ${theme.palette.grey[200]}`,
+          px: 2,
+          py: 1,
+          minHeight: 48,
+          flexShrink: 0,
+          flexWrap: "wrap",
+          borderBottom: `1px solid ${theme.palette.divider}`,
         }}
       >
         <Stack
           direction="row"
+          useFlexGap
           spacing={1}
           alignItems="center"
           justifyContent="flex-start"
+          sx={{ minWidth: 0, flex: 1, flexWrap: "wrap" }}
         >
           <JourneyStepper />
-          <Divider orientation="vertical" flexItem />
           <JourneyStatusControl />
-          <Divider orientation="vertical" flexItem />
           <Stack
             direction="row"
             spacing={1}
             alignItems="center"
             sx={{
-              opacity: publisherStatuses ? 1 : 0,
-              transition: "opacity 0.3s ease-in-out",
+              display: publisherStatuses ? "flex" : "none",
             }}
           >
             {publisherStatuses && journey && (
               <>
                 <PublisherDraftToggle status={publisherStatuses.draftToggle} />
-                <Divider orientation="vertical" flexItem />
                 <Publisher
                   status={publisherStatuses.publisher}
                   title={journey.name}
@@ -652,10 +644,10 @@ export default function JourneyV2Layout({
               </>
             )}
           </Stack>
-          <Divider orientation="vertical" flexItem />
           {journey && (
             <EditableTitle
               text={journey.name}
+              sx={{ minWidth: 0, maxWidth: "100%" }}
               onSubmit={(val) => {
                 updateJourney({
                   name: val,
@@ -672,7 +664,6 @@ export default function JourneyV2Layout({
           >
             Options
           </Button>
-          <Divider orientation="vertical" flexItem />
           <SettingsMenu commands={settingsCommands} />
         </Stack>
       </Stack>
@@ -680,8 +671,7 @@ export default function JourneyV2Layout({
         sx={{
           width: "100%",
           flex: 1,
-          opacity: isJourneyQueryPending ? 0 : 1,
-          transition: "opacity 0.3s ease-in-out",
+          minHeight: 0,
         }}
       >
         {children}
@@ -701,6 +691,7 @@ export default function JourneyV2Layout({
         >
           Journey Options
           <IconButton
+            aria-label="Close journey options"
             onClick={handleOptionsDialogClose}
             size="small"
             sx={{

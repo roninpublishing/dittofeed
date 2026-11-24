@@ -3,6 +3,7 @@ import { Lock, Search as SearchIcon } from "@mui/icons-material";
 import LoadingButton from "@mui/lab/LoadingButton";
 import {
   Box,
+  ButtonBase,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -13,9 +14,7 @@ import {
   SelectChangeEvent,
   Stack,
   TextField,
-  Theme,
   Typography,
-  useMediaQuery,
   useTheme,
 } from "@mui/material";
 import React, { lazy, Suspense } from "react";
@@ -23,9 +22,9 @@ import React, { lazy, Suspense } from "react";
 import { useAppStorePick } from "../../../lib/appStore";
 import { GitBranchIcon } from "../../gitBranchIcon";
 import ReturnLink from "../../returnNavigation/ReturnLink";
-import MobileSection from "./headerContent/mobileSection";
-// project import
 import Profile from "./headerContent/profile";
+
+const CommitAndPush = lazy(() => import("../../commitAndPush"));
 
 function BranchMenuItemContents({
   item,
@@ -225,8 +224,6 @@ function GitActionsSelect() {
   const oldText = oldConfig;
   const newText = newConfig;
 
-  const CommitAndPush = lazy(() => import("../../commitAndPush"));
-
   return (
     <>
       <Select
@@ -280,16 +277,16 @@ function GitActionsSelect() {
 }
 
 function HeaderContent() {
-  const matchesXs = useMediaQuery<Theme>((theme) =>
-    theme.breakpoints.down("md"),
-  );
   const { setCommandPaletteOpen } = useAppStorePick(["setCommandPaletteOpen"]);
 
   return (
     <>
       <BranchSelect />
-      <Box
+      <ButtonBase
         onClick={() => setCommandPaletteOpen(true)}
+        aria-label="Search"
+        aria-keyshortcuts="Meta+K Control+K"
+        aria-haspopup="dialog"
         sx={{
           display: "flex",
           alignItems: "center",
@@ -298,15 +295,18 @@ function HeaderContent() {
           bgcolor: "grey.100",
           borderRadius: 1,
           px: { xs: 1, sm: 1.5 },
-          py: 0.75,
-          ml: 1,
+          height: 32,
           flexShrink: 0,
           cursor: "pointer",
           "&:hover": {
             bgcolor: "grey.200",
           },
+          "&.Mui-focusVisible": {
+            outline: "2px solid",
+            outlineColor: "primary.main",
+          },
         }}
-        title="Search (Cmd+K)"
+        title="Search (⌘K / Ctrl+K)"
       >
         <SearchIcon sx={{ fontSize: 18 }} />
         <Typography
@@ -338,13 +338,13 @@ function HeaderContent() {
           <span>⌘</span>
           <span>K</span>
         </Box>
-      </Box>
+      </ButtonBase>
       <Box
         sx={{
           minWidth: 0,
           maxWidth: { xs: 120, sm: 200, md: 240 },
           "& .MuiButton-root": {
-            ml: { xs: 0.5, sm: 2 },
+            ml: 0,
             minWidth: { xs: 32, sm: 64 },
             maxWidth: "100%",
             px: { xs: 0.75, sm: 1.5 },
@@ -361,8 +361,7 @@ function HeaderContent() {
       <Box sx={{ flexGrow: 1, minWidth: 0 }} />
       <GitActionsSelect />
 
-      {!matchesXs && <Profile />}
-      {matchesXs && <MobileSection />}
+      <Profile />
     </>
   );
 }

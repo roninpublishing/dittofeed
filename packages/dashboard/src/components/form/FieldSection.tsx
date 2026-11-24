@@ -20,9 +20,9 @@ function FieldSection({ title, fieldGroups, id }: FieldSectionProps) {
         sx={{
           fontSize: 16,
           fontWeight: 500,
-          pt: 4,
-          pb: 2,
-          mb: 4,
+          pt: 2,
+          pb: 1.5,
+          mb: 2,
           borderBottom: "1px solid",
           borderBottomColor: "grey.200",
         }}
@@ -36,7 +36,7 @@ function FieldSection({ title, fieldGroups, id }: FieldSectionProps) {
       id={id}
       sx={{
         pb: 2,
-        pt: 4,
+        pt: 2,
       }}
     >
       {renderedGroups}

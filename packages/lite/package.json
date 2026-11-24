@@ -5,6 +5,7 @@
   "scripts": {
     "build": "NODE_ENV=production tsc --build",
     "dev": "NODE_ENV=development tsx scripts/startLite.ts",
+    "start": "NODE_ENV=production node dist/scripts/startLite.js",
     "check": "tsc --build",
     "lint": "eslint ."
   },

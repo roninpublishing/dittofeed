@@ -162,7 +162,7 @@ export default function Home({
   return (
     <DashboardContent>
       <Stack
-        spacing={3}
+        spacing={2}
         sx={{ p: { xs: 2, md: 3 }, width: "100%", overflow: "auto" }}
       >
         <Box>
@@ -187,7 +187,7 @@ export default function Home({
           {overview.map(({ title, count, href, icon: Icon }) => (
             <Box key={title} sx={{ minWidth: 0 }}>
               <Card variant="outlined">
-                <CardActionArea component={Link} href={href} sx={{ p: 3 }}>
+                <CardActionArea component={Link} href={href} sx={{ p: 2 }}>
                   <Stack
                     direction="row"
                     justifyContent="space-between"
@@ -195,14 +195,14 @@ export default function Home({
                   >
                     <Box>
                       <Typography color="text.secondary">{title}</Typography>
-                      <Typography variant="h2" sx={{ mt: 1 }}>
+                      <Typography variant="h2" sx={{ mt: 0.5 }}>
                         {count.toLocaleString("en-US")}
                       </Typography>
                     </Box>
                     <Box
                       sx={{
-                        p: 1.5,
-                        borderRadius: 2,
+                        p: 1,
+                        borderRadius: 1,
                         bgcolor: "primary.lighter",
                         color: "primary.main",
                       }}
@@ -219,7 +219,7 @@ export default function Home({
         <Box
           sx={{
             display: "grid",
-            gap: 3,
+            gap: 2,
             alignItems: "start",
             gridTemplateColumns: {
               xs: "minmax(0, 1fr)",
@@ -291,7 +291,7 @@ export default function Home({
                       <TableRow>
                         <TableCell
                           colSpan={3}
-                          sx={{ py: 5, textAlign: "center" }}
+                          sx={{ py: 3, textAlign: "center" }}
                         >
                           <Typography variant="subtitle1">
                             No journeys yet

@@ -156,7 +156,17 @@ function AccountSettings() {
   });
 
   return (
-    <Stack spacing={3} sx={{ maxWidth: 900, mx: "auto", p: { xs: 2, md: 4 } }}>
+    <Stack
+      spacing={2}
+      sx={{
+        width: "100%",
+        maxWidth: 960,
+        mx: "auto",
+        p: { xs: 2, md: 3 },
+        minHeight: 0,
+        overflowY: "auto",
+      }}
+    >
       <Typography component="h1" variant="h3">
         Account
       </Typography>
@@ -180,7 +190,7 @@ function AccountSettings() {
         </Alert>
       )}
       {profile.data && (
-        <Paper variant="outlined" sx={{ p: 3 }}>
+        <Paper variant="outlined" sx={{ p: 2 }}>
           <ProfileForm
             key={profile.data.member.id}
             profile={profile.data}
@@ -188,7 +198,7 @@ function AccountSettings() {
           />
         </Paper>
       )}
-      <Paper variant="outlined" sx={{ p: 3 }}>
+      <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack spacing={2}>
           <Typography component="h2" variant="h5">
             Signed-in sessions
@@ -229,7 +239,7 @@ function AccountSettings() {
             <Stack
               key={session.id}
               spacing={1}
-              sx={{ py: 2, borderBottom: 1, borderColor: "divider" }}
+              sx={{ py: 1.5, borderBottom: 1, borderColor: "divider" }}
             >
               <Stack direction="row" spacing={1} alignItems="center">
                 <Typography sx={{ overflowWrap: "anywhere" }}>

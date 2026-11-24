@@ -6,6 +6,7 @@ import Card from "./Card";
 import CardContent from "./CardContent";
 import Checkbox from "./Checkbox";
 import Chip from "./Chip";
+import Density from "./Density";
 import IconButton from "./IconButton";
 import Input from "./Input";
 import InputLabel from "./InputLabel";
@@ -26,6 +27,7 @@ export default function ComponentsOverrides(theme) {
     Card(theme),
     Badge(theme),
     CardContent(),
+    Density(theme),
     Checkbox(theme),
     Chip(theme),
     IconButton(theme),

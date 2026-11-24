@@ -39,9 +39,9 @@ export default function ThemeCustomization({ children }) {
       direction: "ltr",
       mixins: {
         toolbar: {
-          minHeight: 60,
-          paddingTop: 8,
-          paddingBottom: 8,
+          minHeight: 56,
+          paddingTop: 0,
+          paddingBottom: 0,
         },
       },
       palette: theme.palette,

@@ -1,12 +1,12 @@
 import { CompletionStatus, SecretResource } from "isomorphic-lib/src/types";
 import { useRouter } from "next/router";
-import { useEffect, useLayoutEffect } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { pick } from "remeda";
 import { create, UseBoundStore } from "zustand";
 import createContext from "zustand/context";
 import { immer } from "zustand/middleware/immer";
+import { shallow } from "zustand/shallow";
 
-import { createJourneySlice } from "../components/journeys/store";
 import { AppContents, AppState, PreloadedState } from "./types";
 import { getDefaultUserPropertyExampleValue } from "./userProperties";
 
@@ -17,12 +17,12 @@ export const useAppStore = zustandContext.useStore;
 export function useAppStorePick<K extends keyof AppContents>(
   params: K[],
 ): Pick<AppContents, K> {
-  return useAppStore((store) => pick(store, params));
+  return useAppStore((store) => pick(store, params), shallow);
 }
 
 export const initializeStore = (preloadedState: PreloadedState = {}) =>
   create(
-    immer<AppContents>((set, ...remaining) => {
+    immer<AppContents>((set) => {
       const appContents: AppContents = {
         apiBase: "",
         dashboardUrl: "",
@@ -66,7 +66,7 @@ export const initializeStore = (preloadedState: PreloadedState = {}) =>
           }),
         setGetPropertiesRequest: (request) =>
           set((state) => {
-            state.getTraitsRequest = request;
+            state.getPropertiesRequest = request;
           }),
         messages: {
           type: CompletionStatus.NotStarted,
@@ -77,6 +77,27 @@ export const initializeStore = (preloadedState: PreloadedState = {}) =>
         journeys: {
           type: CompletionStatus.NotStarted,
         },
+        journeyUpdateRequest: {
+          type: CompletionStatus.NotStarted,
+        },
+        journeyStatsRequest: {
+          type: CompletionStatus.NotStarted,
+        },
+        journeyStats: {},
+        upsertJourneyStats: (stats) =>
+          set((state) => {
+            for (const journeyStats of stats) {
+              state.journeyStats[journeyStats.journeyId] = journeyStats;
+            }
+          }),
+        setJourneyUpdateRequest: (request) =>
+          set((state) => {
+            state.journeyUpdateRequest = request;
+          }),
+        setJourneyStatsRequest: (request) =>
+          set((state) => {
+            state.journeyStatsRequest = request;
+          }),
         userProperties: {
           type: CompletionStatus.NotStarted,
         },
@@ -527,7 +548,6 @@ export const initializeStore = (preloadedState: PreloadedState = {}) =>
             state.commandPaletteOpen = open;
           }),
 
-        ...createJourneySlice(set, ...remaining),
         ...preloadedState,
       };
 
@@ -536,7 +556,6 @@ export const initializeStore = (preloadedState: PreloadedState = {}) =>
   );
 
 type AppStore = ReturnType<typeof initializeStore>;
-let store: AppStore | null = null;
 
 type UseStoreState = typeof initializeStore extends (
   ...args: never
@@ -544,72 +563,51 @@ type UseStoreState = typeof initializeStore extends (
   ? T
   : never;
 
-// TODO adapt code to allow serializable state to have different type than app
-// state, to support non-serializable types like Map, Set etc.
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 export const useCreateStore = (
   serverInitialState?: Partial<AppState>,
 ): (() => AppStore) => {
   const router = useRouter();
+  const storeRef = useRef<AppStore>();
+  const previousInitialState = useRef(serverInitialState);
+
+  if (!storeRef.current) {
+    storeRef.current = initializeStore(serverInitialState);
+  }
+  const initializedStore = storeRef.current;
 
   useEffect(() => {
-    // Function to run before page transition starts
-    const handleRouteChange = () => {
-      if (store) {
-        store.setState({
-          inTransition: true,
-        });
-      }
+    const handleRouteChangeStart = () => {
+      initializedStore.setState({ inTransition: true });
+    };
+    const handleRouteChangeEnd = () => {
+      initializedStore.setState({ inTransition: false });
     };
 
-    // Listen to routeChangeStart event
-    router.events.on("routeChangeStart", handleRouteChange);
-
-    // Cleanup listener on component unmount
+    router.events.on("routeChangeStart", handleRouteChangeStart);
+    router.events.on("routeChangeComplete", handleRouteChangeEnd);
+    router.events.on("routeChangeError", handleRouteChangeEnd);
     return () => {
-      router.events.off("routeChangeStart", handleRouteChange);
+      router.events.off("routeChangeStart", handleRouteChangeStart);
+      router.events.off("routeChangeComplete", handleRouteChangeEnd);
+      router.events.off("routeChangeError", handleRouteChangeEnd);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initializedStore, router.events]);
 
-  // For SSR & SSG, always use a new store.
-  if (typeof window === "undefined") {
-    return () =>
-      initializeStore({
-        ...serverInitialState,
-      });
-  }
-
-  const isReusingStore = Boolean(store);
-  // For CSR, always re-use same store.
-  const initializedStore: AppStore =
-    store ?? initializeStore(serverInitialState);
-
-  store = initializedStore;
-
-  // And if initialState changes, then merge states in the next render cycle.
-  //
-  // eslint complaining "React Hooks must be called in the exact same order in every component render"
-  // is ignorable as this code runs in same order in a given environment
-  // TODO: Remove this warning with the following technique
-  // https://medium.com/@alexandereardon/uselayouteffect-and-ssr-192986cdcf7a
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useLayoutEffect(() => {
-    // serverInitialState is undefined for CSR pages. It is up to you if you want to reset
-    // states on CSR page navigation or not. I have chosen not to, but if you choose to,
-    // then add `serverInitialState = getDefaultInitialState()` here.
-    if (serverInitialState && isReusingStore) {
-      initializedStore.setState(
-        {
-          // re-use functions from existing store
-          ...initializedStore.getState(),
-          // but reset all other properties.
-          ...serverInitialState,
-          inTransition: false,
-        },
-        true, // replace states, rather than shallow merging
-      );
+  useIsomorphicLayoutEffect(() => {
+    if (previousInitialState.current === serverInitialState) {
+      return;
     }
-  });
+    previousInitialState.current = serverInitialState;
+    if (serverInitialState) {
+      initializedStore.setState({
+        ...serverInitialState,
+        inTransition: false,
+      });
+    }
+  }, [initializedStore, serverInitialState]);
 
-  return () => initializedStore;
+  return useCallback(() => initializedStore, [initializedStore]);
 };

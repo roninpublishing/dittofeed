@@ -1,25 +1,26 @@
-// project import
+import { Box } from "@mui/material";
+
 import NavCard from "./drawerContent/navCard";
 import Navigation from "./drawerContent/navigation";
-import SimpleBar from "./drawerContent/simpleBar";
 
 // ==============================|| DRAWER CONTENT ||============================== //
 
 function DrawerContent() {
   return (
-    <SimpleBar
+    <Box
       sx={{
-        "& .simplebar-content": {
-          display: "flex",
-          flexDirection: "column",
-        },
+        flex: 1,
+        minHeight: 0,
+        display: "flex",
+        flexDirection: "column",
+        overflowY: "auto",
+        overflowX: "hidden",
+        overscrollBehavior: "contain",
       }}
     >
-      <>
-        <NavCard showDefault={false} />
-        <Navigation />
-      </>
-    </SimpleBar>
+      <NavCard showDefault={false} />
+      <Navigation />
+    </Box>
   );
 }
 

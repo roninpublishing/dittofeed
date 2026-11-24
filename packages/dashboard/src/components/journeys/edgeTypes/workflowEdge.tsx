@@ -5,8 +5,9 @@ import { NodeStatsType } from "isomorphic-lib/src/types";
 import { useRouter } from "next/router";
 import React, { useState } from "react";
 
-import { useAppStore, useAppStorePick } from "../../../lib/appStore";
+import { useAppStorePick } from "../../../lib/appStore";
 import { JourneyUiEdge } from "../../../lib/types";
+import { useJourneyStore, useJourneyStorePick } from "../editorStore";
 import findNode from "../findNode";
 import styles from "./edgeTypes.module.css";
 
@@ -25,8 +26,8 @@ export default function WorkflowEdge({
 }: EdgeProps<JourneyUiEdge>) {
   const path = useRouter();
 
-  const { journeyStats, journeyDraggedComponentType } = useAppStorePick([
-    "journeyStats",
+  const { journeyStats } = useAppStorePick(["journeyStats"]);
+  const { journeyDraggedComponentType } = useJourneyStorePick([
     "journeyDraggedComponentType",
   ]);
 
@@ -53,8 +54,8 @@ export default function WorkflowEdge({
     targetY,
     targetPosition,
   });
-  const nodes = useAppStore((state) => state.journeyNodes);
-  const nodesIndex = useAppStore((state) => state.journeyNodesIndex);
+  const nodes = useJourneyStore((state) => state.journeyNodes);
+  const nodesIndex = useJourneyStore((state) => state.journeyNodesIndex);
   const targetNode = findNode(target, nodes, nodesIndex);
 
   let sourceWithoutChildSuffix = source;

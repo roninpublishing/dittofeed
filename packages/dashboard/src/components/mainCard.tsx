@@ -11,8 +11,8 @@ import { ForwardedRef, forwardRef } from "react";
 
 // header style
 const headerSX = {
-  p: 2.5,
-  "& .MuiCardHeader-action": { m: "0px auto", alignSelf: "center" },
+  p: 2,
+  "& .MuiCardHeader-action": { m: 0, alignSelf: "center" },
 };
 
 // ==============================|| CUSTOM - MAIN CARD ||============================== //
@@ -58,7 +58,7 @@ function MainCardInner({
       sx={{
         ...sx,
         border: border ? "1px solid" : "none",
-        borderRadius: 2,
+        borderRadius: 1,
         borderColor:
           theme.palette.mode === "dark"
             ? theme.palette.divider

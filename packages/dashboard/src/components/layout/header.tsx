@@ -1,14 +1,7 @@
 // material-ui
 // assets
 import { MenuOpenOutlined, MenuOutlined } from "@mui/icons-material";
-import {
-  AppBar,
-  Box,
-  IconButton,
-  Stack,
-  Toolbar,
-  Typography,
-} from "@mui/material";
+import { AppBar, Box, IconButton, Toolbar, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import { WhiteLabelFeatureConfig } from "isomorphic-lib/src/types";
@@ -48,10 +41,10 @@ function Header({
       sx={{
         zIndex: theme.zIndex.drawer + 1,
         borderBottom: `1px solid ${theme.palette.divider}`,
-        boxShadow: theme.customShadows.z1,
+        boxShadow: "none",
       }}
     >
-      <Toolbar disableGutters>
+      <Toolbar disableGutters sx={{ minHeight: 56, height: 56 }}>
         <Box
           sx={{
             display: "flex",
@@ -61,60 +54,58 @@ function Header({
             width: { lg: drawerWidth },
             flexShrink: 0,
             boxSizing: "border-box",
-            px: { xs: 1, sm: 2 },
-            borderRight: { lg: 1 },
-            borderColor: "divider",
+            pl: { xs: 1, sm: 2 },
+            pr: 1,
           }}
         >
           {!whiteLabelConfig ? (
-            <Stack
-              direction={{ xs: "row", lg: "column" }}
-              alignItems={{ xs: "center", lg: "flex-start" }}
-              spacing={{ xs: 0.75, lg: 0.25 }}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                minWidth: 0,
+              }}
             >
               <Box
                 component="img"
                 src="/dashboard/branding/ronin/ronin-mark.png"
                 alt="Ronin Publishing"
                 sx={{
-                  display: { xs: "block", lg: "none" },
-                  width: 24,
-                  height: 24,
+                  width: 28,
+                  height: 32,
                   objectFit: "contain",
-                }}
-              />
-              <Box
-                component="img"
-                src="/dashboard/branding/ronin/ronin-logo.png"
-                alt="Ronin Publishing"
-                sx={{
-                  display: { xs: "none", lg: "block" },
-                  width: 92,
-                  height: "auto",
+                  flexShrink: 0,
                 }}
               />
               <Typography
                 variant="subtitle1"
                 sx={{
-                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                  fontSize: "0.75rem",
                   fontWeight: 600,
                   whiteSpace: "nowrap",
                 }}
               >
                 DITTO Email Client
               </Typography>
-            </Stack>
+            </Box>
           ) : null}
           <IconButton
-            disableRipple
-            aria-label={open ? "close drawer" : "open drawer"}
+            aria-label={open ? "Close navigation" : "Open navigation"}
+            aria-expanded={open}
+            aria-controls="primary-navigation"
             onClick={handleDrawerToggle}
             color="secondary"
             sx={{
               color: "text.primary",
-              bgcolor: open ? "grey.200" : "grey.100",
               ml: "auto",
-              p: { xs: 0.75, lg: 1 },
+              width: 32,
+              height: 32,
+              "&:hover": { bgcolor: "primary.lighter" },
+              "&.Mui-focusVisible": {
+                outline: "2px solid",
+                outlineColor: "primary.main",
+              },
             }}
           >
             {!open ? <MenuOutlined /> : <MenuOpenOutlined />}
@@ -126,7 +117,8 @@ function Header({
             alignItems: "center",
             flexGrow: 1,
             minWidth: 0,
-            px: { xs: 0.5, sm: 2 },
+            gap: 1,
+            px: { xs: 1, sm: 2, lg: 3 },
           }}
         >
           <HeaderContent />

@@ -891,3 +891,73 @@ DigitalOcean Spaces. Neither is deployed by these changes.
 - [ ] Approve and create the private Spaces bucket and a bucket-scoped backup key.
 - [ ] Run a first manual Spaces backup, install cron, and restore into an isolated
   database before signoff. Local Disk qualification is not Spaces acceptance.
+
+## Compact UI and navigation performance pass
+
+The local dashboard keeps the Ronin palette with a compact mark/title, 56px
+toolbar, 224px navigation, consistent form/table/button density, tighter page
+gutters and cards, and no black vertical shell/editor-toolbar separators.
+Mobile navigation starts closed, closes after successful navigation, and does
+not overwrite the desktop collapse preference. Publisher navigation distinguishes
+query-selected views instead of highlighting Newsletters for every section.
+
+Journey graph state now lives in an editor-local provider keyed by workspace and
+journey, using the existing store-context convention. React Flow, Dagre and graph
+helpers no longer load through the global application store. Shared selectors use
+shallow equality; store hydration is tied to navigation data rather than every
+render, and query/store instances are scoped to member/workspace/API identity.
+Draft autosave waits for graph initialization. Property-loading status no longer
+overwrites the trait-loading status.
+
+Publisher registry/reporting queries resolve independently and are requested only
+for the visible section/tab, with a short workspace/API-scoped client cache.
+Subscriber navigation no longer waits on reporting or sending infrastructure.
+History pagination and explicit operation refreshes remain available; workspace
+switches still reload the document to discard the previous workspace's caches.
+
+Local verification on 2026-11-24:
+
+- Dashboard test-inclusive checking, Lite compilation, and the isolated optimized
+  dashboard build passed. Changed TypeScript files passed lint with pre-existing
+  non-blocking warnings; those warnings are not claimed resolved.
+- All 50 focused navigation/store/journey regressions passed without database
+  setup/teardown. Removing an inherited `it.only` restored execution of the
+  relevant journey-store cases rather than silently skipping them.
+- Real Google-authenticated browser checks covered publisher/newsletter switching,
+  subscriber search layout, reports, deferred sending controls, Users/Templates,
+  account scrolling, mobile navigation/search/focus, and active navigation.
+  A disposable journey proved node-property edits survive unrelated global UI
+  rerenders and Editor/Summary transitions; the proof journey was deleted.
+- The observed development shared app transfer fell from about 2.12 MB to 1.34 MB.
+  The optimized build reported 197 kB shared first-load JavaScript. One
+  authenticated production-built local page reached DOM-ready in 449 ms;
+  a cold root/redirect load took 2231 ms. These are local snapshots, not
+  universal latency guarantees or equivalent development/production benchmarks.
+- A fresh production-built subscriber load requested only the newsletter registry
+  (21 ms observed), not overview or infrastructure. No email, provider mutation,
+  public deployment or live-contact operation was performed.
+
+Use the **combined Lite** production-built preview to avoid on-demand page
+compilation during UI review. Keep a separate Next output directory so building
+the preview cannot corrupt a development server's `.next` output:
+
+```bash
+node .yarn/releases/yarn-4.1.1.cjs workspace lite build
+NEXT_DIST_DIR=.next-ui-preview NEXT_STANDALONE=false \
+  node .yarn/releases/yarn-4.1.1.cjs workspace dashboard build
+
+NEXT_DIST_DIR=.next-ui-preview NEXT_STANDALONE=false \
+  HOST=127.0.0.1 PORT=3000 API_PORT=3000 \
+  DASHBOARD_URL=http://localhost:3000 \
+  DASHBOARD_API_BASE=http://localhost:3000 API_BASE=http://localhost:3000 \
+  ALLOWED_ORIGINS=http://localhost:3000 \
+  ENABLE_WORKER=false BOOTSTRAP_WORKER=false BOOTSTRAP=false \
+  BOOTSTRAP_EVENTS=false ENABLE_OPEN_TRACKING=false \
+  ENABLE_BLOB_STORAGE=false LOG_CONFIG=false \
+  node .yarn/releases/yarn-4.1.1.cjs workspace lite start
+```
+
+This preview does not hot-reload: rebuild/restart after source changes. The
+existing `workspace lite dev` command remains the hot-reload alternative, with
+the same infrastructure-only safety overrides. Keep Google authentication and
+private `.env` credentials; do not substitute anonymous mode or inject sessions.

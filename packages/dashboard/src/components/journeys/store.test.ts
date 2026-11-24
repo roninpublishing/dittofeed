@@ -866,7 +866,7 @@ describe("journeyDefinitionFromState", () => {
 });
 
 describe("when journey has RandomCohortNode", () => {
-  it.only("should create a RandomCohortNode with correct children", () => {
+  it("should create a RandomCohortNode with correct children", () => {
     const journeyId = uuid();
     const workspaceId = uuid();
 

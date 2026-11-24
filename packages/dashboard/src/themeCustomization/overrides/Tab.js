@@ -5,7 +5,8 @@ export default function Tab(theme) {
     MuiTab: {
       styleOverrides: {
         root: {
-          minHeight: 46,
+          minHeight: 40,
+          padding: "8px 16px",
           color: theme.palette.text.secondary,
           fontWeight: 500,
           "&.Mui-selected": {

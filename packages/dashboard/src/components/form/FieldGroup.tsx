@@ -6,19 +6,20 @@ import Field from "./Field";
 import { FieldGroupProps } from "./types";
 
 const FieldGroupName = styled(Typography)(({ theme }) => ({
-  [theme.breakpoints.up("md")]: {
-    width: "33%",
-    maxWidth: "sm",
+  [theme.breakpoints.up("sm")]: {
+    flex: "0 0 28%",
+    maxWidth: 240,
+    minWidth: 160,
   },
 }));
 
 function FieldGroup({ name, fields, children }: FieldGroupProps) {
   return (
-    <Stack direction={{ sm: "row" }}>
-      <FieldGroupName mt={0.5} mb={{ sm: 0, xs: 2 }} fontWeight={500}>
+    <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+      <FieldGroupName mt={{ sm: 1 }} fontWeight={500}>
         {name}
       </FieldGroupName>
-      <Stack spacing={4} flex={1}>
+      <Stack spacing={2} flex={1} minWidth={0}>
         {fields.map((field) => (
           <Field key={field.id} {...field} />
         ))}

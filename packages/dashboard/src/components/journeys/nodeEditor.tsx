@@ -43,7 +43,6 @@ import {
 } from "isomorphic-lib/src/types";
 import { ReactNode, useCallback, useMemo } from "react";
 
-import { useAppStorePick } from "../../lib/appStore";
 import { isChannelVisible } from "../../lib/channelVisibility";
 import {
   AdditionalJourneyNodeType,
@@ -68,6 +67,7 @@ import { SubtleHeader } from "../headers";
 import InfoTooltip from "../infoTooltip";
 import ResourceSelect, { ResourceOption } from "../resourceSelect";
 import { TimezoneAutocomplete } from "../timezoneAutocomplete";
+import { useJourneyStorePick } from "./editorStore";
 import findJourneyNode from "./findJourneyNode";
 import journeyNodeLabel from "./journeyNodeLabel";
 import { waitForTimeoutLabel } from "./store";
@@ -88,7 +88,7 @@ function SegmentSplitNodeFields({
   nodeProps: SegmentSplitUiNodeProps;
   disabled?: boolean;
 }) {
-  const { updateJourneyNodeData, journeyName } = useAppStorePick([
+  const { updateJourneyNodeData, journeyName } = useJourneyStorePick([
     "updateJourneyNodeData",
     "journeyName",
   ]);
@@ -125,7 +125,7 @@ function RandomCohortNodeFields({
     updateJourneyNodeData,
     addRandomCohortChild,
     removeRandomCohortChild,
-  } = useAppStorePick([
+  } = useJourneyStorePick([
     "updateJourneyNodeData",
     "addRandomCohortChild",
     "removeRandomCohortChild",
@@ -223,7 +223,9 @@ function EntryNodeFields({
   nodeProps: EntryUiNodeProps;
   disabled?: boolean;
 }) {
-  const { updateJourneyNodeData } = useAppStorePick(["updateJourneyNodeData"]);
+  const { updateJourneyNodeData } = useJourneyStorePick([
+    "updateJourneyNodeData",
+  ]);
   const { data: segmentsData } = useSegmentsQuery({
     resourceType: "Declarative",
   });
@@ -398,7 +400,7 @@ function MessageNodeFields({
   nodeProps: MessageUiNodeProps;
   disabled?: boolean;
 }) {
-  const { updateJourneyNodeData, journeyName } = useAppStorePick([
+  const { updateJourneyNodeData, journeyName } = useJourneyStorePick([
     "updateJourneyNodeData",
     "journeyName",
   ]);
@@ -625,7 +627,7 @@ function DelayNodeFields({
   nodeProps: DelayUiNodeProps;
   disabled?: boolean;
 }) {
-  const { updateJourneyNodeData, journeyName } = useAppStorePick([
+  const { updateJourneyNodeData, journeyName } = useJourneyStorePick([
     "updateJourneyNodeData",
     "journeyName",
   ]);
@@ -889,7 +891,7 @@ function WaitForNodeFields({
   disabled?: boolean;
 }) {
   const { updateJourneyNodeData, journeyNodes, updateLabelNode } =
-    useAppStorePick([
+    useJourneyStorePick([
       "updateJourneyNodeData",
       "updateLabelNode",
       "journeyNodes",
@@ -988,7 +990,7 @@ function NodeLayout({
 }) {
   const theme = useTheme();
 
-  const { setSelectedNodeId, deleteJourneyNode } = useAppStorePick([
+  const { setSelectedNodeId, deleteJourneyNode } = useJourneyStorePick([
     "setSelectedNodeId",
     "deleteJourneyNode",
   ]);
@@ -1131,7 +1133,7 @@ function NodeEditorContents({
   disabled?: boolean;
   node: Node<JourneyUiNodeDefinitionProps>;
 }) {
-  const { setSelectedNodeId } = useAppStorePick(["setSelectedNodeId"]);
+  const { setSelectedNodeId } = useJourneyStorePick(["setSelectedNodeId"]);
   const closeNodeEditor = () => {
     setSelectedNodeId(null);
   };
@@ -1166,7 +1168,7 @@ export const journeyNodeEditorId = "journey-node-editor";
 export default function NodeEditor({ disabled }: { disabled?: boolean }) {
   const theme = useTheme();
   const { journeySelectedNodeId, journeyNodes, journeyNodesIndex } =
-    useAppStorePick([
+    useJourneyStorePick([
       "journeySelectedNodeId",
       "journeyNodes",
       "journeyNodesIndex",

@@ -32,7 +32,6 @@ import {
 import { useRouter } from "next/router";
 import { useCallback, useMemo, useState } from "react";
 
-import { useAppStorePick } from "../../../lib/appStore";
 import { JOURNEY_EDITOR_CLICKAWAY_EXEMPT_CLASS } from "../../../lib/constants";
 import {
   AdditionalJourneyNodeType,
@@ -49,6 +48,7 @@ import {
   TimeOptionId,
 } from "../../dateRangeSelector";
 import DurationDescription from "../../durationDescription";
+import { useJourneyStorePick } from "../editorStore";
 import journeyNodeLabel from "../journeyNodeLabel";
 import styles from "./nodeTypes.module.css";
 import { JOURNEY_NODE_WIDTH } from "./styles";
@@ -367,7 +367,7 @@ export function JourneyNode({ id, data }: NodeProps<JourneyUiNodeDefinition>) {
   const path = useRouter();
   const theme = useTheme();
   const { journeySelectedNodeId: selectedNodeId, setSelectedNodeId } =
-    useAppStorePick(["journeySelectedNodeId", "setSelectedNodeId"]);
+    useJourneyStorePick(["journeySelectedNodeId", "setSelectedNodeId"]);
   const { data: segmentsResult } = useSegmentsQuery({
     resourceType: "Declarative",
   });

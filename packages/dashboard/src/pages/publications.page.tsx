@@ -32,12 +32,12 @@ export default function Publications({ publisherId, isPublisher }: Props) {
   return (
     <DashboardContent publisherManagement={isPublisher}>
       <Stack
-        spacing={3}
+        spacing={2}
         sx={{
-          p: { xs: 2, md: 4 },
+          p: { xs: 2, md: 3 },
           width: "100%",
-          maxWidth: 1280,
-          mx: "auto",
+          minWidth: 0,
+          minHeight: 0,
           overflowY: "auto",
         }}
       >

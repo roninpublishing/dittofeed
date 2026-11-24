@@ -6,9 +6,11 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { enableMapSet } from "immer";
+import { CompletionStatus } from "isomorphic-lib/src/types";
 import type { AppProps } from "next/app";
 import Head from "next/head";
 import { SnackbarProvider } from "notistack";
+import { useState } from "react";
 
 import { Provider as StoreProvider, useCreateStore } from "../lib/appStore";
 import createEmotionCache from "../lib/createEmotionCache";
@@ -24,8 +26,6 @@ export interface DittofeedAppProps
 }
 
 enableMapSet();
-
-const queryClient = new QueryClient();
 
 declare module "@mui/material/styles" {
   interface Theme {
@@ -213,12 +213,13 @@ declare module "@mui/material/styles" {
   }
 }
 
-export default function App({
+function AppProviders({
   Component,
   pageProps,
   emotionCache = clientSideEmotionCache,
 }: DittofeedAppProps) {
   const createStore = useCreateStore(pageProps.serverInitialState);
+  const [queryClient] = useState(() => new QueryClient());
 
   return (
     <StoreProvider createStore={createStore}>
@@ -237,5 +238,26 @@ export default function App({
         </ThemeCustomization>
       </EmotionCacheProvider>
     </StoreProvider>
+  );
+}
+
+export default function App(props: DittofeedAppProps) {
+  const { pageProps } = props;
+  const initialState = pageProps.serverInitialState;
+  const workspaceId =
+    initialState?.workspace?.type === CompletionStatus.Successful
+      ? initialState.workspace.value.id
+      : undefined;
+
+  return (
+    <AppProviders
+      key={JSON.stringify([
+        initialState?.authMode,
+        initialState?.apiBase,
+        initialState?.member?.id,
+        workspaceId,
+      ])}
+      {...props}
+    />
   );
 }

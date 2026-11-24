@@ -4,6 +4,18 @@ import { alpha } from "@mui/material/styles";
 
 export default function Input(theme) {
   return {
+    MuiTextField: {
+      defaultProps: { size: "small" },
+    },
+    MuiFormControl: {
+      defaultProps: { size: "small" },
+    },
+    MuiSelect: {
+      defaultProps: { size: "small" },
+    },
+    MuiAutocomplete: {
+      defaultProps: { size: "small" },
+    },
     MuiInputBase: {
       styleOverrides: {
         input: {

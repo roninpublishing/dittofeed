@@ -1,5 +1,8 @@
-import { SavedJourneyResource } from "isomorphic-lib/src/types";
-import { useEffect, useMemo } from "react";
+import {
+  CompletionStatus,
+  SavedJourneyResource,
+} from "isomorphic-lib/src/types";
+import { useEffect, useMemo, useState } from "react";
 import { useImmer } from "use-immer";
 
 import { useAppStorePick } from "../../lib/appStore";
@@ -9,6 +12,7 @@ import {
 } from "../../lib/useJourneyMutation";
 import { useJourneyQuery } from "../../lib/useJourneyQuery";
 import useOnceWhen from "../../lib/useOnceWhen";
+import { JourneyStoreProvider, useJourneyStorePick } from "./editorStore";
 import {
   journeyResourceToState,
   journeyStateToDraft,
@@ -23,24 +27,20 @@ import {
 } from "./v2/shared";
 import JourneyV2Summary from "./v2/summary";
 
-export default function JourneyV2({ id }: { id: string }) {
+function JourneyV2Content({ id }: { id: string }) {
   const [state, setState] = useImmer<JourneyV2State>({
     id,
     step: JourneyV2StepKeys.EDITOR,
   });
-  const {
-    initJourneyState,
-    viewDraft,
-    journeyEdges,
-    journeyNodes,
-    journeyNodesIndex,
-  } = useAppStorePick([
-    "initJourneyState",
-    "viewDraft",
-    "journeyEdges",
-    "journeyNodes",
-    "journeyNodesIndex",
-  ]);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const { viewDraft } = useAppStorePick(["viewDraft"]);
+  const { initJourneyState, journeyEdges, journeyNodes, journeyNodesIndex } =
+    useJourneyStorePick([
+      "initJourneyState",
+      "journeyEdges",
+      "journeyNodes",
+      "journeyNodesIndex",
+    ]);
 
   const context = useMemo(() => ({ state, setState }), [state, setState]);
   const { mutate: updateJourney } = useJourneyMutation(id);
@@ -65,11 +65,12 @@ export default function JourneyV2({ id }: { id: string }) {
     const savedJourney = journey as SavedJourneyResource;
     const stateFromJourney = journeyResourceToState(savedJourney);
     initJourneyState(stateFromJourney);
+    setIsInitialized(true);
   }, !!journey);
 
   // Update journey when draft changes.
   useEffect(() => {
-    if (!journey || !viewDraft) {
+    if (!isInitialized || !journey || !viewDraft) {
       return;
     }
     if (
@@ -92,11 +93,32 @@ export default function JourneyV2({ id }: { id: string }) {
     };
     updateJourney(upsertPayload);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [journey, journeyEdges, journeyNodes, journeyNodesIndex, viewDraft]);
+  }, [
+    isInitialized,
+    journey,
+    journeyEdges,
+    journeyNodes,
+    journeyNodesIndex,
+    viewDraft,
+  ]);
 
   return (
     <JourneyV2Context.Provider value={context}>
       <JourneyV2Layout>{content}</JourneyV2Layout>
     </JourneyV2Context.Provider>
+  );
+}
+
+export default function JourneyV2({ id }: { id: string }) {
+  const { workspace } = useAppStorePick(["workspace"]);
+  const workspaceKey =
+    workspace.type === CompletionStatus.Successful
+      ? workspace.value.id
+      : workspace.type;
+
+  return (
+    <JourneyStoreProvider key={`${workspaceKey}:${id}`}>
+      <JourneyV2Content id={id} />
+    </JourneyStoreProvider>
   );
 }

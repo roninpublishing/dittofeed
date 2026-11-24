@@ -8,6 +8,7 @@ import React, { useMemo } from "react";
 import { useAppStorePick } from "../../lib/appStore";
 import { useSegmentsQuery } from "../../lib/useSegmentsQuery";
 import { getWarningStyles } from "../../lib/warningTheme";
+import { useJourneyStorePick } from "./editorStore";
 import { getGlobalJourneyErrors } from "./globalJourneyErrors";
 import journeyNodeLabel from "./journeyNodeLabel";
 import { JourneyNodeIcon, journeyNodeIcon } from "./nodeTypes/journeyNode";
@@ -22,10 +23,10 @@ const SIDEBAR_NODE_TYPES: JourneyUiBodyNodeTypeProps["type"][] = [
 
 function Sidebar() {
   const theme = useTheme();
-  const { setDraggedComponentType, journeyNodes, viewDraft } = useAppStorePick([
+  const { viewDraft } = useAppStorePick(["viewDraft"]);
+  const { setDraggedComponentType, journeyNodes } = useJourneyStorePick([
     "setDraggedComponentType",
     "journeyNodes",
-    "viewDraft",
   ]);
   const { data: segmentsResult } = useSegmentsQuery({
     resourceType: "Declarative",

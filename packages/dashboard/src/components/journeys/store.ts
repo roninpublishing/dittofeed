@@ -20,7 +20,6 @@ import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import {
   BaseMessageUiNodeProps,
   ChannelType,
-  CompletionStatus,
   DelayNode,
   DelayVariantType,
   EntryNode,
@@ -58,6 +57,7 @@ import {
   EntryUiNodeProps,
   ExitUiNodeProps,
   JourneyContent,
+  JourneyEditorContent,
   JourneyNodeUiProps,
   JourneyState,
   JourneyStateForResource,
@@ -538,7 +538,7 @@ export function findAllDescendants(
   return children;
 }
 
-type CreateJourneySlice = Parameters<typeof immer<JourneyContent>>[0];
+type CreateJourneySlice = Parameters<typeof immer<JourneyEditorContent>>[0];
 
 function buildLabelNode(id: string, title: string): JourneyUiNode {
   return {
@@ -1110,7 +1110,7 @@ export function journeyDefinitionFromState({
   return ok(definition);
 }
 
-function deleteJourneyNode(state: JourneyContent, nodeId: string) {
+function deleteJourneyNode(state: JourneyEditorContent, nodeId: string) {
   const hm = buildUiHeritageMap(state.journeyNodes, state.journeyEdges);
   const hmEntry = getUnsafe(hm, nodeId);
 
@@ -1152,19 +1152,6 @@ export const createJourneySlice: CreateJourneySlice = (set) => ({
   journeyNodesIndex: buildNodesIndex(DEFAULT_JOURNEY_NODES),
   journeyDraggedComponentType: null,
   journeyName: "",
-  journeyUpdateRequest: {
-    type: CompletionStatus.NotStarted,
-  },
-  journeyStatsRequest: {
-    type: CompletionStatus.NotStarted,
-  },
-  journeyStats: {},
-  upsertJourneyStats: (stats) =>
-    set((state) => {
-      for (const journeyStats of stats) {
-        state.journeyStats[journeyStats.journeyId] = journeyStats;
-      }
-    }),
   setEdges: (changes: EdgeChange<JourneyUiEdge>[]) =>
     set((state) => {
       state.journeyEdges = applyEdgeChanges<JourneyUiEdge>(
@@ -1485,14 +1472,6 @@ export const createJourneySlice: CreateJourneySlice = (set) => ({
       });
 
       state.journeyNodes = layoutNodes(state.journeyNodes, state.journeyEdges);
-    }),
-  setJourneyUpdateRequest: (request) =>
-    set((state) => {
-      state.journeyUpdateRequest = request;
-    }),
-  setJourneyStatsRequest: (request) =>
-    set((state) => {
-      state.journeyStatsRequest = request;
     }),
   setJourneyName: (name) =>
     set((state) => {

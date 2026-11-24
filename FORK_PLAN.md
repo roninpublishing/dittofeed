@@ -1138,16 +1138,20 @@ as the production connection source.
 ## Minimal Google entry screen: development preview
 
 - Removed the duplicate `Sign in with Google` heading and both instructional
-  paragraphs. The normal page now shows Ronin branding, `DITTO Email Client` as
-  its accessible heading, and one `Continue with Google` action. Authentication,
+  paragraphs. The normal page now shows a centered Ronin logo, a bold centered
+  `DITTO Email Client` headline, and one `Continue with Google` action. Authentication,
   invitations, access checks, loading/error handling and the other auth-page
   titles are unchanged.
 - The optimized dashboard build passed; the actual local browser showed only
   the branding/title/button, with the Google-start link targeting localhost.
-  Current preview output is `NEXT_DIST_DIR=dist/auth-preview`, isolated from the
-  earlier preview and excluded by the source inventory's existing `dist` rule.
+  Current preview output is `NEXT_DIST_DIR=dist/auth-centered-preview`, isolated
+  from earlier previews and excluded by the source inventory's existing `dist`
+  rule. Browser checks verified a centered 32px desktop headline and 28px mobile
+  headline, centered logo/button, and no horizontal overflow at 390px.
 - Restarted combined Lite with resolved development-target guards: Neon
   `ep-soft-darkness-bcw72x10.c-16.us-east-1.aws.neon.tech`, ClickHouse
   `dittofeed_dev`, and Temporal `ditto-dev.lrwcc`. Worker and bootstrap flags are
   false; owned tracking and Cloudflare provisioning remain disabled.
-- This UI change is local-only, not a production deployment.
+- The centered SSO source is pushed to main in `c6bc9032`. At the operator's
+  request, cancellation of deployment run `45508607843` was requested; no further
+  rollout/finalization steps were performed or live acceptance claimed.

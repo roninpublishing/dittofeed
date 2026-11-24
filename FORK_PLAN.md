@@ -869,25 +869,43 @@ DNS/TLS change, IP purchase/reassignment, live-contact migration or external
 email occurred. Production provider inventory/adoption, public origin/hosting
 and real second-account Google/team acceptance remain explicit release gates.
 
-## Production runtime: Temporal Cloud and private ClickHouse
+## Production runtime: Temporal Cloud, ClickHouse Cloud and Neon
 
-Production uses Temporal Cloud and a private ClickHouse with nightly native backups to
-DigitalOcean Spaces. Neither is deployed by these changes.
+Production runs on droplet `129.212.198.152` as the app-only Compose project
+`dittofeed-production` (see [scripts/deploy/README.md](scripts/deploy/README.md)),
+with Neon PostgreSQL and Temporal Cloud. ClickHouse Cloud is provisioned and
+verified as the target, but **production has not been switched to it**: its
+runtime env still points at its current ClickHouse, and moving it requires copying
+existing data before changing `/etc/dittofeed/runtime.env`.
 
 - Temporal Cloud: optional `TEMPORAL_API_KEY` enables TLS and API-key authentication
   for the client, the native connection and the worker. Without it, the connection
-  options are unchanged. A read-only connection check against namespace
-  `ditto.lrwcc` succeeded on 2026-11-24. The namespace already has running
-  workflows, so a local worker pointed at it shares production work.
-- ClickHouse: `docker-compose.lite.yaml` publishes no host ports and requires a
-  non-empty `CLICKHOUSE_PASSWORD`. Local preview keeps loopback ports through
-  `.tmp/local-preview-compose.yaml` (`!override`). See
-  [deploy/clickhouse/README.md](deploy/clickhouse/README.md) for the runbook,
-  backup runner and cron instructions.
-- Verified locally on 2026-11-24: 7 runner/Compose tests and the native suite
-  (pinned image, 2048 MiB limit, no published ports, internal DNS, local-disk
-  backup, duplicate failure, restart persistence, restore readback).
-- [ ] Choose the production host and keep its existing Compose project name/volumes.
-- [ ] Approve and create the private Spaces bucket and a bucket-scoped backup key.
-- [ ] Run a first manual Spaces backup, install cron, and restore into an isolated
-  database before signoff. Local Disk qualification is not Spaces acceptance.
+  options are unchanged. A read-only check against namespace `ditto.lrwcc`
+  succeeded on 2026-11-24. That namespace already runs workflows, so a local worker
+  pointed at it shares production work; use a separate dev namespace for local work.
+- ClickHouse Cloud: service `ditto-email`, AWS us-east-1, Mini tier (1 replica)
+  with managed backups. Databases `dittofeed` (production target, empty) and
+  `dittofeed_dev` (local development).
+  Users: `dittofeed_prod` (production only), `dittofeed_dev` (dev only), and agent
+  users `claude` and `pepper` (full dev, read-only production). Boundaries were
+  verified with real reads/writes. Cloud's `default` cannot `GRANT ALL`; grants use
+  `GRANT CURRENT GRANTS ON <db>.*`. Select the database with `CLICKHOUSE_DATABASE`.
+- Verified on 2026-11-24: app bootstrap created all 23 tables in `dittofeed_dev`
+  (Cloud converts engines to Shared*), and 102 ClickHouse-backed Jest cases passed
+  against Cloud, including all 75 `computePropertiesIncremental` cases.
+- Test teardown drops the configured ClickHouse and PostgreSQL databases. Point
+  `NODE_ENV=test`, `CLICKHOUSE_DATABASE` and `DATABASE_URL` at disposable databases
+  before running tests; never at `dittofeed`, `dittofeed_dev` or the preview database.
+- `docker-compose.lite.yaml` publishes no ClickHouse host ports and requires a
+  non-empty `CLICKHOUSE_PASSWORD`; the local preview keeps loopback ports through
+  `.tmp/local-preview-compose.yaml` (`!override`). The self-hosted backup runner
+  in [deploy/clickhouse](deploy/clickhouse/README.md) stays until production's
+  current ClickHouse is retired.
+- [ ] Inventory production's current ClickHouse (location, size, backups) read-only.
+- [ ] Copy production ClickHouse data to Cloud `dittofeed`, verify row counts, then
+  switch `/etc/dittofeed/runtime.env` to `dittofeed_prod`. Copy base tables before
+  materialized-view targets so views do not double-count.
+- [ ] Upgrade ClickHouse Cloud to a multi-replica tier before live sending.
+- [ ] Restrict the ClickHouse Cloud IP access list to the production host at launch.
+- [ ] Remove the local ClickHouse service from the production Compose deployment.
+- [ ] Rotate the ClickHouse `default` password and keep it out of runtime env files.

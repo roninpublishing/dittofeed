@@ -32,9 +32,26 @@ export default function AccountAuthFrame({
               component="img"
               src="/dashboard/branding/ronin/ronin-logo.png"
               alt="Ronin Publishing"
-              sx={{ width: 208, maxWidth: "100%", height: "auto" }}
+              sx={{
+                width: 208,
+                maxWidth: "100%",
+                height: "auto",
+                alignSelf: title ? undefined : "center",
+              }}
             />
-            <Typography component={title ? "p" : "h1"} variant="h5">
+            <Typography
+              component={title ? "p" : "h1"}
+              variant={title ? "h5" : "h3"}
+              sx={
+                title
+                  ? undefined
+                  : {
+                      textAlign: "center",
+                      fontSize: { xs: 28, sm: 32 },
+                      fontWeight: 700,
+                    }
+              }
+            >
               DITTO Email Client
             </Typography>
             {title && (

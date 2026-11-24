@@ -6,9 +6,21 @@ let CONNECTION: Connection | null = null;
 
 export default async function connect(): Promise<Connection> {
   if (!CONNECTION) {
-    const { temporalAddress, temporalConnectionTimeout } = config();
+    const {
+      temporalAddress,
+      temporalConnectionTimeout,
+      temporalApiKey,
+      temporalNamespace,
+    } = config();
     const connection = await Connection.connect({
       address: temporalAddress,
+      ...(temporalApiKey
+        ? {
+            tls: true,
+            apiKey: temporalApiKey,
+            metadata: { "temporal-namespace": temporalNamespace },
+          }
+        : {}),
       ...(temporalConnectionTimeout !== undefined
         ? { connectTimeout: temporalConnectionTimeout }
         : {}),

@@ -143,7 +143,6 @@ const BaseRawConfigProps = {
   enableColdStorage: Type.Optional(BoolStr),
   exportLogsHyperDx: Type.Optional(BoolStr),
   hyperDxApiKey: Type.Optional(Type.String()),
-  dittofeedTelemetryDisabled: Type.Optional(BoolStr),
   appVersion: Type.Optional(Type.String()),
   onboardingUrl: Type.Optional(Type.String()),
   globalCronTaskQueue: Type.Optional(Type.String()),
@@ -316,7 +315,6 @@ export type Config = Overwrite<
     dashboardUrl: string;
     databaseParams: Record<string, string>;
     databaseUrl: string;
-    dittofeedTelemetryDisabled: boolean;
     enableAdditionalDashboardSettings: boolean;
     enableBlobStorage: boolean;
     enableMobilePush: boolean;
@@ -808,9 +806,6 @@ function parseRawConfig(rawConfig: RawConfig): Config {
     blobStorageBucket,
     blobStorageRegion: rawConfig.blobStorageRegion ?? "us-east-1",
     exportLogsHyperDx: rawConfig.exportLogsHyperDx === "true",
-    dittofeedTelemetryDisabled:
-      rawConfig.dittofeedTelemetryDisabled === "true" ||
-      nodeEnv === NodeEnvEnum.Development,
     onboardingUrl: rawConfig.onboardingUrl ?? "/dashboard/waiting-room",
     globalCronTaskQueue: rawConfig.globalCronTaskQueue ?? "default",
     computedPropertiesTaskQueue,

@@ -7,7 +7,6 @@ import { getServiceName } from "./openTelemetry/constants";
 import { Logger } from "./types";
 
 let LOGGER: Logger | null = null;
-let PUBLIC_LOGGER: Logger | null = null;
 
 const redactedSecretPaths = Array.from(SECRETS).flatMap((key) => [
   key,
@@ -48,43 +47,6 @@ const googleOpsConfig: PinoConf = {
     },
   },
 };
-
-export function publicLogger(): Logger {
-  if (!PUBLIC_LOGGER) {
-    const level = config().dittofeedTelemetryDisabled
-      ? "silent"
-      : config().logLevel;
-
-    const options: PinoConf = {
-      level,
-      redact: redactedSecretPaths,
-      base: {
-        "service.version": config().appVersion,
-      },
-      mixin: HyperDX.getPinoMixinFunction,
-      transport: {
-        targets: [
-          {
-            target: "@hyperdx/node-opentelemetry/build/src/otel-logger/pino",
-            options: {
-              apiKey: "4d3112b9-2a84-48c2-af9e-ec96b9aacf71",
-              service: getServiceName(),
-            },
-          },
-          // Write to stdout as well
-          {
-            target: "pino/file",
-            options: {
-              destination: 1, // This means stdout, which will output JSON
-            },
-          },
-        ],
-      },
-    };
-    PUBLIC_LOGGER = pino(options);
-  }
-  return PUBLIC_LOGGER;
-}
 
 export default function logger(): Logger {
   if (!LOGGER) {

@@ -1020,8 +1020,11 @@ preview, and the original Docker data was not deleted.
 `.env` now keeps API/dashboard on port 3000 and disables `ENABLE_WORKER`,
 `BOOTSTRAP`, `BOOTSTRAP_WORKER`, `BOOTSTRAP_EVENTS` and `ENABLE_OPEN_TRACKING`.
 No email, campaign, provider-account mutation or public deployment was performed.
-Temporal still targets the existing production Cloud namespace: **do not enable
-workers until a dedicated development namespace is selected**.
+The operator subsequently isolated the remaining development services: Temporal
+uses `ditto-dev.lrwcc` and ClickHouse Cloud uses `dittofeed_dev`. Production
+connection values are retained separately as `TEMPORAL_PROD_*` and
+`CLICKHOUSE_PROD_*`; do not select them for local development or copy `.env`
+over the production runtime.
 
 Restart the initialized preview from the repository root:
 
@@ -1049,7 +1052,7 @@ development publisher/workspace. The MCP setup guide documents the single
 
 - [x] Reload the active OMP session and verify its mounted read-only MCP tool.
 
-## Production rollout preparation: 2026-11-24
+## Production rollout: 2026-11-24
 
 The operator explicitly approved the production database upgrade, targeted SMS
 retirement, separate production Google client, and app deployment with workers
@@ -1082,5 +1085,52 @@ as the production connection source.
   An unused secret exposed through a copy-button diagnostic was disabled and
   replaced before installation. Local Google credentials were not changed.
 
-The new image activation and real production Google acceptance remain pending
-until recorded below; these preparation checks are not a completed deployment.
+### Live release verified
+
+- GitHub Actions run `45500318016` successfully built, published and deployed
+  `3b8a361a51269139fb279ad0d073edb326f02014`. The public HTTPS `/api/` returned
+  that exact version. Image digest:
+  `sha256:f3a4bce51bd26e329fbe51aadaa98da29f64c3dda144fe04d7cf3680517582e0`.
+- Production is `https://email.roninpublishing.com`, with Google authentication,
+  secure cookies and its separate production OAuth client. Real Google owner
+  sign-in provisioned an Admin membership and instance-administrator authority
+  in the original `Default` workspace. The live Users page showed both existing
+  contacts. The application signing key was preserved.
+- Removed the three one-time Google bootstrap pins after confirming the owner
+  exists. Google remains External/Testing with only the owner admitted; public
+  consent publication and a controlled second-account invitation/role acceptance
+  are not claimed.
+- Workers, bootstrapping, owned open tracking and Cloudflare provisioning remain
+  disabled. Current production ClickHouse is unchanged; Cloud ClickHouse
+  migration is a separate cutover. No send, campaign or provider-account change
+  was performed.
+- Preserved `START_OTEL=true` and the existing `OTEL_COLLECTOR`. Operator-observed
+  traces already arrive in Better Stack source `ditto-email`; log ingestion must
+  not be inferred from the collector being installed.
+- Switched only Lite to Docker `json-file` logging (`max-size=10m`, `max-file=3`)
+  under `/run/dittofeed-deploy.lock`. Active contract:
+  `/opt/dittofeed-releases/3b8a361a51269139fb279ad0d073edb326f02014-logging-7z0xu36z/compose.json`.
+  Exact-revision health, unchanged image, identical runtime bytes/environment
+  values, expected Docker logging configuration and an existing JSON log file
+  were verified. An initial attempt rolled back; the successful verification
+  compared environment mappings rather than order. No collector configuration
+  was changed; Better Stack log ingestion itself was not independently verified.
+- Enabled `DITTOFEED_TELEMETRY_DISABLED=true` on this image to stop upstream usage
+  reporting without disabling operator-controlled OpenTelemetry. Merged
+  `chore/remove-phone-home` (`89ea3b1f`) into main; its code removal is for the
+  **next image**, not the currently deployed `3b8a361a`. Backend and API TypeScript
+  checks passed after integration. The known pre-existing resiliency test failure
+  was not rerun.
+
+### Gated follow-up
+
+- [ ] After explicit worker re-enablement authorization, verify the worker reaches
+  RUNNING and Temporal Cloud namespace `ditto.lrwcc` has pollers on `default`,
+  `computed-properties` and `computed-properties-activity`. The operator reported
+  zero pollers while workers are disabled; do not enable workers merely to pass
+  a monitoring check.
+- [ ] Include the merged phone-home code removal in the next app image. Remove
+  the obsolete runtime opt-out flag after that image is active.
+- [ ] Separately review SSH hardening: the monitoring session reported
+  `PermitRootLogin yes` with key-based root access and no fail2ban. Report only;
+  no SSH or firewall change was authorized or made during this rollout.

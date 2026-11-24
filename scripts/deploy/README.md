@@ -63,12 +63,14 @@ unconditionally by those startup builders. With the preserved bootstrap flags,
 this pathway does not request a schema migration. This is not a promise for an
 arbitrary future selected revision. Confirm schema compatibility separately
 before choosing a revision; this workflow does not apply migrations or make an
-incompatible schema reversible. Running the app resumes normal worker activity;
-no special send/test-send operation is part of the pipeline.
+incompatible schema reversible. Running the app resumes worker activity only if
+the preserved runtime enables workers. This rollout keeps `ENABLE_WORKER=false`;
+no send/test-send operation or worker re-enablement is part of the pipeline.
 
 Health acceptance is the loopback `/api/` response carrying the exact new
-`APP_VERSION`, after Lite creates its worker. It is **not** an authenticated UI,
-protected-API, email-delivery, or complete Temporal workflow acceptance test.
+`APP_VERSION`, after Lite startup. With workers disabled, a healthy response does
+not prove a running worker. It is **not** an authenticated UI, protected-API,
+email-delivery, or complete Temporal workflow acceptance test.
 An app restart can briefly interrupt service; no zero-downtime guarantee is made.
 
 ## Focused tests
@@ -80,6 +82,12 @@ actionlint .github/workflows/deploy.yaml
 
 Fixtures are hermetic: success, failed activation, failed health/rollback,
 registry failure, exact-revision health, same-SHA repeat releases, input validation,
-pinned SSH and preservation of the prior contract/runtime/data. Setup registration
-and a restricted read-only SSH probe are not a first live deployment. The first
-manual CI build/publish/pull/activation remains unrun until explicitly dispatched.
+pinned SSH and preservation of the prior contract/runtime/data.
+
+The first live manual workflow succeeded in run `45500318016`, deploying full
+revision `3b8a361a51269139fb279ad0d073edb326f02014` through build, registry publish,
+restricted SSH activation and exact-revision health acceptance. Production Google
+owner sign-in and preserved-contact UI acceptance were verified separately.
+Workers stayed disabled; PostgreSQL backup and seven additive migrations were
+performed separately before deployment. See `FORK_PLAN.md` for the release record,
+active logging contract and remaining explicitly gated operations.

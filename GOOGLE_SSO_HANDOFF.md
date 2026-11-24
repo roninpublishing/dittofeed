@@ -57,7 +57,7 @@ The initial owner is already provisioned in the existing local RONIN workspace, 
 
 The full-platform checkpoint includes the complete ordered migration history `0000`–`0017`, including Telnyx, click/open evidence, Google accounts, publishers/newsletters, and newsletter tracking domains. Account migration `0015_google_accounts` retains its original predecessor chain. No applied migration was renumbered, historical migration removed, or contact/event data deleted.
 
-Disposable PostgreSQL verification applied all 18 migrations and proved an idempotent reapply. The integration preserves the newer platform implementation while reconciling the account-only branch. Production rollout still requires database backup, deployment inventory, migration application, and acceptance checks below; local success is not a production cutover audit.
+Disposable PostgreSQL verification applied all 18 migrations and proved an idempotent reapply. The integration preserves the newer platform implementation while reconciling the account-only branch. The production backup and additive migration cutover were subsequently completed as recorded in `FORK_PLAN.md`.
 
 ### 3. Live cutover and real-browser acceptance
 
@@ -81,7 +81,19 @@ For a deployment/release, complete the following checklist:
 6. Hand a private invitation to a second real Google account. Verify correct-account admission, wrong-account recovery, role restrictions, workspace switching, revocation, and disable behavior.
 7. Remove bootstrap settings after successful owner provisioning. Review production HTTPS, audience/test-user settings, and recovery access before release.
 
-Production Google consent and authenticated team/second-account acceptance remain operator release items. The local owner sign-in recorded above was real; protocol tests and local fixtures do not replace production acceptance. Never inject cookies or simulate a provider result to claim a real sign-in.
+Public Google consent publication and authenticated team/second-account acceptance remain operator release items. Owner production acceptance is recorded below. Never inject cookies or simulate a provider result to claim a real sign-in.
+
+### 4. Production owner activation — verified
+
+`https://email.roninpublishing.com` now runs revision `3b8a361a51269139fb279ad0d073edb326f02014` in Google mode with secure HTTPS cookies and a separate `DITTO Email Client — Production` web client. Its exact redirect URI is:
+
+```text
+https://email.roninpublishing.com/api/public/auth/google/callback
+```
+
+A real Google owner sign-in provisioned Admin membership and instance-administrator authority in the preserved production `Default` workspace. The live Users page displayed its two existing contacts. The three one-time bootstrap settings were removed afterward; the private application signing key and Google session storage were preserved. The PostgreSQL backup and all 18 migrations are recorded in `FORK_PLAN.md`.
+
+Google remains External/Testing, owner-only. This is not public consent publication or second-account acceptance. Local OAuth credentials were not changed. Production credentials live only in protected host runtime/backup files, never in Git or the development `.env`. Workers, bootstrap events and tracking remain off; no email was sent.
 
 ## Operations and safety
 

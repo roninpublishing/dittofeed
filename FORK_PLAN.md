@@ -868,3 +868,26 @@ No deployment, release/image publication, production migration, provider write,
 DNS/TLS change, IP purchase/reassignment, live-contact migration or external
 email occurred. Production provider inventory/adoption, public origin/hosting
 and real second-account Google/team acceptance remain explicit release gates.
+
+## Production runtime: Temporal Cloud and private ClickHouse
+
+Production uses Temporal Cloud and a private ClickHouse with nightly native backups to
+DigitalOcean Spaces. Neither is deployed by these changes.
+
+- Temporal Cloud: optional `TEMPORAL_API_KEY` enables TLS and API-key authentication
+  for the client, the native connection and the worker. Without it, the connection
+  options are unchanged. A read-only connection check against namespace
+  `ditto.lrwcc` succeeded on 2026-11-24. The namespace already has running
+  workflows, so a local worker pointed at it shares production work.
+- ClickHouse: `docker-compose.lite.yaml` publishes no host ports and requires a
+  non-empty `CLICKHOUSE_PASSWORD`. Local preview keeps loopback ports through
+  `.tmp/local-preview-compose.yaml` (`!override`). See
+  [deploy/clickhouse/README.md](deploy/clickhouse/README.md) for the runbook,
+  backup runner and cron instructions.
+- Verified locally on 2026-11-24: 7 runner/Compose tests and the native suite
+  (pinned image, 2048 MiB limit, no published ports, internal DNS, local-disk
+  backup, duplicate failure, restart persistence, restore readback).
+- [ ] Choose the production host and keep its existing Compose project name/volumes.
+- [ ] Approve and create the private Spaces bucket and a bucket-scoped backup key.
+- [ ] Run a first manual Spaces backup, install cron, and restore into an isolated
+  database before signoff. Local Disk qualification is not Spaces acceptance.

@@ -115,6 +115,12 @@ python3 deploy/clickhouse/test_step2.py
 python3 deploy/clickhouse/test_native.py
 ```
 
+On macOS with Colima, only the home directory is shared into the VM. Run the
+native suite with a temporary directory under it, for example
+`TMPDIR="$PWD/.tmp/chtest" python3 deploy/clickhouse/test_native.py`; otherwise
+the backup config mount is empty and `BACKUP` fails with
+`backups.allowed_disk` not set.
+
 The first suite resolves the real Compose file and tests backup subprocess
 construction, failure/redaction and private-file validation using a fake Docker
 transport. The second starts the **actual pinned ClickHouse image** on a unique

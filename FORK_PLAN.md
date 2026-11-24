@@ -22,12 +22,17 @@ deployment, DNS/TLS activation, capture, and sending remain disabled; local
 inbound-only verification is not a production cutover.
 
 Google OIDC and application-owned accounts, explicit workspace memberships,
-roles, private invitations, and revocable sessions are implemented. Local Google
-configuration and real owner sign-in are verified: the owner is Admin in RONIN,
-one-time bootstrap settings are removed, and Google mode remains enabled.
-The full-platform integration checkpoints migrations `0000`–`0017`; production
-origin/deployment and authenticated team/second-account acceptance remain separate
-release gates. See [account operations](packages/docs/guide/google-sso.mdx).
+roles, private invitations, and revocable sessions are implemented. The local
+preview now uses a dedicated **DITTO Email Client** Google project under Ronin;
+Pepper's OAuth app is unchanged. Real branded owner sign-in, RONIN Admin access,
+account/team screens, workspace switching, current-session revocation and fresh
+login are verified. One-time bootstrap settings remain removed.
+Carson selected External audience and local Testing mode; the owner is its only
+configured Google test user. Real second-account acceptance, public homepage/
+privacy URLs, production consent publication and origin/deployment remain release
+gates. The integration checkpoints migrations `0000`–`0017`. See
+[account operations](packages/docs/guide/google-sso.mdx) and
+[the setup handoff](GOOGLE_SSO_HANDOFF.md).
 
 ## Product decisions
 

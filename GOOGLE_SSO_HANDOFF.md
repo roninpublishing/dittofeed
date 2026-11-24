@@ -36,7 +36,7 @@ The isolated pull-request branch also passed all 106 tests across six suites, th
 
 ### 1. Google Cloud configuration — local credentials supplied
 
-The operator added the Web application client ID and secret to ignored local `.env`. Presence/format checks passed without printing the values. A real browser reached Google's credential-entry screen and the subsequent real callback provisioned the configured owner and an application session, confirming the credentials work. The OAuth application is currently branded `pepper` in Google Cloud; confirm the intended project/branding before production. Only `openid email profile` is needed.
+The local preview now uses the dedicated **DITTO Email Client** Google project `caramel-vim-515718-j5`, owned by the `roninpublishing.com` organization. Its Web application client is named `DITTO Email Client — Local development`; credentials are stored only in ignored owner-only `.env`. The consent screen uses `support@roninpublishing.com`, with only `openid`, email and profile scopes; no sensitive, restricted or Gmail scopes are configured. Pepper's existing OAuth app was not renamed, rotated or deleted.
 
 Authorized local redirect URI:
 
@@ -65,7 +65,11 @@ The existing local database already contained the complete migration history thr
 
 Local Lite now runs on `http://localhost:3000` with `AUTH_MODE=google`. The live status endpoint returned `enabled: true`, `configured: true`, and the exact callback URI above with `Cache-Control: no-store`; unauthenticated account access returned 401 and Home redirected to sign-in. The actual branded page's Continue with Google link reached Google's sign-in screen. The user's browser was opened at the local sign-in page.
 
-**Real owner sign-in completed.** PostgreSQL showed the verified Google owner with instance-administrator authority, an explicit Admin membership in the existing RONIN workspace, and an active unrevoked application session. One-time bootstrap email/workspace settings were removed from ignored `.env`; a subsequent restart still reported configured Google mode and preserved the active administrator session. Authenticated account/team visual acceptance and second-account invitation checks remain release acceptance items; the assistant could not attach to the user's signed-in browser and did not copy/inject cookies or fabricate a provider result.
+**Dedicated-client acceptance verified on 2026-11-24.** A real Google account-selection/consent flow displayed **DITTO Email Client**, returned through the exact local callback, and signed the existing owner into the application without re-bootstrap or duplicate accounts. Actual browser controls verified Account/session listing, Team & access showing the existing RONIN Admin and instance-administrator authority, newsletter/publisher workspace switching, current-session revocation, and a fresh Google login. PostgreSQL confirmed one Google account, one enabled instance administrator, and the revoked proof session; the owner's older browser session was left active. No cookies were copied or injected.
+
+Carson selected **External** audience and explicitly chose to finish local development in **Testing** mode. The owner is the only configured Google test user. Add intended testers to Google's test-user list before their acceptance checks. Production consent publication remains gated on valid public app-homepage/privacy-policy URLs and production callback/HTTPS configuration. A second controlled Google account was not supplied, so real invitation redemption, wrong-account recovery and second-account role/disable acceptance remain unverified.
+
+The existing combined Lite preview was restarted with Google mode preserved and process overrides `ENABLE_WORKER=false`, `BOOTSTRAP_WORKER=false`, `BOOTSTRAP=false`, `BOOTSTRAP_EVENTS=false`, `ENABLE_OPEN_TRACKING=false`, and `LOG_CONFIG=false`. These overrides do not rewrite the corresponding `.env` defaults; retain them when restarting an infrastructure-only preview. No email or provider operation was performed.
 
 For a deployment/release, complete the following checklist:
 

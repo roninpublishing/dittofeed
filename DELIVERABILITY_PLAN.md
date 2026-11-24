@@ -61,15 +61,49 @@ it. Vendors that show one compute their own from blocklists, spam traps, complai
 and seed tests. Treat any vendor score as that vendor's opinion, labeled with its
 source.
 
-**Decision (proposed):**
-1. **Mailgun Optimize (Starter)** as the external signal backend: IP and domain
-   blocklists, spam traps, Postmaster and SNDS, alert webhooks. Our adapter
+**Verified Mailgun Optimize API surface** (from its published OpenAPI spec,
+59 paths, read 2026-11-24):
+- Register and manage assets: `POST/GET/PUT/DELETE /v1/inboxready/ip_addresses[/{ip}]`,
+  `POST/GET/DELETE /v1/inboxready/domains`, `PUT /v1/inboxready/domains/verify`.
+- Blocklists: `/v1/monitoring/domains`, `/v1/monitoring/domains/{domain}/blocklists`,
+  `/v1/monitoring/domains[/{domain}]/events`, HBL monitoring `/v1/monitoring/hbls`.
+- Google Postmaster: `/v1/reputationanalytics/gpt/domains[/{domain}]` (daily
+  records), `/v1/reputationanalytics/gpt/domainsfbl`, v2 compliance
+  `/v2/reputationanalytics/gpt/compliances[/{domain}]`.
+- Microsoft SNDS: `/v1/reputationanalytics/snds[/{ip}]`.
+- Spam traps: `/v1/spamtraps`, `/v2/spamtraps`, totals and filters.
+- DMARC reports: `/v1/dmarc/domains/{domain}` down to `/s/{source}/h/{host}/ip/{ip}`.
+- Inbox placement: `/v4/inbox/seedlists`, `/v4/inbox/tests`, `/v4/inbox/results`.
+- Alerts: `/v1/alerts/settings[/events]` (add, update, remove), `/v1/alerts/events`,
+  outbound **webhooks with a signing key** (`/v1/alerts/settings/webhooks/signing_key`,
+  `/v1/alerts/webhooks/test`), Slack and email.
+- Email Health Score (`/v1/maverick-score/*`) appears to score Mailgun-sent
+  traffic. Don't rely on it for SendGrid mail.
+
+Plan limits: Starter ($99/mo) monitors only **1 IP and 1 domain** for blocklists
+and spam traps, 1 domain for Postmaster and 1 IP for SNDS. Several newsletters
+need the **Contract** tier (custom price). Get a quote for our asset count.
+
+Also reviewed and rejected as the primary backend:
+- **EasyDMARC**: strong DMARC API (74 endpoints), but reputation and blocklist
+  monitoring is UI-only, with no Postmaster, SNDS or webhooks documented.
+- **Tatami** ($10 per million emails, first 100 IPs free): ingests SendGrid
+  events and watches 100+ blocklists every 6 hours, but has no API to register
+  assets or read status. Alerts go to Slack, Discord or email only.
+- **Postmaster+**, **MailerSend**, **HetrixTools**: blocklist-only APIs.
+- **unspam.email**: no blocklist monitoring.
+
+**Decision:**
+1. **Mailgun Optimize (Contract tier, sized to our IPs and domains)** as the
+   external signal backend: IP and domain blocklists, spam traps, Postmaster,
+   SNDS, DMARC reports and signed alert webhooks. Start on the Starter trial to
+   build and verify the adapter against one IP and one domain. Our adapter
    registers our IPs and domains with it and reads status back.
 2. **First-party rates** we already compute stay a core signal, especially for
    shared IPs.
 3. **DNS posture checks** stay in-house: they're simple and free, and they need
    to know our own expected records.
-4. **DMARC `rua`**: self-host later, or use Suped if we'd rather not.
+4. **DMARC `rua`**: use Optimize's DMARC reports API first; self-host only if it falls short.
 5. **GlockApps** only if we want cheaper or broader seed tests. Trial its API first.
 
 What we still build: the asset registry, one adapter per vendor (the
@@ -265,3 +299,9 @@ disabled per publisher without affecting sending.
 - [Suped integrations](https://www.suped.com/integrations)
 - [Suped pricing](https://www.suped.com/pricing)
 - [HetrixTools blacklist monitor API](https://docs.hetrixtools.com/tag/blacklist-monitor-api)
+- [Mailgun Optimize API reference (OpenAPI spec)](https://documentation.mailgun.com/docs/inboxready/api-reference/optimize/inboxready)
+- [Mailgun Optimize: Microsoft SNDS integration](https://www.mailgun.com/blog/product/optimize-sending-with-microsoft-snds-integration/)
+- [EasyDMARC API](https://easydmarc.com/platform/dmarc/api)
+- [EasyDMARC reputation monitoring](https://easydmarc.com/tools/reputation-monitoring)
+- [Tatami](https://tatamimonitor.com/)
+- [Postmaster+](https://postmasterplus.com/)

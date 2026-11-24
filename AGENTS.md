@@ -86,6 +86,20 @@ Unchecked items are planned work; checked items must reflect verified changes.
 Keep the plan's status accurate as work lands. Preserve the commands below until
 the corresponding tooling actually changes.
 
+## UI and copy
+
+- Default to no explanatory copy. Each section/area may have at most one
+  extremely concise sentence, only when it adds necessary information.
+- Prefer clear headings, labels, values and actions. Do not explain obvious
+  behavior, narrate the data model, repeat context, or add instructional filler.
+- KPI cards show a label and value only; no descriptive captions.
+- Keep necessary validation, errors and consequential-action warnings concise.
+  Use accurate labels such as "Matched mailboxes" or "Observed opens" rather
+  than adding caveat paragraphs or implying verified people/human engagement.
+- Put detailed semantics in documentation, not extra subtitles or tooltips.
+- Preserve the compact layout and existing palette. Do not initiate a production
+  deployment for UI edits unless explicitly requested.
+
 ## Commands
 
 The following are useful commands for the agents:

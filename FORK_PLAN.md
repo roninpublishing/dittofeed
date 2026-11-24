@@ -1155,3 +1155,14 @@ as the production connection source.
 - The centered SSO source is pushed to main in `c6bc9032`. At the operator's
   request, cancellation of deployment run `45508607843` was requested; no further
   rollout/finalization steps were performed or live acceptance claimed.
+
+## Minimal publications copy
+
+- `AGENTS.md` now defines the persistent UI-copy policy for future work.
+- Removed subscriber explanations, report KPI captions and redundant section
+  subtitles; retained the approved newsletter chooser sentence. Report cards
+  show labels and values only; the activity time window is part of its heading.
+- Optimized dashboard build and real Google-authenticated development browser
+  checks passed for Reports and Subscribers. Current combined Lite preview uses
+  `NEXT_DIST_DIR=dist/ui-minimal-preview` with the same guarded dev resources and
+  disabled workers/bootstrap/tracking. No production deployment was initiated.

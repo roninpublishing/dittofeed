@@ -658,18 +658,11 @@ export default function PublicationManagement({
               }[section]
             }
           </Typography>
-          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            {
-              {
-                newsletters:
-                  "Choose a newsletter to manage its audience and campaigns.",
-                subscribers: "Find subscribers across your newsletters.",
-                reports: "A combined view of your newsletters.",
-                settings:
-                  "Shared sending, tracking and publisher-wide controls.",
-              }[section]
-            }
-          </Typography>
+          {section === "newsletters" && (
+            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+              Choose a newsletter to manage its audience and campaigns.
+            </Typography>
+          )}
         </Box>
         {section === "newsletters" ? (
           <Button
@@ -861,23 +854,11 @@ export default function PublicationManagement({
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
             {(
               [
-                [
-                  "subscriptionCount",
-                  "Publication subscriptions",
-                  "A subscription is counted in each newsletter.",
-                ],
-                [
-                  "contactCount",
-                  "Contact records",
-                  "Subscriber profiles remain independent.",
-                ],
-                [
-                  "matchedMailboxCount",
-                  "Matched mailboxes",
-                  "Matched email addresses, not verified unique people.",
-                ],
+                ["subscriptionCount", "Publication subscriptions"],
+                ["contactCount", "Contact records"],
+                ["matchedMailboxCount", "Matched mailboxes"],
               ] as const
-            ).map(([key, label, hint]) => (
+            ).map(([key, label]) => (
               <Paper
                 key={key}
                 variant="outlined"
@@ -887,9 +868,6 @@ export default function PublicationManagement({
                   <Typography color="text.secondary">{label}</Typography>
                   <Typography variant="h2">
                     {text(record(record(data.overview).totals)[key])}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {hint}
                   </Typography>
                 </Stack>
               </Paper>
@@ -909,12 +887,8 @@ export default function PublicationManagement({
             />
           </Paper>
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
-            <Typography variant="h4" sx={{ mb: 1 }}>
-              Email activity
-            </Typography>
-            <Typography color="text.secondary" sx={{ mb: 2 }}>
-              Last 30 days. Opens and clicks are observations, not verified
-              human engagement.
+            <Typography variant="h4" sx={{ mb: 2 }}>
+              Email activity · last 30 days
             </Typography>
             {rows(record(data.health).observations).length ? (
               <DataTable
@@ -986,10 +960,6 @@ export default function PublicationManagement({
               </Button>
             </Stack>
           </Box>
-          <Typography color="text.secondary">
-            The same email can have a separate subscriber record in each
-            newsletter.
-          </Typography>
           {Array.isArray(searchResults.contacts) &&
             !searchResults.contacts.length && (
               <Typography color="text.secondary">

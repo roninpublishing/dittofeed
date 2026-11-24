@@ -1,10 +1,16 @@
 import { randomUUID } from "crypto";
+import { eq } from "drizzle-orm";
+import {
+  LAST_CLICKED_PROPERTY_NAME,
+  LAST_OPENED_PROPERTY_NAME,
+} from "isomorphic-lib/src/constants";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 
-import { insert } from "./db";
+import { db, insert } from "./db";
 import {
   computedPropertyPeriod as dbComputedPropertyPeriod,
   segment as dbSegment,
+  userProperty as dbUserProperty,
   workspace as dbWorkspace,
 } from "./db/schema";
 import {
@@ -21,6 +27,22 @@ import {
   WorkspaceTypeAppEnum,
 } from "./types";
 import { upsertWorkspace } from "./workspaces/createWorkspace";
+
+async function insertOldComputeAssignmentsPeriod(workspaceId: string) {
+  await insert({
+    table: dbComputedPropertyPeriod,
+    values: {
+      id: randomUUID(),
+      workspaceId,
+      type: "Segment",
+      computedPropertyId: randomUUID(),
+      version: Date.now().toString(),
+      from: new Date(Date.now() - 1000 * 60),
+      to: new Date(Date.now() - 1000 * 55),
+      step: ComputedPropertyStepEnum.ComputeAssignments,
+    },
+  });
+}
 
 describe("resiliency", () => {
   describe("observeWorkspaceComputeLatency", () => {
@@ -143,19 +165,13 @@ describe("resiliency", () => {
             .then((w) => w.id),
         ]);
 
-        await insert({
-          table: dbComputedPropertyPeriod,
-          values: {
-            id: randomUUID(),
-            workspaceId: childWorkspace,
-            type: "Segment",
-            computedPropertyId: randomUUID(),
-            version: Date.now().toString(),
-            from: new Date(Date.now() - 1000 * 60),
-            to: new Date(Date.now() - 1000 * 55),
-            step: ComputedPropertyStepEnum.ComputeAssignments,
-          },
-        });
+        // Workspace creation provisions the protected last_clicked/last_opened
+        // properties. Remove them to model a workspace with no computed properties.
+        await db()
+          .delete(dbUserProperty)
+          .where(eq(dbUserProperty.workspaceId, childWorkspace));
+
+        await insertOldComputeAssignmentsPeriod(childWorkspace);
       });
       test("returns active workspaces and their latest compute period but excludes the child workspace with old compute periods and no computed properties", async () => {
         const { periods } = await findActiveWorkspaces();
@@ -165,6 +181,33 @@ describe("resiliency", () => {
         expect(
           periods.find((w) => w.workspaceId === childWorkspace),
         ).toBeUndefined();
+      });
+    });
+    describe("when a workspace has only the built-in protected user properties", () => {
+      let workspaceId: string;
+      beforeEach(async () => {
+        workspaceId = await upsertWorkspace({
+          name: randomUUID(),
+          status: WorkspaceStatusDbEnum.Active,
+          updatedAt: new Date(),
+        })
+          .then(unwrap)
+          .then((w) => w.id);
+        await insertOldComputeAssignmentsPeriod(workspaceId);
+      });
+      test("includes its latest compute period because the built-in properties are computed", async () => {
+        const builtins = await db()
+          .select({ name: dbUserProperty.name })
+          .from(dbUserProperty)
+          .where(eq(dbUserProperty.workspaceId, workspaceId));
+        expect(builtins.map((p) => p.name).sort()).toEqual(
+          [LAST_CLICKED_PROPERTY_NAME, LAST_OPENED_PROPERTY_NAME].sort(),
+        );
+
+        const { periods } = await findActiveWorkspaces();
+        expect(
+          periods.find((w) => w.workspaceId === workspaceId),
+        ).not.toBeUndefined();
       });
     });
   });

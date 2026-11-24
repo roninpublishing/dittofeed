@@ -995,8 +995,8 @@ was verified encrypted with an authorized certificate on PostgreSQL 18.7.
   newsletter Users page read it successfully with zero users.
 - Replaced the existing local read-only API binding in `.env` with a key for the
   new development publisher. The direct authenticated publications-context API
-  returned HTTP 200 with that publisher. The mounted MCP stdio connection failed
-  separately with EOF/exit 9; its reconnection was not verified.
+  returned HTTP 200 with that publisher. The mounted MCP connection subsequently
+  recovered after the operator reloaded the active OMP session, as verified below.
 - Restarted combined Lite on `http://localhost:3000` using the existing optimized
   `.next-ui-preview` build. Verified Google login, newsletter opening, inherited
   child access, Users, and return to the publisher listing in the real browser.
@@ -1022,17 +1022,19 @@ node .yarn/releases/yarn-4.1.1.cjs workspace lite start
 This remains an optimized, non-hot-reloading preview. Rebuild affected packages
 and the dashboard before restarting after source changes, as described above.
 
-## Development MCP connection recovery checkpoint
+## Development MCP connection recovery: verified
 
 The current `.omp/mcp.json` command was independently exercised against the
 running development preview on 2026-11-24. Native Node env-file loading,
 stdio initialization, discovery of 47 read-only tools, and a real
 publications-context tool call all succeeded for `RONIN Development`.
 
-The already-mounted OMP connection still returned stdio EOF/subprocess code 9.
+The previously mounted OMP connection returned stdio EOF/subprocess code 9.
 Stopping and reopening only its daemon host unit did not recover it; no
-application-code or permission fallback was added. The operator was asked to run
-`/mcp reload` so the session rediscovers its launcher. The MCP setup guide now
-documents the single `.env`, reload/reconnect distinction and live verification.
+application-code or permission fallback was added. After the operator ran
+`/mcp reload` in OMP's chat command input (not zsh), the mounted
+`get_publications_context_490f2f821d` tool returned HTTP 200 with the expected
+development publisher/workspace. The MCP setup guide documents the single
+`.env`, reload/reconnect distinction and live verification.
 
-- [ ] Reload the active OMP session and verify its mounted read-only MCP tool.
+- [x] Reload the active OMP session and verify its mounted read-only MCP tool.

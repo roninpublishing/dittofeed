@@ -40,6 +40,43 @@ Conclusions:
 3. Gmail health is **domain-based** now (spam rate plus compliance), so domain
    health matters as much as IP health.
 
+## Buy the signals, build only the view
+
+Several vendors already collect these signals. Don't rebuild Postmaster, SNDS,
+blocklist and seed-test collection ourselves. Buy one monitoring backend, keep
+first-party data we already have, and build only the registry, the adapter and
+the UI.
+
+| Vendor | What it already does | API | Price (Nov 2026) | Fit |
+|---|---|---|---|---|
+| **Mailgun Optimize** | IP and domain blocklist monitoring (Spamhaus, CBL, SpamCop, DBL, URIBL, SURBL; content/HBL added Oct 2026), spam-trap monitoring, Google Postmaster integration, SNDS integration (Starter and up), inbox placement seed tests, bounce classification. Works with any ESP, not only Mailgun. | **Documented**: register, list, update and remove monitored IPs and domains; blocklist events; alert webhooks. | Pilot $49/mo, Starter $99/mo (blocklists, spam traps, Postmaster, SNDS), Contract custom | **Recommended primary.** Broadest documented API at low cost, and ESP-neutral. |
+| **GlockApps** | Seed tests across 30+ providers, Google Postmaster v2 data and alerts, blocklist and IP reputation monitors, DMARC analytics, DNS checks. Hosted MCP server. | Claimed on every plan, including free (`x-api-key`). Endpoint reference didn't render, so it's **unverified**. | Free; $59, $99, $129/mo (Agencies tier) | Strong second choice or add-on for seed testing. Verify endpoints with a trial key first. |
+| **Inbox Monster** | Pulls Google Postmaster v2, Microsoft SNDS and the Spamhaus domain reputation feed into one dashboard, plus blocklists and seed tests. ESP-neutral. | No public API documentation found. | Quote only | Good dashboard, weak for integration. |
+| **Validity Everest** | Most complete: Sender Score, domain and IP reputation trends, 200+ blocklists, Postmaster and SNDS, Universal Feedback Loop, seed tests. | Enterprise tier only. | Roughly $20k–100k+/yr (third-party estimates) | Overkill now. Revisit at large scale. |
+| **Suped** | DMARC `rua` processing, hosted SPF/DKIM/DMARC/MTA-STS/BIMI, blocklists, Postmaster (not for MSP orgs), webhook alerts, MCP. | Narrow: one read-only REST endpoint (DMARC records). MCP adds domains and issues. API on Enterprise/MSP only. | Free; Business about $19–24/mo; Enterprise/MSP quote | Good for **DMARC reports only**, if we don't self-host `rua`. |
+| **HetrixTools** | Blocklist monitoring only. | Documented v2 API (add, list, update monitors). | Free; $9.95–$99.95/mo | Cheap fallback for blocklists only. |
+
+No vendor gives a Gmail **reputation score** any more, because Google retired
+it. Vendors that show one compute their own from blocklists, spam traps, complaints
+and seed tests. Treat any vendor score as that vendor's opinion, labeled with its
+source.
+
+**Decision (proposed):**
+1. **Mailgun Optimize (Starter)** as the external signal backend: IP and domain
+   blocklists, spam traps, Postmaster and SNDS, alert webhooks. Our adapter
+   registers our IPs and domains with it and reads status back.
+2. **First-party rates** we already compute stay a core signal, especially for
+   shared IPs.
+3. **DNS posture checks** stay in-house: they're simple and free, and they need
+   to know our own expected records.
+4. **DMARC `rua`**: self-host later, or use Suped if we'd rather not.
+5. **GlockApps** only if we want cheaper or broader seed tests. Trial its API first.
+
+What we still build: the asset registry, one adapter per vendor (the
+`HealthSource` interface below), health roll-up, and the publisher and
+newsletter views. Collection, list maintenance and Postmaster/SNDS plumbing are
+the vendor's job.
+
 ## Existing foundation (keep and extend)
 
 - `SendingIp` (publisher-scoped address, status, limits, warm-up schedule),
@@ -166,19 +203,21 @@ disabled per publisher without affecting sending.
 
 ## Phases
 
-- [ ] **0. Accounts and decisions (Carson)**: verify sending domains in Google
-  Postmaster; register dedicated IPs in SNDS; start a Spamhaus commercial trial
-  or choose HetrixTools; pick the `rua`/CFL inbound address; list current IPs
+- [ ] **0. Accounts and decisions (Carson)**: start a Mailgun Optimize trial
+  (Starter); connect Google Postmaster and SNDS inside Optimize; verify sending
+  domains in Google Postmaster; register dedicated IPs in SNDS; list current IPs
   per provider and whether each is dedicated.
 - [ ] **1. Registry and overview**: schema additions, SendGrid inventory sync
   (read-only), domain registry derived from connections and tracking domains,
   the publisher and newsletter Deliverability views using first-party rates
   only. Unknown is shown honestly.
-- [ ] **2. DNS posture and blocklists**: SPF, DKIM, DMARC, MTA-STS, TLS-RPT,
-  PTR/FCrDNS checks; DNSBL checks for IPs and domains.
-- [ ] **3. Google Postmaster v2**: OAuth connection, domain stats and
-  compliance status per verified domain.
-- [ ] **4. Microsoft SNDS**: automated-access ingestion for dedicated IPs.
+- [ ] **2. Mailgun Optimize adapter**: register our IPs and domains, read
+  blocklist, spam-trap, Postmaster and SNDS status, and receive its alert
+  webhooks. Replaces building our own DNSBL, Postmaster and SNDS collectors.
+- [ ] **3. DNS posture checks** (in-house): SPF, DKIM, DMARC, MTA-STS, TLS-RPT,
+  PTR/FCrDNS against our expected records.
+- [ ] **4. Fallbacks only if the vendor falls short**: direct Google Postmaster
+  v2 or SNDS ingestion, or HetrixTools for blocklists.
 - [ ] **5. DMARC `rua` and Yahoo CFL ingestion**: inbound mailbox, parsing,
   per-source-IP alignment.
 - [ ] **6. SES inventory and CloudWatch reputation** (only if SES is used).
@@ -212,3 +251,17 @@ disabled per publisher without affecting sending.
 - [Amazon SES: managed dedicated IPs](https://docs.aws.amazon.com/ses/latest/dg/managed-dedicated-sending.html)
 - [Amazon SES: IP observability for managed dedicated IPs](https://aws.amazon.com/about-aws/whats-new/2025/10/amazon-ses-ip-observability-dedicated-op-addresses-managed/)
 - [Amazon SES pricing](https://aws.amazon.com/ses/pricing/)
+- [Mailgun Optimize APIs overview](https://documentation.mailgun.com/docs/inboxready/onboarding-ir)
+- [Mailgun Optimize: IP blocklist monitoring API](https://documentation.mailgun.com/docs/inboxready/ip-blocklist-ir)
+- [Mailgun Optimize: domain blocklist monitoring API](https://documentation.mailgun.com/docs/inboxready/openapi-final/tag/Domain-Blocklist-Monitoring)
+- [Mailgun Optimize pricing](https://www.mailgun.com/pricing/optimize/)
+- [Mailgun release notes](https://www.mailgun.com/releases/)
+- [GlockApps API](https://glockapps.com/api-documentation-v2/)
+- [GlockApps pricing](https://glockapps.com/pricing/)
+- [GlockApps Postmaster Tools v2 integration](https://glockapps.com/blog/glockapps-google-postmaster-tool-integration/)
+- [Inbox Monster reputation monitoring](https://inboxmonster.com/sender-reputation)
+- [Inbox Monster: Postmaster and SNDS integration](https://intercom.help/inbox-monster/en/articles/5742909-integrate-google-postmaster-tools-and-microsoft-snds)
+- [Validity Everest review 2026](https://mailflowauthority.com/monitoring-analytics/validity-everest-review)
+- [Suped integrations](https://www.suped.com/integrations)
+- [Suped pricing](https://www.suped.com/pricing)
+- [HetrixTools blacklist monitor API](https://docs.hetrixtools.com/tag/blacklist-monitor-api)

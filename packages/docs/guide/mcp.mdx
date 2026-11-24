@@ -119,20 +119,27 @@ Use separate processes and keys for read-only research and outbound campaigns.
 
 ### Configured local OMP client
 
-The local preview's `RONIN` workspace has a dedicated `read` credential named
-`omp-local-reader-20261120`. OMP discovers the ignored project configuration at
-`.omp/mcp.json`; it launches the compiled server with Node's explicit
-`--env-file=.env.mcp.local` option. The credential file contains only the four
-`DITTOFEED_*` connection variables, is ignored by Git, and has owner-only `0600`
-permissions. The client JSON contains no API key. This optional env-file launch
-requires Node.js 20.6 or later.
+The `RONIN Development` publisher uses a dedicated `read` credential named
+`local-development-readonly`. All development connection settings are in the
+existing root `.env`, including `DITTOFEED_API_URL`, `DITTOFEED_WORKSPACE_ID`,
+`DITTOFEED_API_KEY` and `DITTOFEED_MCP_SCOPES=read`. Do not create a second secret
+file. The root `.env` is ignored by Git and has owner-only `0600` permissions.
+OMP discovers the ignored project configuration at `.omp/mcp.json`; its absolute
+Node command launches the compiled server with an explicit `--env-file` pointing
+at that root `.env`. The client JSON contains no API key. This launch requires
+Node.js 20.6 or later.
 
-Run `/mcp reload` in an already-open OMP session, or open a new session in this
-checkout. `/mcp test ronin-dittofeed` checks the registered connection. The API
-must be running at `http://localhost:3000`; neither the MCP process nor its client
-configuration starts infrastructure or changes browser authentication.
+After changing the project launcher, run `/mcp reload` in the existing OMP
+session so it rediscovers the configuration; editing the file or restarting only
+the daemon's host unit does not reload the session's launch specification.
+After rotating a key in `.env`, run `/mcp reconnect ronin-dittofeed` to restart
+the server with the current credential. `/mcp test ronin-dittofeed` checks the
+registered connection against the live server. A fresh standalone stdio process
+does not prove an already-mounted session is using the same configuration.
+The API must be running at `http://localhost:3000`; neither the MCP process nor
+its client configuration starts infrastructure or changes browser authentication.
 
-The local secret file is plaintext protected by filesystem permissions: protect
+The root `.env` is plaintext protected by filesystem permissions: protect
 backups and never paste its contents into a prompt or commit it. Revocation uses
 Settings → Admin API Keys or the authenticated key-deletion API; rotate by issuing
 a new dedicated key and privately replacing the local credential. Do not turn up

@@ -620,13 +620,13 @@ flow/reply/session typing failures are resolved. Initializing replacement sessio
 with their token data also fixes successful Google callbacks that previously
 failed at runtime. All 47 focused Google-account/authorization regressions pass.
 
-The local `RONIN` workspace now has a dedicated read-only OMP key named
-`omp-local-reader-20261120`. Its hashed database credential is paired with an
-ignored owner-only (`0600`) `.env.mcp.local`; ignored `.omp/mcp.json` contains the
-launch configuration without the key. The exact configured launch completed MCP
-initialization, discovered 33 read-only tools/95 API operations, and read the live
-manifest; direct API probes denied writes, raw evidence and a foreign workspace.
-No campaign or contact mutation was performed during client provisioning.
+The original 2026-11-20 local `RONIN` setup used the read-only key
+`omp-local-reader-20261120` and an ignored owner-only `.env.mcp.local`. That launch
+completed MCP initialization, discovered 33 read-only tools/95 API operations,
+and read the live manifest; direct probes denied writes, raw evidence and a
+foreign workspace. It performed no campaign/contact mutation. The development
+preview now uses the single root `.env` and `local-development-readonly` key,
+as described under [Initialized Neon development preview](#initialized-neon-development-preview).
 
 This is a local-process MCP transport, not a public remote `/mcp` listener or OAuth
 authorization server. Production deployment and credential provisioning were not
@@ -1021,3 +1021,18 @@ node .yarn/releases/yarn-4.1.1.cjs workspace lite start
 
 This remains an optimized, non-hot-reloading preview. Rebuild affected packages
 and the dashboard before restarting after source changes, as described above.
+
+## Development MCP connection recovery checkpoint
+
+The current `.omp/mcp.json` command was independently exercised against the
+running development preview on 2026-11-24. Native Node env-file loading,
+stdio initialization, discovery of 47 read-only tools, and a real
+publications-context tool call all succeeded for `RONIN Development`.
+
+The already-mounted OMP connection still returned stdio EOF/subprocess code 9.
+Stopping and reopening only its daemon host unit did not recover it; no
+application-code or permission fallback was added. The operator was asked to run
+`/mcp reload` so the session rediscovers its launcher. The MCP setup guide now
+documents the single `.env`, reload/reconnect distinction and live verification.
+
+- [ ] Reload the active OMP session and verify its mounted read-only MCP tool.

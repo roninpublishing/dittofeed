@@ -1,6 +1,9 @@
 # Deliverability: IP and domain health plan
 
-Status: **planned, not implemented.** This records the approved direction for a
+Status: **planned, not implemented.** Final decision and build spec:
+[DELIVERABILITY_IMPLEMENTATION.md](DELIVERABILITY_IMPLEMENTATION.md) (build in-house,
+HetrixTools for blocklists; Mailgun Optimize not used for now). This file keeps
+the research and vendor comparison. This records the approved direction for a
 modular deliverability section. Operational procedures (warm-up execution,
 delisting, incident response) come later. Nothing here authorizes provider
 writes, IP purchases or reassignment, DNS changes, or email sends.

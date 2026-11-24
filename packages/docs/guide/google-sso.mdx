@@ -32,10 +32,13 @@ DASHBOARD_URL=http://localhost:3000
 LOG_CONFIG=false
 ```
 
-Set a random `SECRET_KEY` of at least 32 bytes, shared by API and dashboard.
-For a new deployment, `openssl rand -hex 32` generates a suitable value. Do not
-replace an existing deployment secret casually: rotation invalidates cookies.
-Google cookies use SHA-256 of the complete secret as the encryption key.
+Use a stable private `SECRET_KEY` containing exactly 32 random bytes encoded as
+base64, shared by API and dashboard. For a new deployment,
+`openssl rand -base64 32` generates a value compatible with both Google sessions
+and the platform's encrypted newsletter/tracking storage. Do not replace an
+existing secret casually: rotation invalidates cookies and requires planning
+to re-encrypt stored credentials/evidence. Google cookies use SHA-256 of the
+complete secret as their encryption key.
 
 The bootstrap email must be verified and authoritative at Google: Gmail, or a
 Google Workspace identity with matching verified `hd`. A third-party consumer

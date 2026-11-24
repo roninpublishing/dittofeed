@@ -970,3 +970,54 @@ This preview does not hot-reload: rebuild/restart after source changes. The
 existing `workspace lite dev` command remains the hot-reload alternative, with
 the same infrastructure-only safety overrides. Keep Google authentication and
 private `.env` credentials; do not substitute anonymous mode or inject sessions.
+
+## Initialized Neon development preview
+
+On 2026-11-24 the operator supplied a direct development `DATABASE_URL` in the
+existing private root `.env`. The preview now uses Neon endpoint
+`ep-soft-darkness-bcw72x10` and database `dittofeed`, not the old Docker
+PostgreSQL database or the operator's production endpoint. The client connection
+was verified encrypted with an authorized certificate on PostgreSQL 18.7.
+
+- Applied the seven pending PostgreSQL migrations: 18 migration records total.
+  Existing `Default` workspace records, including its journey/broadcast,
+  were preserved; there was no reset or production-data teardown.
+- Provisioned `RONIN Development` as a native publisher and
+  `Development Newsletter` as its draft child newsletter. No contacts or sending
+  connections were added. The existing local preview's workspaces/templates were
+  not copied into Neon.
+- Bootstrapped the existing owner's native Google login with explicit email,
+  verified subject and development publisher pins in `.env`. A real Google
+  account-selection/callback created the development account/session and the
+  publisher Admin role; no sessions or cookies were copied.
+- ClickHouse remains the managed `dittofeed_dev` database with the dev-only
+  `dittofeed_dev` user. Idempotent bootstrap succeeded, and the authenticated
+  newsletter Users page read it successfully with zero users.
+- Replaced the existing local read-only API binding in `.env` with a key for the
+  new development publisher. The direct authenticated publications-context API
+  returned HTTP 200 with that publisher. The mounted MCP stdio connection failed
+  separately with EOF/exit 9; its reconnection was not verified.
+- Restarted combined Lite on `http://localhost:3000` using the existing optimized
+  `.next-ui-preview` build. Verified Google login, newsletter opening, inherited
+  child access, Users, and return to the publisher listing in the real browser.
+
+Use only the existing `.env` for development connection settings. The abandoned
+separate-env loader, launcher, test and ignore entry were removed; no
+`.env.sandbox` file exists. Its interrupted local-only provisioning attempt had
+created unused `dittofeed_sandbox` database objects; these are not selected by the
+preview, and the original Docker data was not deleted.
+
+`.env` now keeps API/dashboard on port 3000 and disables `ENABLE_WORKER`,
+`BOOTSTRAP`, `BOOTSTRAP_WORKER`, `BOOTSTRAP_EVENTS` and `ENABLE_OPEN_TRACKING`.
+No email, campaign, provider-account mutation or public deployment was performed.
+Temporal still targets the existing production Cloud namespace: **do not enable
+workers until a dedicated development namespace is selected**.
+
+Restart the initialized preview from the repository root:
+
+```bash
+node .yarn/releases/yarn-4.1.1.cjs workspace lite start
+```
+
+This remains an optimized, non-hot-reloading preview. Rebuild affected packages
+and the dashboard before restarting after source changes, as described above.

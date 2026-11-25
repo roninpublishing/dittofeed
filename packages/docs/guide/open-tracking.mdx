@@ -40,6 +40,12 @@ Open **Newsletters → Tracking domains** in the Workspace:
    exactly the expected CNAME target. Proxied/flattened A/AAAA records do not
    satisfy this deliberately DNS-only onboarding contract.
 
+Use newsletter domains outside the dedicated SaaS zone. Cloudflare
+[always flattens same-zone CNAME targets](https://developers.cloudflare.com/dns/cname-flattening/set-up-cname-flattening/);
+with an originless SaaS fallback, their address lookups do not provide the intended
+edge route. The shared `dt.dittotrx.com` target is a CNAME service, not a newsletter
+pixel origin; requests to it return 404 and are not enqueued.
+
 Ownership is global and immutable: another newsletter cannot claim an existing
 tracking hostname. Changing a newsletter's current domain retains its previous
 domains. Keep old DNS, custom hostnames, certificates, and routing alive for
@@ -72,11 +78,12 @@ to that server's `/api/public/email/open/batch` endpoint.
   own app/API hosts: prefer a dedicated SaaS zone or reviewed exclusions, and
   account for Cloudflare's documented CNAME proxy routing behavior. Do not
   blindly install a catch-all over an existing application.
-- Deploy the Worker only with explicit authorization. Its checked-in configuration
-  has `ENABLED="false"`, no public routes, no workers.dev/preview URL, and logging
-  disabled. Set `TRACKING_ORIGIN` to the backend's HTTPS origin, without a path,
-  credentials, query, or fragment. Ensure this backend origin does not loop back
-  into the tracking Worker route.
+- Deploy only with explicit authorization. Root/local configuration remains
+  disabled and has no routes; the authorized `production` environment contains
+  the dedicated RONIN zone routes and enabled development capture. Use
+  `wrangler deploy --env production` deliberately. Both environments disable
+  workers.dev/preview URLs and request logging. `TRACKING_ORIGIN` must be an HTTPS
+  origin without a path, credentials, query or fragment, outside tracking routes.
 - Put the same explicit **32-byte base64 `OPEN_TRACKING_RELAY_SECRET`** in the
   backend secret store and Worker secret store. It is separate from `SECRET_KEY`;
   never commit it as a Wrangler variable or log it.
@@ -124,6 +131,44 @@ incoming `dt.*.localhost` HTTP requests. Never set that flag on a deployed Worke
 Local workerd proof does not verify real public DNS, certificates, or mail-client
 behavior. No email deliveries or public account/DNS changes are part of this setup.
 
+### Authorized live deployment
+
+As of 2026-11-25, shared target `dt.dittotrx.com` uses the dedicated `dittotrx.com`
+SaaS zone in RONIN. Worker `newsletter-tracking` uses Queues `newsletter-tracking`
+and `newsletter-tracking-dlq`, and `NETWORK_SETS` namespace
+`d5abe2270b984ab69e5e5029797cc37b`. Its backend is the existing
+`https://email.roninpublishing.com` application and databases.
+
+Worker `ENABLED`, backend `ENABLE_OPEN_TRACKING`, and
+`ENABLE_OPEN_TRACKING_DEV_LAKE` on both sides are enabled. Intentional
+custom-hostname provisioning is authorized and enabled; saving a pending domain
+still makes no provider request. Sender workers and bootstrap remain disabled.
+This is production hosting running development collection, not insecure
+`LOCAL_DEVELOPMENT` mode.
+
+Six ordinary-DNS/trusted-TLS inbound requests were retained in
+`developmentOpenPixelEvent`, including repeat/HEAD/unknown/malformed/POST traffic,
+full under-cap headers, repeated queries and redacted body evidence. Normal
+tracking/native events did not increment. No email was sent.
+
+That owned temporary probe required a proxied same-zone exception and historical
+verified-host capture eligibility while current readiness stayed pending. It
+does not validate real cross-zone DNS-only onboarding, which remains mandatory.
+Do not reuse the shared service target as a newsletter origin or relax readiness.
+
+An actual deployed scheduled refresh published a new validated KV network set;
+weekly `0 3 * * 1` was restored and API-verified afterward. This was an edge Cron
+run, not a local fixture.
+
+Before real newsletter traffic, supply the newsletter base domains and an alert
+destination. Consumer-failure, DLQ and refresh-failure alerts are not configured
+in the inspected Cloudflare notification policies; external monitoring is
+unverified. Sending remains disabled.
+
+The temporary hostname/DNS, fixture registry rows and six probe events were
+removed after verified Queue/DLQ drain; original contacts and authentication
+were preserved. Permanent infrastructure and development collection remain enabled.
+
 ### Canonical send identity and capture readiness
 
 Every outbound recipient email requires a canonical `NewsletterSend` row with
@@ -146,7 +191,7 @@ Migration `0020_send_open_tracking` adds the send-row fields and partial unique
 token-hash index, then removes the obsolete development mapping/receipt/tombstone
 tables only if all three are empty. It fails instead of discarding existing data.
 Historical migrations remain unchanged. No legacy token compatibility is needed
-for this development cutover; production resources have not been deployed.
+for this development cutover; the guarded migration is now applied in production.
 
 The backend stores no per-hit PostgreSQL row or outbox status. Cloudflare Queue
 owns buffering/retries; ClickHouse owns request evidence, classifications and

@@ -38,6 +38,16 @@ Unchecked items are planned work; checked items must reflect verified changes.
   `https://email.roninpublishing.com` server. Keep sender workers and bootstrap
   disabled; this does not authorize email sends, provider-account changes, new
   hosting or paid plan upgrades. Preserve unrelated account/zone resources.
+  The authorized production environment has capture and development-lake mode
+  enabled; local/default configuration remains off. Use `--env production`
+  deliberately. Shared target `dt.dittotrx.com` is a CNAME service, not a
+  newsletter pixel origin, and returns 404 without enqueuing. Newsletter domains
+  must be outside the dedicated SaaS zone for DNS-only onboarding: Cloudflare
+  always flattens same-zone CNAME targets. Do not weaken verification to accept
+  proxied domains or mistake the temporary proxied rollout fixture for a
+  successful cross-zone DNS-only onboarding.
+  New migration journal timestamps must exceed the last applied entry. Never
+  rewrite applied SQL or journal history.
 
 - SMS runtime is removed. Do not reintroduce SMS, Twilio, or SignalWire sending;
   Hermes owns SMS. Preserve historical data/migrations and run the read-only
@@ -85,7 +95,7 @@ Unchecked items are planned work; checked items must reflect verified changes.
   token hash, encrypted token and original tracking origin; no extra mapping row.
   Legacy direct dispatch and shared CC/BCC/multiple-To payloads fail explicitly
   instead of sending without independent tracking. Previews/stored HTML stay
-  untracked. Actual sending requires tracking readiness; rollout remains off.
+  untracked. Actual sending requires tracking readiness; sender workers remain off.
   Pixel hits go Worker → Queue → signed backend batches → ClickHouse, never a
   PostgreSQL per-hit receipt/outbox. Every valid GET/HEAD load is recorded,
   including repeat/scanner hits; transport retries retain event IDs. HEAD is

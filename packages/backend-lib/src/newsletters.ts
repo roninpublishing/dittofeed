@@ -36,12 +36,14 @@ type Transaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export class NewsletterError extends Error {
   readonly status: number;
   readonly statusCode: number;
+  readonly code?: string;
 
-  constructor(message: string, statusCode = 400) {
+  constructor(message: string, statusCode = 400, code?: string) {
     super(message);
     this.name = "NewsletterError";
     this.status = statusCode;
     this.statusCode = statusCode;
+    this.code = code;
     Object.setPrototypeOf(this, NewsletterError.prototype);
   }
 }
@@ -133,16 +135,24 @@ export async function createPublisher({
   workspaceId,
   name,
   memberId,
+  createNewWorkspace = false,
 }: {
   workspaceId?: string;
   name: string;
   memberId?: string;
+  createNewWorkspace?: boolean;
 }) {
   const normalizedName = name.trim();
   if (!normalizedName) throw new NewsletterError("Publisher name is required");
+  if (createNewWorkspace && (!workspaceId || !memberId))
+    throw new NewsletterError(
+      "Sign in to create a workspace",
+      403,
+      "workspace_creation_requires_session",
+    );
   return db().transaction(async (tx) => {
     await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${workspaceId ?? normalizedName}, 0))`,
+      sql`select pg_advisory_xact_lock(hashtextextended(${createNewWorkspace ? normalizedName : workspaceId ?? normalizedName}, 0))`,
     );
     const [existing] = await tx
       .select()
@@ -157,7 +167,31 @@ export async function createPublisher({
       );
     if (workspaceId && !existing)
       throw new NewsletterError("Workspace not found", 404);
-    let target = existing;
+    if (createNewWorkspace) {
+      if (!existing || existing.status !== "Active")
+        throw new NewsletterError(
+          "Active workspace required",
+          403,
+          "active_workspace_required",
+        );
+      await requireManager(tx, existing.id, memberId);
+      const [duplicate] = await tx
+        .select({ id: workspace.id })
+        .from(workspace)
+        .where(
+          and(
+            eq(workspace.name, normalizedName),
+            sql`${workspace.parentWorkspaceId} is null`,
+          ),
+        );
+      if (duplicate)
+        throw new NewsletterError(
+          "Choose a different workspace name",
+          409,
+          "workspace_name_taken",
+        );
+    }
+    let target = createNewWorkspace ? undefined : existing;
     if (target) {
       await requireManager(tx, target.id, memberId);
       const [optedIn] = await tx
@@ -197,6 +231,7 @@ export async function createPublisher({
         throw new NewsletterError(
           "A campaign-owning workspace cannot become a publisher control plane",
           409,
+          "workspace_contains_campaigns",
         );
       await tx
         .update(workspace)
@@ -209,13 +244,11 @@ export async function createPublisher({
         .returning();
       if (!target) throw new Error("Publisher workspace was not created");
       if (memberId)
-        await tx
-          .insert(workspaceMemberRole)
-          .values({
-            workspaceId: target.id,
-            workspaceMemberId: memberId,
-            role: "Admin",
-          });
+        await tx.insert(workspaceMemberRole).values({
+          workspaceId: target.id,
+          workspaceMemberId: memberId,
+          role: "Admin",
+        });
     }
     await tx
       .insert(publisher)
@@ -392,23 +425,19 @@ export async function createNewsletter({
       .returning();
     if (!child) throw new Error("Newsletter workspace was not created");
     const groupId = uuidv5("email-subscription-group", child.id);
-    await tx
-      .insert(subscriptionGroup)
-      .values({
-        id: groupId,
-        workspaceId: child.id,
-        name: "Newsletter - Email",
-        type: "OptIn",
-        channel: "Email",
-      });
-    await tx
-      .insert(newsletter)
-      .values({
-        workspaceId: child.id,
-        publisherId,
-        slug,
-        subscriptionGroupId: groupId,
-      });
+    await tx.insert(subscriptionGroup).values({
+      id: groupId,
+      workspaceId: child.id,
+      name: "Newsletter - Email",
+      type: "OptIn",
+      channel: "Email",
+    });
+    await tx.insert(newsletter).values({
+      workspaceId: child.id,
+      publisherId,
+      slug,
+      subscriptionGroupId: groupId,
+    });
     return child.id;
   });
   await provisionNewsletter(workspaceId);
@@ -539,15 +568,13 @@ export async function adoptNewsletter({
       .where(eq(workspace.id, workspaceId));
     const groupId = selected?.id ?? deterministicId;
     if (!selected)
-      await tx
-        .insert(subscriptionGroup)
-        .values({
-          id: groupId,
-          workspaceId,
-          name: "Newsletter - Email",
-          type: "OptIn",
-          channel: "Email",
-        });
+      await tx.insert(subscriptionGroup).values({
+        id: groupId,
+        workspaceId,
+        name: "Newsletter - Email",
+        type: "OptIn",
+        channel: "Email",
+      });
     await tx
       .insert(newsletter)
       .values({ workspaceId, publisherId, slug, subscriptionGroupId: groupId });

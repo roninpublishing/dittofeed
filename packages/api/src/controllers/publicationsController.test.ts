@@ -3,7 +3,12 @@ import { createAdminApiKey } from "backend-lib/src/adminApiKeys";
 import config from "backend-lib/src/config";
 import { db } from "backend-lib/src/db";
 import { publisherSendgridAccount } from "backend-lib/src/db/publisherSchema";
-import { journey, workspace } from "backend-lib/src/db/schema";
+import {
+  journey,
+  workspace,
+  workspaceMember,
+  workspaceMemberRole,
+} from "backend-lib/src/db/schema";
 import { createNewsletter, createPublisher } from "backend-lib/src/newsletters";
 import { JourneyNodeType } from "backend-lib/src/types";
 import { randomUUID } from "crypto";
@@ -75,6 +80,85 @@ function headers(apiKey: string, target = publisherId) {
 }
 
 describe("publication management API", () => {
+  it("creates a separate workspace with membership for the authenticated manager", async () => {
+    const email = `${randomUUID()}@example.test`;
+    const [member] = await db()
+      .insert(workspaceMember)
+      .values({ email })
+      .returning();
+    if (!member) throw new Error("Missing member");
+    try {
+      await db()
+        .insert(workspaceMemberRole)
+        .values({
+          workspaceId: publisherId,
+          workspaceMemberId: member.id,
+          role: "Admin",
+        });
+      app.addHook("onRequest", (request, _reply, done) => {
+        request.requestContext.set("member", {
+          id: member.id,
+          email,
+          createdAt: member.createdAt.toISOString(),
+          emailVerified: member.emailVerified,
+        });
+        done();
+      });
+      const result = await app.inject({
+        method: "POST",
+        url: "/api/admin/publications/publisher",
+        headers: headers(await key([...API_OPERATION_SCOPES])),
+        payload: {
+          workspaceId: publisherId,
+          name: `new-workspace-${randomUUID()}`,
+          createNewWorkspace: true,
+        },
+      });
+      expect(result.statusCode).toBe(200);
+      const created = result.json<{
+        data: { workspaceId: string; type: string };
+      }>().data;
+      workspaceIds.push(created.workspaceId);
+      expect(created.workspaceId).not.toBe(publisherId);
+      expect(created.type).toBe("Parent");
+      expect(
+        await db()
+          .select()
+          .from(workspaceMemberRole)
+          .where(eq(workspaceMemberRole.workspaceId, created.workspaceId)),
+      ).toEqual([
+        expect.objectContaining({
+          workspaceMemberId: member.id,
+          role: "Admin",
+        }),
+      ]);
+    } finally {
+      await db()
+        .delete(workspaceMemberRole)
+        .where(eq(workspaceMemberRole.workspaceMemberId, member.id));
+      await db()
+        .delete(workspaceMember)
+        .where(eq(workspaceMember.id, member.id));
+    }
+  });
+
+  it("does not let workspace-scoped bearer keys create another root workspace", async () => {
+    const name = `denied-workspace-${randomUUID()}`;
+    const result = await app.inject({
+      method: "POST",
+      url: "/api/admin/publications/publisher",
+      headers: headers(await key([...API_OPERATION_SCOPES])),
+      payload: { workspaceId: publisherId, name, createNewWorkspace: true },
+    });
+    expect(result.statusCode).toBe(403);
+    expect(result.json()).toMatchObject({
+      code: "workspace_creation_requires_session",
+    });
+    expect(
+      await db().select().from(workspace).where(eq(workspace.name, name)),
+    ).toEqual([]);
+  });
+
   it("creates independent newsletter resources through the authenticated publisher", async () => {
     const apiKey = await key([...API_OPERATION_SCOPES]);
     const created = await app.inject({

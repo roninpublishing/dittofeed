@@ -41,6 +41,7 @@ import { useAppStorePick } from "../../lib/appStore";
 import useWorkspaceSwitch from "../../lib/useWorkspaceSwitch";
 import { useWorkspaceNavigation } from "../workspace/navigation";
 import CreateNewsletterDialog from "./createNewsletterDialog";
+import CreateWorkspaceForm from "./createWorkspaceForm";
 import {
   errorText,
   Option,
@@ -540,28 +541,11 @@ export default function PublicationManagement({
 
   if (!publisherId)
     return (
-      <Stack spacing={3}>
-        <Typography variant="h3">Ronin newsletter management</Typography>
-        <Alert severity="info">
-          Set up this workspace to manage newsletters.
-        </Alert>
-        <ActionForm
-          {...common}
-          title="Set up workspace"
-          path="/publisher"
-          fields={[
-            {
-              key: "name",
-              label: "Workspace name",
-              initial:
-                workspace.type === CompletionStatus.Successful
-                  ? workspace.value.name
-                  : "Ronin Publishing",
-              required: true,
-            },
-          ]}
-          onComplete={async () => router.reload()}
-        />
+      <Stack spacing={2}>
+        <Typography component="h1" variant="h2">
+          Create workspace
+        </Typography>
+        <CreateWorkspaceForm workspaceId={workspaceId} apiBase={apiBase} />
       </Stack>
     );
   if (!isPublisher)

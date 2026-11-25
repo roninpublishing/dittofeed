@@ -121,6 +121,9 @@ the corresponding tooling actually changes.
   top-level selector/settings and "Newsletter" for its children; never call the
   workspace a publisher. Preserve tenant IDs, memberships and internal API/schema
   identifiers unless an explicit migration is requested.
+- Workspace setup creates a separate, empty parent workspace and grants the
+  authenticated creator Admin membership. Never silently convert a campaign-owning
+  legacy workspace or move its contacts, journeys or broadcasts during setup.
 - Sending model: newsletters and ESP accounts are independent workspace
   objects. Allow multiple accounts per provider; IPs/pools are ESP infrastructure,
   never newsletter assignments. Choose the account and supported IP/pool at send

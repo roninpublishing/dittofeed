@@ -124,7 +124,14 @@ export type PublicationAutomationDefinition = Static<typeof PublicationAutomatio
 export const PublisherQuery = Type.Object({ workspaceId: Id }, { additionalProperties: false });
 export const PublicationResponse = Type.Object({ data: Type.Unknown() });
 export const PublicationErrorResponse = Type.Object({ code: Type.Optional(Type.String()), message: Type.String() });
-export const CreatePublisherRequest = Type.Object({ workspaceId: Id, name: Type.String({ minLength: 1, maxLength: 256 }) }, { additionalProperties: false });
+export const CreatePublisherRequest = Type.Object(
+  {
+    workspaceId: Id,
+    name: Type.String({ minLength: 1, maxLength: 256 }),
+    createNewWorkspace: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
 export const CreateNewsletterRequest = Type.Object({ workspaceId: Id, name: Type.String({ minLength: 1, maxLength: 256 }), slug: Type.String({ pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 48 }) }, { additionalProperties: false });
 export const AdoptNewsletterRequest = Type.Object({ workspaceId: Id, newsletterId: Id, slug: Type.String({ pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 48 }) }, { additionalProperties: false });
 export const PublicationSearchRequest = Type.Object({

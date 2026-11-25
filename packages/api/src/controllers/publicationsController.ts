@@ -239,12 +239,17 @@ export default async function publicationsController(fastify: FastifyInstance) {
       schema: {
         ...base,
         description:
-          "Opt an authorized existing workspace into publisher management. Does not migrate contacts or call SendGrid.",
+          "Create a separate workspace for a signed-in manager, or explicitly opt an eligible existing workspace into management. Never migrates contacts or calls providers.",
         body: contracts.CreatePublisherRequest,
       },
     },
     async (request, reply) =>
-      respond(reply, () => createPublisher(request.body)),
+      respond(reply, () =>
+        createPublisher({
+          ...request.body,
+          memberId: request.requestContext.get("member")?.id,
+        }),
+      ),
   );
   f.get(
     "/",

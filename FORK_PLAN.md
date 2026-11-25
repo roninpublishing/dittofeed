@@ -1677,3 +1677,21 @@ as the production connection source.
   inputs among two running workflows. Cancelled duplicate workflow `45716611846`
   before its deploy step because the identical application was already live.
   Its cancellation is not a failure of the active production release.
+
+## Workspace setup correction
+
+- Production `Default` contains one journey and one broadcast. Its setup form
+  attempted to convert that same workspace into a control plane, which correctly
+  returned 409 but hid the cause behind `publication operation rejected`.
+- Setup now explicitly creates a separate empty workspace, grants its authenticated
+  manager Admin membership and switches through the server-authorized account
+  endpoint. Existing workspaces and campaign/contact data remain unchanged.
+  Keep the deliberate legacy-adoption guard; named rejection codes distinguish
+  campaign ownership, duplicate names and missing account authentication.
+- Workspace-scoped bearer keys cannot create unrelated root workspaces. New
+  creation requires an authenticated member with management permission on the
+  current workspace; caller-supplied membership identities are not accepted.
+- Five focused backend/HTTP regressions passed against a fresh disposable PostgreSQL
+  database: populated-workspace preservation, authenticated ownership, viewer/key
+  denial and duplicate-name protection. Typed dashboard lint exhausted its 8 GiB
+  heap and is not claimed as passing.

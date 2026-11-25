@@ -43,19 +43,19 @@ const publisherMenuItems: MenuItemGroup[] = [
       },
       {
         id: "workspace-ips",
-        title: "IPs",
+        title: "Dedicated IPs",
         type: "item",
         url: "/workspace/ips",
         icon: SettingsEthernetOutlined,
-        description: "Manage IP addresses",
+        description: "Manage dedicated IPs",
       },
       {
         id: "workspace-ip-pools",
-        title: "IP pools",
+        title: "Shared IPs",
         type: "item",
         url: "/workspace/ip-pools",
         icon: DnsOutlined,
-        description: "Manage IP pools",
+        description: "Manage shared IP pools",
       },
       {
         id: "publisher-subscribers",

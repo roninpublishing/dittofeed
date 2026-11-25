@@ -2,7 +2,6 @@ import { ArrowBackOutlined, ArrowForwardOutlined } from "@mui/icons-material";
 import { Alert, Button, Paper, Stack, Typography } from "@mui/material";
 import axios from "axios";
 import { EspSelection } from "isomorphic-lib/src/publications";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
 
@@ -13,6 +12,7 @@ import {
   rows,
   text,
 } from "../publications/settingsShared";
+import Link from "./navigation";
 import SendSelection, { isEspSelection } from "./sendSelection";
 
 export default function NewsletterDefaults({

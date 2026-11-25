@@ -16,14 +16,16 @@ import {
   Node,
   Position,
   ReactFlow,
+  ReactFlowInstance,
   useNodesState,
 } from "@xyflow/react";
-import dagre from "dagre";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  workspaceNodeSize,
   WorkspaceObject,
   WorkspaceTopology,
+  workspaceTopologyPositions,
 } from "../../lib/workspaceTopology";
 
 const objectIcons = {
@@ -34,6 +36,15 @@ const objectIcons = {
   ip: SettingsEthernetOutlined,
   pool: DnsOutlined,
 };
+const kindLabels = {
+  workspace: "Workspace",
+  group: "Section",
+  newsletter: "Newsletter",
+  account: "ESP account",
+  ip: "Dedicated IP",
+  pool: "Shared IPs",
+};
+const fitViewOptions = { padding: 0.12, minZoom: 0.01, maxZoom: 1 };
 
 export default function OverviewGraph({
   topology,
@@ -45,55 +56,45 @@ export default function OverviewGraph({
   onSelect: (object: WorkspaceObject) => void;
 }) {
   const theme = useTheme();
+  const container = useRef<HTMLDivElement>(null);
+  const [instance, setInstance] = useState<ReactFlowInstance | null>(null);
+  const positions = useMemo(
+    () => workspaceTopologyPositions(topology),
+    [topology],
+  );
   const layout = useMemo(() => {
-    const graph = new dagre.graphlib.Graph();
-    graph.setDefaultEdgeLabel(() => ({}));
-    graph.setGraph({
-      rankdir: "LR",
-      nodesep: 24,
-      ranksep: 72,
-      marginx: 24,
-      marginy: 24,
-    });
-    for (const object of topology.objects)
-      graph.setNode(object.id, { width: 212, height: 72 });
-    for (const link of topology.links)
-      if (!link.membership) graph.setEdge(link.source, link.target);
-    dagre.layout(graph);
     return topology.objects.map((object): Node => {
-      const position = graph.node(object.id);
       const Icon = objectIcons[object.kind];
       return {
         id: object.id,
-        position: { x: position.x - 106, y: position.y - 36 },
-        sourcePosition: Position.Right,
-        targetPosition: Position.Left,
-        ariaLabel: `${object.kind === "account" ? "ESP account" : object.kind} ${object.name}`,
+        position: positions.get(object.id)!,
+        sourcePosition: Position.Bottom,
+        targetPosition: ["newsletter", "ip", "pool"].includes(object.kind)
+          ? Position.Left
+          : Position.Top,
+        ariaLabel: `${kindLabels[object.kind]} ${object.name}`,
         data: {
           label: (
             <Stack direction="row" spacing={1.25} alignItems="center">
               <Icon sx={{ color: "primary.main", fontSize: 21 }} />
               <Box minWidth={0} textAlign="left">
-                <Typography fontWeight={600} noWrap title={object.name}>
-                  {object.name}
-                </Typography>
                 <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ textTransform: "capitalize" }}
+                  fontSize={14}
+                  fontWeight={600}
+                  noWrap
+                  title={[object.name, object.provider, object.status]
+                    .filter(Boolean)
+                    .join(" · ")}
                 >
-                  {object.provider ||
-                    object.status ||
-                    (object.kind === "group" ? "" : object.kind)}
+                  {object.name}
                 </Typography>
               </Box>
             </Stack>
           ),
         },
         style: {
-          width: 212,
-          height: 72,
-          padding: 12,
+          ...workspaceNodeSize,
+          padding: 6,
           borderRadius: 8,
           background: theme.palette.background.paper,
           color: theme.palette.text.primary,
@@ -102,42 +103,66 @@ export default function OverviewGraph({
         },
       };
     });
-  }, [theme, topology]);
+  }, [positions, theme, topology]);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(layout);
   useEffect(() => {
-    setNodes((current) => {
-      const positions = new Map(
-        current.map((node) => [node.id, node.position]),
-      );
-      return layout.map((node) => ({
-        ...node,
-        position: positions.get(node.id) ?? node.position,
-        selected: node.id === selectedId,
-      }));
-    });
+    setNodes(layout);
+  }, [layout, setNodes]);
+  useEffect(() => {
+    setNodes((current) =>
+      current.map((node) => ({ ...node, selected: node.id === selectedId })),
+    );
   }, [layout, selectedId, setNodes]);
+  useEffect(() => {
+    if (!instance || !container.current) return;
+    let frame = 0;
+    const fit = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        void instance.fitView(fitViewOptions);
+      });
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(container.current);
+    fit();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [instance, layout]);
   const edges = useMemo(
     () =>
-      topology.links.map(
-        (link): Edge => ({
-          ...link,
-          type: "smoothstep",
-          selectable: false,
-          style: {
-            stroke: link.membership
-              ? theme.palette.text.secondary
-              : theme.palette.divider,
-            strokeWidth: 1.5,
-            ...(link.membership ? { strokeDasharray: "4 4" } : {}),
-          },
-        }),
-      ),
-    [theme, topology],
+      topology.links
+        .filter(
+          (link) =>
+            !link.membership ||
+            link.source === selectedId ||
+            link.target === selectedId,
+        )
+        .map(
+          (link): Edge => ({
+            ...link,
+            type: "smoothstep",
+            selectable: false,
+            style: {
+              stroke: link.membership
+                ? theme.palette.text.secondary
+                : theme.palette.divider,
+              strokeWidth: 1.5,
+              ...(link.membership ? { strokeDasharray: "4 4" } : {}),
+            },
+          }),
+        ),
+    [selectedId, theme, topology],
   );
   return (
     <Box
+      ref={container}
       sx={{
-        height: { xs: 360, md: "clamp(320px, calc(100dvh - 310px), 540px)" },
+        height: {
+          xs: "clamp(360px, calc(100dvh - 370px), 640px)",
+          md: "clamp(320px, calc(100dvh - 300px), 800px)",
+        },
         width: "100%",
         minWidth: 0,
         "& .react-flow__node.selected": {
@@ -157,6 +182,7 @@ export default function OverviewGraph({
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
+        onInit={setInstance}
         onNodeClick={(_event, node) => {
           const object = topology.objects.find(
             (candidate) => candidate.id === node.id,
@@ -167,8 +193,8 @@ export default function OverviewGraph({
         edgesReconnectable={false}
         deleteKeyCode={null}
         fitView
-        fitViewOptions={{ padding: 0.18 }}
-        minZoom={0.12}
+        fitViewOptions={fitViewOptions}
+        minZoom={fitViewOptions.minZoom}
         maxZoom={1.5}
         onlyRenderVisibleElements
         colorMode={theme.palette.mode}

@@ -1,10 +1,10 @@
 // material-ui
 import { ArrowBackIos } from "@mui/icons-material";
 import { Box, IconButton, Stack, Typography } from "@mui/material";
-import Link from "next/link";
 import { useContext } from "react";
 
 import { useAppStorePick } from "../../../../lib/appStore";
+import Link from "../../../workspace/navigation";
 import { LayoutContext } from "../../context";
 import MinimalNavGroup from "./navigation/minimalNavGroup";
 import NavGroup from "./navigation/navGroup";

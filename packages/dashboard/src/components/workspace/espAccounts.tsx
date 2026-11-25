@@ -11,7 +11,6 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useState } from "react";
 
 import {
@@ -32,6 +31,7 @@ import {
   value,
 } from "./infrastructureShared";
 import IpResources from "./ipResources";
+import Link from "./navigation";
 
 const AccountEditor = dynamic(() => import("./accountEditor"));
 const AccountOperations = dynamic(() => import("./accountOperations"));
@@ -102,8 +102,8 @@ function AccountDetails({
     { id: "overview", label: "Overview" },
     { id: "configuration", label: "Configuration" },
     ...(supported ? [{ id: "domains" as const, label: "Domains" }] : []),
-    ...(hasIps ? [{ id: "ips" as const, label: "IPs" }] : []),
-    ...(hasPools ? [{ id: "pools" as const, label: "IP pools" }] : []),
+    ...(hasIps ? [{ id: "ips" as const, label: "Dedicated IPs" }] : []),
+    ...(hasPools ? [{ id: "pools" as const, label: "Shared IPs" }] : []),
     { id: "activity", label: "Activity" },
   ];
   const invalidate = () => {
@@ -478,7 +478,8 @@ function EspAccountsContent(props: InfrastructureProps) {
   const accounts = rows(infrastructure.accounts);
   const selected = accounts.find((account) => account.id === accountId);
   const health = useQuery({
-    queryKey: ["publications", workspaceId, apiBase, "account-summary"],
+    queryKey: ["publication-management", apiBase, workspaceId, "health", ""],
+    staleTime: 15_000,
     queryFn: async () =>
       record(
         record(

@@ -100,10 +100,15 @@ the corresponding tooling actually changes.
   permanent newsletter lock. The overview graph must not invent binding edges.
   SendGrid is the first managed-account adapter. See `FORK_PLAN.md` for acceptance.
 - The organization-wide UI belongs at `/dashboard/workspace`, with left-sidebar
-  sections for Overview, Newsletters, ESP accounts, IPs, IP pools, Subscribers,
-  Reports and Settings. Infrastructure inventories span the selected workspace
+  sections for Overview, Newsletters, ESP accounts, Dedicated IPs, Shared IPs,
+  Subscribers, Reports and Settings. Infrastructure inventories span the workspace
   while preserving ESP-account ownership. Do not put this system inside newsletter
   settings or rename backend `/api/publications` contracts as part of the UI move.
+  The overview is top-down and fits all assets. "Shared IPs" labels account-owned
+  pools, not a provider-shared service; preserve actual pool selection semantics.
+  Use the guarded workspace navigation helper for internal workspace links.
+  Real workspace/newsletter changes still require server-authorized navigation;
+  never cache identity or membership checks to speed up page switching.
 
 - Default to no explanatory copy. Each section/area may have at most one
   extremely concise sentence, only when it adds necessary information.

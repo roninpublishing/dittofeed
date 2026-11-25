@@ -38,6 +38,7 @@ import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAppStorePick } from "../../lib/appStore";
+import { useWorkspaceNavigation } from "../workspace/navigation";
 import CreateNewsletterDialog from "./createNewsletterDialog";
 import {
   errorText,
@@ -374,6 +375,7 @@ export default function PublicationManagement({
     "authMode",
   ]);
   const router = useRouter();
+  const workspaceNavigation = useWorkspaceNavigation();
   const queryClient = useQueryClient();
   const workspaceId =
     workspace.type === CompletionStatus.Successful ? workspace.value.id : "";
@@ -424,13 +426,16 @@ export default function PublicationManagement({
   }, [section, tab]);
   const publicationQueries = useQueries({
     queries: paths.map(([key, path]) => ({
-      queryKey: [
-        "publication-management",
-        apiBase,
-        workspaceId,
-        key,
-        key === "health" ? reportAccountId : "",
-      ],
+      queryKey:
+        key === "infrastructure"
+          ? ["workspace-infrastructure", apiBase, workspaceId]
+          : [
+              "publication-management",
+              apiBase,
+              workspaceId,
+              key,
+              key === "health" ? reportAccountId : "",
+            ],
       enabled: Boolean(publisherId) && isPublisher,
       staleTime: 15_000,
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
@@ -478,9 +483,14 @@ export default function PublicationManagement({
     setHistoryOffsets({ actions: 0, suppressions: 0, sends: 0 });
     setSuppressionEmail("");
     setError(null);
-    await queryClient.invalidateQueries({
-      queryKey: ["publication-management", apiBase, workspaceId],
-    });
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ["publication-management", apiBase, workspaceId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["workspace-infrastructure", apiBase, workspaceId],
+      }),
+    ]);
   }, [apiBase, queryClient, workspaceId]);
   useEffect(() => {
     setData({});
@@ -650,7 +660,9 @@ export default function PublicationManagement({
         ) : (
           <Button
             startIcon={<ArrowBackOutlined />}
-            onClick={() => void router.push("/workspace/newsletters")}
+            onClick={() =>
+              void workspaceNavigation.push("/workspace/newsletters")
+            }
             sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
           >
             Newsletters
@@ -780,7 +792,7 @@ export default function PublicationManagement({
                           <Button
                             aria-label={`Configure ${text(newsletter.name)}`}
                             onClick={() =>
-                              void router.push(
+                              void workspaceNavigation.push(
                                 `/workspace/newsletters/${text(newsletter.workspaceId)}`,
                               )
                             }
@@ -901,12 +913,12 @@ export default function PublicationManagement({
               <TextField
                 select
                 size="small"
-                label="IP address"
+                label="Dedicated IP"
                 value={reportIpId}
                 onChange={(event) => setReportIpId(event.target.value)}
                 sx={{ minWidth: 220 }}
               >
-                <MenuItem value="">All IPs</MenuItem>
+                <MenuItem value="">All dedicated IPs</MenuItem>
                 {rows(record(data.infrastructure).ips)
                   .filter(
                     (ip) =>

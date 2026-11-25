@@ -2,26 +2,16 @@ import { Alert, Button, CircularProgress, Stack } from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { CompletionStatus } from "isomorphic-lib/src/types";
-import dynamic from "next/dynamic";
 import { useCallback } from "react";
 
 import { useAppStorePick } from "../../lib/appStore";
 import { WorkspaceRoute } from "../../lib/workspaceRoutes";
 import PublicationManagement from "../publications/management";
 import { errorText, record, RecordValue } from "../publications/settingsShared";
+import EspAccounts from "./espAccounts";
+import IpResources from "./ipResources";
 import NewsletterDefaults from "./newsletterDefaults";
 import Overview from "./overview";
-
-const EspAccounts = dynamic(() => import("./espAccounts"), {
-  loading: () => (
-    <CircularProgress size={24} aria-label="Loading ESP accounts" />
-  ),
-});
-const IpResources = dynamic(() => import("./ipResources"), {
-  loading: () => (
-    <CircularProgress size={24} aria-label="Loading infrastructure" />
-  ),
-});
 
 export default function WorkspaceDashboard({
   publisherId,
@@ -54,7 +44,13 @@ export default function WorkspaceDashboard({
     },
   });
   const newsletters = useQuery({
-    queryKey: ["publication-management", apiBase, workspaceId, "newsletters"],
+    queryKey: [
+      "publication-management",
+      apiBase,
+      workspaceId,
+      "newsletters",
+      "",
+    ],
     enabled:
       Boolean(publisherId) &&
       isWorkspace &&

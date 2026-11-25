@@ -1,12 +1,12 @@
 // material-ui
 import { ExpandLess, ExpandMore } from "@mui/icons-material";
 import { Collapse, List, ListItemButton, ListItemText } from "@mui/material";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { useId, useState } from "react";
 
 import { activeNavigationUrl } from "../../../../../lib/navigation";
 import { MenuItemGroup } from "../../../../menuItems/types";
+import Link from "../../../../workspace/navigation";
 import MinimalNavItem from "./minimalNavItem";
 // project import
 

@@ -807,8 +807,8 @@ SendGrid is the first managed-account adapter; native non-newsletter providers r
 | Overview | `/dashboard/workspace` | Organizational map with Map/List toggle and selected-object panel |
 | Newsletters | `/dashboard/workspace/newsletters` | Independent newsletter list, creation and Open |
 | ESP accounts | `/dashboard/workspace/esp-accounts` | All account instances, provider/status, connected date, volume and observed health |
-| IPs | `/dashboard/workspace/ips` | Workspace-wide inventory across accounts, with owning account, status, limits, warm-up and usage |
-| IP pools | `/dashboard/workspace/ip-pools` | Workspace-wide pool inventory with account and member IPs |
+| Dedicated IPs | `/dashboard/workspace/ips` | Workspace-wide inventory across accounts, with owning account, status, limits, warm-up and usage |
+| Shared IPs | `/dashboard/workspace/ip-pools` | Account-owned pools and their dedicated-IP members; not a provider-shared IP service |
 | Subscribers | `/dashboard/workspace/subscribers` | Existing scoped cross-newsletter search |
 | Reports | `/dashboard/workspace/reports` | Existing workspace reporting plus account/IP filters where data exists |
 | Settings | `/dashboard/workspace/settings` | Workspace configuration, access and existing administration |
@@ -817,7 +817,7 @@ SendGrid is the first managed-account adapter; native non-newsletter providers r
   ownership rules: IPs/pools still belong to their verified ESP account. The
   workspace inventory and account detail use the same records and edit flows.
 - Account detail uses `/dashboard/workspace/esp-accounts/:accountId` with focused
-  Overview, Configuration, Domains, IPs, IP pools and Activity sections. Provider-
+  Overview, Configuration, Domains, Dedicated IPs, Shared IPs and Activity sections. Provider-
   unsupported sections are omitted. Configuration holds credentials and signed
   webhook setup; account activity shows observed sends and delivery outcomes.
 - IP and pool details support direct links under their workspace sections, account
@@ -831,8 +831,10 @@ SendGrid is the first managed-account adapter; native non-newsletter providers r
   the workspace dashboard. Preserve newsletter-only membership restrictions.
 - Workspace views use nested routes under `/dashboard/workspace`; the former
   `?view=` navigation and obsolete combined sending/IP editors are removed.
-- Overview provides a lazy-loaded, Mermaid-like organizational map and a List
-  alternative. Its ownership structure is:
+- Overview provides a lazy-loaded, top-down organizational map and a List
+  alternative. Fit includes every asset; pool membership never changes hierarchy ranks.
+  Dedicated IPs and shared-IP pools remain below their owning ESP accounts.
+  Its ownership structure is:
 
 ```mermaid
 flowchart TD
@@ -842,8 +844,8 @@ flowchart TD
   N --> N2[Newsletter B]
   E --> A[SendGrid account A]
   E --> B[SendGrid account B]
-  A --> P[IP pools]
-  A --> I[IP addresses]
+  A --> P[Shared IP pools]
+  A --> I[Dedicated IPs]
   P -. membership .-> I
 ```
 
@@ -903,9 +905,28 @@ Local implementation verification:
   layouts were checked. Temporary development accounts/IPs/pools/defaults were removed;
   newsletter/contact records were untouched and no send records were created.
 - Current combined local preview: `http://localhost:3000/dashboard/workspace`,
-  dashboard build `dist/workspace-ready-preview`. Neon, ClickHouse and Temporal
+  dashboard build `dist/workspace-refined-final-preview`. Neon, ClickHouse and Temporal
   target development; workers, bootstrap, capture and provisioning remain off.
   No production deployment, provider mutations or real email sends were performed.
+- Workspace UI refinements: compact top-down columns keep every newsletter, ESP
+  account and owned asset visible without an enormous horizontal leaf row.
+  Selecting an IP/pool reveals its membership edges. Redundant overview buttons
+  are removed; navigation/body text is 14px and page headings are 24px.
+- Intentionally retained local demo records: `Demo · Morning Brief`, `Demo · Weekly
+  Digest`, `Demo · SendGrid Primary` and `Demo · SendGrid Secondary`; six paused
+  documentation-range IPs (`192.0.2.10–12`, `198.51.100.10–12`) and four shared-IP
+  pools. No provider credentials, provider verification or send history was faked;
+  provider-write/reassignment/send gates remain closed.
+- Real headed-browser navigation measured 1,024–1,622ms before and 30–128ms after
+  across five workspace sections. Each former transition fetched Next server-page
+  data; the new transitions fetched none. Guarded same-workspace links avoid Pages
+  Router hover prefetch; query keys share infrastructure/newsletter/health results.
+  Server authentication and real workspace/newsletter changes are not cached.
+- Thirty-six focused navigation/topology tests passed; the final compact-layout
+  regression rerun passed all five topology cases. Optimized dashboard build and
+  scoped lint passed (warnings only). Browser proof covered all 18 graph nodes
+  fitting on desktop/mobile, no horizontal page overflow, configuration links,
+  back/forward, direct details and actual newsletter entry/management return.
 
 ### Existing implementation and operating safeguards
 

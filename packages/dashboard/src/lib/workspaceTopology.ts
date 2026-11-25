@@ -33,6 +33,83 @@ export interface WorkspaceTopology {
   links: WorkspaceLink[];
 }
 
+export const workspaceNodeSize = { width: 212, height: 36 };
+
+export function workspaceTopologyPositions(topology: WorkspaceTopology) {
+  const positions = new Map<string, { x: number; y: number }>();
+  const objects = new Map(
+    topology.objects.map((object) => [object.id, object]),
+  );
+  const children = new Map<string, WorkspaceObject[]>();
+  for (const link of topology.links) {
+    if (link.membership) continue;
+    const child = objects.get(link.target);
+    if (!child) continue;
+    const siblings = children.get(link.source);
+    if (siblings) siblings.push(child);
+    else children.set(link.source, [child]);
+  }
+  const root = topology.objects.find((object) => object.kind === "workspace");
+  if (!root) return positions;
+  const groups = children.get(root.id) ?? [];
+  const groupY = workspaceNodeSize.height + 28;
+  const childY = groupY + workspaceNodeSize.height + 28;
+  const indent = workspaceNodeSize.width / 2 + 24;
+  const columnWidth = indent + workspaceNodeSize.width;
+  const columnGap = 32;
+  let x = 24;
+  // Vertical leaf lists keep real infrastructures readable instead of creating
+  // one enormous horizontal rank. Edges still express actual ownership.
+  for (const group of groups) {
+    const groupX = x;
+    const members = children.get(group.id) ?? [];
+    const accounts = members.filter((member) => member.kind === "account");
+    if (accounts.length) {
+      positions.set(group.id, {
+        x: x + ((accounts.length - 1) * (columnWidth + columnGap)) / 2,
+        y: groupY,
+      });
+      accounts.forEach((account, column) => {
+        const accountX = groupX + column * (columnWidth + columnGap);
+        positions.set(account.id, { x: accountX, y: childY });
+        let row = 0;
+        for (const asset of children.get(account.id) ?? []) {
+          // One physical IP can have several account-local configurations.
+          if (positions.has(asset.id)) continue;
+          positions.set(asset.id, {
+            x: accountX + indent,
+            y:
+              childY +
+              workspaceNodeSize.height +
+              32 +
+              row * (workspaceNodeSize.height + 12),
+          });
+          row += 1;
+        }
+      });
+      x += accounts.length * columnWidth + (accounts.length - 1) * columnGap;
+    } else {
+      positions.set(group.id, { x, y: groupY });
+      members.forEach((member, row) => {
+        positions.set(member.id, {
+          x: groupX + indent,
+          y: childY + row * (workspaceNodeSize.height + 12),
+        });
+      });
+      x += members.length ? columnWidth : workspaceNodeSize.width;
+    }
+    x += 64;
+  }
+  const first = groups[0] && positions.get(groups[0].id);
+  const last = groups.at(-1);
+  const lastPosition = last && positions.get(last.id);
+  positions.set(root.id, {
+    x: first && lastPosition ? (first.x + lastPosition.x) / 2 : 24,
+    y: 0,
+  });
+  return positions;
+}
+
 export function workspaceTopology(
   workspaceId: string,
   workspaceName: string,

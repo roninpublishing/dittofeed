@@ -1,4 +1,8 @@
-import { workspaceTopology } from "./workspaceTopology";
+import {
+  workspaceNodeSize,
+  workspaceTopology,
+  workspaceTopologyPositions,
+} from "./workspaceTopology";
 
 const account = {
   id: "account-a",
@@ -96,6 +100,65 @@ describe("workspace organizational map", () => {
       topology.objects.find((object) => object.id === `account:${account.id}`)
         ?.path,
     ).toBe(`/workspace/esp-accounts/${account.id}`);
+  });
+  it("lays out organizational levels top-down without ranking pool memberships", () => {
+    const topology = workspaceTopology(
+      "root",
+      "RONIN",
+      {
+        accounts: [
+          account,
+          { ...account, id: "account-b", name: "SendGrid B" },
+        ],
+        ips: [
+          ip,
+          { ...ip, id: "ip-b", accountId: "account-b", address: "192.0.2.11" },
+        ],
+        pools: [
+          { id: "pool-a", accountId: account.id, name: "Pool A" },
+          { id: "pool-b", accountId: account.id, name: "Pool B" },
+          { id: "pool-c", accountId: "account-b", name: "Pool C" },
+        ],
+        memberships: [
+          { poolId: "pool-a", ipId: ip.id },
+          { poolId: "pool-b", ipId: ip.id },
+          { poolId: "pool-c", ipId: "ip-b" },
+        ],
+      },
+      [
+        { workspaceId: "newsletter-a", name: "Newsletter A" },
+        { workspaceId: "newsletter-b", name: "Newsletter B" },
+      ],
+    );
+    const positions = workspaceTopologyPositions(topology);
+    const y = (id: string) => positions.get(id)!.y;
+    expect(positions.size).toBe(topology.objects.length);
+    expect(y("workspace:root")).toBeLessThan(y("group:accounts"));
+    expect(y("group:newsletters")).toBe(y("group:accounts"));
+    expect(y("group:accounts")).toBeLessThan(y("account:account-a"));
+    expect(y("newsletter:newsletter-a")).toBe(y("account:account-a"));
+    expect(y("newsletter:newsletter-b")).toBeGreaterThan(
+      y("newsletter:newsletter-a"),
+    );
+    for (const link of topology.links.filter((item) => !item.membership))
+      expect(y(link.target)).toBeGreaterThan(y(link.source));
+    const rectangles = [...positions.values()];
+    for (let index = 0; index < rectangles.length; index += 1)
+      for (const other of rectangles.slice(index + 1)) {
+        const rectangle = rectangles[index]!;
+        expect(
+          rectangle.x + workspaceNodeSize.width <= other.x ||
+            other.x + workspaceNodeSize.width <= rectangle.x ||
+            rectangle.y + workspaceNodeSize.height <= other.y ||
+            other.y + workspaceNodeSize.height <= rectangle.y,
+        ).toBe(true);
+      }
+    expect(positions).toEqual(
+      workspaceTopologyPositions({
+        ...topology,
+        links: topology.links.filter((link) => !link.membership),
+      }),
+    );
   });
 });
 

@@ -18,7 +18,6 @@ import {
   Typography,
 } from "@mui/material";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import {
@@ -26,6 +25,7 @@ import {
   workspaceTopology,
 } from "../../lib/workspaceTopology";
 import { RecordValue, rows } from "../publications/settingsShared";
+import Link from "./navigation";
 
 const OverviewGraph = dynamic(() => import("./overviewGraph"), {
   ssr: false,
@@ -39,8 +39,8 @@ const kindLabels = {
   workspace: "Workspace",
   newsletter: "Newsletter",
   account: "ESP account",
-  ip: "IP address",
-  pool: "IP pool",
+  ip: "Dedicated IP",
+  pool: "Shared IPs",
   group: "Section",
 };
 
@@ -71,32 +71,9 @@ export default function Overview({
   const select = (object: WorkspaceObject) => setSelectedId(object.id);
   return (
     <Stack spacing={2} minWidth={0}>
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1.5}
-        justifyContent="space-between"
-        alignItems={{ sm: "center" }}
-      >
-        <Typography component="h1" variant="h2">
-          Overview
-        </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          <Button
-            component={Link}
-            href="/workspace/newsletters"
-            variant="outlined"
-          >
-            Newsletters
-          </Button>
-          <Button
-            component={Link}
-            href="/workspace/esp-accounts"
-            variant="contained"
-          >
-            ESP accounts
-          </Button>
-        </Stack>
-      </Stack>
+      <Typography component="h1" variant="h2">
+        Overview
+      </Typography>
       <Box
         sx={{
           display: "grid",
@@ -116,12 +93,12 @@ export default function Overview({
               "/workspace/esp-accounts",
             ],
             [
-              "IPs",
+              "Dedicated IPs",
               topology.objects.filter((object) => object.kind === "ip").length,
               "/workspace/ips",
             ],
             [
-              "IP pools",
+              "Shared IPs",
               rows(infrastructure.pools).length,
               "/workspace/ip-pools",
             ],

@@ -11,7 +11,6 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useState } from "react";
 
 import {
@@ -28,6 +27,7 @@ import {
   InfrastructureProps,
   value,
 } from "./infrastructureShared";
+import Link from "./navigation";
 
 const ResourceEditor = dynamic(() => import("./resourceEditor"));
 
@@ -61,12 +61,13 @@ function IpResourcesContent(props: InfrastructureProps) {
   const healthAccount = selected?.accountId ?? filter;
   const health = useQuery({
     queryKey: [
-      "publications",
-      workspaceId,
+      "publication-management",
       apiBase,
-      "resource-health",
-      healthAccount,
+      workspaceId,
+      "health",
+      healthAccount || "",
     ],
+    staleTime: 15_000,
     queryFn: async () =>
       record(
         record(
@@ -101,7 +102,7 @@ function IpResourcesContent(props: InfrastructureProps) {
     );
   };
   const path = kind === "ips" ? "ips" : "ip-pools";
-  const label = kind === "ips" ? "IPs" : "IP pools";
+  const label = kind === "ips" ? "Dedicated IPs" : "Shared IPs";
   const account = selected ? owner(selected) : undefined;
   const allowed =
     account?.allowProviderWrites === true &&
@@ -127,7 +128,7 @@ function IpResourcesContent(props: InfrastructureProps) {
     kind === "ips"
       ? [
           {
-            label: "IP address",
+            label: "Dedicated IP",
             render: (item: RecordValue) => (
               <Link href={`/workspace/ips/${text(item.id)}`}>
                 {text(item.address)}
@@ -240,7 +241,8 @@ function IpResourcesContent(props: InfrastructureProps) {
   if (resourceId && !selected)
     return (
       <Alert severity="warning">
-        {kind === "ips" ? "IP address" : "IP pool"} not found in this workspace
+        {kind === "ips" ? "Dedicated IP" : "Shared IP pool"} not found in this
+        workspace
       </Alert>
     );
   return (
@@ -328,13 +330,13 @@ function IpResourcesContent(props: InfrastructureProps) {
           )}
           {kind === "pools" && (
             <>
-              <Typography variant="subtitle2">Member IPs</Typography>
+              <Typography variant="subtitle2">Dedicated IPs</Typography>
               <DataTable
-                label="Pool member IPs"
+                label="Shared pool dedicated IPs"
                 data={selectedMembers}
                 columns={[
                   {
-                    label: "IP address",
+                    label: "Dedicated IP",
                     render: (ip) => (
                       <Link href={`/workspace/ips/${text(ip.id)}`}>
                         {text(ip.address)}
@@ -431,7 +433,7 @@ function IpResourcesContent(props: InfrastructureProps) {
               disabled={!accounts.length}
               onClick={() => setEditor({})}
             >
-              Add {kind === "ips" ? "IP address" : "pool"}
+              Add {kind === "ips" ? "dedicated IP" : "shared IP pool"}
             </Button>
           </Stack>
           {!accountId && (

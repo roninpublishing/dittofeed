@@ -73,7 +73,7 @@ export default function ResourceEditor({
   const warmupDate = warmupStart ? new Date(warmupStart) : null;
   return (
     <EditorDialog
-      title={`${item ? "Edit" : "Add"} ${kind === "ips" ? "IP address" : "IP pool"}`}
+      title={`${item ? "Edit" : "Add"} ${kind === "ips" ? "dedicated IP" : "shared IP pool"}`}
       disabled={
         !owner || (kind === "pools" && (!ipIds.length || ipIds.length > 100))
       }
@@ -279,7 +279,7 @@ export default function ResourceEditor({
           <TextField
             size="small"
             required
-            label="Pool name"
+            label="Shared IP pool name"
             value={name}
             inputProps={{ maxLength: 64 }}
             onChange={(event) => setName(event.target.value)}
@@ -294,7 +294,7 @@ export default function ResourceEditor({
           <TextField
             select
             size="small"
-            label="Member IPs"
+            label="Dedicated IPs"
             value={ipIds}
             SelectProps={{
               multiple: true,
@@ -320,7 +320,7 @@ export default function ResourceEditor({
             ))}
           </TextField>
           {!ownedIps.length && (
-            <Alert severity="info">No IPs for this account</Alert>
+            <Alert severity="info">No dedicated IPs for this account</Alert>
           )}
         </>
       )}

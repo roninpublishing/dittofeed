@@ -12,9 +12,10 @@ IPs/pools belong to the relevant provider account, not a newsletter. Optional
 newsletter defaults prefill sending choices and can be overridden for each send.
 
 The workspace dashboard is `/dashboard/workspace`. Its left sidebar contains
-Overview, Newsletters, ESP accounts, IPs, IP pools, Subscribers, Reports and Settings.
-The map and workspace/account inventories configure the same stored resources.
-Dragging only changes layout; the map never assigns IPs to newsletters.
+Overview, Newsletters, ESP accounts, Dedicated IPs, Shared IPs, Subscribers, Reports
+and Settings. Shared IPs are account-owned pools of dedicated IPs, not a provider-
+shared service. The top-down map fits all assets; dragging changes layout only,
+never newsletter ownership or sending choices.
 
 ```mermaid
 flowchart TD
@@ -22,8 +23,8 @@ flowchart TD
   W --> B[Newsletter B]
   W --> E1[SendGrid account A]
   W --> E2[SendGrid account B]
-  E1 --> P[Account IP pools]
-  E1 --> I[Account IP addresses]
+  E1 --> P[Shared IP pools]
+  E1 --> I[Dedicated IPs]
   P -. membership .-> I
   A -. explicit audited automation .-> B
 ```
@@ -59,15 +60,14 @@ Read-only keys can inspect registry/reporting and search contacts. Management-ke
 | `POST /adopt` | Adopt an already-owned child workspace; reject foreign roots. Select its existing email subscription group explicitly if ambiguous. No contacts are copied. |
 | `GET /overview` | Combined publication-local contacts/subscriptions and matched-mailbox counts. |
 | `POST /contacts/search`, `POST /contacts/operations` | Scoped search and explicit subscribe/unsubscribe operations. Cross-publication operations require composite targets; no implicit all-contact edit. |
-| `GET /infrastructure` | Redacted accounts, connections, IPs, pools, bindings, routes and gates. |
-| `PUT /infrastructure/account` | Encrypt management credentials and configure region, callback origin and explicit release gates. |
-| `POST /infrastructure/inspect` | Read-only existing-account/subuser inventory, defaulting to `aistocknews-ditto`. |
-| `PUT /infrastructure/connections` | Register/adopt a newsletter connection and existing restricted runtime key. |
-| `POST /infrastructure/connections/inspect`, `POST /infrastructure/connections/provision` | Inspect or resume reconciliation/provisioning without duplicating existing resources. |
+| `GET /infrastructure` | Redacted accounts, connections, IPs, pools, memberships, bindings and defaults. |
+| `PUT /infrastructure/accounts` | Create/edit independent ESP account instances and encrypted credentials. |
+| `POST /infrastructure/accounts/inspect` | Read-only inspection of an account's existing provider resources. |
+| `POST /infrastructure/connections/inspect` | Inspect the account-owned sending connection. |
 | `POST /infrastructure/domains`, `POST /infrastructure/senders`, `POST /infrastructure/webhooks` | Reconcile authentication/DNS, verified sender identities and signed connection callbacks. Sender verification email is a separate explicit action. |
 | `PUT /infrastructure/ips`, `PUT /infrastructure/pools` | Register already-owned physical IPs and independent logical pools. No purchases occur. |
 | `PUT /infrastructure/pool-bindings`, `POST /infrastructure/pool-bindings/reconcile` | Bind/verify account-scoped provider pool names and reconcile provider pools behind the write gate. |
-| `PUT /infrastructure/routes` | Change the connection/pool for future sends without rebuilding campaigns. |
+| `PUT /infrastructure/defaults`, `GET /sending-options` | Optional newsletter preferences and supported send-time choices. |
 | `POST /infrastructure/ip-reassignment` | Explicit, separately gated provider assignment with `confirm:true`; never an automatic purchase. |
 | `GET /suppressions`, `POST /suppressions/search`, `PUT /suppressions`, `POST /suppressions/deactivate` | List/search workspace mailbox blocks and explicitly deactivate them. Newsletter resubscription cannot clear these blocks. |
 | `GET /automations`, `PUT /automations`, `DELETE /automations`, `GET /automations/actions` | Configure/retire audited cross-publication rules and inspect outcomes. Retirement retains history. |
@@ -130,8 +130,8 @@ The current managed-account adapter is SendGrid. Existing non-newsletter provide
 paths remain supported; an unsupported provider override inside a managed
 newsletter fails explicitly rather than bypassing durable sending controls.
 
-Choose an account and **Automatic**, **IP pool**, or an eligible **IP via dedicated
-pool**. SendGrid selects pools, not arbitrary raw IPs; an individual IP is eligible
+Choose an account and **Automatic**, a **Shared IP pool**, or an eligible **Dedicated
+IP via pool**. SendGrid selects pools, not arbitrary raw IPs; an individual IP is eligible
 only through a verified singleton provider pool. Multi-IP/automatic selection
 conservatively reserves every potential physical IP, not their summed capacity.
 Aliases share a canonical physical budget. Draft/unverified aliases cannot change

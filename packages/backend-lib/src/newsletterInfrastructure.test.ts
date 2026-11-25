@@ -8,6 +8,7 @@ import config from "./config";
 import { db } from "./db";
 import { newsletter, publisher, publisherSendgridAccount, sendingConnection, sendingIp } from "./db/publisherSchema";
 import { workspace } from "./db/schema";
+import { newsletterCapacityLimits } from "./newsletterDelivery";
 import {
   configureSendgridAccount, getSendingInfrastructure, getNewsletterSendingOptions,
   inspectSendgridAccount, reconcileSendgridDomain, reassignSendgridIps,
@@ -171,6 +172,78 @@ describe("independent ESP registry with read-only HTTP provider inspection", () 
     await expect(upsertSendingIp({ publisherId, id: firstIp.id, accountId: second.id, address: firstIp.address, status: "active", hourlyLimit: 10, dailyLimit: 100 })).rejects.toThrow("ip_account_is_immutable");
     await expect(configureSendgridAccount({ publisherId: newsletterId, id: first.id, name: "foreign", provider: "SendGrid" })).rejects.toThrow("publisher_not_found");
     await expect(resolveNewsletterSelection({ publisherId, newsletterId, selection: { accountId: randomUUID(), mode: "automatic" } })).rejects.toThrow("esp_account_not_found");
+  });
+
+  it("registers safe paused drafts without a capacity policy or provider requests", async () => {
+    const value = await account("draft");
+    const draft = await upsertSendingIp({ publisherId, accountId: value.id, address: "192.0.2.30" });
+    expect(draft).toMatchObject({
+      status: "paused", hourlyLimit: 0, dailyLimit: 0,
+      warmupStartedAt: null, warmupSchedule: [],
+    });
+    expect(newsletterCapacityLimits(draft, new Date())).toEqual({ hourly: 0, daily: 0 });
+    const repeated = await upsertSendingIp({
+      publisherId, accountId: value.id, address: draft.address, status: "active",
+    });
+    expect(repeated).toMatchObject({ id: draft.id, status: "paused", hourlyLimit: 0, dailyLimit: 0 });
+    const partial = await upsertSendingIp({
+      publisherId, accountId: value.id, address: "192.0.2.31", status: "active", hourlyLimit: 20,
+    });
+    expect(partial).toMatchObject({ status: "paused", hourlyLimit: 20, dailyLimit: 0 });
+    expect(newsletterCapacityLimits(partial, new Date()).daily).toBe(0);
+    expect(requests).toEqual([]);
+  });
+
+  it("preserves omitted limits, status and warmup policy on edits and repeated registration", async () => {
+    const value = await account("policy");
+    const warmupStartedAt = "2026-11-01T00:00:00.000Z";
+    const warmupSchedule = [{ afterDays: 0, hourlyLimit: 5, dailyLimit: 25 }];
+    const configured = await upsertSendingIp({
+      publisherId, accountId: value.id, address: "192.0.2.32",
+      status: "active", hourlyLimit: 40, dailyLimit: 200,
+      warmupStartedAt, warmupSchedule,
+    });
+    const policy = {
+      id: configured.id, status: "active", hourlyLimit: 40, dailyLimit: 200,
+      warmupStartedAt: new Date(warmupStartedAt), warmupSchedule,
+    };
+    const edited = await upsertSendingIp({ publisherId, id: configured.id, address: configured.address });
+    expect(edited).toMatchObject(policy);
+    const repeated = await upsertSendingIp({ publisherId, accountId: value.id, address: configured.address });
+    expect(repeated).toMatchObject(policy);
+    const paused = await upsertSendingIp({
+      publisherId, id: configured.id, address: configured.address, status: "paused", hourlyLimit: 30,
+    });
+    expect(paused).toMatchObject({ ...policy, status: "paused", hourlyLimit: 30 });
+    const retained = await upsertSendingIp({ publisherId, id: configured.id, address: configured.address });
+    expect(retained).toMatchObject({ ...policy, status: "paused", hourlyLimit: 30 });
+    expect(requests).toEqual([]);
+  });
+
+  it("keeps readable pool names independent from stable provider identifiers without provisioning", async () => {
+    const value = await account("named");
+    const member = await upsertSendingIp({ publisherId, accountId: value.id, address: "192.0.2.33" });
+    const created = await upsertSendingPool({
+      publisherId, accountId: value.id, name: "Équipe / Shared · East", ipIds: [member.id],
+    });
+    expect(created.name).toBe("Équipe / Shared · East");
+    expect(created.providerPoolName).toMatch(/^[a-zA-Z0-9][a-zA-Z0-9 _-]{0,63}$/);
+    const repeated = await upsertSendingPool({
+      publisherId, accountId: value.id, name: created.name, ipIds: [member.id],
+    });
+    expect(repeated).toMatchObject({ id: created.id, providerPoolName: created.providerPoolName });
+    const renamed = await upsertSendingPool({
+      publisherId, id: created.id, name: "Shared / West", ipIds: [member.id],
+    });
+    expect(renamed).toMatchObject({ name: "Shared / West", providerPoolName: created.providerPoolName });
+    const existing = await upsertSendingPool({
+      publisherId, accountId: value.id, name: "Existing / Pool", providerPoolName: "adopted-provider-pool", ipIds: [member.id],
+    });
+    const adopted = await upsertSendingPool({
+      publisherId, accountId: value.id, name: existing.name, ipIds: [member.id],
+    });
+    expect(adopted.providerPoolName).toBe("adopted-provider-pool");
+    expect(requests).toEqual([]);
   });
 
   it("verifies complete automatic and multi-IP pool inventories and pins resource choices", async () => {

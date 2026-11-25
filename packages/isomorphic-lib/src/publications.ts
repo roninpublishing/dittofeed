@@ -101,8 +101,8 @@ export const SendgridSenderRequest = Type.Object({
 }, { additionalProperties: false });
 export const SendingIpRequest = Type.Object({
   workspaceId: Id, id: Type.Optional(Id), accountId: Type.Optional(Id), address: Type.String({ minLength: 3, maxLength: 45 }),
-  status: Type.Union([Type.Literal("active"), Type.Literal("paused")]),
-  hourlyLimit: Type.Integer({ minimum: 1, maximum: 100000000 }), dailyLimit: Type.Integer({ minimum: 1, maximum: 1000000000 }),
+  status: Type.Optional(Type.Union([Type.Literal("active"), Type.Literal("paused")])),
+  hourlyLimit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100000000 })), dailyLimit: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000000000 })),
   warmupStartedAt: Type.Optional(Type.Union([Type.String({ format: "date-time" }), Type.Null()])),
   warmupSchedule: Type.Optional(Type.Array(Type.Object({ afterDays: Type.Integer({ minimum: 0 }), hourlyLimit: Type.Integer({ minimum: 1 }), dailyLimit: Type.Integer({ minimum: 1 }) }, { additionalProperties: false }), { maxItems: 366 })),
 }, { additionalProperties: false });

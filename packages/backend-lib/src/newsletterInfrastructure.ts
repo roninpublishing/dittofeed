@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { isIP } from "net";
 import { EspSelection } from "isomorphic-lib/src/publications";
@@ -72,9 +72,9 @@ export interface SendingIpInput {
   id?: string;
   accountId?: string;
   address: string;
-  status: "active" | "paused";
-  hourlyLimit: number;
-  dailyLimit: number;
+  status?: "active" | "paused";
+  hourlyLimit?: number;
+  dailyLimit?: number;
   warmupStartedAt?: string | null;
   warmupSchedule?: {
     afterDays: number;
@@ -877,31 +877,44 @@ export async function upsertSendingIp(input: SendingIpInput) {
   await requireAccount(input.publisherId, accountId);
   if (existing && existing.address !== input.address) fail("sending_ip_address_is_immutable", 400);
   const validLimit = (value: number) => Number.isSafeInteger(value) && value >= 0 && value <= 2_147_483_647;
-  if (!["active", "paused"].includes(input.status) || !validLimit(input.hourlyLimit) || !validLimit(input.dailyLimit)) fail("invalid_ip_capacity", 400);
-  const warmupSchedule = input.warmupSchedule ?? existing?.warmupSchedule ?? [];
-  if (warmupSchedule.some((step, index) => !Number.isInteger(step.afterDays) || step.afterDays < 0 ||
+  if ((input.status !== undefined && !["active", "paused"].includes(input.status)) ||
+    (input.hourlyLimit !== undefined && !validLimit(input.hourlyLimit)) ||
+    (input.dailyLimit !== undefined && !validLimit(input.dailyLimit))) fail("invalid_ip_capacity", 400);
+  const warmupSchedule = input.warmupSchedule;
+  if (warmupSchedule?.some((step, index) => !Number.isInteger(step.afterDays) || step.afterDays < 0 ||
     !validLimit(step.hourlyLimit) || !validLimit(step.dailyLimit) ||
     (index > 0 && step.afterDays <= warmupSchedule[index - 1]!.afterDays))) fail("invalid_warmup_schedule", 400);
-  const warmupStartedAt = input.warmupStartedAt === undefined ? existing?.warmupStartedAt ?? null :
+  const warmupStartedAt = input.warmupStartedAt === undefined ? undefined :
     input.warmupStartedAt === null ? null : new Date(input.warmupStartedAt);
   if (warmupStartedAt && !Number.isFinite(warmupStartedAt.getTime())) fail("invalid_warmup_start", 400);
-  const values = {
-    address: input.address, status: input.status, hourlyLimit: input.hourlyLimit,
-    dailyLimit: input.dailyLimit, warmupStartedAt, warmupSchedule, updatedAt: new Date(),
+  // Undefined policy fields are omitted from UPDATE, including conflict retries.
+  const changes = {
+    address: input.address,
+    status: input.status === "active"
+      ? sql<"active" | "paused">`case when ${input.hourlyLimit ?? sql`${sendingIp.hourlyLimit}`} > 0 and ${input.dailyLimit ?? sql`${sendingIp.dailyLimit}`} > 0 then 'active' else 'paused' end`
+      : input.status,
+    hourlyLimit: input.hourlyLimit, dailyLimit: input.dailyLimit,
+    warmupStartedAt, warmupSchedule, updatedAt: new Date(),
   };
   return db().transaction(async (tx) => {
     if (existing?.canonicalIpId) await tx.select({ id: sendingIp.id }).from(sendingIp).where(eq(sendingIp.id, existing.canonicalIpId)).for("update");
     const id = existing?.id ?? randomUUID();
     const [row] = existing
-      ? await tx.update(sendingIp).set(values).where(eq(sendingIp.id, existing.id)).returning()
-      : await tx.insert(sendingIp).values({ id, canonicalIpId: id, publisherId: input.publisherId, accountId, ...values })
-        .onConflictDoUpdate({ target: [sendingIp.accountId, sendingIp.address], set: values }).returning();
+      ? await tx.update(sendingIp).set(changes).where(eq(sendingIp.id, existing.id)).returning()
+      : await tx.insert(sendingIp).values({
+        id, canonicalIpId: id, publisherId: input.publisherId, accountId,
+        address: input.address,
+        status: input.hourlyLimit && input.dailyLimit ? input.status ?? "paused" : "paused",
+        hourlyLimit: input.hourlyLimit ?? 0, dailyLimit: input.dailyLimit ?? 0,
+        warmupStartedAt, warmupSchedule,
+      }).onConflictDoUpdate({ target: [sendingIp.accountId, sendingIp.address], set: changes }).returning();
     return row!;
   });
 }
 export async function upsertSendingPool(input: SendingPoolInput) {
   await requirePublisher(input.publisherId);
-  poolName(input.name);
+  const name = input.name.trim();
+  if (!name || name.length > 64) fail("invalid_pool_name", 400);
   const [existing] = input.id ? await db().select().from(sendingPool).where(and(
     eq(sendingPool.id, input.id), eq(sendingPool.publisherId, input.publisherId),
   )) : [];
@@ -910,7 +923,8 @@ export async function upsertSendingPool(input: SendingPoolInput) {
   if (!accountId) fail("account_id_required", 400);
   if (existing && input.accountId && input.accountId !== accountId) fail("pool_account_is_immutable", 400);
   await requireAccount(input.publisherId, accountId);
-  const providerPoolName = poolName(input.providerPoolName ?? existing?.providerPoolName ?? input.name);
+  const providerPoolName = poolName(input.providerPoolName ?? existing?.providerPoolName ??
+    `pool-${createHash("sha256").update(`${accountId}:${name}`).digest("hex").slice(0, 40)}`);
   const ipIds = [...new Set(input.ipIds)];
   if (ipIds.length !== input.ipIds.length) fail("duplicate_pool_ip", 400);
   const ips = ipIds.length ? await db().select().from(sendingIp).where(and(
@@ -918,11 +932,17 @@ export async function upsertSendingPool(input: SendingPoolInput) {
   )) : [];
   if (ips.length !== ipIds.length) fail("pool_ip_account_mismatch", 400);
   return db().transaction(async (tx) => {
-    const values = { name: input.name, providerPoolName, updatedAt: new Date() };
+    const values = { name, providerPoolName, updatedAt: new Date() };
     const [row] = existing
       ? await tx.update(sendingPool).set(values).where(eq(sendingPool.id, existing.id)).returning()
       : await tx.insert(sendingPool).values({ publisherId: input.publisherId, accountId, ...values })
-        .onConflictDoUpdate({ target: [sendingPool.accountId, sendingPool.name], set: values }).returning();
+        .onConflictDoUpdate({
+          target: [sendingPool.accountId, sendingPool.name],
+          set: {
+            ...values,
+            providerPoolName: input.providerPoolName === undefined ? sql`${sendingPool.providerPoolName}` : providerPoolName,
+          },
+        }).returning();
     if (existing && existing.providerPoolName !== providerPoolName)
       await tx.delete(sendingPoolBinding).where(eq(sendingPoolBinding.poolId, existing.id));
     await tx.delete(sendingPoolIp).where(eq(sendingPoolIp.poolId, row!.id));

@@ -141,6 +141,7 @@
     "packages/backend-lib/src/kafka.ts",
     "packages/backend-lib/src/liquid.ts",
     "packages/backend-lib/src/logger.ts",
+    "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
     "packages/backend-lib/src/messaging/email.ts",
     "packages/backend-lib/src/messaging/openTracking.ts",
     "packages/backend-lib/src/messaging/openTrackingEvents.ts",
@@ -1211,6 +1212,7 @@
     "packages/isomorphic-lib/src/subscriptionGroups.ts",
     "packages/isomorphic-lib/src/time.ts",
     "packages/isomorphic-lib/src/tracking/classify.ts",
+    "packages/isomorphic-lib/src/tracking/development.ts",
     "packages/isomorphic-lib/src/tracking/gmail-proxy.ts",
     "packages/isomorphic-lib/src/tracking/ip-key.ts",
     "packages/isomorphic-lib/src/tracking/ip.ts",
@@ -1229,6 +1231,7 @@
     "packages/mcp/src/server.ts",
     "packages/tracking-worker/.wrangler/dry-run/index.js",
     "packages/tracking-worker/.wrangler/ronin-dry-run/index.js",
+    "packages/tracking-worker/src/development.ts",
     "packages/tracking-worker/src/index.ts",
     "packages/tracking-worker/src/refresh.ts",
     "packages/worker/scripts/startWorker.ts",
@@ -1236,7 +1239,7 @@
     "packages/worker/src/config.ts",
     "packages/worker/src/openTelemetry.ts"
   ],
-  "functionCount": 183738,
+  "functionCount": 183800,
   "functions": [
     {
       "file": "packages/admin-cli/scripts/cli.ts",
@@ -5020,7 +5023,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 28,
+      "line": 65,
       "column": 1,
       "name": "deliveriesController",
       "kind": "FunctionDeclaration",
@@ -5034,7 +5037,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 43,
+      "line": 80,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
       "kind": "ArrowFunction",
@@ -5049,7 +5052,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 69,
+      "line": 106,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
       "kind": "ArrowFunction",
@@ -5064,7 +5067,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 95,
+      "line": 132,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
       "kind": "ArrowFunction",
@@ -5079,7 +5082,38 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 115,
+      "line": 144,
+      "column": 7,
+      "name": "onRequest",
+      "kind": "MethodDeclaration",
+      "parameters": [
+        "_request",
+        "reply",
+        "done"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/deliveriesController.ts",
+      "line": 160,
+      "column": 5,
+      "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request",
+        "reply"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/deliveriesController.ts",
+      "line": 184,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -5094,7 +5128,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 117,
+      "line": 186,
       "column": 31,
       "name": "request.raw.on callback[1]",
       "kind": "ArrowFunction",
@@ -5106,7 +5140,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 151,
+      "line": 220,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -5121,7 +5155,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 153,
+      "line": 222,
       "column": 31,
       "name": "request.raw.on callback[1]",
       "kind": "ArrowFunction",
@@ -5133,7 +5167,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 187,
+      "line": 256,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -5467,7 +5501,7 @@
     },
     {
       "file": "packages/api/src/controllers/openTrackingController.ts",
-      "line": 79,
+      "line": 88,
       "column": 1,
       "name": "openTrackingController",
       "kind": "FunctionDeclaration",
@@ -5481,7 +5515,7 @@
     },
     {
       "file": "packages/api/src/controllers/openTrackingController.ts",
-      "line": 85,
+      "line": 94,
       "column": 32,
       "name": "fastify.addHook callback[1]",
       "kind": "ArrowFunction",
@@ -5497,7 +5531,7 @@
     },
     {
       "file": "packages/api/src/controllers/openTrackingController.ts",
-      "line": 102,
+      "line": 111,
       "column": 7,
       "name": "errorHandler",
       "kind": "MethodDeclaration",
@@ -5513,13 +5547,58 @@
     },
     {
       "file": "packages/api/src/controllers/openTrackingController.ts",
-      "line": 106,
+      "line": 115,
       "column": 5,
       "name": "fastify.post callback[2]",
       "kind": "ArrowFunction",
       "parameters": [
         "request",
         "reply"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/openTrackingController.ts",
+      "line": 187,
+      "column": 7,
+      "name": "errorHandler",
+      "kind": "MethodDeclaration",
+      "parameters": [
+        "error",
+        "_request",
+        "reply"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/openTrackingController.ts",
+      "line": 191,
+      "column": 5,
+      "name": "fastify.post callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request",
+        "reply"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/openTrackingController.ts",
+      "line": 212,
+      "column": 11,
+      "name": "request.body.events.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -15630,7 +15709,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 226,
+      "line": 227,
       "column": 1,
       "name": "defaultTemporalAddress",
       "kind": "FunctionDeclaration",
@@ -15644,7 +15723,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 237,
+      "line": 238,
       "column": 1,
       "name": "defaultChUrl",
       "kind": "FunctionDeclaration",
@@ -15659,7 +15738,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 410,
+      "line": 412,
       "column": 1,
       "name": "parseDatabaseUrl",
       "kind": "FunctionDeclaration",
@@ -15673,7 +15752,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 497,
+      "line": 499,
       "column": 1,
       "name": "parseToNumber",
       "kind": "FunctionDeclaration",
@@ -15687,7 +15766,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 518,
+      "line": 520,
       "column": 1,
       "name": "parseMaxAttempts",
       "kind": "FunctionDeclaration",
@@ -15702,7 +15781,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 529,
+      "line": 531,
       "column": 1,
       "name": "buildDashboardUrl",
       "kind": "FunctionDeclaration",
@@ -15716,21 +15795,21 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 550,
+      "line": 552,
       "column": 1,
       "name": "parseOpenTrackingConfig",
       "kind": "FunctionDeclaration",
       "parameters": [
         "rawConfig: RawConfig"
       ],
-      "returnType": "{\n  enableOpenTracking: boolean;\n  openTrackingRetentionDays: number;\n  openTrackingSelfIps: readonly string[];\n  cloudflareTrackingAllowProvisioning: boolean;\n}",
+      "returnType": "{\n  enableOpenTracking: boolean;\n  enableOpenTrackingDevLake: boolean;\n  openTrackingRetentionDays: number;\n  openTrackingSelfIps: readonly string[];\n  cloudflareTrackingAllowProvisioning: boolean;\n}",
       "documentation": null,
       "hasBody": true,
       "boundary": "internal implementation; not independently exposed"
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 564,
+      "line": 567,
       "column": 52,
       "name": "rawConfig.openTrackingSelfIps.split(\",\").map callback[0]",
       "kind": "ArrowFunction",
@@ -15744,7 +15823,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 568,
+      "line": 571,
       "column": 30,
       "name": "openTrackingSelfIps.some callback[0]",
       "kind": "ArrowFunction",
@@ -15758,7 +15837,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 599,
+      "line": 606,
       "column": 1,
       "name": "parseRawConfig",
       "kind": "FunctionDeclaration",
@@ -15772,7 +15851,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 897,
+      "line": 904,
       "column": 1,
       "name": "config",
       "kind": "FunctionDeclaration",
@@ -15784,7 +15863,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 909,
+      "line": 916,
       "column": 1,
       "name": "databaseUrlWithoutName",
       "kind": "FunctionDeclaration",
@@ -15796,7 +15875,7 @@
     },
     {
       "file": "packages/backend-lib/src/config.ts",
-      "line": 916,
+      "line": 923,
       "column": 1,
       "name": "assignmentSequentialConsistency",
       "kind": "FunctionDeclaration",
@@ -19133,11 +19212,25 @@
     },
     {
       "file": "packages/backend-lib/src/formatRegistry.ts",
-      "line": 5,
+      "line": 6,
       "column": 1,
       "name": "registerFormats",
       "kind": "FunctionDeclaration",
       "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/formatRegistry.ts",
+      "line": 10,
+      "column": 35,
+      "name": "FormatRegistry.Set callback[1]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "value"
+      ],
       "returnType": "inferred from implementation",
       "documentation": null,
       "hasBody": true,
@@ -22080,6 +22173,469 @@
       "boundary": "internal implementation; not independently exposed"
     },
     {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 26,
+      "column": 3,
+      "name": "constructor",
+      "kind": "Constructor",
+      "parameters": [
+        "public readonly status = 503"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 47,
+      "column": 1,
+      "name": "key",
+      "kind": "FunctionDeclaration",
+      "parameters": [],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 52,
+      "column": 1,
+      "name": "hash",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: string"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 53,
+      "column": 1,
+      "name": "tokenBarrier",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "tokenHash: string"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 56,
+      "column": 1,
+      "name": "timestamp",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: string"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 59,
+      "column": 1,
+      "name": "normalize",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "row: StoredEvent"
+      ],
+      "returnType": "StoredEvent",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 64,
+      "column": 1,
+      "name": "sanitize",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "event: DevelopmentPixelEvent"
+      ],
+      "returnType": "DevelopmentPixelEvidence",
+      "documentation": "/** Redact again at the trust boundary, including token-bearing URLs and structured bodies. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 66,
+      "column": 21,
+      "name": "scrubText",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "text: string"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 72,
+      "column": 20,
+      "name": "scrubUrl",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "text: string"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 82,
+      "column": 16,
+      "name": "walk",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "value: unknown"
+      ],
+      "returnType": "unknown",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 110,
+      "column": 77,
+      "name": "Object.entries(event.evidence.request.headers).find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "[name]"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 118,
+      "column": 39,
+      "name": "parts.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "part: unknown"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 170,
+      "column": 1,
+      "name": "identity",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "row: StoredEvent"
+      ],
+      "returnType": "Record<string, unknown>",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 178,
+      "column": 1,
+      "name": "captureDevelopmentPixelEvents",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "inputs: readonly CaptureDevelopmentPixelEventInput[]"
+      ],
+      "returnType": "Promise<void>",
+      "documentation": "/** Capture only: this module deliberately has no classification or native event dependency. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 201,
+      "column": 71,
+      "name": "db().transaction callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "tx"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 206,
+      "column": 74,
+      "name": "group.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "{ event }"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 209,
+      "column": 41,
+      "name": "domains.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "domain"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 210,
+      "column": 22,
+      "name": "group.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "{ event }"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 211,
+      "column": 36,
+      "name": "group.flatMap callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "item"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 216,
+      "column": 41,
+      "name": "mappings.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "row"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 220,
+      "column": 15,
+      "name": "(await tx.select({ hash: newsletterErasure.userHash }).from(newsletterErasure).where(or( tokenBarriers.length ? inArray(newsletterErasure.userHash, tokenBarrier callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "row"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 221,
+      "column": 43,
+      "name": "mappings.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "row"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 242,
+      "column": 66,
+      "name": "Object.entries(evidence.request.headers).find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "[name]"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 243,
+      "column": 73,
+      "name": "Object.entries(evidence.request.headers).find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "[name]"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 271,
+      "column": 1,
+      "name": "findDevelopmentPixelEvents",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "input: {\n  workspaceId: string; eventId?: string; userId?: string; messageId?: string; limit?: number; before?: string;\n}"
+      ],
+      "returnType": "Promise<DevelopmentPixelEventsPage>",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 287,
+      "column": 35,
+      "name": "db().transaction callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "tx"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 302,
+      "column": 42,
+      "name": "rows.flatMap callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "row"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 303,
+      "column": 41,
+      "name": "rows.flatMap callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "row"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 307,
+      "column": 15,
+      "name": "(await tx.select({ hash: newsletterErasure.userHash }).from(newsletterErasure).where(or( tokenBarriers.length ? inArray(newsletterErasure.userHash, tokenBarrier callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "row"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 338,
+      "column": 1,
+      "name": "deleteDevelopmentPixelEvents",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "workspaceId: string",
+        "userIds?: string[]"
+      ],
+      "returnType": "Promise<void>",
+      "documentation": "/** Caller holds the exclusive workspace erasure lock. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 349,
+      "column": 1,
+      "name": "eraseDevelopmentPixelEvents",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "tx: Transaction",
+        "workspaceId: string",
+        "userIds?: string[]"
+      ],
+      "returnType": "Promise<void>",
+      "documentation": "/** Caller holds global exclusive erasure lock before the workspace lock. Preserve token\n * barriers before canonical hashes disappear; uncorrelated receipts can exist on any host. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 360,
+      "column": 35,
+      "name": "rows.flatMap callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "row"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/messaging/developmentOpenTracking.ts",
+      "line": 361,
+      "column": 60,
+      "name": "hashes.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "value"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
       "file": "packages/backend-lib/src/messaging/email.ts",
       "line": 32,
       "column": 1,
@@ -22165,7 +22721,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 91,
+      "line": 92,
       "column": 3,
       "name": "constructor",
       "kind": "Constructor",
@@ -22177,7 +22733,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 99,
+      "line": 100,
       "column": 1,
       "name": "sanitizeOpenTrackingRequest",
       "kind": "FunctionDeclaration",
@@ -22191,7 +22747,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 156,
+      "line": 157,
       "column": 33,
       "name": "PUBLISHED_NETWORKS.some callback[0]",
       "kind": "ArrowFunction",
@@ -22205,7 +22761,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 178,
+      "line": 179,
       "column": 1,
       "name": "tokenHash",
       "kind": "FunctionDeclaration",
@@ -22219,7 +22775,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 182,
+      "line": 183,
       "column": 1,
       "name": "secretKey",
       "kind": "FunctionDeclaration",
@@ -22231,7 +22787,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 190,
+      "line": 191,
       "column": 1,
       "name": "addPixel",
       "kind": "FunctionDeclaration",
@@ -22246,7 +22802,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 191,
+      "line": 192,
       "column": 74,
       "name": "html.replace callback[1]",
       "kind": "ArrowFunction",
@@ -22260,7 +22816,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 202,
+      "line": 203,
       "column": 1,
       "name": "prepareEmailOpenTracking",
       "kind": "FunctionDeclaration",
@@ -22275,7 +22831,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 237,
+      "line": 238,
       "column": 1,
       "name": "captureEmailOpenRequests",
       "kind": "FunctionDeclaration",
@@ -22289,7 +22845,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 262,
+      "line": 264,
       "column": 30,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -22303,7 +22859,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 266,
+      "line": 268,
       "column": 79,
       "name": "group.map callback[0]",
       "kind": "ArrowFunction",
@@ -22317,7 +22873,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 271,
+      "line": 273,
       "column": 72,
       "name": "mappings.map callback[0]",
       "kind": "ArrowFunction",
@@ -22331,7 +22887,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 273,
+      "line": 275,
       "column": 45,
       "name": "barriers.map callback[0]",
       "kind": "ArrowFunction",
@@ -22345,7 +22901,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 274,
+      "line": 276,
       "column": 45,
       "name": "mappings.map callback[0]",
       "kind": "ArrowFunction",
@@ -22359,7 +22915,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 293,
+      "line": 295,
       "column": 45,
       "name": "stored.map callback[0]",
       "kind": "ArrowFunction",
@@ -22373,7 +22929,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 301,
+      "line": 303,
       "column": 45,
       "name": "[...observations.values()].filter callback[0]",
       "kind": "ArrowFunction",
@@ -22387,7 +22943,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 304,
+      "line": 306,
       "column": 40,
       "name": "allEvents.filter callback[0]",
       "kind": "ArrowFunction",
@@ -22401,7 +22957,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 305,
+      "line": 307,
       "column": 87,
       "name": "opens.map callback[0]",
       "kind": "ArrowFunction",
@@ -22415,7 +22971,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 306,
+      "line": 308,
       "column": 38,
       "name": "opens.filter callback[0]",
       "kind": "ArrowFunction",
@@ -22429,7 +22985,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 309,
+      "line": 311,
       "column": 30,
       "name": "pending.map callback[0]",
       "kind": "ArrowFunction",
@@ -22443,7 +22999,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 328,
+      "line": 330,
       "column": 1,
       "name": "deleteEmailOpenData",
       "kind": "FunctionDeclaration",
@@ -22457,7 +23013,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 333,
+      "line": 335,
       "column": 28,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -22471,7 +23027,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 341,
+      "line": 345,
       "column": 91,
       "name": "ids.slice(offset, offset + 500).map callback[0]",
       "kind": "ArrowFunction",
@@ -22485,7 +23041,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 358,
+      "line": 362,
       "column": 64,
       "name": "rows.map callback[0]",
       "kind": "ArrowFunction",
@@ -22499,7 +23055,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 374,
+      "line": 378,
       "column": 69,
       "name": "rows.rows.map callback[0]",
       "kind": "ArrowFunction",
@@ -22513,7 +23069,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 399,
+      "line": 403,
       "column": 1,
       "name": "getEmailOpenEvidence",
       "kind": "FunctionDeclaration",
@@ -22527,7 +23083,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging/openTracking.ts",
-      "line": 404,
+      "line": 408,
       "column": 35,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -23662,7 +24218,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 93,
+      "line": 94,
       "column": 3,
       "name": "constructor",
       "kind": "Constructor",
@@ -23677,7 +24233,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 104,
+      "line": 105,
       "column": 1,
       "name": "newsletterMailboxHash",
       "kind": "FunctionDeclaration",
@@ -23691,7 +24247,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 109,
+      "line": 110,
       "column": 1,
       "name": "unpack",
       "kind": "FunctionDeclaration",
@@ -23705,7 +24261,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 114,
+      "line": 115,
       "column": 1,
       "name": "singleMailbox",
       "kind": "FunctionDeclaration",
@@ -23719,7 +24275,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 126,
+      "line": 127,
       "column": 1,
       "name": "requireSingleRecipient",
       "kind": "FunctionDeclaration",
@@ -23734,7 +24290,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 132,
+      "line": 133,
       "column": 48,
       "name": "Object.keys(mailData.headers ?? {}).some callback[0]",
       "kind": "ArrowFunction",
@@ -23748,7 +24304,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 139,
+      "line": 140,
       "column": 1,
       "name": "openTrackingReady",
       "kind": "FunctionDeclaration",
@@ -23763,7 +24319,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 160,
+      "line": 161,
       "column": 1,
       "name": "barrier",
       "kind": "FunctionDeclaration",
@@ -23778,7 +24334,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 165,
+      "line": 166,
       "column": 1,
       "name": "publisherBarrier",
       "kind": "FunctionDeclaration",
@@ -23794,7 +24350,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 179,
+      "line": 180,
       "column": 1,
       "name": "getNewsletterEmailContext",
       "kind": "FunctionDeclaration",
@@ -23808,7 +24364,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 197,
+      "line": 198,
       "column": 1,
       "name": "listPublisherSuppressions",
       "kind": "FunctionDeclaration",
@@ -23823,7 +24379,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 218,
+      "line": 219,
       "column": 19,
       "name": "rows.map callback[0]",
       "kind": "ArrowFunction",
@@ -23837,7 +24393,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 223,
+      "line": 224,
       "column": 1,
       "name": "upsertPublisherSuppression",
       "kind": "FunctionDeclaration",
@@ -23851,7 +24407,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 238,
+      "line": 239,
       "column": 27,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -23865,7 +24421,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 284,
+      "line": 285,
       "column": 1,
       "name": "deactivatePublisherSuppression",
       "kind": "FunctionDeclaration",
@@ -23879,7 +24435,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 288,
+      "line": 289,
       "column": 27,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -23893,7 +24449,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 306,
+      "line": 307,
       "column": 1,
       "name": "newsletterCapacityLimits",
       "kind": "FunctionDeclaration",
@@ -23908,7 +24464,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 333,
+      "line": 334,
       "column": 1,
       "name": "windowStart",
       "kind": "FunctionDeclaration",
@@ -23923,7 +24479,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 343,
+      "line": 344,
       "column": 1,
       "name": "reserveCapacity",
       "kind": "FunctionDeclaration",
@@ -23939,7 +24495,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 356,
+      "line": 357,
       "column": 51,
       "name": "candidates.map callback[0]",
       "kind": "ArrowFunction",
@@ -23953,7 +24509,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 381,
+      "line": 382,
       "column": 30,
       "name": "verified.map callback[0]",
       "kind": "ArrowFunction",
@@ -23967,7 +24523,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 384,
+      "line": 385,
       "column": 23,
       "name": "candidates.some callback[0]",
       "kind": "ArrowFunction",
@@ -23981,7 +24537,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 384,
+      "line": 385,
       "column": 43,
       "name": "peers.some callback[0]",
       "kind": "ArrowFunction",
@@ -23995,7 +24551,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 387,
+      "line": 388,
       "column": 35,
       "name": "peers.filter callback[0]",
       "kind": "ArrowFunction",
@@ -24009,7 +24565,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 388,
+      "line": 389,
       "column": 43,
       "name": "physical.some callback[0]",
       "kind": "ArrowFunction",
@@ -24023,7 +24579,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 390,
+      "line": 391,
       "column": 33,
       "name": "physical.map callback[0]",
       "kind": "ArrowFunction",
@@ -24037,7 +24593,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 392,
+      "line": 393,
       "column": 54,
       "name": "limits.map callback[0]",
       "kind": "ArrowFunction",
@@ -24051,7 +24607,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 393,
+      "line": 394,
       "column": 55,
       "name": "limits.map callback[0]",
       "kind": "ArrowFunction",
@@ -24065,7 +24621,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 441,
+      "line": 442,
       "column": 1,
       "name": "isSuppressed",
       "kind": "FunctionDeclaration",
@@ -24081,7 +24637,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 503,
+      "line": 504,
       "column": 1,
       "name": "eligible",
       "kind": "FunctionDeclaration",
@@ -24096,7 +24652,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 578,
+      "line": 579,
       "column": 1,
       "name": "sendNewsletterEmail",
       "kind": "FunctionDeclaration",
@@ -24110,7 +24666,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 582,
+      "line": 583,
       "column": 39,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -24124,7 +24680,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 644,
+      "line": 645,
       "column": 39,
       "name": "connection.senderEmails.some callback[0]",
       "kind": "ArrowFunction",
@@ -24138,7 +24694,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 646,
+      "line": 647,
       "column": 11,
       "name": "connection.senderDomains.some callback[0]",
       "kind": "ArrowFunction",
@@ -24152,7 +24708,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 697,
+      "line": 698,
       "column": 35,
       "name": "ips.map callback[0]",
       "kind": "ArrowFunction",
@@ -24166,7 +24722,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 779,
+      "line": 780,
       "column": 1,
       "name": "attemptNewsletterSend",
       "kind": "FunctionDeclaration",
@@ -24180,7 +24736,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 786,
+      "line": 787,
       "column": 42,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -24194,7 +24750,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 907,
+      "line": 908,
       "column": 26,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -24208,7 +24764,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1055,
+      "line": 1056,
       "column": 1,
       "name": "getNewsletterSendStatus",
       "kind": "FunctionDeclaration",
@@ -24222,7 +24778,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1081,
+      "line": 1082,
       "column": 1,
       "name": "getNewsletterSendStatusByMessageId",
       "kind": "FunctionDeclaration",
@@ -24236,7 +24792,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1102,
+      "line": 1103,
       "column": 1,
       "name": "getNewsletterBroadcastQueueStatus",
       "kind": "FunctionDeclaration",
@@ -24250,7 +24806,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1116,
+      "line": 1117,
       "column": 17,
       "name": "total",
       "kind": "ArrowFunction",
@@ -24264,7 +24820,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1118,
+      "line": 1119,
       "column": 15,
       "name": "rows .filter callback[0]",
       "kind": "ArrowFunction",
@@ -24278,7 +24834,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1119,
+      "line": 1120,
       "column": 15,
       "name": "rows .filter((row) => states.includes(row.state)) .reduce callback[0]",
       "kind": "ArrowFunction",
@@ -24293,7 +24849,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1127,
+      "line": 1128,
       "column": 1,
       "name": "listNewsletterSends",
       "kind": "FunctionDeclaration",
@@ -24307,7 +24863,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1175,
+      "line": 1176,
       "column": 1,
       "name": "getNewsletterDeliveryHealth",
       "kind": "FunctionDeclaration",
@@ -24322,7 +24878,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1211,
+      "line": 1212,
       "column": 1,
       "name": "drainNewsletterSends",
       "kind": "FunctionDeclaration",
@@ -24334,7 +24890,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1241,
+      "line": 1242,
       "column": 1,
       "name": "projectNewsletterAcceptedSends",
       "kind": "FunctionDeclaration",
@@ -24346,7 +24902,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1254,
+      "line": 1255,
       "column": 28,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -24360,7 +24916,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1308,
+      "line": 1309,
       "column": 1,
       "name": "verifyNewsletterWebhookSignature",
       "kind": "FunctionDeclaration",
@@ -24374,7 +24930,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1321,
+      "line": 1322,
       "column": 26,
       "name": "input.keys.some callback[0]",
       "kind": "ArrowFunction",
@@ -24388,7 +24944,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1351,
+      "line": 1352,
       "column": 1,
       "name": "eventIdentity",
       "kind": "FunctionDeclaration",
@@ -24402,7 +24958,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1368,
+      "line": 1369,
       "column": 1,
       "name": "observedSendingIp",
       "kind": "FunctionDeclaration",
@@ -24416,7 +24972,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1375,
+      "line": 1376,
       "column": 1,
       "name": "providerIdentity",
       "kind": "FunctionDeclaration",
@@ -24430,7 +24986,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1378,
+      "line": 1379,
       "column": 1,
       "name": "callbackSendIdentity",
       "kind": "FunctionDeclaration",
@@ -24444,7 +25000,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1409,
+      "line": 1410,
       "column": 1,
       "name": "correlate",
       "kind": "FunctionDeclaration",
@@ -24460,7 +25016,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1440,
+      "line": 1441,
       "column": 5,
       "name": "recipients.some callback[0]",
       "kind": "ArrowFunction",
@@ -24474,7 +25030,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1448,
+      "line": 1449,
       "column": 1,
       "name": "receiveNewsletterWebhook",
       "kind": "FunctionDeclaration",
@@ -24488,7 +25044,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1504,
+      "line": 1505,
       "column": 28,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -24502,7 +25058,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1549,
+      "line": 1550,
       "column": 1,
       "name": "newsletterSuppressionReason",
       "kind": "FunctionDeclaration",
@@ -24516,7 +25072,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1566,
+      "line": 1567,
       "column": 1,
       "name": "drainNewsletterWebhookReceipts",
       "kind": "FunctionDeclaration",
@@ -24528,7 +25084,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1595,
+      "line": 1596,
       "column": 28,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -24542,7 +25098,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1865,
+      "line": 1866,
       "column": 1,
       "name": "deleteNewsletterDeliveryData",
       "kind": "FunctionDeclaration",
@@ -24556,7 +25112,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1870,
+      "line": 1871,
       "column": 26,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -24570,7 +25126,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1886,
+      "line": 1889,
       "column": 20,
       "name": "input.userIds .slice(offset, offset + 500) .map callback[0]",
       "kind": "ArrowFunction",
@@ -24584,7 +25140,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1911,
+      "line": 1914,
       "column": 20,
       "name": "rows.map callback[0]",
       "kind": "ArrowFunction",
@@ -24598,7 +25154,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1917,
+      "line": 1920,
       "column": 28,
       "name": "rows.map callback[0]",
       "kind": "ArrowFunction",
@@ -24612,7 +25168,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1924,
+      "line": 1927,
       "column": 24,
       "name": "rows.flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -24626,7 +25182,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterDelivery.ts",
-      "line": 1933,
+      "line": 1936,
       "column": 50,
       "name": "rows.map callback[0]",
       "kind": "ArrowFunction",
@@ -32009,7 +32565,7 @@
     },
     {
       "file": "packages/backend-lib/src/userEvents/clickhouse.ts",
-      "line": 312,
+      "line": 339,
       "column": 1,
       "name": "insertProcessedComputedProperties",
       "kind": "FunctionDeclaration",
@@ -32023,7 +32579,7 @@
     },
     {
       "file": "packages/backend-lib/src/userEvents/clickhouse.ts",
-      "line": 325,
+      "line": 352,
       "column": 1,
       "name": "createUserEventsTables",
       "kind": "FunctionDeclaration",
@@ -32035,7 +32591,7 @@
     },
     {
       "file": "packages/backend-lib/src/userEvents/clickhouse.ts",
-      "line": 566,
+      "line": 594,
       "column": 17,
       "name": "queries.map callback[0]",
       "kind": "ArrowFunction",
@@ -32049,7 +32605,7 @@
     },
     {
       "file": "packages/backend-lib/src/userEvents/clickhouse.ts",
-      "line": 612,
+      "line": 640,
       "column": 19,
       "name": "mvQueries.map callback[0]",
       "kind": "ArrowFunction",
@@ -32063,7 +32619,7 @@
     },
     {
       "file": "packages/backend-lib/src/userEvents/clickhouse.ts",
-      "line": 621,
+      "line": 649,
       "column": 1,
       "name": "dropKafkaTables",
       "kind": "FunctionDeclaration",
@@ -32075,7 +32631,7 @@
     },
     {
       "file": "packages/backend-lib/src/userEvents/clickhouse.ts",
-      "line": 643,
+      "line": 671,
       "column": 1,
       "name": "createKafkaTables",
       "kind": "FunctionDeclaration",
@@ -32089,7 +32645,7 @@
     },
     {
       "file": "packages/backend-lib/src/userEvents/clickhouse.ts",
-      "line": 689,
+      "line": 717,
       "column": 17,
       "name": "queries.map callback[0]",
       "kind": "ArrowFunction",
@@ -2498784,7 +2499340,7 @@
     },
     {
       "file": "packages/isomorphic-lib/src/apiOperations.ts",
-      "line": 90,
+      "line": 91,
       "column": 1,
       "name": "requiredApiScopes",
       "kind": "FunctionDeclaration",
@@ -2500142,6 +2500698,20 @@
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/isomorphic-lib/src/tracking/development.ts",
+      "line": 11,
+      "column": 1,
+      "name": "isDevelopmentPixelSecret",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "name: string"
+      ],
+      "returnType": "boolean",
+      "documentation": "/** Known credential fields, not a claim to recognize secrets embedded in arbitrary values. */",
       "hasBody": true,
       "boundary": "internal implementation; not independently exposed"
     },
@@ -2501933,8 +2502503,262 @@
       "boundary": "internal implementation; not independently exposed"
     },
     {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 11,
+      "column": 84,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [],
+      "returnType": "Promise<void>",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 13,
+      "column": 1,
+      "name": "mark",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "list: string[]",
+        "value: string"
+      ],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 21,
+      "column": 1,
+      "name": "prefix",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: string",
+        "bytes: number"
+      ],
+      "returnType": "string",
+      "documentation": "/** UTF-8 byte bounds without cutting a Unicode code point. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 33,
+      "column": 1,
+      "name": "base64",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "bytes: Uint8Array"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 41,
+      "column": 1,
+      "name": "snapshotDevelopmentPixel",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "request: Request",
+        "reply: Response",
+        "url: URL",
+        "token: string | null"
+      ],
+      "returnType": "DevelopmentPixelSnapshot",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 55,
+      "column": 47,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 56,
+      "column": 13,
+      "name": "[token, pathToken, (() => { try { return decodeURIComponent(pathToken); } catch { return null; } })()] .filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "value"
+      ],
+      "returnType": "value is string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 57,
+      "column": 3,
+      "name": "text",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: string",
+        "path: string"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 67,
+      "column": 3,
+      "name": "redactOpaque",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "bytes: Uint8Array"
+      ],
+      "returnType": "Uint8Array",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 71,
+      "column": 26,
+      "name": "needle.every callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "byte",
+        "part"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 81,
+      "column": 3,
+      "name": "sanitize",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: unknown",
+        "path: string",
+        "depth = 0",
+        "seen = new Set<object>()"
+      ],
+      "returnType": "unknown",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 135,
+      "column": 3,
+      "name": "safeUrl",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: string",
+        "path: string"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 164,
+      "column": 58,
+      "name": "value.replace callback[1]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "entry"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 218,
+      "column": 19,
+      "name": "finishBody",
+      "kind": "MethodDeclaration",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 232,
+      "column": 32,
+      "name": "setTimeout callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 317,
+      "column": 34,
+      "name": "reader.cancel().catch callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 324,
+      "column": 1,
+      "name": "boundDevelopmentPixel",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "event: DevelopmentPixelEvent"
+      ],
+      "returnType": "void",
+      "documentation": "/** Enforce the actual serialized Queue limit, including UTF-8, keys and flags. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/development.ts",
+      "line": 329,
+      "column": 5,
+      "name": "visit",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: Record<string, unknown>",
+        "path: string"
+      ],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 46,
+      "line": 51,
       "column": 3,
       "name": "Uint8Array.from callback[1]",
       "kind": "ArrowFunction",
@@ -2501948,7 +2502772,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 59,
+      "line": 64,
       "column": 1,
       "name": "response",
       "kind": "FunctionDeclaration",
@@ -2501964,7 +2502788,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 78,
+      "line": 83,
       "column": 1,
       "name": "brandedHostname",
       "kind": "FunctionDeclaration",
@@ -2501978,7 +2502802,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 81,
+      "line": 86,
       "column": 18,
       "name": "labels.every callback[0]",
       "kind": "ArrowFunction",
@@ -2501992,7 +2502816,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 84,
+      "line": 89,
       "column": 1,
       "name": "relayUrl",
       "kind": "FunctionDeclaration",
@@ -2502006,7 +2502830,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 99,
+      "line": 104,
       "column": 1,
       "name": "secretBytes",
       "kind": "FunctionDeclaration",
@@ -2502020,7 +2502844,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 103,
+      "line": 108,
       "column": 35,
       "name": "Uint8Array.from callback[1]",
       "kind": "ArrowFunction",
@@ -2502034,7 +2502858,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 106,
+      "line": 111,
       "column": 1,
       "name": "evidenceHeaders",
       "kind": "FunctionDeclaration",
@@ -2502048,7 +2502872,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 120,
+      "line": 125,
       "column": 1,
       "name": "evidenceQuery",
       "kind": "FunctionDeclaration",
@@ -2502062,7 +2502886,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 130,
+      "line": 135,
       "column": 1,
       "name": "boundedHint",
       "kind": "FunctionDeclaration",
@@ -2502077,7 +2502901,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 134,
+      "line": 139,
       "column": 1,
       "name": "enqueue",
       "kind": "FunctionDeclaration",
@@ -2502092,7 +2502916,23 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 159,
+      "line": 164,
+      "column": 1,
+      "name": "enqueueDevelopment",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "snapshot: DevelopmentPixelSnapshot",
+        "env: Env",
+        "bodyCapture: Promise<void>"
+      ],
+      "returnType": "Promise<void>",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/index.ts",
+      "line": 189,
       "column": 1,
       "name": "handle",
       "kind": "FunctionDeclaration",
@@ -2502108,7 +2502948,45 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 200,
+      "line": 227,
+      "column": 11,
+      "name": "start",
+      "kind": "MethodDeclaration",
+      "parameters": [
+        "controller"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/index.ts",
+      "line": 228,
+      "column": 27,
+      "name": "close",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/index.ts",
+      "line": 231,
+      "column": 11,
+      "name": "cancel",
+      "kind": "MethodDeclaration",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/tracking-worker/src/index.ts",
+      "line": 263,
       "column": 1,
       "name": "deliver",
       "kind": "FunctionDeclaration",
@@ -2502124,7 +2503002,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 206,
+      "line": 269,
       "column": 56,
       "name": "Array.from callback[1]",
       "kind": "ArrowFunction",
@@ -2502138,7 +2503016,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 209,
+      "line": 272,
       "column": 30,
       "name": "setTimeout callback[0]",
       "kind": "ArrowFunction",
@@ -2502150,7 +2503028,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 230,
+      "line": 293,
       "column": 1,
       "name": "consume",
       "kind": "FunctionDeclaration",
@@ -2502165,8 +2503043,8 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 250,
-      "column": 17,
+      "line": 316,
+      "column": 19,
       "name": "flush",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -2502177,7 +2503055,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 293,
+      "line": 363,
       "column": 3,
       "name": "fetch",
       "kind": "MethodDeclaration",
@@ -2502193,7 +2503071,7 @@
     },
     {
       "file": "packages/tracking-worker/src/index.ts",
-      "line": 301,
+      "line": 371,
       "column": 3,
       "name": "scheduled",
       "kind": "MethodDeclaration",

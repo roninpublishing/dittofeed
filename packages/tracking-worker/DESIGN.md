@@ -127,6 +127,37 @@ The existing computed-property worker still materializes `last_opened`.
 Enable capture only after consumer readiness and failure/backlog alerting.
 Failed network refresh must alert and preserve the active set.
 
+## Approved development-only data lake
+
+`ENABLE_OPEN_TRACKING_DEV_LAKE` defaults off on Worker and backend. When enabled,
+the Worker captures broad request/Cloudflare metadata into v3 Queue messages and
+the backend writes only `developmentOpenPixelEvent`. No normal classifications,
+native opens, counts, protected timestamps or pixel-driven automation actions
+are emitted. Existing normal v2 behavior remains with the flag off; batches for
+the wrong mode fail closed rather than changing meaning during Queue retries.
+
+The development endpoint is `/api/public/email/open/development-batch`.
+Evidence includes all available headers, URL/query, request properties/body,
+response metadata and nested Cloudflare fields, with credential/cookie and pixel
+capability redaction. Explicit omission/truncation markers and a 120 KiB encoded
+event ceiling preserve bounded Queue delivery; batches stay 50 events / 1 MiB.
+KV/network enrichment failures are recorded, not a reason to drop a dev hit.
+
+Encrypted evidence is available through workspace-scoped sensitive API access,
+with default 30-day expiry and serialized erasure. Unknown/invalid pixel traffic
+is retained without inventing contact identity; erased tokens cannot resurrect
+raw evidence. No PG per-hit rows. This mode uses the current application server
+and existing databases and does not authorize public provisioning/deployment.
+
+Local verification passed 40 native workerd tests, 135 targeted Jest tests,
+shared/backend/API/Worker typechecks and fresh/restartable migrations. A real
+Worker → Queue → signed HTTP backend → ClickHouse proof preserved six diverse
+requests, full under-cap metadata/body evidence and secret redactions with zero
+native/normal tracking writes. Capture-off evidence review also passed. Only
+disposable local databases and inbound fixtures were used.
+
+## Reference assumptions
+
 Pending source-doc review: reference proxy reasons map to expanded classes;
 on-open proxy counting remains; duplicate identity uses send/method/IP/UA within
 30 seconds; staff IPs default empty. No provider-account changes are included.

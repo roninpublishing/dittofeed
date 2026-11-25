@@ -2,6 +2,10 @@ import { Static, Type } from "@sinclair/typebox";
 import config from "backend-lib/src/config";
 import logger from "backend-lib/src/logger";
 import {
+  captureDevelopmentPixelEvents,
+  CaptureDevelopmentPixelEventInput,
+} from "backend-lib/src/messaging/developmentOpenTracking";
+import {
   captureEmailOpenRequests,
   CaptureEmailOpenRequestInput,
 } from "backend-lib/src/messaging/openTracking";
@@ -9,6 +13,11 @@ import { verifyOpenTrackingRelay } from "backend-lib/src/messaging/openTrackingR
 import { getTrackingHostnameNewsletter } from "backend-lib/src/newsletterTracking";
 import { FastifyInstance } from "fastify";
 import { fastifyRawBody } from "fastify-raw-body";
+import {
+  DEVELOPMENT_PIXEL_BATCH_BYTES,
+  DEVELOPMENT_PIXEL_EVENT_BYTES,
+  DevelopmentPixelBatchSchema,
+} from "isomorphic-lib/src/tracking/development";
 
 const BatchEvent = Type.Object(
   {
@@ -105,7 +114,11 @@ export default async function openTrackingController(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const settings = config();
-      if (!settings.enableOpenTracking || !settings.openTrackingRelaySecret)
+      if (
+        !settings.enableOpenTracking ||
+        settings.enableOpenTrackingDevLake ||
+        !settings.openTrackingRelaySecret
+      )
         return reply.status(503).send();
       if (
         !Buffer.isBuffer(request.rawBody) ||
@@ -160,6 +173,70 @@ export default async function openTrackingController(fastify: FastifyInstance) {
       } catch {
         // Partially stored batches may retry; stable receipt IDs deduplicate.
         logger().error("Unable to persist queued open request evidence");
+        return reply.status(503).send();
+      }
+    },
+  );
+  fastify.post<{ Body: Static<typeof DevelopmentPixelBatchSchema> }>(
+    "/email/open/development-batch",
+    {
+      config: { rawBody: true },
+      logLevel: "silent",
+      bodyLimit: DEVELOPMENT_PIXEL_BATCH_BYTES,
+      schema: { hide: true, body: DevelopmentPixelBatchSchema },
+      errorHandler(error, _request, reply) {
+        void reply.status(error.statusCode === 413 ? 413 : 400).send();
+      },
+    },
+    async (request, reply) => {
+      const settings = config();
+      if (
+        !settings.enableOpenTracking ||
+        !settings.enableOpenTrackingDevLake ||
+        !settings.openTrackingRelaySecret
+      )
+        return reply.status(503).send();
+      if (
+        !Buffer.isBuffer(request.rawBody) ||
+        !verifyOpenTrackingRelay({
+          rawBody: request.rawBody,
+          timestamp: request.headers["x-df-tracking-timestamp"],
+          signature: request.headers["x-df-tracking-signature"],
+          secret: settings.openTrackingRelaySecret,
+          maxBodyBytes: DEVELOPMENT_PIXEL_BATCH_BYTES,
+        })
+      )
+        return reply.status(403).send();
+      if (
+        request.body.events.some(
+          (event) =>
+            Buffer.byteLength(JSON.stringify(event)) >
+            DEVELOPMENT_PIXEL_EVENT_BYTES,
+        )
+      )
+        return reply.status(413).send();
+      try {
+        // Verify every hostname before the first durable write, including
+        // observations whose original token was unknown or malformed.
+        const hosts = new Map<string, string>();
+        const observations: CaptureDevelopmentPixelEventInput[] = [];
+        for (const event of request.body.events) {
+          let workspaceId = hosts.get(event.hostname);
+          if (!workspaceId) {
+            // eslint-disable-next-line no-await-in-loop -- Resolve bounded, distinct hosts before writing.
+            const verified = await getTrackingHostnameNewsletter(event.hostname);
+            if (!verified) return reply.status(403).send();
+            workspaceId = verified;
+            hosts.set(event.hostname, workspaceId);
+          }
+          observations.push({ workspaceId, event });
+        }
+        await captureDevelopmentPixelEvents(observations);
+        return reply.status(204).send();
+      } catch {
+        // A partial batch must retry with the same stable event IDs. Never log
+        // raw request evidence, tokens, or private persistence exceptions.
+        logger().error("Unable to persist queued development open evidence");
         return reply.status(503).send();
       }
     },

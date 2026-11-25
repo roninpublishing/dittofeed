@@ -16,6 +16,7 @@ import { newsletterContactHash } from "../newsletterSubscriptions";
 import { getNewsletterTrackingOrigin } from "../newsletterTracking";
 import { decrypt, encrypt } from "../secrets";
 import { EventType, InternalEventType } from "../types";
+import { DEVELOPMENT_PIXEL_ERASURE_LOCK, eraseDevelopmentPixelEvents } from "./developmentOpenTracking";
 import {
   buildEmailOpenTrackingEvents, deleteEmailOpenTrackingEvents, EmailOpenObservation,
   emailOpenRequestHash, findEmailOpenTrackingEvents, findExistingEmailOpenTrackingEvents,
@@ -236,6 +237,7 @@ export interface CaptureEmailOpenRequestInput {
  * classification/native projection success, and never create a PG hit row. */
 export async function captureEmailOpenRequests(inputs: readonly CaptureEmailOpenRequestInput[]): Promise<void> {
   try {
+    if (config().enableOpenTrackingDevLake) throw new OpenTrackingError();
     if (!config().enableOpenTracking || !inputs.length) return;
     const key = secretKey();
     const groups = new Map<string, { input: CaptureEmailOpenRequestInput; request: OpenTrackingRequest; hash: string }[]>();
@@ -331,7 +333,9 @@ export async function deleteEmailOpenData({ workspaceId, userIds }: {
   if (userIds && !userIds.length) return;
   try {
     await db().transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${DEVELOPMENT_PIXEL_ERASURE_LOCK}, 1))`);
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${workspaceId}, 0))`);
+      await eraseDevelopmentPixelEvents(tx, workspaceId, userIds);
       const [registered] = await tx.select({ id: newsletter.workspaceId }).from(newsletter)
         .where(eq(newsletter.workspaceId, workspaceId)).limit(1);
       if (registered) {

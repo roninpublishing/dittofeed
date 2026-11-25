@@ -22,6 +22,7 @@ if (!unitOnly) {
   process.env.BOOTSTRAP_WORKER = "false";
   process.env.CLOUDFLARE_TRACKING_ALLOW_PROVISIONING = "false";
   process.env.ENABLE_OPEN_TRACKING = "false";
+  process.env.ENABLE_OPEN_TRACKING_DEV_LAKE = "false";
 }
 
 module.exports = {
@@ -38,7 +39,9 @@ module.exports = {
     ? ["<rootDir>/packages/isomorphic-lib/src/tracking/**/*.test.ts"]
     : [
         "<rootDir>/packages/backend-lib/src/messaging/openTracking*.test.ts",
+        "<rootDir>/packages/backend-lib/src/messaging/developmentOpenTracking.test.ts",
         "<rootDir>/packages/api/src/controllers/openTrackingController.test.ts",
+        "<rootDir>/packages/api/src/controllers/developmentOpensController.test.ts",
       ],
   transform: {
     "^.+\\.tsx?$": ["ts-jest", {

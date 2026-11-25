@@ -88,6 +88,15 @@ Unchecked items are planned work; checked items must reflect verified changes.
   30-day default retention, scoped access, existing erasure barriers and
   synchronous deletion. Never copy raw headers/IPs into native events/logs.
   Provider callbacks are separate evidence, not original browser requests.
+- `ENABLE_OPEN_TRACKING_DEV_LAKE` is a separate default-off development toggle
+  on both Worker and backend. When enabled, pixel requests go only to ClickHouse
+  `developmentOpenPixelEvent`, never native opens, normal `trackingEvent`, computed
+  properties, segments or automations. Preserve normal capture when disabled.
+  Capture all available request/Cloudflare metadata, including non-allowlisted
+  headers, with known credentials/cookies and bearer pixel capabilities redacted.
+  Encrypt raw evidence; mark every truncation/unavailable field. Retain bounded
+  transport, expiry, sensitive-scope access and erasure barriers even in development.
+  Do not enable deployment/capture/sends merely by adding this optional mode.
 - Never equate a pixel load, Apple privacy-proxy request, or a 10-minute delay with
   a verified human open. Keep raw evidence available for revised classification.
 - Tracking data can contain PII. Do not log secrets or blindly dump credentials,

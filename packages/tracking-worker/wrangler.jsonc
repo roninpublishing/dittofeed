@@ -9,7 +9,8 @@
   // No routes/custom domains are provisioned here. Configure Cloudflare for SaaS
   // explicitly; never attach a zone-wide catch-all over the application.
   "vars": {
-    "ENABLED": "false"
+    "ENABLED": "false",
+    "ENABLE_OPEN_TRACKING_DEV_LAKE": "false"
   },
   // Wrangler resolves this binding name locally without an ID. Before deploying,
   // the operator must supply the existing RONIN KV namespace ID here; do not use

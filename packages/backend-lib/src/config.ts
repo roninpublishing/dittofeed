@@ -44,6 +44,7 @@ const BaseRawConfigProps = {
     Type.String({ format: "naturalNumber", pattern: "^[1-9][0-9]*$" }),
   ),
   enableOpenTracking: Type.Optional(BoolStr),
+  enableOpenTrackingDevLake: Type.Optional(BoolStr),
   openTrackingRelaySecret: Type.Optional(Type.String()),
   openTrackingSelfIps: Type.Optional(Type.String()),
   cloudflareTrackingApiToken: Type.Optional(Type.String()),
@@ -321,6 +322,7 @@ export type Config = Overwrite<
     enableMobilePush: boolean;
     enableSourceControl: boolean;
     enableOpenTracking: boolean;
+    enableOpenTrackingDevLake: boolean;
     openTrackingRetentionDays: number;
     openTrackingSelfIps: readonly string[];
     cloudflareTrackingAllowProvisioning: boolean;
@@ -549,6 +551,7 @@ function buildDashboardUrl({
 
 function parseOpenTrackingConfig(rawConfig: RawConfig): {
   enableOpenTracking: boolean;
+  enableOpenTrackingDevLake: boolean;
   openTrackingRetentionDays: number;
   openTrackingSelfIps: readonly string[];
   cloudflareTrackingAllowProvisioning: boolean;
@@ -572,6 +575,10 @@ function parseOpenTrackingConfig(rawConfig: RawConfig): {
     );
   }
   const enableOpenTracking = rawConfig.enableOpenTracking === "true";
+  const enableOpenTrackingDevLake = rawConfig.enableOpenTrackingDevLake === "true";
+  if (enableOpenTrackingDevLake && !enableOpenTracking) {
+    throw new Error("ENABLE_OPEN_TRACKING_DEV_LAKE requires ENABLE_OPEN_TRACKING.");
+  }
   if (rawConfig.openTrackingRelaySecret &&
       (!/^[A-Za-z0-9+/]{43}=$/.test(rawConfig.openTrackingRelaySecret) ||
        Buffer.from(rawConfig.openTrackingRelaySecret, "base64").length !== 32)) {
@@ -592,7 +599,7 @@ function parseOpenTrackingConfig(rawConfig: RawConfig): {
       (!rawConfig.secretKey || Buffer.from(rawConfig.secretKey, "base64").length !== 32)) {
     throw new Error("Enabling open tracking requires an explicit 32-byte base64 SECRET_KEY.");
   }
-  return { enableOpenTracking, openTrackingRetentionDays, openTrackingSelfIps,
+  return { enableOpenTracking, enableOpenTrackingDevLake, openTrackingRetentionDays, openTrackingSelfIps,
     cloudflareTrackingAllowProvisioning: rawConfig.cloudflareTrackingAllowProvisioning === "true" };
 }
 

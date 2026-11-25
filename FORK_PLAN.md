@@ -29,6 +29,27 @@ with no PG mapping row or PG per-hit receipt/outbox. No mail has shipped and no
 old generic-path compatibility is required. `last_opened` remains observed;
 heuristic `human` labels never verify that a person read a message. Gates stay off.
 
+Carson approved a default-off `ENABLE_OPEN_TRACKING_DEV_LAKE` collection-only
+mode, implemented and locally verified on the tracking branch. It records request
+and Cloudflare evidence in the dedicated ClickHouse `developmentOpenPixelEvent`
+table without native opens, counts, classification, computed-property updates or
+automation triggers. Known credentials/cookies and pixel capabilities stay
+redacted; encryption, explicit size/unavailable markers, expiry and erasure still
+apply. Normal capture remains unchanged with the toggle off. This approval is
+for implementation only, not provisioning, deployment or actual email sends.
+
+Development-lake verification: 135 targeted Jest tests across six suites and
+40 native workerd tests passed. Shared/backend/API/Worker typechecks and the
+fresh/restartable migration proof passed. A real local workerd → Queue → signed
+HTTP API → ClickHouse fixture retained six GET/repeat/HEAD/unknown/malformed/POST
+requests with long headers, nested Cloudflare metadata, repeated query values
+and structured body evidence, without normal/native events or send-row changes.
+Evidence remained readable after disabling collection. Security coverage includes
+sensitive-scope access, TTL, encrypted correlation, partial-write retries and
+cross-host erasure races. The focused legacy-lint waiver remains; no new clean
+lint claim. All databases were disposable and local; no mail, deployment or
+public resource changes occurred.
+
 Google OIDC and application-owned accounts, explicit workspace memberships,
 roles, private invitations, and revocable sessions are implemented. The local
 preview now uses a dedicated **DITTO Email Client** Google project under Ronin;

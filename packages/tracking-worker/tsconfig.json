@@ -6,8 +6,8 @@
     "paths": {
       "isomorphic-lib/src/*": ["../isomorphic-lib/src/*"]
     },
-    "lib": ["ES2023"],
-    "types": ["@cloudflare/workers-types"],
+    "lib": ["ES2023", "ESNext.Promise"],
+    "types": ["@cloudflare/workers-types/latest"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,

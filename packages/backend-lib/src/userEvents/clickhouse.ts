@@ -1,3 +1,5 @@
+import { DEVELOPMENT_PIXEL_TABLE } from "isomorphic-lib/src/tracking/development";
+
 import { clickhouseClient } from "../clickhouse";
 import config from "../config";
 import { NodeEnvEnum } from "../config/loader";
@@ -44,6 +46,31 @@ export const CREATE_TRACKING_EVENT_TABLE_QUERY = `
   ENGINE = ReplacingMergeTree()
   PARTITION BY toYYYYMM(occurredAt)
   ORDER BY (workspaceId, userId, occurredAt, eventId);
+`;
+
+export const CREATE_DEVELOPMENT_OPEN_PIXEL_EVENT_TABLE_QUERY = `
+  CREATE TABLE IF NOT EXISTS ${DEVELOPMENT_PIXEL_TABLE} (
+    eventId UUID,
+    workspaceId String,
+    hostname String,
+    sendId Nullable(String),
+    userId Nullable(String),
+    messageId Nullable(String),
+    status LowCardinality(String),
+    method String,
+    occurredAt DateTime64(3, 'UTC'),
+    receivedAt DateTime64(3, 'UTC'),
+    rawExpiresAt DateTime64(3, 'UTC'),
+    ip Nullable(String) TTL toDateTime(rawExpiresAt),
+    userAgent Nullable(String) TTL toDateTime(rawExpiresAt),
+    tokenHash Nullable(String) TTL toDateTime(rawExpiresAt),
+    requestHash String,
+    encryptedEvidence Nullable(String) TTL toDateTime(rawExpiresAt)
+  )
+  ENGINE = ReplacingMergeTree()
+  PARTITION BY toYYYYMM(occurredAt)
+  ORDER BY (workspaceId, occurredAt, eventId)
+  TTL toDateTime(rawExpiresAt) + INTERVAL 1 DAY;
 `;
 
 export const CREATE_INTERNAL_EVENTS_TABLE_QUERY = `
@@ -328,6 +355,7 @@ export async function createUserEventsTables() {
   const queries = [
     // This is the primary table for user events, which serves as the source of truth for user traits and behaviors.
     CREATE_TRACKING_EVENT_TABLE_QUERY,
+    CREATE_DEVELOPMENT_OPEN_PIXEL_EVENT_TABLE_QUERY,
     `
         CREATE TABLE IF NOT EXISTS user_events_v2 (
           event_type Enum(

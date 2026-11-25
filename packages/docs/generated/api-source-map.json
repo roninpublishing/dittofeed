@@ -504,7 +504,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 29,
+      "line": 66,
       "method": "POST",
       "localPath": "/clicks",
       "pathExpression": "\"/clicks\"",
@@ -512,7 +512,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 55,
+      "line": 92,
       "method": "POST",
       "localPath": "/opens",
       "pathExpression": "\"/opens\"",
@@ -520,7 +520,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 81,
+      "line": 118,
       "method": "POST",
       "localPath": "/opens/evidence",
       "pathExpression": "\"/opens/evidence\"",
@@ -528,7 +528,15 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 103,
+      "line": 140,
+      "method": "POST",
+      "localPath": "/development-opens",
+      "pathExpression": "\"/development-opens\"",
+      "boundary": "source declaration; registration/auth mode determines reachability"
+    },
+    {
+      "file": "packages/api/src/controllers/deliveriesController.ts",
+      "line": 172,
       "method": "GET",
       "localPath": "/",
       "pathExpression": "\"/\"",
@@ -536,7 +544,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 137,
+      "line": 206,
       "method": "GET",
       "localPath": "/count",
       "pathExpression": "\"/count\"",
@@ -544,7 +552,7 @@
     },
     {
       "file": "packages/api/src/controllers/deliveriesController.ts",
-      "line": 174,
+      "line": 243,
       "method": "GET",
       "localPath": "/download",
       "pathExpression": "\"/download\"",
@@ -656,10 +664,18 @@
     },
     {
       "file": "packages/api/src/controllers/openTrackingController.ts",
-      "line": 95,
+      "line": 104,
       "method": "POST",
       "localPath": "/email/open/batch",
       "pathExpression": "\"/email/open/batch\"",
+      "boundary": "source declaration; registration/auth mode determines reachability"
+    },
+    {
+      "file": "packages/api/src/controllers/openTrackingController.ts",
+      "line": 180,
+      "method": "POST",
+      "localPath": "/email/open/development-batch",
+      "pathExpression": "\"/email/open/development-batch\"",
       "boundary": "source declaration; registration/auth mode determines reachability"
     },
     {

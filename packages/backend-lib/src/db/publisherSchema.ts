@@ -248,7 +248,7 @@ export const newsletterErasure = pgTable("NewsletterErasure", {
   workspaceId: uuid().notNull().references(() => newsletter.workspaceId, { onDelete: "cascade" }),
   userHash: text().notNull(),
   createdAt: createdAt(),
-}, (t) => [primaryKey({ columns: [t.workspaceId, t.userHash] })]);
+}, (t) => [primaryKey({ columns: [t.workspaceId, t.userHash] }), index("NewsletterErasure_userHash_idx").on(t.userHash)]);
 
 export const publicationAutomationIdentity = pgTable("PublicationAutomationIdentity", {
   newsletterId: uuid().notNull().references(() => newsletter.workspaceId, { onDelete: "cascade" }),

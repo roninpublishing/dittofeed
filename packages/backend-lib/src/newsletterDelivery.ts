@@ -43,6 +43,7 @@ import {
 } from "./newsletterInfrastructure";
 import { decrypt, encrypt } from "./secrets";
 import { OPEN_TRACKING_PIXEL_PATH, prepareEmailOpenTracking } from "./messaging/openTracking";
+import { DEVELOPMENT_PIXEL_ERASURE_LOCK, eraseDevelopmentPixelEvents } from "./messaging/developmentOpenTracking";
 import {
   newsletterContactHash,
   upsertNewsletterConsent,
@@ -1868,6 +1869,7 @@ export async function deleteNewsletterDeliveryData(input: {
 }): Promise<void> {
   if (input.userIds && !input.userIds.length) return;
   await db().transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${DEVELOPMENT_PIXEL_ERASURE_LOCK}, 1))`);
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtextextended(${input.workspaceId}, 0))`,
     );
@@ -1876,6 +1878,7 @@ export async function deleteNewsletterDeliveryData(input: {
       .from(newsletter)
       .where(eq(newsletter.workspaceId, input.workspaceId));
     if (!publication) return;
+    await eraseDevelopmentPixelEvents(tx, input.workspaceId, input.userIds);
     if (input.userIds)
       for (let offset = 0; offset < input.userIds.length; offset += 500)
         await tx

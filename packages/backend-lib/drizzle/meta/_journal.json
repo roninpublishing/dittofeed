@@ -141,6 +141,13 @@
       "when": 1795651200000,
       "tag": "0019_send_open_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795651300000,
+      "tag": "0020_development_pixel_erasure",
+      "breakpoints": true
     }
   ]
 }

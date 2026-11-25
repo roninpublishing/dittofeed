@@ -1,6 +1,10 @@
 /* eslint-disable filenames/no-index -- Existing Wrangler entrypoint, not a barrel module. */
+import type { DevelopmentPixelEvent } from "isomorphic-lib/src/tracking/development";
+import { DEVELOPMENT_PIXEL_BATCH_PATH, DEVELOPMENT_PIXEL_EVENT_BYTES } from "isomorphic-lib/src/tracking/development";
 import { networkLookup } from "isomorphic-lib/src/tracking/networks";
 
+import type { DevelopmentPixelSnapshot } from "./development";
+import { boundDevelopmentPixel, snapshotDevelopmentPixel } from "./development";
 import { loadActiveNetworkSet, refreshNetworks } from "./refresh";
 
 export interface TrackingEvent {
@@ -26,9 +30,10 @@ export interface TrackingEvent {
 
 export interface Env {
   ENABLED?: string;
+  ENABLE_OPEN_TRACKING_DEV_LAKE?: string;
   TRACKING_ORIGIN?: string;
   OPEN_TRACKING_RELAY_SECRET?: string;
-  TRACKING_QUEUE?: Queue<TrackingEvent>;
+  TRACKING_QUEUE?: Queue<TrackingEvent | DevelopmentPixelEvent>;
   NETWORK_SETS?: KVNamespace;
   /** Local-only opt-in; never set on a deployed Worker. */
   LOCAL_DEVELOPMENT?: string;
@@ -156,22 +161,80 @@ async function enqueue(event: TrackingEvent, env: Env): Promise<void> {
   }
 }
 
+async function enqueueDevelopment(snapshot: DevelopmentPixelSnapshot, env: Env, bodyCapture: Promise<void>): Promise<void> {
+  try {
+    await bodyCapture;
+    const { event } = snapshot;
+    try {
+      if (!env.NETWORK_SETS) throw new Error("network namespace unavailable");
+      const set = await loadActiveNetworkSet(env.NETWORK_SETS);
+      const ip = event.evidence.request.headers["cf-connecting-ip"] ?? "";
+      const match = set ? networkLookup(set.ranges)(ip) : null;
+      event.evidence.network = {
+        setVersion: set?.version ?? null,
+        match: set && match ? { id: match.id, version: set.version } : null,
+      };
+      if (!set) event.evidence.unavailable.push("network:no-active-set");
+    } catch {
+      event.evidence.unavailable.push("network:lookup-failed");
+    }
+    boundDevelopmentPixel(event);
+    if (!env.TRACKING_QUEUE) throw new Error("queue unavailable");
+    await env.TRACKING_QUEUE.send(event);
+  } catch {
+    throw new Error("tracking enqueue failed");
+  }
+}
+
 function handle(request: Request, env: Env, ctx: ExecutionContext): Response {
   const url = new URL(request.url);
   const hostname = url.hostname.toLowerCase();
   const localHttp = env.LOCAL_DEVELOPMENT === "true" &&
     hostname.endsWith(".localhost") && url.protocol === "http:";
   const token = PIXEL_PATH.exec(url.pathname)?.[1];
-  if (!brandedHostname(hostname) || !token || url.username || url.password ||
-      (!localHttp && (url.protocol !== "https:" || url.port !== ""))) {
-    return response(404, request.method);
+  const validHost = brandedHostname(hostname) && !url.username && !url.password &&
+    (localHttp || (url.protocol === "https:" && url.port === ""));
+  const development = env.ENABLE_OPEN_TRACKING_DEV_LAKE === "true";
+  const pixelRoute = /^\/api\/public\/email\/open\/[^/]*\.gif$/.test(url.pathname);
+  const supported = request.method === "GET" || request.method === "HEAD";
+  let status = !validHost || !token ? 404 : !supported ? 405 : 200;
+  // Preserve normal status ordering; development capture also covers rejected
+  // methods and malformed tokens on pixel routes, never application paths.
+  const shouldCapture = validHost && pixelRoute && env.ENABLED === "true";
+  let configured = false;
+  if ((development && shouldCapture) || status === 200) {
+    try {
+      configured = env.ENABLED === "true" && Boolean(relayUrl(env)) &&
+        Boolean(secretBytes(env.OPEN_TRACKING_RELAY_SECRET)) && Boolean(env.TRACKING_QUEUE) &&
+        (development || Boolean(env.NETWORK_SETS));
+    } catch {
+      configured = false;
+    }
   }
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    return response(405, request.method);
+  if (status === 200 && !configured) status = 503;
+  if (development) {
+    const reply = response(status, request.method, status === 200);
+    if (shouldCapture && configured) {
+      const snapshot = snapshotDevelopmentPixel(request, reply, url, token ?? null);
+      const bodyCapture = snapshot.finishBody();
+      ctx.waitUntil(enqueueDevelopment(snapshot, env, bodyCapture));
+      if (!supported && request.body) {
+        // workerd invalidates incoming body streams once the response is fully
+        // sent. Send headers/status now, but keep this zero-byte response open
+        // only until bounded body capture finishes, never for KV or Queue I/O.
+        let canceled = false;
+        return new Response(new ReadableStream<Uint8Array>({
+          start(controller) {
+            const close = () => { if (!canceled) controller.close(); };
+            void bodyCapture.then(close, close);
+          },
+          cancel() { canceled = true; },
+        }), { status: reply.status, headers: reply.headers });
+      }
+    }
+    return reply;
   }
-  if (env.ENABLED !== "true") return response(503, request.method);
-  if (!relayUrl(env) || !secretBytes(env.OPEN_TRACKING_RELAY_SECRET) ||
-      !env.TRACKING_QUEUE || !env.NETWORK_SETS) return response(503, request.method);
+  if (status !== 200 || !token) return response(status, request.method);
   const asn = request.cf?.asn;
   const country = request.cf?.country;
   const event: TrackingEvent = {
@@ -179,7 +242,7 @@ function handle(request: Request, env: Env, ctx: ExecutionContext): Response {
     eventId: crypto.randomUUID(),
     hostname,
     token,
-    method: request.method,
+    method: request.method === "HEAD" ? "HEAD" : "GET",
     query: evidenceQuery(url),
     headers: evidenceHeaders(request.headers),
     edge: {
@@ -241,52 +304,59 @@ async function consume(batch: MessageBatch, env: Env): Promise<void> {
     batch.retryAll();
     return;
   }
-  const destination = origin;
-  const signingKey = secret;
-  let messages: Message[] = [];
-  let events: string[] = [];
-  const emptyBodyBytes = encoder.encode('{"v":2,"events":[]}').byteLength;
-  let size = emptyBodyBytes;
-  const flush = async () => {
-    if (messages.length === 0) return;
-    try {
-      await deliver(`{"v":2,"events":[${events.join(",")}]}`, destination, signingKey);
-      for (const message of messages) message.ack();
-    } catch {
-      // Queues owns retries and DLQ policy. Stable event UUIDs survive uncertain
-      // acceptance; never log the failed body, HTTP response or exception.
-      for (const message of messages) message.retry();
-    }
-    messages = [];
-    events = [];
-    size = emptyBodyBytes;
-  };
-  for (const message of batch.messages) {
-    let serialized: string;
-    try {
-      const { body } = message;
-      if (typeof body !== "object" || body === null || !("v" in body) || body.v !== 2) {
-        throw new Error("invalid tracking event");
+  // Queue mode is immutable event data, not the current producer feature flag.
+  // This prevents an old development message ever entering the native pipeline.
+  for (const version of [2, 3] as const) {
+    const destination = version === 3 ? new URL(DEVELOPMENT_PIXEL_BATCH_PATH, origin.origin) : origin;
+    const signingKey = secret;
+    let messages: Message[] = [];
+    let events: string[] = [];
+    const emptyBodyBytes = encoder.encode(`{"v":${version},"events":[]}`).byteLength;
+    let size = emptyBodyBytes;
+    const flush = async () => {
+      if (messages.length === 0) return;
+      try {
+        await deliver(`{"v":${version},"events":[${events.join(",")}]}`, destination, signingKey);
+        for (const message of messages) message.ack();
+      } catch {
+        for (const message of messages) message.retry();
       }
-      serialized = JSON.stringify(body);
-    } catch {
-      message.retry();
-      continue;
+      messages = [];
+      events = [];
+      size = emptyBodyBytes;
+    };
+    for (const message of batch.messages) {
+      let serialized: string;
+      try {
+        const { body } = message;
+        if (typeof body !== "object" || body === null || !("v" in body) ||
+            (body.v !== 2 && body.v !== 3)) {
+          if (version === 2) message.retry();
+          continue;
+        }
+        if (body.v !== version) continue;
+        serialized = JSON.stringify(body);
+      } catch {
+        message.retry();
+        continue;
+      }
+      const bytes = encoder.encode(serialized).byteLength;
+      if (bytes + emptyBodyBytes > MAX_BATCH_BYTES ||
+          (version === 3 && bytes > DEVELOPMENT_PIXEL_EVENT_BYTES)) {
+        message.retry();
+        continue;
+      }
+      if (messages.length === MAX_BATCH_EVENTS || size + bytes + (events.length ? 1 : 0) > MAX_BATCH_BYTES) {
+        // eslint-disable-next-line no-await-in-loop -- Flush before reusing bounded batch buffers.
+        await flush();
+      }
+      size += bytes + (events.length ? 1 : 0);
+      messages.push(message);
+      events.push(serialized);
     }
-    const bytes = encoder.encode(serialized).byteLength;
-    if (bytes + emptyBodyBytes > MAX_BATCH_BYTES) {
-      message.retry();
-      continue;
-    }
-    if (messages.length === MAX_BATCH_EVENTS || size + bytes + (events.length ? 1 : 0) > MAX_BATCH_BYTES) {
-      // eslint-disable-next-line no-await-in-loop -- Flush before reusing the ordered, bounded batch buffers.
-      await flush();
-    }
-    size += bytes + (events.length ? 1 : 0);
-    messages.push(message);
-    events.push(serialized);
+    // eslint-disable-next-line no-await-in-loop -- Keep mode-separated batches independently acknowledged.
+    await flush();
   }
-  await flush();
 }
 
 export default {

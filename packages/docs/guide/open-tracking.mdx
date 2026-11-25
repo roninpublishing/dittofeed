@@ -153,7 +153,85 @@ owns buffering/retries; ClickHouse owns request evidence, classifications and
 native event history. The existing computed-property worker is still needed to
 materialize `last_opened`; no owned-tracking capture cron remains.
 
-## Captured evidence and deliberate omissions
+## Development-only pixel data lake
+
+`ENABLE_OPEN_TRACKING_DEV_LAKE=true` selects collection-only development capture.
+Set it on **both the Worker and current application server**; it defaults to
+false. Existing Worker `ENABLED`, backend `ENABLE_OPEN_TRACKING`, verified
+newsletter hostnames and private keys remain prerequisites. Configuration alone
+does not provision resources or authorize deployment/sending.
+
+Development requests use signed v3 batches at
+`/api/public/email/open/development-batch`, separate from normal v2 capture.
+The backend rejects batches for the wrong mode rather than silently emitting
+native opens after a toggle change. Drain or reconcile old-mode Queue/DLQ work
+before changing modes; retries preserve their original event and mode.
+
+### Evidence and storage
+
+`developmentOpenPixelEvent` is a separate ClickHouse data lake. It collects
+repeated loads, bots, proxies, HEAD, unsupported methods and unmatched/malformed
+pixel tokens on verified newsletter hosts. Each request gets an event UUID;
+transport retries are logically deduplicated, not counted as another request.
+Known sends retain newsletter/contact/send correlation; unknown traffic never
+borrows another newsletter's identity.
+
+The encrypted evidence contains available request headers, full user-agent,
+edge IP and nested Cloudflare metadata, URL/query, method, request properties,
+body evidence where available, response metadata and network-set results.
+Available Cloudflare fields may include ASN/country, bot signals, TLS/client
+certificate details and connection fingerprints; availability depends on
+Cloudflare and the requester. No hidden recipient IP, browser state or device
+information is fabricated.
+
+Known authorization/cookie/credential fields and bearer pixel URLs are redacted.
+Request/query metadata can still contain PII, including explicitly authored
+`subscriber_email` values. This is restricted evidence, never general logs or
+native event properties. Arbitrary values may contain embedded secrets that
+field-name redaction cannot recognize.
+
+Body reads have a 120 KiB input ceiling and one-second deadline. JSON and
+URL-encoded forms have known credential keys redacted; multipart is represented
+as ordered repeated fields/files with names, media types and base64 file bytes.
+The evidence marks these transformations. Malformed/truncated structured bodies
+are omitted when safe redaction cannot be established. Other body bytes remain
+base64 evidence with pixel capabilities removed; arbitrary embedded secrets
+cannot be recognized. Physical limits or read failures are explicitly marked.
+GET/HEAD pixels still respond without waiting for capture. For uploads on rejected
+methods, status/headers return immediately but the empty response can remain open
+for up to that one-second body deadline; workerd otherwise closes request-body
+access when the response completes. It never waits for KV, Queue or backend ACK.
+
+Events are bounded to 120 KiB of encoded JSON to fit Cloudflare Queue messages.
+Batches remain at most 50 events / 1 MiB. Evidence explicitly lists redactions,
+truncations and unavailable data; this is not an untouched packet capture.
+Queue/enqueue failures remain possible after the immediate GIF response.
+
+### Collection, review and erasure
+
+Development capture never writes normal `trackingEvent` rows or native
+`DFEmailOpened` events, never updates `last_opened` or open counts, and never
+triggers pixel-driven segments/automations. It does not alter independent
+provider callbacks or other native ingestion. Classification definitions can be
+developed later from retained evidence without changing live engagement metrics.
+
+Review scoped decrypted evidence using
+`POST /api/admin/deliveries/development-opens` with a `sensitive` API grant and
+normal workspace authorization, for example `{"workspaceId":"…","limit":50}`.
+The reader enforces expiry even before ClickHouse TTL merges finish. Turning the
+toggle off does not turn previously collected evidence into native opens.
+
+Retention uses `OPEN_TRACKING_RETENTION_DAYS` (30 days by default). Contact
+erasure removes correlated development evidence and blocks stale token retries;
+workspace-wide erasure also removes unmatched evidence. Erased requests cannot
+recreate raw data. No PostgreSQL per-hit receipt/outbox or second send row is
+introduced.
+Queue/DLQ retention is configured separately. Erasure blocks stale ingestion;
+it does not individually delete messages already held by Cloudflare Queues.
+Use supported contact/workspace-data erasure rather than directly deleting
+Newsletter rows, which would cascade away their hash-only revocation barriers.
+
+## Normal-mode evidence and deliberate omissions
 
 Every valid-token GET or HEAD load becomes its own ClickHouse event, including scanners and repeat image loads. Count filtering never discards those rows. Queue redelivery reuses the event ID instead of becoming another hit. Unknown/deleted tokens create no observations; malformed/unsigned backend traffic is rejected. HEAD never produces a native open. Worker enqueue failure can lose a hit after the GIF response, so monitor failures rather than treating the image as an acknowledgement.
 

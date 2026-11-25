@@ -12,6 +12,7 @@ function isolatedConfig(overrides: Record<string, string> = {}): Config {
   const previous = process.env;
   process.env = { ...previous };
   delete process.env.ENABLE_OPEN_TRACKING;
+  delete process.env.ENABLE_OPEN_TRACKING_DEV_LAKE;
   delete process.env.OPEN_TRACKING_RETENTION_DAYS;
   delete process.env.OPEN_TRACKING_RELAY_SECRET;
   delete process.env.OPEN_TRACKING_SELF_IPS;
@@ -31,7 +32,7 @@ function isolatedConfig(overrides: Record<string, string> = {}): Config {
 
 describe("owned open tracking configuration", () => {
   it("defaults to disabled and retains evidence for 30 days", () => {
-    expect(isolatedConfig()).toMatchObject({ enableOpenTracking: false, openTrackingRetentionDays: 30 });
+    expect(isolatedConfig()).toMatchObject({ enableOpenTracking: false, enableOpenTrackingDevLake: false, openTrackingRetentionDays: 30 });
   });
 
   it("requires deliberate enablement and an authenticated relay key", () => {
@@ -39,6 +40,24 @@ describe("owned open tracking configuration", () => {
     expect(isolatedConfig({ OPEN_TRACKING_RELAY_SECRET: relay }).enableOpenTracking).toBe(false);
     expect(() => isolatedConfig({ ENABLE_OPEN_TRACKING: "true" })).toThrow();
     expect(isolatedConfig({ ENABLE_OPEN_TRACKING: "true", OPEN_TRACKING_RELAY_SECRET: relay }).enableOpenTracking).toBe(true);
+  });
+
+  it("requires explicit capture enablement before the isolated development lake can collect", () => {
+    const relay = Buffer.alloc(32, 9).toString("base64");
+    expect(() => isolatedConfig({ ENABLE_OPEN_TRACKING_DEV_LAKE: "true" }))
+      .toThrow("ENABLE_OPEN_TRACKING_DEV_LAKE requires ENABLE_OPEN_TRACKING.");
+    const enabled = isolatedConfig({
+      ENABLE_OPEN_TRACKING: "true", ENABLE_OPEN_TRACKING_DEV_LAKE: "true",
+      OPEN_TRACKING_RELAY_SECRET: relay,
+    });
+    expect(enabled).toMatchObject({ enableOpenTracking: true, enableOpenTrackingDevLake: true });
+    expect(isolatedConfig({
+      ENABLE_OPEN_TRACKING: "true", ENABLE_OPEN_TRACKING_DEV_LAKE: "false",
+      OPEN_TRACKING_RELAY_SECRET: relay,
+    }).enableOpenTrackingDevLake).toBe(false);
+    expect(() => isolatedConfig({
+      ENABLE_OPEN_TRACKING: "true", ENABLE_OPEN_TRACKING_DEV_LAKE: "true",
+    })).toThrow("Enabling open tracking requires OPEN_TRACKING_RELAY_SECRET.");
   });
 
 

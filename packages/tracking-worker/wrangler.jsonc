@@ -38,10 +38,10 @@
   "env": {
     "production": {
       "name": "newsletter-tracking",
-      // Staged disabled. Enable both flags only after backend readiness approval.
+      // Backend-ready development capture approved; sender workers remain off.
       "vars": {
-        "ENABLED": "false",
-        "ENABLE_OPEN_TRACKING_DEV_LAKE": "false",
+        "ENABLED": "true",
+        "ENABLE_OPEN_TRACKING_DEV_LAKE": "true",
         "TRACKING_ORIGIN": "https://email.roninpublishing.com",
         "CLOUDFLARE_TRACKING_CNAME_TARGET": "dt.dittotrx.com"
       },

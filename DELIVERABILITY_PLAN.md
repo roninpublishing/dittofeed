@@ -8,13 +8,31 @@ We build one Deliverability system in three layers: **See** (every IP and domain
 
 _The system architecture diagram (see, decide, act), the Open tracking tab and the KPI framework tab live in the source doc and still need to be added to this repository before tracking or KPI work starts._
 
+## Scope: a layer on core sending
+
+Core sending (send path, ESP accounts and connections, IPs and pools, capacity enforcement, provider webhooks, the real-send gates, and each provider's onboarding, including Telnyx) is separate work. This spec is the layer that decides how to use it with good deliverability: it observes, judges and steers. It never sends mail, stores credentials or sets the gates.
+
+### Hand-off points
+
+| This layer | Core sending surface it uses | Direction |
+| --- | --- | --- |
+| Inventory and registry | ESP accounts, connections, `SendingIp`, `SendingPool`, `NewsletterTrackingDomain` | Reads; adds lifecycle, health and domain/identity rows alongside |
+| Send-event signals | `NewsletterSend`, `NewsletterWebhookReceipt`, suppressions, Telnyx event receipts | Reads |
+| Router | Per-send `EspSelection` (account, pool or IP) and `NewsletterDefault` | Writes the selection; the core saves, verifies and sends it |
+| Volume governor and warm-up | `SendingIp` limits and warm-up schedule, `reserveCapacity` / `SendingIpBudget` | Supplies caps and health multipliers; the core enforces them |
+| Engagement tiers | Recipient lists for each send | Filters and orders recipients before the core enqueues |
+| Automatic actions | IP `status`, caps, selections | Lowers risk only (pause, throttle, reroute); never raises gates or caps without approval |
+| Open and click tracking | Message rendering (pixel and links), `packages/tracking-worker` | Adds the pixel and link tokens at render; owns the Worker and classifier |
+
+A provider is available to this layer once core sending supports it end to end. Until Telnyx reaches the newsletter path, Telnyx is limited to inventory sync and webhook signals here.
+
 ## Codebase alignment (read first)
 
 This spec was checked against the codebase on Nov 25, 2026, including current changes to the send path. Build on this code and don't duplicate it.
 
-- **Neither provider has sent a real email yet.** SendGrid newsletter sending is built and tested locally with mocks. Telnyx email works only through the basic workspace email-provider path (`destinations/telnyx.ts`, `messaging.ts`). It has no accounts, IPs, pools, gates or capacity budgets.
-- **Real sends can't be switched on.** Every newsletter send requires `allowRealSends` and `allTrafficControlled` on its `PublisherSendgridAccount`. Both default to false, and no API, screen or command sets them. Phases 1 and 2 don't need it. Live routing and Phase 3 actions do.
-- **Provider accounts.** A workspace can have several ESP accounts (`PublisherSendgridAccount` + `SendingConnection`), currently SendGrid-only. Extend them with a `provider` field to cover Telnyx rather than adding a parallel account table.
+- **Neither provider has sent a real email yet.** SendGrid newsletter sending is built and tested locally with mocks. Telnyx email works only through the basic workspace email-provider path (`destinations/telnyx.ts`, `messaging.ts`).
+- **Real-send gates.** Every newsletter send requires `allowRealSends` and `allTrafficControlled` on its account. They belong to core sending. Phases 1 and 2 work without them; live routing and Phase 3 actions need them on.
+- **Provider accounts.** A workspace can have several ESP accounts (`PublisherSendgridAccount` + `SendingConnection`), currently SendGrid-only. This layer references them by ID and doesn't add its own account table.
 - **Routing is a per-send ESP selection.** Each newsletter has an optional default (`NewsletterDefault.selection`), and each send carries an `EspSelection`: an account, a pool or a single IP. The selection and its candidate IPs are saved on the `NewsletterSend` and checked again before submission (`verifyPinnedNewsletterSelection`). Routing in this spec produces `EspSelection`s; it doesn't add a route table.
 - **Caps and warm-up already exist.** `SendingIp` has `status`, `hourlyLimit`, `dailyLimit`, `warmupStartedAt` and `warmupSchedule`. `newsletterCapacityLimits` and `reserveCapacity` (with `SendingIpBudget`) enforce them per physical IP: rows for the same address share one budget through `canonicalIpId`. The warm-up planner and volume governor extend these.
 - **Delivery data already exists.** Signed SendGrid webhook receipts (`NewsletterWebhookReceipt`, `receiveNewsletterWebhook`), suppressions (`PublisherSuppression`, `NewsletterSuppression`) and `getNewsletterDeliveryHealth`. The send-events adapter reads from these.
@@ -41,7 +59,7 @@ The registry is the single list of everything we send from. Every signal, health
 
 | Asset | Key fields | Source of truth |
 | --- | --- | --- |
-| Provider account | provider (sendgrid, telnyx), account or subuser, region, credentials ref; extends `PublisherSendgridAccount` / `SendingConnection` | Our config |
+| Provider account | provider (sendgrid, telnyx), account or subuser, region; referenced by ID from core sending's ESP accounts | Core sending |
 | IP | address, provider, **dedicated or shared**, pool, region, rDNS/PTR, SNDS-registered flag, lifecycle state, warm-up plan | Provider inventory sync + our lifecycle |
 | Pool | provider, purpose (warm-up, engaged, bulk, cold, transactional), member IPs | Ours, mirrored to the provider |
 | Domain | root domain, **role** (from, return-path, DKIM `d=`, tracking, link), parent domain, provider verification, Postmaster verification, DMARC policy, lifecycle state | Ours + DNS + Postmaster |
@@ -199,7 +217,7 @@ For each batch the router:
 
 Routing across providers (SendGrid vs Telnyx) works the same way, because each provider's pools are just more eligible assets. Weights per newsletter can be pinned by hand.
 
-**Output is an `EspSelection`.** The router's result for each slice is a per-send selection (account, pool or IP) and its candidate IP list. These are saved on the `NewsletterSend` and verified again before submission. Routing never changes the selection of a send that's already queued, so a retry never re-routes. Cross-provider routing needs Telnyx on the newsletter path first (Phase 2, step 1).
+**Output is an `EspSelection`.** The router's result for each slice is a per-send selection (account, pool or IP) and its candidate IP list. These are saved on the `NewsletterSend` and verified again before submission. Routing never changes the selection of a send that's already queued, so a retry never re-routes. Cross-provider routing applies once core sending supports Telnyx on the newsletter path.
 
 ### Automatic actions and approval gates
 
@@ -213,7 +231,7 @@ Routing across providers (SendGrid vs Telnyx) works the same way, because each p
 | Add or buy IPs, add subdomains, move a newsletter to a new identity | Person starts it | **Approval** |
 | Delist requests, provider tickets | Blocklist or block | Draft for a person |
 
-What the system does on its own only ever lowers risk. Anything that adds risk needs a person. The existing `PublisherSendgridAccount` gates (`allowProviderWrites`, `allowIpReassignment`, `allowRealSends`, plus `allTrafficControlled`) still apply on top. Telnyx gets the same gates once it has a newsletter-path account. Automation never sets these gates.
+What the system does on its own only ever lowers risk. Anything that adds risk needs a person. Core sending's account gates (`allowProviderWrites`, `allowIpReassignment`, `allowRealSends`, plus `allTrafficControlled`) still apply on top, for every provider. Automation never sets these gates.
 
 ## Alerts and incidents
 
@@ -252,7 +270,6 @@ Postgres tables sit beside `publisherSchema.ts` (Drizzle migrations). High-volum
 | Table | Purpose | Key columns |
 | --- | --- | --- |
 | `SendingIp` (extend) | IPs | + `ipType` (dedicated, shared\_pool), `lifecycleState`, `ptr`, `sndsRegistered`, `warmupPlanId`. Provider and account come from the existing `accountId`. |
-| `PublisherSendgridAccount` / `SendingConnection` (extend) | Provider accounts and subusers | + `provider` (sendgrid, telnyx); existing gate flags stay |
 | `sendingDomain` | Every domain and subdomain | `name`, `parentId`, `role[]`, `lifecycleState`, `postmasterStatus`, `dmarcPolicy`; links existing `NewsletterTrackingDomain` rows |
 | `sendingIdentity` | from + return-path + DKIM + tracking bundle | domain ids per role, `accountId` |
 | `NewsletterDefault` / `EspSelection` (extend) | Newsletter default and per-send selection | + optional `weight`, `pinned` |
@@ -303,7 +320,6 @@ There are three phases. Each one is usable on its own, and each needs the one be
    10. Screens: Overview, IPs, Domains, Asset page; Critical and At-risk alerts.
    - **Done when:** every IP and domain we send from shows a state per mailbox provider with reasons, and the state for one test asset matches a manual check. Test-inbox sends (Apple Mail with and without MPP, Gmail, Outlook.com, Yahoo, a Microsoft 365 tenant) come back classified correctly.
 2. **Phase 2: Decide and route (control).**
-   1. Telnyx on the newsletter send path: account, IPs, gates and capacity budgets, so it can be routed like SendGrid. Until then, Telnyx is limited to inventory sync and webhook signals.
    1. Engagement tiers and signup-source tracking.
    2. Warm-up planner and templates.
    3. Volume governor.
@@ -323,8 +339,6 @@ There are three phases. Each one is usable on its own, and each needs the one be
 
 - [ ] Approve this design as the plan for Phase 1.
 - [ ] Approve click redirects and link rewriting (reverses the "no click redirect / no automatic href rewriting" decision in `FORK_PLAN.md`).
-- [ ] How real sends get enabled on an account: who can do it, and how it's recorded.
-- [ ] Bring Telnyx onto the newsletter send path, or keep Phase 1–2 SendGrid-only?
 - [ ] Blocklist source: PowerDMARC (blocklists + DMARC in one) or HetrixTools (cheaper, documented API)? Depends on the PowerDMARC check below.
 - [ ] Which automatic actions run without approval in Phase 3 (the gate table's defaults, or stricter)?
 - [ ] Subdomain scheme: one sending subdomain per newsletter, or per newsletter group?

@@ -575,7 +575,9 @@ export default async function contentController(fastify: FastifyInstance) {
           error.statusCode >= 400 &&
           error.statusCode < 500
         ) {
-          return reply.status(error.statusCode).send({ message: error.message });
+          return reply
+            .status(error.statusCode)
+            .send({ message: error.message });
         }
         logger().error(
           {

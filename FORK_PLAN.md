@@ -905,12 +905,15 @@ SendGrid is the first managed-account adapter; native non-newsletter providers r
 
 | Left sidebar | Target URL | Main surface |
 | --- | --- | --- |
-| Overview | `/dashboard/workspace` | Organizational map with Map/List toggle and selected-object panel |
+| Overview | `/dashboard/workspace` | Static corporate hierarchy with full-size resource cards |
 | Newsletters | `/dashboard/workspace/newsletters` | Independent newsletter list, creation and Open |
 | ESP accounts | `/dashboard/workspace/esp-accounts` | All account instances, provider/status, connected date, volume and observed health |
-| IPs | `/dashboard/workspace/ips` | Workspace-wide inventory across accounts, with owning account, status, limits, warm-up and usage |
-| IP pools | `/dashboard/workspace/ip-pools` | Workspace-wide pool inventory with account and member IPs |
+| Domains | `/dashboard/workspace/domains` | Sending and newsletter-owned tracking hosts, DNS and explicit configuration |
+| Dedicated IPs | `/dashboard/workspace/ips` | Readable address/account/status inventory; operational policies stay behind the scenes |
+| Shared IPs | `/dashboard/workspace/ip-pools` | Account-owned pools and their dedicated-IP members; not a provider-shared IP service |
 | Subscribers | `/dashboard/workspace/subscribers` | Existing scoped cross-newsletter search |
+| Automations | `/dashboard/workspace/automations` | Independent workspace trigger/condition/action builder and execution history |
+| Tracking | `/dashboard/workspace/tracking` | Intentionally blank at Carson's request |
 | Reports | `/dashboard/workspace/reports` | Existing workspace reporting plus account/IP filters where data exists |
 | Settings | `/dashboard/workspace/settings` | Workspace configuration, access and existing administration |
 
@@ -918,22 +921,25 @@ SendGrid is the first managed-account adapter; native non-newsletter providers r
   ownership rules: IPs/pools still belong to their verified ESP account. The
   workspace inventory and account detail use the same records and edit flows.
 - Account detail uses `/dashboard/workspace/esp-accounts/:accountId` with focused
-  Overview, Configuration, Domains, IPs, IP pools and Activity sections. Provider-
+  Overview, Configuration, Dedicated IPs, Shared IPs and Activity sections. Provider-
   unsupported sections are omitted. Configuration holds credentials and signed
   webhook setup; account activity shows observed sends and delivery outcomes.
 - IP and pool details support direct links under their workspace sections, account
   breadcrumbs and the same configuration panel opened from the map. Do not require
   going through newsletter settings to find or edit infrastructure.
-- Existing tracking, automations, suppressions, activity and advanced repair tools
-  remain reachable during the navigation migration; this does not silently remove
-  existing features or change newsletter tracking-domain ownership.
-- Top-right workspace selection scopes every page, graph, query and mutation.
-  Opening a newsletter enters its existing native environment; returning restores
-  the workspace dashboard. Preserve newsletter-only membership restrictions.
+- Domains owns sending-domain and newsletter tracking-host management. Automations
+  has its own section, separate from native user journeys. Settings retains access,
+  suppression, activity and advanced repair tools.
+- The top-left brand returns to the authorized workspace dashboard. Matching
+  searchable Workspace and Newsletter selectors switch the real server context;
+  newsletter-only memberships never gain parent/sibling access.
 - Workspace views use nested routes under `/dashboard/workspace`; the former
   `?view=` navigation and obsolete combined sending/IP editors are removed.
-- Overview provides a lazy-loaded, Mermaid-like organizational map and a List
-  alternative. Its ownership structure is:
+- Overview is a compact, static top-down diagram, not a ReactFlow editor or nested
+  list. Sibling newsletters and ESP accounts share a horizontal rank; compact
+  asset branches sit below their owners with orthogonal connectors. Dark
+  organizational nodes contrast with light resource cards. No zoom/pan/drag
+  controls or Map/List toggle; overflow stays inside the diagram. Its ownership structure is:
 
 ```mermaid
 flowchart TD
@@ -943,22 +949,23 @@ flowchart TD
   N --> N2[Newsletter B]
   E --> A[SendGrid account A]
   E --> B[SendGrid account B]
-  A --> P[IP pools]
-  A --> I[IP addresses]
+  A --> P[Shared IP pools]
+  A --> I[Dedicated IPs]
   P -. membership .-> I
 ```
 
 - Do not draw newsletter-to-IP/pool assignment lines or permanent newsletter-to-
   ESP binding edges. Optional defaults belong in the newsletter configuration,
-  not in the graph as ownership. Dragging changes layout only.
-- Selecting a workspace, newsletter, ESP account, pool or IP opens configuration
-  for that object. Preserve the compact styling and minimal-copy rules.
+  not in the hierarchy as ownership.
+- Organizational headers are noninteractive. Actual resource cards link directly
+  to their configuration; preserve every account-local configuration of a shared
+  physical IP. Keep the existing palette and minimal-copy rules.
 - ESP accounts lists name, provider, verified connection state, connected date,
   observed send history and delivery health. Provider lifetime age/history is
   shown only if actually available. Account details contain credentials, sending
   domains/webhooks and IP/pool management; IPs are not managed under newsletters.
 - Keep backend authorization and consequential-action confirmation without a
-  standing release-gate checkbox panel. Do not auto-provision or send from the map.
+  standing release-gate checkbox panel. Do not auto-provision or send from the overview.
 
 #### Implementation sequence and acceptance
 
@@ -978,7 +985,7 @@ flowchart TD
 - [x] Preserve immutable attempt history, credential-owner attribution, signature
   verification, deduplication and conservative admission for multi-IP/automatic
   selection. Prove default changes cannot cause rerouting or duplicate submissions.
-- [x] Build the overview map/list from actual stored objects and relationships;
+- [x] Build the static corporate hierarchy from actual stored objects and relationships;
   allow independent newsletters/accounts with no sending setup and no binding edges.
 - [x] Verify multiple accounts from the same provider, a newsletter using different
   accounts/IP choices on different sends, default overrides, isolation and supported
@@ -1004,9 +1011,119 @@ Local implementation verification:
   layouts were checked. Temporary development accounts/IPs/pools/defaults were removed;
   newsletter/contact records were untouched and no send records were created.
 - Current combined local preview: `http://localhost:3000/dashboard/workspace`,
-  dashboard build `dist/workspace-ready-preview`. Neon, ClickHouse and Temporal
+  dashboard build `dist/workspace-readable-cards-preview`. Neon, ClickHouse and Temporal
   target development; workers, bootstrap, capture and provisioning remain off.
   No production deployment, provider mutations or real email sends were performed.
+- Overview correction: compact connected boxes and horizontal sibling ranks replace
+  the rejected nested columns. Terminal assets branch below their owners;
+  resource counts use a single compact strip. On small screens, horizontal
+  overflow stays inside the diagram without shrinking its text.
+  Resource cards are 176×72px with 14px labels to reduce repeated name wrapping.
+- Compact-diagram verification: both isolated geometry/ownership tests and the
+  optimized dashboard build pass. Actual browser checks show all 25 nodes in a
+  1093×560 diagram with no clipped labels; a 390px viewport keeps page overflow
+  contained inside the diagram. Development target guards pass.
+- Larger-card verification: all seven demo domain labels fit two lines without
+  clipping in the actual browser. Both isolated layout tests and the optimized
+  dashboard build pass; the hierarchy and configuration links are unchanged.
+- Intentionally retained local demo records: `Demo · Morning Brief`, `Demo · Weekly
+  Digest`, `Demo · SendGrid Primary` and `Demo · SendGrid Secondary`; six paused
+  documentation-range IPs (`192.0.2.10–12`, `198.51.100.10–12`) and four shared-IP
+  pools. Provider credentials and verification remain absent; operational gates stay
+  closed. Additional explicitly requested synthetic subscriber/delivery data is
+  documented below; none represents an actual provider transmission.
+- Real headed-browser navigation measured 1,024–1,622ms before and 30–128ms after
+  across five workspace sections. Each former transition fetched Next server-page
+  data; the new transitions fetched none. Guarded same-workspace links avoid Pages
+  Router hover prefetch; query keys share infrastructure/newsletter/health results.
+  Server authentication and real workspace/newsletter changes are not cached.
+- Workspace expansion: deliverability appears immediately after Delivered (30d)
+  and uses the latest resolved delivered/bounced/dropped outcome per send, not
+  acceptance attempts or inbox-placement claims. Domains owns sending-domain and
+  tracking-host configuration and appears in the ownership graph. Dedicated/shared
+  IP screens are simple inventories; metadata-only edits preserve admission policies.
+- Separate workspace Automations provides native-event triggers, typed conditions,
+  field mappings, subscription actions, optional existing welcome journeys and
+  execution history. Rules start paused. Scheduled resource, warm-up and cap actions
+  remain planned adapters, not selectable no-ops. Tracking is intentionally blank.
+- The entire brand opens the containing workspace; matching searchable Workspace
+  and Newsletter controls replace the redundant All newsletters shortcut. Real
+  Google-session browser checks switched between both demo newsletters and returned
+  to the parent workspace through the brand.
+- The guarded development seeder retains 120 synthetic subscriber records across
+  three newsletters, 80 synthetic historical attempts, two paused automations and
+  labeled synthetic execution examples. Two sending domains remain not checked;
+  three tracking hosts remain pending. Example-domain evidence is not verification.
+  No credentials, provider calls or real transmissions are created by the seeder.
+- Verification: 106 focused isolated tests passed, including real ClickHouse
+  outcome aggregation and API authorization. Lite and optimized dashboard builds
+  passed. Real local browser controls verified creation/retirement of a paused
+  automation, labeled execution history, domain details, neutral row links and
+  blank Tracking. Six workspace transitions made zero Next server-page requests.
+  Dashboard feature-file scoped lint passed; broader backend/API lint still reports
+  findings. Production and worker enablement are unchanged.
+- Domain/flow refinement: newsletter-owned tracking domains use distinct globe
+  icons and explicit tracking-domain labels; shared IPs remain ESP-owned pools.
+  Overview and Domains expose shared 30-day volume/outcome KPIs. Tracking-host
+  delivery is N/A, including loading/unavailable states; no reputation score is
+  inferred. Neutral links cover workspace tables, cards, breadcrumbs and marked
+  dialogs. The header uses a stacked DITTO / EMAIL CLIENT wordmark.
+- Migration `0019_newsletter_sender_domain` is applied to development only.
+  All 19 prior migration records were preserved. Nullable immutable actual-From
+  attribution is pinned when queuing and copied from trusted send records into
+  native events. Historical unknown senders remain separate; no payload-decryption
+  backfill or inference from current domain settings was performed.
+- The development fixture set now retains 160 synthetic historical attempts:
+  80 original unknown-sender attempts and 80 new explicitly attributed attempts
+  across four sending domains. Overall observations show 146 delivered, 10 bounced,
+  four dropped and two complaints; deliverability is 91.25% (91.3% displayed).
+  The existing 120 synthetic subscriber records and three pending tracking hosts
+  remain. No credentials, provider changes or real transmissions were created.
+- Automations and native user journeys now consume the same reusable flow canvas,
+  with independent definitions and execution. The workspace palette edits actual
+  event/condition/contact/mapping/subscription/welcome/consent/dedupe behavior;
+  16 typed comparison operators and all/any groups are supported. Native measured
+  node state is preserved during drag, and saved canonical coordinates round-trip
+  through the real API. Unsupported operational actions are not presented as nodes.
+- Verification passed across focused API, durable delivery, automation execution,
+  real ClickHouse reporting, native journey store and UI model suites; this includes
+  114 condition cases and 12 flow/metric cases. Lite and optimized dashboard builds
+  passed; scoped final flow lint has zero errors and four warnings. Actual local
+  browser checks covered all 11 workspace sections' link styles, domain metrics,
+  editing an unchecked domain registration, native journey canvas/inspector,
+  paused visual-flow create/edit/drag/save/reopen, and trigger-type transitions.
+  Owned smoke fixtures and isolated QA databases were removed/retired. Production,
+  workers, provider permissions and existing send-time safeguards are unchanged.
+- Session wrap-up replaces the interactive overview with a static corporate
+  hierarchy: contrasting organizational headers, 16px resource names, full-size
+  wrapping cards, direct links and natural scrolling. All 22 current resources
+  are present; no overview canvas, zoom, drag or Map/List controls remain.
+- Domains supports type/owner/status/search filters, sortable headers and Reset;
+  Reputation cells are intentionally blank. Dedicated/shared IP inventories add
+  equivalent controls and Attempts/Delivered/Deliverability/Bounced/Complaints.
+  Unknown metrics sort last, distinct from zero; pool member-status filtering is
+  inventory metadata, never historical delivery attribution.
+- IP metrics prefer provider-reported addresses, otherwise explicit pinned routes.
+  Pool metrics use immutable send-time pool IDs copied into native events; missing
+  historical attribution remains unknown, never redistributed using current members.
+  Rates describe attributed outcomes only. No schema migration was required.
+- Added 32 fresh synthetic IP/pool attempts without rewriting earlier history.
+  Development now has 192 synthetic attempts, 162 delivered, 18 bounced, 12 dropped
+  and 10 complaints (84.375% overall). The 120 demo subscriber records remain.
+  There were no real transmissions or provider/resource changes.
+- Final verification: 57 focused tests passed across targeted reruns, including
+  real ClickHouse IP/pool history, durable metadata, ownership, filtering and numeric
+  sorting. Lite and optimized dashboard builds passed; scoped table/chart lint has
+  zero errors and three warnings. Real browser controls verified filters, Reset,
+  numeric sorting, blank reputation, attributed metrics, direct resource links,
+  readable static desktop/mobile cards and no document overflow at 390px.
+  QA databases/scripts were removed. Automations, navigation, production and
+  existing send-time safeguards are unchanged.
+- Thirty-six focused navigation/topology tests passed; the final compact-layout
+  regression rerun passed all five topology cases. Optimized dashboard build and
+  scoped lint passed (warnings only). Browser proof covered all 18 graph nodes
+  fitting on desktop/mobile, no horizontal page overflow, configuration links,
+  back/forward, direct details and actual newsletter entry/management return.
 
 ### Existing implementation and operating safeguards
 

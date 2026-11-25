@@ -12,9 +12,28 @@ IPs/pools belong to the relevant provider account, not a newsletter. Optional
 newsletter defaults prefill sending choices and can be overridden for each send.
 
 The workspace dashboard is `/dashboard/workspace`. Its left sidebar contains
-Overview, Newsletters, ESP accounts, IPs, IP pools, Subscribers, Reports and Settings.
-The map and workspace/account inventories configure the same stored resources.
-Dragging only changes layout; the map never assigns IPs to newsletters.
+Overview, Newsletters, ESP accounts, Domains, Dedicated IPs, Shared IPs, Subscribers,
+Automations, Tracking, Reports and Settings. Shared IPs are account-owned pools of
+dedicated IPs, not a provider-shared service. The overview is a static corporate
+hierarchy: contrasting organizational headers, full-size resource cards and direct
+configuration links. It scrolls naturally without zoom, dragging or editor controls.
+
+**Domains** centralizes account sending domains and newsletter-owned tracking
+hosts. **Automations** provides workspace rules and history independently of user
+journeys; the first action adapter coordinates newsletter contacts. Infrastructure
+actions such as warm-up/cap adjustment remain separately planned. **Tracking** is
+intentionally blank. The brand returns to the workspace dashboard; matching
+workspace/newsletter selectors perform authorized context switches.
+
+Dedicated/shared IP pages are inventories, not operational control panels.
+Registration does not require a capacity policy; unconfigured IPs remain paused
+with zero admission. Edits preserve existing policies. Warm-up, reassignment and
+provider reconciliation remain backend-controlled rather than everyday UI fields.
+
+Domain and IP inventories offer search, filters, sortable headers and 30-day
+volume/delivery observations. Unknown metrics are not zero and sort last in either
+direction. Domain **Reputation** is intentionally blank until a real source is
+selected; no score is inferred from delivery observations.
 
 ```mermaid
 flowchart TD
@@ -22,8 +41,8 @@ flowchart TD
   W --> B[Newsletter B]
   W --> E1[SendGrid account A]
   W --> E2[SendGrid account B]
-  E1 --> P[Account IP pools]
-  E1 --> I[Account IP addresses]
+  E1 --> P[Shared IP pools]
+  E1 --> I[Dedicated IPs]
   P -. membership .-> I
   A -. explicit audited automation .-> B
 ```
@@ -32,7 +51,7 @@ A person's name, email, fields, consent, subscription state and engagement can d
 
 The dashboard's **Newsletters** entry starts with a simple newsletter list: name, subscriber count, status and **Open**. **New newsletter** asks for a name; its sending ID is generated automatically, with optional customization before creation. Opening a newsletter enters its native audience/campaign/journey environment.
 
-The top-right Workspace selector scopes every dashboard section and lists authorized workspaces, not their newsletters. Inside a newsletter it retains the containing workspace; **All newsletters** returns to the workspace list. Direct newsletter-only memberships remain accessible without granting parent access. ESP account details contain credentials, sender domains, signed webhooks, IPs/pools and observed activity. Settings retains tracking, automations, suppressions, activity and Advanced tools.
+The top-right Workspace selector scopes every dashboard section and lists authorized workspaces, not their newsletters. A matching Newsletter selector hot-swaps newsletters; the brand returns to the containing workspace. Direct newsletter-only memberships remain accessible without granting parent access. ESP account details contain credentials, signed webhooks, IPs/pools and observed activity. Domains owns sending/tracking hosts; Settings retains access, suppressions, activity and Advanced tools.
 
 Search/export identities are `(newsletterId, userId)`, never `userId` alone. Contact/subscription counts and matched normalized mailboxes are separate measures; a matched mailbox is not a verified unique person. Every campaign and journey remains owned by its newsletter. Management workspaces cannot create campaigns or send.
 
@@ -59,15 +78,14 @@ Read-only keys can inspect registry/reporting and search contacts. Management-ke
 | `POST /adopt` | Adopt an already-owned child workspace; reject foreign roots. Select its existing email subscription group explicitly if ambiguous. No contacts are copied. |
 | `GET /overview` | Combined publication-local contacts/subscriptions and matched-mailbox counts. |
 | `POST /contacts/search`, `POST /contacts/operations` | Scoped search and explicit subscribe/unsubscribe operations. Cross-publication operations require composite targets; no implicit all-contact edit. |
-| `GET /infrastructure` | Redacted accounts, connections, IPs, pools, bindings, routes and gates. |
-| `PUT /infrastructure/account` | Encrypt management credentials and configure region, callback origin and explicit release gates. |
-| `POST /infrastructure/inspect` | Read-only existing-account/subuser inventory, defaulting to `aistocknews-ditto`. |
-| `PUT /infrastructure/connections` | Register/adopt a newsletter connection and existing restricted runtime key. |
-| `POST /infrastructure/connections/inspect`, `POST /infrastructure/connections/provision` | Inspect or resume reconciliation/provisioning without duplicating existing resources. |
+| `GET /infrastructure` | Redacted accounts, connections, IPs, pools, memberships, bindings and defaults. |
+| `PUT /infrastructure/accounts` | Create/edit independent ESP account instances and encrypted credentials. |
+| `POST /infrastructure/accounts/inspect` | Read-only inspection of an account's existing provider resources. |
+| `POST /infrastructure/connections/inspect` | Inspect the account-owned sending connection. |
 | `POST /infrastructure/domains`, `POST /infrastructure/senders`, `POST /infrastructure/webhooks` | Reconcile authentication/DNS, verified sender identities and signed connection callbacks. Sender verification email is a separate explicit action. |
 | `PUT /infrastructure/ips`, `PUT /infrastructure/pools` | Register already-owned physical IPs and independent logical pools. No purchases occur. |
 | `PUT /infrastructure/pool-bindings`, `POST /infrastructure/pool-bindings/reconcile` | Bind/verify account-scoped provider pool names and reconcile provider pools behind the write gate. |
-| `PUT /infrastructure/routes` | Change the connection/pool for future sends without rebuilding campaigns. |
+| `PUT /infrastructure/defaults`, `GET /sending-options` | Optional newsletter preferences and supported send-time choices. |
 | `POST /infrastructure/ip-reassignment` | Explicit, separately gated provider assignment with `confirm:true`; never an automatic purchase. |
 | `GET /suppressions`, `POST /suppressions/search`, `PUT /suppressions`, `POST /suppressions/deactivate` | List/search workspace mailbox blocks and explicitly deactivate them. Newsletter resubscription cannot clear these blocks. |
 | `GET /automations`, `PUT /automations`, `DELETE /automations`, `GET /automations/actions` | Configure/retire audited cross-publication rules and inspect outcomes. Retirement retains history. |
@@ -104,7 +122,20 @@ An enabled rule can match A's `DFEmailClicked` at a specified URL, find or creat
 }
 ```
 
-Use the exact observed link URL; authored attribution tokens/query parameters may change it. Conditions support `equals`/`exists` against source traits or event paths. The destination welcome journey must be Running, event-entry, and compatible with the generated native entry event; custom-key journeys are rejected rather than silently restarted.
+Workspace Automations uses the same visual flow canvas as user journeys, with an
+independent definition and execution engine. Select nodes to configure native/custom
+event triggers, all/any conditions, contact matching, creation, field mappings,
+subscriptions, existing welcome journeys, explicit consent and deduplication. Node
+positions are saved; connections show the supported execution order, not arbitrary
+unimplemented branches.
+
+Use the exact observed link URL; authored attribution tokens/query parameters may
+change it. Conditions support equality, existence, literal string matching,
+structural JSON membership/array containment, numeric comparisons and strict ISO
+datetime comparisons. Comparisons never coerce scalars; missing fields fail closed
+except `notExists`. Strings are case-sensitive. The destination welcome journey
+must be Running, event-entry, and compatible with the generated native entry
+event; custom-key journeys are rejected rather than silently restarted.
 
 A deliberately configured matching rule can subscribe a newly created B subscriber and records the rule's authorization/provenance. It does not override an existing B unsubscribe. An explicit, evidenced consent rule is required to authorize resubscription; workspace suppression is never overridden. A click alone does not establish human engagement or universally valid legal consent: operators remain responsible for the offered opt-in and applicable requirements.
 
@@ -130,8 +161,8 @@ The current managed-account adapter is SendGrid. Existing non-newsletter provide
 paths remain supported; an unsupported provider override inside a managed
 newsletter fails explicitly rather than bypassing durable sending controls.
 
-Choose an account and **Automatic**, **IP pool**, or an eligible **IP via dedicated
-pool**. SendGrid selects pools, not arbitrary raw IPs; an individual IP is eligible
+Choose an account and **Automatic**, a **Shared IP pool**, or an eligible **Dedicated
+IP via pool**. SendGrid selects pools, not arbitrary raw IPs; an individual IP is eligible
 only through a verified singleton provider pool. Multi-IP/automatic selection
 conservatively reserves every potential physical IP, not their summed capacity.
 Aliases share a canonical physical budget. Draft/unverified aliases cannot change
@@ -153,7 +184,31 @@ Signed callbacks use `/api/public/webhooks/sendgrid/connections/{connectionId}`.
 
 Native per-send/contact observed opens/clicks, signed subscription links, current explicit RoninConv-compatible Liquid URL tokens/field/hash rendering, and owned open evidence remain intact. Literal URLs are not automatically rewritten. Opens/scanner clicks remain unqualified observations. Contact erasure removes encrypted send/source evidence and retains hash-only/opaque retry barriers; do not silently resurrect erased subscribers through late callbacks or automation replay.
 
-Delivery health distinguishes acceptance, delivery, bounce, complaint and observed engagement. Account **Attempts (30d)** counts durable sends created in the window; delivery/bounce/complaint counts deduplicate correlated sends with observations occurring in that window, not cohort rates. Unavailable analytics stays unknown, not zero. Missing historical account/IP attribution is never inferred from today's default or ownership. Provider-wide history and provider account age are not fabricated.
+Delivery health distinguishes acceptance, delivery, bounce, complaint and observed
+engagement. **Attempts (30d)** counts durable records created in the window.
+**Delivered/Bounced/Dropped (30d)** resolve each native send to its latest terminal
+outcome observed in that window; timestamp ties prefer dropped, then bounced, then
+delivered. **Deliverability (30d)** is delivered divided by those resolved outcomes,
+not attempts, acceptance or inbox placement. Empty cohorts/unavailable analytics
+show no percentage. Native send identity is required; missing historical ownership
+is never inferred from today's configuration. Complaints remain independently
+deduplicated observations.
+
+Workspace Overview and Domains share the ESP reporting query. Sending domains are
+attributed by the immutable actual transport From domain pinned on each durable
+attempt, scoped to its ESP account. Native events copy that stored value; callback
+metadata and today's account/newsletter configuration never assign it. Historical
+unknown senders remain a separate cohort. Overall rates use total resolved
+outcomes, not an average of percentages. Newsletter-owned `dt.*` hosts are tracking
+domains, not shared IPs or sending domains; delivery metrics are N/A for them.
+No reputation or inbox-placement score is inferred from delivery observations.
+
+Dedicated-IP history prefers a provider-reported physical address when present,
+otherwise an explicit pinned dedicated route. Multi-IP candidates do not establish
+an actual IP. Shared-IP history uses the stored send-time pool ID copied into
+native events, not current pool membership. Missing older attribution remains
+unknown; displayed counts/rates cover the attributable subset. Selecting another
+pool or changing membership never retargets old history.
 
 ## AI Stock News release preflight
 
@@ -168,7 +223,7 @@ It accepts `DATABASE_URL`, `NEWSLETTER_PUBLISHER_ID` when ambiguous, encrypted r
 Before releasing:
 
 1. Inventory existing contacts/consent/suppression, provider resources/defaults, callbacks, campaigns, and running Temporal workflows read-only. Preserve all history and historical migrations.
-2. Apply journal migrations through `0018_esp_accounts` using the normal release process. Historical file hashes remain unchanged; the runner strips historical file-edge transaction wrappers only during execution so fresh bootstrap and account cutover remain inside the migration transaction. Do not generate cleanup from retired provider schema differences.
+2. Apply journal migrations through `0019_newsletter_sender_domain` using the normal release process. Historical file hashes remain unchanged; the runner strips historical file-edge transaction wrappers only during execution so fresh bootstrap and account cutover remain inside the migration transaction. The nullable sender-domain addition never infers a historical sender. Do not generate cleanup from retired provider schema differences.
 3. Authorize the management/newsletter mapping and AI Stock News live-contact migration separately. Adopt existing resources; do not infer consent or merge profiles.
 4. Configure public TLS/DNS/callbacks and secure management/runtime credentials. Verify the actual subuser/pool/IP association before routing traffic.
 5. Keep `allowProviderWrites`, `allowIpReassignment` and `allowRealSends` closed until their respective releases are approved. An explicit API flag is an authorization control, not proof that an operational review happened. No automatic IP purchases are implemented.

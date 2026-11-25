@@ -640,7 +640,10 @@ export async function sendNewsletterEmail(input: NewsletterEmailInput): Promise<
       const { account, connection, selection, ips, pool, providerPoolName } = resolved;
       if (!connection.encryptedApiKey)
         throw new NewsletterDeliveryError("ESP credential unavailable");
-      const from = input.from.trim().toLowerCase();
+      const from = (typeof input.mailData.from === "string"
+        ? input.mailData.from
+        : input.mailData.from.email).trim().toLowerCase();
+      const senderDomain = from.slice(from.lastIndexOf("@") + 1).replace(/\.$/, "");
       if (
         !connection.senderEmails.some((e) => e.toLowerCase() === from) &&
         !connection.senderDomains.some(
@@ -703,6 +706,7 @@ export async function sendNewsletterEmail(input: NewsletterEmailInput): Promise<
           broadcastId: input.tags?.broadcastId,
           journeyId: input.tags?.journeyId,
           mailboxHash: newsletterMailboxHash(mailbox),
+          senderDomain,
           encryptedRecipient: encrypt(JSON.stringify([mailbox])),
           encryptedPayload: encrypt(payload),
           encryptedCredential: connection.encryptedApiKey,
@@ -1286,7 +1290,9 @@ async function projectNewsletterAcceptedSends(): Promise<void> {
                   variant: envelope.success.variant,
                   newsletterSendId: row.id,
                   sendingIpId: row.ipId,
+                  sendingPoolId: row.poolId,
                   sendingAccountId: row.accountId,
+                  senderDomain: row.senderDomain,
                   candidateIpIds: row.candidateIpIds,
                   actualIp: row.actualIp,
                   connectionId: row.connectionId,
@@ -1790,9 +1796,11 @@ export async function drainNewsletterWebhookReceipts(): Promise<void> {
                           ...normalized.value.properties,
                           newsletterSendId: row.id,
                           sendingIpId: row.ipId,
+                          sendingPoolId: row.poolId,
                           actualIp: actualIp ?? row.actualIp,
                           accountId: row.accountId,
                           sendingAccountId: row.accountId,
+                          senderDomain: row.senderDomain,
                           candidateIpIds: row.candidateIpIds,
                           connectionId: row.connectionId,
                         },

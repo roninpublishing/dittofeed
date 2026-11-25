@@ -701,6 +701,7 @@ describe("durable newsletter sends and signed inbox", () => {
     expect(row).toMatchObject({
       accountId: accountIds[0],
       accountRevision: 1,
+      senderDomain: "example.com",
       candidateIpIds: [ipId],
       selection: { accountId: accountIds[0], mode: "ip", ipId },
       connectionRevision: 1,
@@ -722,6 +723,8 @@ describe("durable newsletter sends and signed inbox", () => {
                 messageId: queued.logicalMessageId,
                 templateId: "original-template",
                 sendingIpId: ipId,
+                sendingPoolId: poolId,
+                senderDomain: "example.com",
                 connectionId: connectionIds[0],
                 variant: expect.objectContaining({
                   type: ChannelType.Email,
@@ -736,6 +739,10 @@ describe("durable newsletter sends and signed inbox", () => {
     );
     await drainNewsletterSends();
     expect(projection).toHaveBeenCalledTimes(1);
+    await expect(db().update(tables.newsletterSend)
+      .set({ senderDomain: "other.example.com" })
+      .where(eq(tables.newsletterSend.id, queued.sendId)))
+      .rejects.toThrow("Send sender domain is immutable");
   });
 
   it("uses an explicit account override and deduplicates without retargeting the confirmed attempt", async () => {
@@ -983,6 +990,7 @@ describe("durable newsletter sends and signed inbox", () => {
       newsletterSendId: queued.sendId, sg_event_id: "observed-ip",
       timestamp: Math.floor(Date.now() / 1000), ip: "192.0.2.10",
       workspaceId: newsletterIds[1], userId: "forged",
+      senderDomain: "forged.example.test",
     }]);
     await drainNewsletterWebhookReceipts();
     const [row] = await db().select().from(tables.newsletterSend)
@@ -993,6 +1001,57 @@ describe("durable newsletter sends and signed inbox", () => {
     });
     expect(projection).toHaveBeenCalledWith(expect.objectContaining({
       workspaceId: newsletterIds[0],
+      data: expect.objectContaining({
+        batch: [expect.objectContaining({
+          event: InternalEventType.EmailDelivered,
+          properties: expect.objectContaining({
+            senderDomain: "example.com",
+            sendingAccountId: accountIds[1],
+          }),
+        })],
+      }),
+    }), expect.anything());
+  });
+
+  it("projects only the ledger's immutable pool identity on acceptance and callbacks", async () => {
+    const queued = await enqueue(0, randomUUID(), {
+      accountId: accountIds[0]!, mode: "pool", poolId,
+    });
+    await drainNewsletterSends();
+    expect(projection).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        batch: [expect.objectContaining({
+          event: InternalEventType.MessageSent,
+          properties: expect.objectContaining({
+            newsletterSendId: queued.sendId,
+            sendingPoolId: poolId,
+            sendingIpId: null,
+            actualIp: null,
+          }),
+        })],
+      }),
+    }), expect.anything());
+    projection.mockClear();
+    await callback(0, [{
+      event: "delivered", email: "subscriber@example.com",
+      newsletterSendId: queued.sendId, sg_event_id: "pinned-pool",
+      timestamp: Math.floor(Date.now() / 1000),
+      sendingPoolId: poolIds[1], poolId: poolIds[1],
+      sendingIpId: ipIds[1], actualIp: "192.0.2.99",
+    }]);
+    await drainNewsletterWebhookReceipts();
+    expect(projection).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        batch: [expect.objectContaining({
+          event: InternalEventType.EmailDelivered,
+          properties: expect.objectContaining({
+            newsletterSendId: queued.sendId,
+            sendingPoolId: poolId,
+            sendingIpId: null,
+            actualIp: null,
+          }),
+        })],
+      }),
     }), expect.anything());
   });
 

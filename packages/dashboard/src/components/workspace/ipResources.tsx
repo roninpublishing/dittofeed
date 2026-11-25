@@ -5,46 +5,54 @@ import {
   Chip,
   MenuItem,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TableSortLabel,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
-  errorText,
-  record,
-  RecordValue,
-  rows,
-  text,
-} from "../publications/settingsShared";
-import {
-  DataTable,
-  date,
-  EditorDialog,
-  InfrastructureProps,
-  value,
-} from "./infrastructureShared";
+  compareInventoryValues,
+  InventorySortValue,
+} from "../../lib/tableSorting";
+import { RecordValue, rows, text } from "../publications/settingsShared";
+import { deliveryMetricValue, useDeliveryHealth } from "./deliveryMetrics";
+import { DataTable, InfrastructureProps } from "./infrastructureShared";
+import { ipDeliverySummary } from "./ipMetrics";
+import Link from "./navigation";
 
 const ResourceEditor = dynamic(() => import("./resourceEditor"));
 
 function IpResourcesContent(props: InfrastructureProps) {
   const {
-    workspaceId,
-    apiBase,
     infrastructure,
-    onComplete,
     accountId,
     resourceId,
+    apiBase,
+    workspaceId,
     kind = "ips",
   } = props;
-  const accounts = rows(infrastructure.accounts);
-  const ips = rows(infrastructure.ips);
-  const pools = rows(infrastructure.pools);
-  const memberships = rows(infrastructure.memberships);
+  const accounts = useMemo(
+    () => rows(infrastructure.accounts),
+    [infrastructure.accounts],
+  );
+  const ips = useMemo(() => rows(infrastructure.ips), [infrastructure.ips]);
+  const pools = useMemo(
+    () => rows(infrastructure.pools),
+    [infrastructure.pools],
+  );
+  const memberships = useMemo(
+    () => rows(infrastructure.memberships),
+    [infrastructure.memberships],
+  );
   const items = kind === "ips" ? ips : pools;
   const selected = resourceId
     ? items.find(
@@ -55,43 +63,33 @@ function IpResourcesContent(props: InfrastructureProps) {
     : undefined;
   const [filter, setFilter] = useState(accountId ?? "");
   const [editor, setEditor] = useState<{ item?: RecordValue } | null>(null);
-  const [operation, setOperation] = useState<"reconcile" | "reassign" | null>(
-    null,
-  );
-  const healthAccount = selected?.accountId ?? filter;
-  const health = useQuery({
-    queryKey: [
-      "publications",
-      workspaceId,
-      apiBase,
-      "resource-health",
-      healthAccount,
-    ],
-    queryFn: async () =>
-      record(
-        record(
-          (
-            await axios.get(`${apiBase}/api/publications/delivery-health`, {
-              params: {
-                workspaceId,
-                ...(healthAccount ? { accountId: healthAccount } : {}),
-              },
-            })
-          ).data,
-        ).data,
-      ),
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" }>({
+    key: "resource",
+    direction: "asc",
   });
-  const currentHealth = (ip: RecordValue) =>
-    rows(health.data?.ips).find((item) => item.id === ip.id);
-  const owner = (item: RecordValue) =>
-    accounts.find((account) => account.id === item.accountId);
+  const health = useDeliveryHealth(apiBase, workspaceId);
+  let metricState: "loading" | "unavailable" | "ready" = "ready";
+  if (health.isPending) metricState = "loading";
+  if (health.isError) metricState = "unavailable";
+  const metrics = useMemo(
+    () =>
+      new Map(
+        items.map((item) => [
+          item.id,
+          ipDeliverySummary(item, kind, health.data),
+        ]),
+      ),
+    [items, kind, health.data],
+  );
   const memberIps = (pool: RecordValue) =>
     memberships
       .filter((membership) => membership.poolId === pool.id)
       .map((membership) => ips.find((ip) => ip.id === membership.ipId))
       .filter((ip): ip is RecordValue => ip !== undefined);
   const accountLink = (item: RecordValue) => {
-    const account = owner(item);
+    const account = accounts.find((entry) => entry.id === item.accountId);
     return account ? (
       <Link href={`/workspace/esp-accounts/${text(account.id)}`}>
         {text(account.name)}
@@ -101,146 +99,128 @@ function IpResourcesContent(props: InfrastructureProps) {
     );
   };
   const path = kind === "ips" ? "ips" : "ip-pools";
-  const label = kind === "ips" ? "IPs" : "IP pools";
-  const account = selected ? owner(selected) : undefined;
-  const allowed =
-    account?.allowProviderWrites === true &&
-    account.hasManagementKey === true &&
-    typeof account.connectionId === "string";
-  const reassignmentAllowed = allowed && account.allowIpReassignment === true;
-  const binding = selected
-    ? rows(infrastructure.bindings).find(
-        (item) =>
-          item.poolId === selected.id &&
-          item.connectionId === account?.connectionId,
-      )
-    : undefined;
-  let selectedMembers: RecordValue[] = [];
-  if (selected)
-    selectedMembers = kind === "ips" ? [selected] : memberIps(selected);
-  let providerPoolName = text(selected?.name);
-  if (typeof binding?.providerPoolName === "string")
-    providerPoolName = binding.providerPoolName;
-  if (typeof selected?.providerPoolName === "string")
-    providerPoolName = selected.providerPoolName;
-  const resourceColumns =
-    kind === "ips"
+  const label = kind === "ips" ? "Dedicated IPs" : "Shared IPs";
+  const resourceColumns = [
+    {
+      label: kind === "ips" ? "Address" : "Name",
+      render: (item: RecordValue) => (
+        <Link href={`/workspace/${path}/${text(item.id)}`}>
+          {text(kind === "ips" ? item.address : item.name)}
+        </Link>
+      ),
+    },
+    { label: "ESP account", render: accountLink },
+    ...(kind === "ips"
       ? [
-          {
-            label: "IP address",
-            render: (item: RecordValue) => (
-              <Link href={`/workspace/ips/${text(item.id)}`}>
-                {text(item.address)}
-              </Link>
-            ),
-          },
-          { label: "ESP account", render: accountLink },
           {
             label: "Status",
             render: (item: RecordValue) => (
               <Chip size="small" label={text(item.status)} />
             ),
           },
-          {
-            label: "Hourly / daily cap",
-            render: (item: RecordValue) =>
-              `${text(item.hourlyLimit)} / ${text(item.dailyLimit)}`,
-          },
-          {
-            label: "Warm-up",
-            render: (item: RecordValue) =>
-              item.warmupStartedAt ? date(item.warmupStartedAt) : "Not started",
-          },
-          {
-            label: "Reserved this hour / day",
-            render: (item: RecordValue) => {
-              const windows = rows(currentHealth(item)?.windows);
-              return currentHealth(item)
-                ? `${windows.find((window) => window.windowSeconds === 3600)?.reserved ?? 0} / ${windows.find((window) => window.windowSeconds === 86400)?.reserved ?? 0}`
-                : "Unknown";
-            },
-          },
-          {
-            label: "Actions",
-            render: (item: RecordValue) => (
-              <Button
-                size="small"
-                onClick={() => setEditor({ item })}
-                aria-label={`Edit IP ${text(item.address)}`}
-              >
-                Edit
-              </Button>
-            ),
-          },
         ]
       : [
           {
-            label: "Pool",
-            render: (item: RecordValue) => (
-              <Link href={`/workspace/ip-pools/${text(item.id)}`}>
-                {text(item.name)}
-              </Link>
-            ),
-          },
-          { label: "ESP account", render: accountLink },
-          {
-            label: "Provider pool",
-            render: (item: RecordValue) => value(item.providerPoolName),
-          },
-          {
             label: "Members",
-            render: (item: RecordValue) =>
-              memberIps(item)
-                .map((ip) => text(ip.address))
-                .join(", ") || "None",
+            render: (item: RecordValue) => memberIps(item).length,
           },
-          {
-            label: "Member status",
-            render: (item: RecordValue) =>
-              memberIps(item)
-                .map((ip) => `${text(ip.address)}: ${text(ip.status)}`)
-                .join(", ") || "Unknown",
-          },
-          {
-            label: "Member hourly / daily caps",
-            render: (item: RecordValue) =>
-              memberIps(item)
-                .map(
-                  (ip) =>
-                    `${text(ip.address)}: ${text(ip.hourlyLimit)} / ${text(ip.dailyLimit)}`,
-                )
-                .join(", ") || "Unknown",
-          },
-          {
-            label: "Verification",
-            render: (item: RecordValue) => {
-              const stored = rows(infrastructure.bindings).find(
-                (entry) =>
-                  entry.poolId === item.id &&
-                  entry.connectionId === owner(item)?.connectionId,
-              );
-              return stored?.verifiedAt
-                ? `Verified ${date(stored.verifiedAt)}`
-                : "Not verified";
-            },
-          },
-          {
-            label: "Actions",
-            render: (item: RecordValue) => (
-              <Button
-                size="small"
-                onClick={() => setEditor({ item })}
-                aria-label={`Edit pool ${text(item.name)}`}
-              >
-                Edit
-              </Button>
-            ),
-          },
-        ];
+        ]),
+    {
+      label: "Actions",
+      render: (item: RecordValue) => (
+        <Button
+          size="small"
+          onClick={() => setEditor({ item })}
+          aria-label={`Edit ${text(item.address ?? item.name)}`}
+        >
+          Edit
+        </Button>
+      ),
+    },
+  ];
+  const metricColumns = [
+    { key: "sends", label: "Attempts (30d)" },
+    { key: "delivered", label: "Delivered" },
+    { key: "deliverabilityRate", label: "Deliverability" },
+    { key: "bounced", label: "Bounced" },
+    { key: "complaints", label: "Complaints" },
+  ];
+  const inventoryColumns = [
+    ...resourceColumns.slice(0, -1).map((column, index) => ({
+      ...column,
+      key: ["resource", "account", kind === "ips" ? "status" : "members"][
+        index
+      ]!,
+    })),
+    ...metricColumns.map((column) => ({
+      ...column,
+      render: (item: RecordValue) =>
+        deliveryMetricValue(metrics.get(item.id), column.key, metricState),
+    })),
+    { ...resourceColumns[resourceColumns.length - 1]!, key: "actions" },
+  ];
+  const searchTerm = search.trim().toLowerCase();
+  const sortValue = (item: RecordValue): InventorySortValue => {
+    if (sort.key === "resource") return text(item.address ?? item.name);
+    if (sort.key === "account") {
+      const name = accounts.find(
+        (account) => account.id === item.accountId,
+      )?.name;
+      return typeof name === "string" ? name : null;
+    }
+    if (sort.key === "status") return text(item.status);
+    if (sort.key === "members") return memberIps(item).length;
+    if (metricState !== "ready") return null;
+    const summary = metrics.get(item.id);
+    if (sort.key !== "sends" && summary?.observationsAvailable === false)
+      return null;
+    const value = summary?.[sort.key];
+    return typeof value === "number" ? value : null;
+  };
+  const filteredItems = items
+    .filter((item) => {
+      if (filter && item.accountId !== filter) return false;
+      if (status) {
+        if (kind === "ips" && item.status !== status) return false;
+        if (kind === "pools") {
+          const members = memberIps(item);
+          if (
+            status === "empty"
+              ? members.length > 0
+              : !members.some((ip) => ip.status === status)
+          )
+            return false;
+        }
+      }
+      const account = accounts.find((entry) => entry.id === item.accountId);
+      return (
+        !searchTerm ||
+        [item.address, item.name, account?.name, item.status].some(
+          (value) =>
+            typeof value === "string" &&
+            value.toLowerCase().includes(searchTerm),
+        )
+      );
+    })
+    .sort(
+      (left, right) =>
+        compareInventoryValues(
+          sortValue(left),
+          sortValue(right),
+          sort.direction,
+        ) ||
+        compareInventoryValues(
+          text(left.address ?? left.name),
+          text(right.address ?? right.name),
+          "asc",
+        ) ||
+        text(left.id).localeCompare(text(right.id)),
+    );
   if (resourceId && !selected)
     return (
       <Alert severity="warning">
-        {kind === "ips" ? "IP address" : "IP pool"} not found in this workspace
+        {kind === "ips" ? "Dedicated IP" : "Shared IP pool"} not found in this
+        workspace
       </Alert>
     );
   return (
@@ -262,8 +242,6 @@ function IpResourcesContent(props: InfrastructureProps) {
               {label}
             </Button>
             <Typography>/</Typography>
-            {accountLink(selected)}
-            <Typography>/</Typography>
             <Typography
               component={accountId ? "h2" : "h1"}
               variant={accountId ? "h4" : "h2"}
@@ -273,141 +251,54 @@ function IpResourcesContent(props: InfrastructureProps) {
             <Button onClick={() => setEditor({ item: selected })}>Edit</Button>
           </Stack>
           <DataTable
-            label={`${label} configuration`}
+            label={`${label} details`}
             data={[selected]}
             columns={resourceColumns.filter(
               (column) => column.label !== "Actions",
             )}
           />
-          {kind === "ips" && (
-            <>
-              <Typography variant="subtitle2">Warm-up schedule</Typography>
-              <DataTable
-                label="IP warm-up schedule"
-                data={rows(selected.warmupSchedule)}
-                columns={[
-                  {
-                    label: "After days",
-                    render: (stage) => text(stage.afterDays),
-                  },
-                  {
-                    label: "Hourly cap",
-                    render: (stage) => text(stage.hourlyLimit),
-                  },
-                  {
-                    label: "Daily cap",
-                    render: (stage) => text(stage.dailyLimit),
-                  },
-                ]}
-              />
-              <Typography variant="subtitle2">Current admission</Typography>
-              <DataTable
-                label="IP admission windows"
-                data={rows(currentHealth(selected)?.windows)}
-                columns={[
-                  {
-                    label: "Window start",
-                    render: (window) => date(window.windowStart),
-                  },
-                  {
-                    label: "Window seconds",
-                    render: (window) => text(window.windowSeconds),
-                  },
-                  {
-                    label: "Reserved",
-                    render: (window) => text(window.reserved),
-                  },
-                ]}
-              />
-              <Typography variant="body2">
-                Current hourly / daily cap:{" "}
-                {value(record(currentHealth(selected)?.currentLimits).hourly)} /{" "}
-                {value(record(currentHealth(selected)?.currentLimits).daily)}
-              </Typography>
-            </>
-          )}
-          {kind === "pools" && (
-            <>
-              <Typography variant="subtitle2">Member IPs</Typography>
-              <DataTable
-                label="Pool member IPs"
-                data={selectedMembers}
-                columns={[
-                  {
-                    label: "IP address",
-                    render: (ip) => (
-                      <Link href={`/workspace/ips/${text(ip.id)}`}>
-                        {text(ip.address)}
-                      </Link>
-                    ),
-                  },
-                  { label: "Status", render: (ip) => text(ip.status) },
-                  { label: "Hourly cap", render: (ip) => text(ip.hourlyLimit) },
-                  { label: "Daily cap", render: (ip) => text(ip.dailyLimit) },
-                  {
-                    label: "Warm-up start",
-                    render: (ip) =>
-                      ip.warmupStartedAt
-                        ? date(ip.warmupStartedAt)
-                        : "Not started",
-                  },
-                ]}
-              />
-            </>
-          )}
-          {kind === "pools" && (
-            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-              <Button
-                disabled={!allowed || !selectedMembers.length}
-                onClick={() => setOperation("reconcile")}
-              >
-                Sync pool…
-              </Button>
-              {!allowed && (
-                <Chip size="small" label="Provider changes not authorized" />
-              )}
-            </Stack>
-          )}
-          <Box component="details">
-            <Box
-              component="summary"
-              sx={{ cursor: "pointer", typography: "subtitle2" }}
-            >
-              Advanced
-            </Box>
-            <Stack
-              direction="row"
-              spacing={1}
-              useFlexGap
-              flexWrap="wrap"
-              alignItems="center"
-              sx={{ pt: 1 }}
-            >
-              <Button
-                disabled={!reassignmentAllowed || !selectedMembers.length}
-                onClick={() => setOperation("reassign")}
-              >
-                Reassign provider IPs…
-              </Button>
-              {!reassignmentAllowed && (
-                <Chip size="small" label="IP reassignment not authorized" />
-              )}
-            </Stack>
-          </Box>
-          <Typography variant="subtitle2">Observed delivery events</Typography>
+          <Typography variant="subtitle2">
+            {kind === "ips" ? "Shared IP pools" : "Dedicated IPs"}
+          </Typography>
           <DataTable
-            label="Resource delivery observations"
-            data={rows(health.data?.observations).filter((observation) =>
-              selectedMembers.some((ip) => ip.id === observation.ipId),
-            )}
-            columns={[
-              { label: "Historical IP", render: (item) => value(item.ipId) },
-              { label: "Observation", render: (item) => text(item.event) },
-              {
-                label: "Sends with observation",
-                render: (item) => value(item.sendsWithEvent),
-              },
-            ]}
+            label={
+              kind === "ips" ? "IP pool memberships" : "Shared pool members"
+            }
+            data={
+              kind === "ips"
+                ? pools.filter((pool) =>
+                    memberships.some(
+                      (member) =>
+                        member.poolId === pool.id &&
+                        member.ipId === selected.id,
+                    ),
+                  )
+                : memberIps(selected)
+            }
+            columns={
+              kind === "ips"
+                ? [
+                    {
+                      label: "Name",
+                      render: (pool) => (
+                        <Link href={`/workspace/ip-pools/${text(pool.id)}`}>
+                          {text(pool.name)}
+                        </Link>
+                      ),
+                    },
+                  ]
+                : [
+                    {
+                      label: "Address",
+                      render: (ip) => (
+                        <Link href={`/workspace/ips/${text(ip.id)}`}>
+                          {text(ip.address)}
+                        </Link>
+                      ),
+                    },
+                    { label: "Status", render: (ip) => text(ip.status) },
+                  ]
+            }
           />
         </>
       ) : (
@@ -431,26 +322,64 @@ function IpResourcesContent(props: InfrastructureProps) {
               disabled={!accounts.length}
               onClick={() => setEditor({})}
             >
-              Add {kind === "ips" ? "IP address" : "pool"}
+              Add {kind === "ips" ? "dedicated IP" : "shared IP pool"}
             </Button>
           </Stack>
-          {!accountId && (
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+            <TextField
+              size="small"
+              label="Search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            {!accountId && (
+              <TextField
+                select
+                size="small"
+                label="ESP account"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                sx={{ minWidth: 180 }}
+              >
+                <MenuItem value="">All accounts</MenuItem>
+                {accounts.map((item) => (
+                  <MenuItem key={text(item.id)} value={text(item.id)}>
+                    {text(item.name)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
             <TextField
               select
               size="small"
-              label="ESP account"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-              sx={{ maxWidth: 320 }}
+              label={kind === "ips" ? "Status" : "Member status"}
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              sx={{ minWidth: 160 }}
             >
-              <MenuItem value="">All accounts</MenuItem>
-              {accounts.map((item) => (
-                <MenuItem key={text(item.id)} value={text(item.id)}>
-                  {text(item.name)}
-                </MenuItem>
-              ))}
+              <MenuItem value="">All statuses</MenuItem>
+              <MenuItem value="active">
+                {kind === "ips" ? "Active" : "Active members"}
+              </MenuItem>
+              <MenuItem value="paused">
+                {kind === "ips" ? "Paused" : "Paused members"}
+              </MenuItem>
+              {kind === "pools" && (
+                <MenuItem value="empty">No members</MenuItem>
+              )}
             </TextField>
-          )}
+            <Button
+              color="inherit"
+              disabled={!search && !status && filter === (accountId ?? "")}
+              onClick={() => {
+                setSearch("");
+                setStatus("");
+                setFilter(accountId ?? "");
+              }}
+            >
+              Reset
+            </Button>
+          </Stack>
           {!accounts.length && (
             <Button
               component={Link}
@@ -460,17 +389,79 @@ function IpResourcesContent(props: InfrastructureProps) {
               Add account
             </Button>
           )}
-          <DataTable
-            label={`Workspace ${label}`}
-            data={items.filter((item) => !filter || item.accountId === filter)}
-            columns={resourceColumns}
-          />
+          <TableContainer sx={{ maxWidth: "100%", overflowX: "auto" }}>
+            <Table size="small" aria-label={`Workspace ${label}`}>
+              <TableHead>
+                <TableRow>
+                  {inventoryColumns.map((column) => (
+                    <TableCell
+                      key={column.key}
+                      sortDirection={
+                        sort.key === column.key ? sort.direction : false
+                      }
+                    >
+                      {column.key === "actions" ? (
+                        column.label
+                      ) : (
+                        <Tooltip
+                          describeChild
+                          title={
+                            metricColumns.some(
+                              (metric) => metric.key === column.key,
+                            )
+                              ? "Attributed history only"
+                              : ""
+                          }
+                        >
+                          <TableSortLabel
+                            active={sort.key === column.key}
+                            direction={
+                              sort.key === column.key ? sort.direction : "asc"
+                            }
+                            onClick={() =>
+                              setSort({
+                                key: column.key,
+                                direction:
+                                  sort.key === column.key &&
+                                  sort.direction === "asc"
+                                    ? "desc"
+                                    : "asc",
+                              })
+                            }
+                          >
+                            {column.label}
+                          </TableSortLabel>
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredItems.map((item) => (
+                  <TableRow key={text(item.id)}>
+                    {inventoryColumns.map((column, index) => (
+                      <TableCell
+                        key={column.key}
+                        component={index === 0 ? "th" : "td"}
+                        scope={index === 0 ? "row" : undefined}
+                      >
+                        {column.render(item)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+                {!filteredItems.length && (
+                  <TableRow>
+                    <TableCell colSpan={inventoryColumns.length}>
+                      {items.length ? "No matching records" : "No records"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </>
-      )}
-      {health.isError && (
-        <Alert severity="warning">
-          Observed health unavailable: {errorText(health.error)}
-        </Alert>
       )}
       {editor && (
         <ResourceEditor
@@ -481,46 +472,6 @@ function IpResourcesContent(props: InfrastructureProps) {
           item={editor.item}
           onClose={() => setEditor(null)}
         />
-      )}
-      {operation && selected && account && (
-        <EditorDialog
-          title={
-            operation === "reconcile" ? "Sync pool" : "Reassign provider IPs"
-          }
-          action={operation === "reconcile" ? "Sync pool" : "Reassign IPs"}
-          confirmation={
-            operation === "reconcile"
-              ? `Create or change SendGrid pool ${providerPoolName} in ${text(account.name)}?`
-              : `Replace the provider IP assignment for ${text(account.name)} with ${selectedMembers.map((ip) => text(ip.address)).join(", ")}? This may affect live traffic.`
-          }
-          disabled={operation === "reconcile" ? !allowed : !reassignmentAllowed}
-          onClose={() => setOperation(null)}
-          onSubmit={async () => {
-            if (!allowed || (operation === "reassign" && !reassignmentAllowed))
-              throw new Error("Provider changes are not authorized.");
-            await axios.post(
-              `${apiBase}/api/publications/infrastructure/${operation === "reconcile" ? "pool-bindings/reconcile" : "ip-reassignment"}`,
-              {
-                workspaceId,
-                connectionId: account.connectionId,
-                ...(operation === "reconcile"
-                  ? { poolId: selected.id, providerPoolName }
-                  : {
-                      ipIds: selectedMembers.map((ip) => ip.id),
-                      confirm: true,
-                    }),
-              },
-            );
-            await onComplete();
-            await health.refetch();
-            setOperation(null);
-          }}
-        >
-          <Typography variant="body2">
-            {text(account.name)} ·{" "}
-            {selectedMembers.map((ip) => text(ip.address)).join(", ")}
-          </Typography>
-        </EditorDialog>
       )}
     </Stack>
   );

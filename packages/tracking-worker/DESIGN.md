@@ -9,7 +9,7 @@ from that repository; assumptions and operator inputs are recorded here.
 
 Carson confirmed nothing has shipped and approved retiring the initial separate
 mapping/receipt/outbox design. Historical migrations remain; migration
-`0019_send_open_tracking` refuses nonempty legacy tables before dropping their
+`0020_send_open_tracking` refuses nonempty legacy tables before dropping their
 empty development schema. No legacy token compatibility or global-origin
 fallback is retained.
 

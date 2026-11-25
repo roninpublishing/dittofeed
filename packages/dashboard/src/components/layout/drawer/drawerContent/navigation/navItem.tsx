@@ -5,9 +5,9 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import Link from "next/link";
 
 import { MenuItem } from "../../../../menuItems/types";
+import Link from "../../../../workspace/navigation";
 
 // ==============================|| NAVIGATION - LIST ITEM ||============================== //
 
@@ -70,7 +70,7 @@ function NavItem({
           <ListItemText
             primary={
               <Typography
-                variant="body2"
+                variant="body1"
                 sx={{ color: isSelected ? iconSelectedColor : textColor }}
               >
                 {item.title}

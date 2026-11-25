@@ -87,7 +87,9 @@ export function requiredGoogleDashboardRole(url: string): Role {
     return RoleEnum.WorkspaceManager;
   if (
     dashboardReadPaths.has(path) ||
-    /^\/workspace\/(?:newsletters|esp-accounts|ips|ip-pools|subscribers|reports|settings)(?:\/[^/]+)?$/.test(path) ||
+    /^\/workspace\/(?:newsletters|esp-accounts|domains|ips|ip-pools|subscribers|automations|tracking|reports|settings)(?:\/[^/]+)?$/.test(
+      path,
+    ) ||
     /^\/users\/[^/]+$/.test(path)
   )
     return RoleEnum.Viewer;

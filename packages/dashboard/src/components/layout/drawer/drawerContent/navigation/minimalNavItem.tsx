@@ -5,10 +5,10 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-// material-ui
-import Link from "next/link";
 
+// material-ui
 import { MenuItem } from "../../../../menuItems/types";
+import Link from "../../../../workspace/navigation";
 
 // ==============================|| NAVIGATION - LIST ITEM ||============================== //
 
@@ -54,7 +54,7 @@ function MinimalNavItem({
             <Icon />
           </ListItemIcon>
           <ListItemText
-            primary={<Typography variant="body2">{item.title}</Typography>}
+            primary={<Typography variant="body1">{item.title}</Typography>}
           />
         </ListItemButton>
       </span>

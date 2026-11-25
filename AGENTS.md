@@ -124,10 +124,47 @@ the corresponding tooling actually changes.
   permanent newsletter lock. The overview graph must not invent binding edges.
   SendGrid is the first managed-account adapter. See `FORK_PLAN.md` for acceptance.
 - The organization-wide UI belongs at `/dashboard/workspace`, with left-sidebar
-  sections for Overview, Newsletters, ESP accounts, IPs, IP pools, Subscribers,
-  Reports and Settings. Infrastructure inventories span the selected workspace
+  sections for Overview, Newsletters, ESP accounts, Domains, Dedicated IPs, Shared
+  IPs, Subscribers, Automations, Tracking, Reports and Settings. Inventories span the workspace
   while preserving ESP-account ownership. Do not put this system inside newsletter
   settings or rename backend `/api/publications` contracts as part of the UI move.
+  The overview is a compact, static top-down diagram: siblings side by side,
+  connected boxes, dark organizational nodes and light resource nodes. Never
+  replace it with tall nested columns or lists. No zoom/pan/drag editor or map/list
+  toggle; keep the interactive native journey/automation editors independent.
+  "Shared IPs" labels account-owned pools,
+  not a provider-shared service; preserve actual pool selection semantics.
+  Use the guarded workspace navigation helper for internal workspace links.
+  Real workspace/newsletter changes still require server-authorized navigation;
+  never cache identity or membership checks to speed up page switching.
+- Treat query cost and interaction latency as product requirements. Share scoped
+  query keys, aggregate reporting in the database, avoid per-row requests and eager
+  detail/history fetches, and preserve fast in-workspace navigation. Never trade
+  authorization freshness or tenant isolation for caching.
+- Dedicated/shared IP screens are inventory-first. Do not expose admission budgets,
+  warm-up schedules, reassignment or repair controls as everyday configuration.
+  Preserve existing policies on edits; unconfigured IPs are paused, not unlimited.
+  Operational automation/warm-up actions require a separate approved design.
+- Domains are managed at workspace level while preserving ESP/newsletter ownership.
+  Workspace Automations are separate from user journeys; their current action
+  adapter coordinates newsletter contacts. Tracking is intentionally blank until
+  Carson specifies its features; domain management is not hidden there.
+  Reuse the native journey visual flow canvas for automation editing; every
+  selectable trigger, condition and action must execute its saved semantics.
+  Never present placeholder operations or decorative connections as executable.
+  Sending-domain KPIs require immutable actual-From attribution per send; tracking
+  hosts have no delivery rate. Historical unknown attribution stays unknown.
+  Inventory tables use basic search/filter controls and sortable headers; unknown
+  metrics remain distinct from zero and sort last. Domain reputation stays blank
+  until a real data source is selected. IP/pool history uses actual reported IPs
+  and immutable send-time selections, never today's pool membership.
+- The top-left brand returns to the authorized workspace dashboard. Workspace and
+  newsletter selectors use the same searchable interaction; actual tenant changes
+  use server-authorized switching and a full context load, never shallow routing.
+  Do not duplicate the home link in the account menu.
+  Workspace links use neutral text with hover/focus affordances, not browser-blue
+  or permanently underlined text, including breadcrumbs, cards and dialogs.
+  Domains use a globe icon, distinct from shared-IP infrastructure.
 
 - Default to no explanatory copy. Each section/area may have at most one
   extremely concise sentence, only when it adds necessary information.

@@ -25,7 +25,7 @@ test("canonical open tracking cutover refuses every nonempty legacy table and pr
     for (const table of legacyTables) {
       await client.query(`CREATE TABLE "${table}" ("evidence" text NOT NULL)`);
     }
-    const migration = await readFile(path.join(__dirname, "../drizzle/0019_send_open_tracking.sql"), "utf8");
+    const migration = await readFile(path.join(__dirname, "../drizzle/0020_send_open_tracking.sql"), "utf8");
     for (const table of legacyTables) {
       await client.query(`INSERT INTO "${table}" VALUES ('must survive')`);
       await client.query("SAVEPOINT guarded_cutover");

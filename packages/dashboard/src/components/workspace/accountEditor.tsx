@@ -35,9 +35,6 @@ export default function AccountEditor({
   );
   const [managementKey, setManagementKey] = useState("");
   const [sendingKey, setSendingKey] = useState("");
-  const [domains, setDomains] = useState(
-    strings(account?.senderDomains).join("\n"),
-  );
   const [emails, setEmails] = useState(
     strings(account?.senderEmails).join("\n"),
   );
@@ -71,7 +68,6 @@ export default function AccountEditor({
                 ? { managementApiKey: managementKey.trim() }
                 : {}),
               ...(sendingKey.trim() ? { apiKey: sendingKey.trim() } : {}),
-              senderDomains: list(domains),
               senderEmails: list(emails),
             },
           );
@@ -148,14 +144,6 @@ export default function AccountEditor({
         value={callbackBaseUrl}
         inputProps={{ maxLength: 2048 }}
         onChange={(event) => setCallbackBaseUrl(event.target.value)}
-      />
-      <TextField
-        size="small"
-        multiline
-        minRows={2}
-        label="Sender domains · comma or newline separated"
-        value={domains}
-        onChange={(event) => setDomains(event.target.value)}
       />
       <TextField
         size="small"

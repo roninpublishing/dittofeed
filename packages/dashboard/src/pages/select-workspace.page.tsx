@@ -52,6 +52,11 @@ export const getServerSideProps: GetServerSideProps<PropsWithInitialState> =
         },
       };
     }
+    if (
+      !dfContext.memberRoles.some((role) => role.workspaceId === workspaceId)
+    ) {
+      return { notFound: true };
+    }
 
     await db()
       .update(schema.workspaceMember)

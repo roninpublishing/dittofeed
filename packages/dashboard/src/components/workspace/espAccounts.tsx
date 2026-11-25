@@ -8,10 +8,8 @@ import {
   Tabs,
   Typography,
 } from "@mui/material";
-import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useState } from "react";
 
 import {
@@ -22,40 +20,39 @@ import {
   text,
 } from "../publications/settingsShared";
 import type { AccountOperation } from "./accountOperations";
+import { deliveryMetricValue, useDeliveryHealth } from "./deliveryMetrics";
 import {
   DataTable,
   date,
-  DnsRecords,
   InfrastructureProps,
   Readiness,
   strings,
   value,
 } from "./infrastructureShared";
 import IpResources from "./ipResources";
+import Link from "./navigation";
 
 const AccountEditor = dynamic(() => import("./accountEditor"));
 const AccountOperations = dynamic(() => import("./accountOperations"));
 const AccountActivity = dynamic(() => import("./accountActivity"));
 
-type Section =
-  | "overview"
-  | "configuration"
-  | "domains"
-  | "ips"
-  | "pools"
-  | "activity";
+type Section = "overview" | "configuration" | "ips" | "pools" | "activity";
 
 function AccountDetails({
   account,
   summary,
+  summaryState,
   ...props
-}: InfrastructureProps & { account: RecordValue; summary?: RecordValue }) {
+}: InfrastructureProps & {
+  account: RecordValue;
+  summary?: RecordValue;
+  summaryState: "loading" | "unavailable" | "ready";
+}) {
   const { workspaceId, apiBase, onComplete } = props;
   const [section, setSection] = useState<Section>("overview");
   const [editing, setEditing] = useState(false);
   const [operation, setOperation] = useState<{
-    kind: AccountOperation;
-    domain?: RecordValue;
+    kind: Exclude<AccountOperation, "domain">;
   } | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +61,6 @@ function AccountDetails({
     report: RecordValue;
   } | null>(null);
   const [invalidated, setInvalidated] = useState(false);
-  const [domainResults, setDomainResults] = useState<RecordValue[]>([]);
   const provisioning = record(account.provisioning);
   const report =
     checked && checked.revision === account.updatedAt
@@ -78,19 +74,6 @@ function AccountDetails({
   const hasPools =
     capabilities.pool === true ||
     (capabilities.pool === undefined && supported);
-  const domains = invalidated ? [] : [...rows(report.domains)];
-  domainResults.forEach((domain) => {
-    const index = domains.findIndex(
-      (item) =>
-        item.domain === domain.domain && item.subdomain === domain.subdomain,
-    );
-    if (index >= 0) domains[index] = domain;
-    else domains.push(domain);
-  });
-  strings(account.senderDomains).forEach((domain) => {
-    if (!domains.some((item) => item.domain === domain))
-      domains.push({ domain });
-  });
   const findings = invalidated
     ? ["Connection check required"]
     : strings(report.findings ?? provisioning.findings);
@@ -101,14 +84,12 @@ function AccountDetails({
   const tabs: { id: Section; label: string }[] = [
     { id: "overview", label: "Overview" },
     { id: "configuration", label: "Configuration" },
-    ...(supported ? [{ id: "domains" as const, label: "Domains" }] : []),
-    ...(hasIps ? [{ id: "ips" as const, label: "IPs" }] : []),
-    ...(hasPools ? [{ id: "pools" as const, label: "IP pools" }] : []),
+    ...(hasIps ? [{ id: "ips" as const, label: "Dedicated IPs" }] : []),
+    ...(hasPools ? [{ id: "pools" as const, label: "Shared IPs" }] : []),
     { id: "activity", label: "Activity" },
   ];
   const invalidate = () => {
     setChecked(null);
-    setDomainResults([]);
     setInvalidated(true);
   };
   const inspect = async () => {
@@ -122,7 +103,6 @@ function AccountDetails({
       const result = record(record(response.data).data);
       setChecked({ revision: account.updatedAt, report: result });
       setInvalidated(false);
-      setDomainResults([]);
       await onComplete();
     } catch (failure) {
       setError(errorText(failure));
@@ -273,19 +253,32 @@ function AccountDetails({
               columns={[
                 {
                   label: "Attempts (30d)",
-                  render: (item) => value(item.sends),
+                  render: (item) =>
+                    deliveryMetricValue(item, "sends", summaryState),
                 },
                 {
                   label: "Delivered (30d)",
-                  render: (item) => value(item.delivered),
+                  render: (item) =>
+                    deliveryMetricValue(item, "delivered", summaryState),
+                },
+                {
+                  label: "Deliverability (30d)",
+                  render: (item) =>
+                    deliveryMetricValue(
+                      item,
+                      "deliverabilityRate",
+                      summaryState,
+                    ),
                 },
                 {
                   label: "Bounced (30d)",
-                  render: (item) => value(item.bounced),
+                  render: (item) =>
+                    deliveryMetricValue(item, "bounced", summaryState),
                 },
                 {
                   label: "Complaints (30d)",
-                  render: (item) => value(item.complaints),
+                  render: (item) =>
+                    deliveryMetricValue(item, "complaints", summaryState),
                 },
               ]}
             />
@@ -385,37 +378,6 @@ function AccountDetails({
             )}
           </Stack>
         )}
-        {section === "domains" && (
-          <Stack spacing={2}>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <Typography variant="h6">Sender domains</Typography>
-              <Button
-                disabled={!providerAllowed}
-                onClick={() => setOperation({ kind: "domain" })}
-              >
-                Authenticate domain…
-              </Button>
-            </Stack>
-            <DnsRecords domains={domains} />
-            {domains.length > 0 && (
-              <Stack direction="row" useFlexGap flexWrap="wrap" spacing={1}>
-                {domains.map((domain) => (
-                  <Button
-                    key={`${text(domain.domain)}-${text(domain.subdomain)}`}
-                    disabled={!providerAllowed}
-                    onClick={() => setOperation({ kind: "domain", domain })}
-                  >
-                    Verify {text(domain.domain)}…
-                  </Button>
-                ))}
-              </Stack>
-            )}
-          </Stack>
-        )}
         {section === "ips" && (
           <IpResources {...props} accountId={text(account.id)} kind="ips" />
         )}
@@ -448,22 +410,10 @@ function AccountDetails({
           apiBase={apiBase}
           account={account}
           operation={operation.kind}
-          domain={operation.domain}
           onClose={() => setOperation(null)}
-          onDomain={(domain) =>
-            setDomainResults((current) => [
-              ...current.filter(
-                (item) =>
-                  item.domain !== domain.domain ||
-                  item.subdomain !== domain.subdomain,
-              ),
-              domain,
-            ])
-          }
           onComplete={async () => {
             setChecked(null);
             setInvalidated(true);
-            if (operation.kind !== "domain") setDomainResults([]);
             await onComplete();
           }}
         />
@@ -477,19 +427,12 @@ function EspAccountsContent(props: InfrastructureProps) {
   const [creating, setCreating] = useState(false);
   const accounts = rows(infrastructure.accounts);
   const selected = accounts.find((account) => account.id === accountId);
-  const health = useQuery({
-    queryKey: ["publications", workspaceId, apiBase, "account-summary"],
-    queryFn: async () =>
-      record(
-        record(
-          (
-            await axios.get(`${apiBase}/api/publications/delivery-health`, {
-              params: { workspaceId },
-            })
-          ).data,
-        ).data,
-      ),
-  });
+  const health = useDeliveryHealth(apiBase, workspaceId);
+  const healthState = health.isError
+    ? "unavailable"
+    : health.isPending
+      ? "loading"
+      : "ready";
   const summaries = new Map(
     rows(health.data?.accounts).map((summary) => [
       text(summary.accountId),
@@ -511,6 +454,7 @@ function EspAccountsContent(props: InfrastructureProps) {
           {...props}
           account={selected}
           summary={summaries.get(accountId)}
+          summaryState={healthState}
         />
       </Stack>
     );
@@ -550,22 +494,48 @@ function EspAccountsContent(props: InfrastructureProps) {
           { label: "Added", render: (account) => date(account.createdAt) },
           {
             label: "Attempts (30d)",
-            render: (account) => value(summaries.get(text(account.id))?.sends),
+            render: (account) =>
+              deliveryMetricValue(
+                summaries.get(text(account.id)),
+                "sends",
+                healthState,
+              ),
           },
           {
             label: "Delivered (30d)",
             render: (account) =>
-              value(summaries.get(text(account.id))?.delivered),
+              deliveryMetricValue(
+                summaries.get(text(account.id)),
+                "delivered",
+                healthState,
+              ),
+          },
+          {
+            label: "Deliverability (30d)",
+            render: (account) =>
+              deliveryMetricValue(
+                summaries.get(text(account.id)),
+                "deliverabilityRate",
+                healthState,
+              ),
           },
           {
             label: "Bounced (30d)",
             render: (account) =>
-              value(summaries.get(text(account.id))?.bounced),
+              deliveryMetricValue(
+                summaries.get(text(account.id)),
+                "bounced",
+                healthState,
+              ),
           },
           {
             label: "Complaints (30d)",
             render: (account) =>
-              value(summaries.get(text(account.id))?.complaints),
+              deliveryMetricValue(
+                summaries.get(text(account.id)),
+                "complaints",
+                healthState,
+              ),
           },
         ]}
       />

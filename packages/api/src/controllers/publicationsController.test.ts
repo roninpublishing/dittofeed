@@ -3,8 +3,9 @@ import { createAdminApiKey } from "backend-lib/src/adminApiKeys";
 import config from "backend-lib/src/config";
 import { db } from "backend-lib/src/db";
 import { publisherSendgridAccount } from "backend-lib/src/db/publisherSchema";
-import { workspace } from "backend-lib/src/db/schema";
+import { journey, workspace } from "backend-lib/src/db/schema";
 import { createNewsletter, createPublisher } from "backend-lib/src/newsletters";
+import { JourneyNodeType } from "backend-lib/src/types";
 import { randomUUID } from "crypto";
 import { eq, inArray } from "drizzle-orm";
 import fastify, { FastifyInstance } from "fastify";
@@ -132,7 +133,8 @@ describe("publication management API", () => {
           headers: headers(apiKey),
           payload: {
             workspaceId: publisherId,
-            name: "Unauthorized", provider: "SendGrid",
+            name: "Unauthorized",
+            provider: "SendGrid",
             managementApiKey: "not-authorized",
           },
         })
@@ -173,7 +175,8 @@ describe("publication management API", () => {
               headers: headers(apiKey),
               payload: {
                 workspaceId: publisherId,
-                name: "Partial grant", provider: "SendGrid",
+                name: "Partial grant",
+                provider: "SendGrid",
                 managementApiKey: "partial-grant-must-not-be-stored",
               },
             })
@@ -189,7 +192,8 @@ describe("publication management API", () => {
       headers: headers(apiKey),
       payload: {
         workspaceId: publisherId,
-        name: "First account", provider: "SendGrid",
+        name: "First account",
+        provider: "SendGrid",
         managementApiKey: value,
         region: "global",
       },
@@ -209,61 +213,138 @@ describe("publication management API", () => {
 
   it("supports two local accounts, optional defaults and newsletter-scoped redacted choices through authenticated HTTP", async () => {
     const apiKey = await key([...API_OPERATION_SCOPES]);
-    const child = await createNewsletter({ publisherId, name: "Selection newsletter", slug: "selection-newsletter" });
+    const child = await createNewsletter({
+      publisherId,
+      name: "Selection newsletter",
+      slug: "selection-newsletter",
+    });
     workspaceIds.push(child.workspaceId);
     const childKey = await key(["read"], child.workspaceId);
     const create = async (name: string) => {
       const response = await app.inject({
-        method: "PUT", url: "/api/admin/publications/infrastructure/accounts", headers: headers(apiKey),
-        payload: { workspaceId: publisherId, name, provider: "SendGrid", managementApiKey: `SG.management_${name}.fixture_secret`, apiKey: `SG.runtime_${name}.fixture_secret` },
+        method: "PUT",
+        url: "/api/admin/publications/infrastructure/accounts",
+        headers: headers(apiKey),
+        payload: {
+          workspaceId: publisherId,
+          name,
+          provider: "SendGrid",
+          managementApiKey: `SG.management_${name}.fixture_secret`,
+          apiKey: `SG.runtime_${name}.fixture_secret`,
+        },
       });
       expect(response.statusCode).toBe(200);
-      return response.json<{ data: { id: string; connectionId: string; allowRealSends: boolean } }>().data;
+      return response.json<{
+        data: { id: string; connectionId: string; allowRealSends: boolean };
+      }>().data;
     };
     const first = await create("first");
     const second = await create("second");
     expect(first.id).not.toBe(second.id);
     expect(first.allowRealSends).toBe(false);
-    const choices = () => app.inject({
-      method: "GET", url: `/api/admin/publications/sending-options?workspaceId=${child.workspaceId}`,
-      headers: headers(childKey, child.workspaceId),
-    });
+    const choices = () =>
+      app.inject({
+        method: "GET",
+        url: `/api/admin/publications/sending-options?workspaceId=${child.workspaceId}`,
+        headers: headers(childKey, child.workspaceId),
+      });
     const unconfigured = await choices();
     expect(unconfigured.statusCode).toBe(200);
-    expect(unconfigured.json<{ data: { selection: unknown; accounts: unknown[] } }>().data).toMatchObject({ selection: null, accounts: expect.any(Array) });
-    expect(unconfigured.body).not.toMatch(/fixture_secret|allowRealSends|hasManagementKey|encrypted|callbackBaseUrl/);
+    const { data: unconfiguredData } = unconfigured.json<{
+      data: { selection: unknown; accounts: unknown[] };
+    }>();
+    expect(unconfiguredData.selection).toBeNull();
+    expect(unconfiguredData.accounts).toEqual(expect.any(Array));
+    expect(unconfigured.body).not.toMatch(
+      /fixture_secret|allowRealSends|hasManagementKey|encrypted|callbackBaseUrl/,
+    );
     const save = await app.inject({
-      method: "PUT", url: "/api/admin/publications/infrastructure/defaults", headers: headers(apiKey),
-      payload: { workspaceId: publisherId, newsletterId: child.workspaceId, selection: { accountId: second.id, mode: "automatic" } },
+      method: "PUT",
+      url: "/api/admin/publications/infrastructure/defaults",
+      headers: headers(apiKey),
+      payload: {
+        workspaceId: publisherId,
+        newsletterId: child.workspaceId,
+        selection: { accountId: second.id, mode: "automatic" },
+      },
     });
     expect(save.statusCode).toBe(200);
-    expect((await choices()).json<{ data: { selection: unknown } }>().data.selection).toEqual({ accountId: second.id, mode: "automatic" });
+    expect(
+      (await choices()).json<{ data: { selection: unknown } }>().data.selection,
+    ).toEqual({ accountId: second.id, mode: "automatic" });
     const clear = await app.inject({
-      method: "PUT", url: "/api/admin/publications/infrastructure/defaults", headers: headers(apiKey),
-      payload: { workspaceId: publisherId, newsletterId: child.workspaceId, selection: null },
+      method: "PUT",
+      url: "/api/admin/publications/infrastructure/defaults",
+      headers: headers(apiKey),
+      payload: {
+        workspaceId: publisherId,
+        newsletterId: child.workspaceId,
+        selection: null,
+      },
     });
     expect(clear.statusCode).toBe(200);
-    expect((await choices()).json<{ data: { selection: unknown } }>().data.selection).toBeNull();
-    const inventory = await app.inject({ method: "GET", url: `/api/admin/publications/infrastructure?workspaceId=${publisherId}`, headers: headers(apiKey) });
-    const data = inventory.json<{ data: Record<string, unknown> }>().data;
+    expect(
+      (await choices()).json<{ data: { selection: unknown } }>().data.selection,
+    ).toBeNull();
+    const inventory = await app.inject({
+      method: "GET",
+      url: `/api/admin/publications/infrastructure?workspaceId=${publisherId}`,
+      headers: headers(apiKey),
+    });
+    const { data } = inventory.json<{ data: Record<string, unknown> }>();
     expect(data.accounts).toHaveLength(2);
     expect(data).not.toHaveProperty("account");
     expect(data).not.toHaveProperty("routes");
-    for (const path of ["/infrastructure/account", "/infrastructure/routes", "/infrastructure/connections"]) {
-      expect((await app.inject({ method: "PUT", url: `/api/admin/publications${path}`, headers: headers(apiKey), payload: { workspaceId: publisherId } })).statusCode).toBe(404);
-    }
+    const removedRoutes = await Promise.all(
+      [
+        "/infrastructure/account",
+        "/infrastructure/routes",
+        "/infrastructure/connections",
+      ].map((path) =>
+        app.inject({
+          method: "PUT",
+          url: `/api/admin/publications${path}`,
+          headers: headers(apiKey),
+          payload: { workspaceId: publisherId },
+        }),
+      ),
+    );
+    removedRoutes.forEach((response) => expect(response.statusCode).toBe(404));
     const closedGates = await app.inject({
-      method: "PUT", url: "/api/admin/publications/infrastructure/accounts", headers: headers(apiKey),
-      payload: { workspaceId: publisherId, id: first.id, name: "Cannot enable sends", provider: "SendGrid", allowRealSends: true },
+      method: "PUT",
+      url: "/api/admin/publications/infrastructure/accounts",
+      headers: headers(apiKey),
+      payload: {
+        workspaceId: publisherId,
+        id: first.id,
+        name: "Cannot enable sends",
+        provider: "SendGrid",
+        allowRealSends: true,
+      },
     });
     expect(closedGates.statusCode).toBe(200);
-    expect(closedGates.json<{ data: { allowRealSends: boolean } }>().data.allowRealSends).toBe(false);
-    expect((await app.inject({
-      method: "GET", url: `/api/admin/publications/sends?workspaceId=${publisherId}&accountId=${second.id}&limit=25&offset=0`, headers: headers(apiKey),
-    })).statusCode).toBe(200);
-    expect((await app.inject({
-      method: "GET", url: `/api/admin/publications/sends?workspaceId=${publisherId}&accountId=${randomUUID()}&limit=25`, headers: headers(apiKey),
-    })).statusCode).toBe(404);
+    expect(
+      closedGates.json<{ data: { allowRealSends: boolean } }>().data
+        .allowRealSends,
+    ).toBe(false);
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: `/api/admin/publications/sends?workspaceId=${publisherId}&accountId=${second.id}&limit=25&offset=0`,
+          headers: headers(apiKey),
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: `/api/admin/publications/sends?workspaceId=${publisherId}&accountId=${randomUUID()}&limit=25`,
+          headers: headers(apiKey),
+        })
+      ).statusCode,
+    ).toBe(404);
   });
   it("does not let a child credential become a publisher credential", async () => {
     const child = await createNewsletter({
@@ -431,5 +512,91 @@ describe("publication management API", () => {
         })
       ).statusCode,
     ).toBe(403);
+  });
+  it("lists only eligible welcome journeys inside the authorized workspace", async () => {
+    const own = await createNewsletter({
+      publisherId,
+      name: "Welcome destination",
+      slug: "welcome-destination",
+    });
+    workspaceIds.push(own.workspaceId);
+    const foreign = await createPublisher({
+      name: `foreign-welcome-${randomUUID()}`,
+    });
+    workspaceIds.push(foreign.id);
+    const sibling = await createNewsletter({
+      publisherId: foreign.id,
+      name: "Foreign",
+      slug: "foreign",
+    });
+    workspaceIds.push(sibling.workspaceId);
+    const eligibleId = randomUUID();
+    const definition = {
+      entryNode: {
+        type: JourneyNodeType.EventEntryNode,
+        event: "Welcome",
+        child: JourneyNodeType.ExitNode,
+      },
+      nodes: [],
+      exitNode: { type: JourneyNodeType.ExitNode },
+    };
+    await db()
+      .insert(journey)
+      .values([
+        {
+          id: eligibleId,
+          workspaceId: own.workspaceId,
+          name: "Eligible welcome",
+          status: "Running",
+          definition,
+        },
+        {
+          workspaceId: own.workspaceId,
+          name: "Draft welcome",
+          status: "NotStarted",
+          definition,
+        },
+        {
+          workspaceId: own.workspaceId,
+          name: "Keyed welcome",
+          status: "Running",
+          definition: {
+            ...definition,
+            entryNode: { ...definition.entryNode, key: "properties.key" },
+          },
+        },
+        {
+          workspaceId: own.workspaceId,
+          name: "Wildcard welcome",
+          status: "Running",
+          definition: {
+            ...definition,
+            entryNode: { ...definition.entryNode, event: "Welcome*" },
+          },
+        },
+        {
+          workspaceId: sibling.workspaceId,
+          name: "Foreign welcome",
+          status: "Running",
+          definition,
+        },
+      ]);
+    const result = await app.inject({
+      method: "GET",
+      url: `/api/admin/publications/automations/options?workspaceId=${publisherId}`,
+      headers: headers(await key(["read"])),
+    });
+    expect(result.statusCode).toBe(200);
+    expect(result.json()).toEqual({
+      data: {
+        welcomeJourneys: [
+          {
+            id: eligibleId,
+            name: "Eligible welcome",
+            newsletterId: own.workspaceId,
+          },
+        ],
+      },
+    });
   });
 });

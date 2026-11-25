@@ -108,13 +108,13 @@ export default function SendSelection({
                 key={`pool:${text(pool.id)}`}
                 value={`pool:${text(pool.id)}`}
               >
-                Pool · {text(pool.name)}
+                Shared IP pool · {text(pool.name)}
               </MenuItem>
             ))}
           {capabilities.ip === true &&
             ips.map((ip) => (
               <MenuItem key={`ip:${text(ip.id)}`} value={`ip:${text(ip.id)}`}>
-                IP via pool · {text(ip.address)}
+                Dedicated IP via pool · {text(ip.address)}
               </MenuItem>
             ))}
           {selection.mode === "pool" &&

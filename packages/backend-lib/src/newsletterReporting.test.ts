@@ -1,17 +1,30 @@
 import { randomUUID } from "crypto";
-import { inArray } from "drizzle-orm";
-import { installNewsletterSecretFixture } from "../test/newsletterSecretFixture";
+import { eq, inArray } from "drizzle-orm";
 
+import { installNewsletterSecretFixture } from "../test/newsletterSecretFixture";
 import { submitBatch } from "./apps/batch";
+import * as clickhouse from "./clickhouse";
 import { db } from "./db";
+import {
+  newsletterSend,
+  sendingConnection,
+  sendingIp,
+  sendingPool,
+  sendingPoolIp,
+} from "./db/publisherSchema";
 import { workspace } from "./db/schema";
+import { configureSendgridAccount } from "./newsletterInfrastructure";
 import { getPublisherDeliveryHealth } from "./newsletterReporting";
 import { createNewsletter, createPublisher } from "./newsletters";
 import { BatchTrackData, EventType, InternalEventType } from "./types";
 
 let restoreSecret: () => void;
-beforeEach(() => { restoreSecret = installNewsletterSecretFixture(); });
-afterEach(() => { restoreSecret(); });
+beforeEach(() => {
+  restoreSecret = installNewsletterSecretFixture();
+});
+afterEach(() => {
+  restoreSecret();
+});
 
 it("deduplicates observations, isolates publishers, and never guesses historical IP attribution", async () => {
   const first = await createPublisher({ name: `report-${randomUUID()}` });
@@ -82,6 +95,15 @@ it("deduplicates observations, isolates publishers, and never guesses historical
     expect(
       report.observations.some((item) => item.newsletterId === b.workspaceId),
     ).toBe(false);
+    expect(report.summary).toMatchObject({
+      sends: 0,
+      delivered: 2,
+      resolvedOutcomes: 2,
+      deliverabilityRate: 100,
+    });
+    expect(report.domains).toEqual([
+      expect.objectContaining({ accountId: null, senderDomain: null, delivered: 2 }),
+    ]);
   } finally {
     await db()
       .delete(workspace)
@@ -93,5 +115,444 @@ it("deduplicates observations, isolates publishers, and never guesses historical
           other.id,
         ]),
       );
+  }
+});
+
+it("resolves event-time terminal outcomes once per native send without changing historical IP or complaint observations", async () => {
+  const parent = await createPublisher({
+    name: `resolved-report-${randomUUID()}`,
+  });
+  const child = await createNewsletter({
+    publisherId: parent.id,
+    name: "Resolved",
+    slug: "resolved",
+  });
+  try {
+    const first = await configureSendgridAccount({
+      publisherId: parent.id,
+      name: "First",
+      provider: "SendGrid",
+    });
+    const second = await configureSendgridAccount({
+      publisherId: parent.id,
+      name: "Second",
+      provider: "SendGrid",
+    });
+    const empty = await configureSendgridAccount({
+      publisherId: parent.id,
+      name: "Empty",
+      provider: "SendGrid",
+    });
+    const connections = await db().select().from(sendingConnection)
+      .where(inArray(sendingConnection.accountId, [first.id, second.id]));
+    await db().insert(newsletterSend).values([
+      { accountId: first.id, senderDomain: "primary.example.test" },
+      { accountId: first.id, senderDomain: "secondary.example.test" },
+      { accountId: first.id, senderDomain: null },
+      { accountId: second.id, senderDomain: "primary.example.test" },
+    ].map((cohort) => ({
+      ...cohort,
+      publisherId: parent.id,
+      createdAt: new Date(Date.now() - 3600_000),
+      workspaceId: child.workspaceId,
+      accountRevision: 1,
+      connectionId: connections.find((item) => item.accountId === cohort.accountId)!.id,
+      connectionRevision: 1,
+      selection: { accountId: cohort.accountId, mode: "automatic" as const },
+      candidateIpIds: [],
+      logicalMessageId: randomUUID(),
+      userId: "reader",
+      mailboxHash: "synthetic-report-fixture",
+      payloadHash: "synthetic-report-fixture",
+    })));
+    const oldIp = randomUUID();
+    const recentIp = randomUUID();
+    const now = Date.now();
+    const day = 86400_000;
+    const delivered = InternalEventType.EmailDelivered;
+    const bounced = InternalEventType.EmailBounced;
+    const dropped = InternalEventType.EmailDropped;
+    const spam = InternalEventType.EmailMarkedSpam;
+    const fixture = (
+      send: string,
+      event: InternalEventType,
+      ageDays: number,
+      properties: Record<string, string> = {},
+      userId = "reader",
+    ): BatchTrackData => ({
+      type: EventType.Track,
+      event,
+      userId,
+      messageId: randomUUID(),
+      timestamp: new Date(now - ageDays * day).toISOString(),
+      properties: {
+        newsletterSendId: send,
+        messageId: `logical-${send}`,
+        sendingAccountId: first.id,
+        sendingIpId: oldIp,
+        senderDomain: "primary.example.test",
+        ...properties,
+      },
+    });
+    const retried = fixture("bounced-last", delivered, 5);
+    const batch = [
+      retried,
+      retried,
+      fixture("bounced-last", delivered, 5), // A second receipt is still the same native send.
+      fixture("bounced-last", bounced, 1, { sendingIpId: recentIp }),
+      fixture("bounced-last", spam, 0.5),
+      fixture("bounced-last", spam, 0.4, { messageId: "another-logical-id" }),
+      fixture("delivered-last", bounced, 5),
+      fixture("delivered-last", delivered, 1, { senderDomain: " SECONDARY.EXAMPLE.TEST. " }),
+      fixture("dropped-last", delivered, 5),
+      fixture("dropped-last", dropped, 1),
+      fixture("tied", delivered, 1),
+      fixture("tied", bounced, 1),
+      fixture("tied", dropped, 1),
+      fixture("complaint-only", spam, 1),
+      fixture("no-account", delivered, 1, { sendingAccountId: "" }),
+      fixture("", delivered, 1, { newsletterSendId: "", messageId: "" }),
+      fixture("", delivered, 1, { newsletterSendId: "", messageId: "" }),
+      fixture("outside-window", delivered, 40),
+      fixture("old-bounce", bounced, 40),
+      fixture("old-bounce", delivered, 1),
+      fixture("accepted-only", InternalEventType.MessageSent, 1),
+      fixture("no-ip", delivered, 1, { sendingIpId: "" }),
+      fixture("native-identity", delivered, 1),
+      fixture(
+        "native-identity",
+        delivered,
+        1,
+        { messageId: "changed-logical-id" },
+        "changed-reader",
+      ),
+      fixture("lost-attribution", delivered, 5),
+      fixture("lost-attribution", bounced, 1, { sendingAccountId: "", senderDomain: "" }),
+      fixture("changed-account", bounced, 5),
+      fixture("changed-account", delivered, 1, { sendingAccountId: second.id }),
+      fixture(
+        "",
+        delivered,
+        1,
+        { newsletterSendId: "", messageId: "legacy-logical" },
+        "legacy-reader-one",
+      ),
+      fixture(
+        "",
+        delivered,
+        1,
+        { newsletterSendId: "", messageId: "legacy-logical" },
+        "legacy-reader-two",
+      ),
+    ];
+    await submitBatch(
+      { workspaceId: child.workspaceId, data: { batch } },
+      { writeModeOverride: "ch-sync" },
+    );
+    const report = await getPublisherDeliveryHealth(parent.id);
+    expect(report.observationsAvailable).toBe(true);
+    expect(report.accounts).toEqual(
+      expect.arrayContaining([
+        {
+          accountId: first.id,
+          sends: 3,
+          delivered: 6,
+          bounced: 1,
+          dropped: 2,
+          resolvedOutcomes: 9,
+          deliverabilityRate: (100 * 6) / 9,
+          complaints: 2,
+          observationsAvailable: true,
+        },
+        {
+          accountId: second.id,
+          sends: 1,
+          delivered: 1,
+          bounced: 0,
+          dropped: 0,
+          resolvedOutcomes: 1,
+          deliverabilityRate: 100,
+          complaints: 0,
+          observationsAvailable: true,
+        },
+        {
+          accountId: empty.id,
+          sends: 0,
+          delivered: 0,
+          bounced: 0,
+          dropped: 0,
+          resolvedOutcomes: 0,
+          deliverabilityRate: null,
+          complaints: 0,
+          observationsAvailable: true,
+        },
+      ]),
+    );
+    expect(report.summary).toMatchObject({
+      sends: 4,
+      delivered: 8,
+      bounced: 2,
+      dropped: 2,
+      resolvedOutcomes: 12,
+      deliverabilityRate: (100 * 8) / 12,
+      complaints: 2,
+    });
+    expect(report.domains).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        accountId: first.id, senderDomain: "secondary.example.test",
+        delivered: 1, bounced: 0, dropped: 0, deliverabilityRate: 100,
+      }),
+      expect.objectContaining({
+        accountId: first.id, senderDomain: "primary.example.test",
+        delivered: 5, bounced: 1, dropped: 2, deliverabilityRate: (100 * 5) / 8,
+      }),
+      expect.objectContaining({
+        accountId: second.id, senderDomain: "primary.example.test",
+        delivered: 1, bounced: 0, dropped: 0, deliverabilityRate: 100,
+      }),
+      expect.objectContaining({
+        accountId: null, senderDomain: null,
+        delivered: 1, bounced: 1, dropped: 0, deliverabilityRate: 50,
+      }),
+      expect.objectContaining({
+        accountId: first.id, senderDomain: null, sends: 1,
+        delivered: 0, resolvedOutcomes: 0, deliverabilityRate: null,
+      }),
+    ]));
+    expect(
+      report.observations.find(
+        (item) =>
+          item.accountId === first.id &&
+          item.ipId === oldIp &&
+          item.event === delivered,
+      ),
+    ).toMatchObject({
+      accountId: first.id,
+      sendsWithEvent: 11,
+      observedEventCount: 13,
+    });
+    expect(
+      report.observations.find(
+        (item) => item.ipId === recentIp && item.event === bounced,
+      ),
+    ).toMatchObject({
+      accountId: first.id,
+      sendsWithEvent: 1,
+      observedEventCount: 1,
+    });
+    expect(
+      report.observations.find(
+        (item) => item.ipId === null && item.event === delivered,
+      ),
+    ).toMatchObject({
+      accountId: first.id,
+      sendsWithEvent: 1,
+      observedEventCount: 1,
+    });
+    const scoped = await getPublisherDeliveryHealth(parent.id, first.id);
+    expect(scoped.accounts).toEqual(
+      report.accounts.filter((item) => item.accountId === first.id),
+    );
+    expect(scoped.summary).toEqual(expect.objectContaining({
+      delivered: 6, bounced: 1, dropped: 2, resolvedOutcomes: 9,
+      deliverabilityRate: (100 * 6) / 9,
+    }));
+    expect(scoped.domains.every((item) => item.accountId === first.id)).toBe(true);
+
+    const failure = jest.spyOn(clickhouse, "query").mockRejectedValueOnce(new Error("unavailable"));
+    try {
+      const unavailable = await getPublisherDeliveryHealth(parent.id);
+      expect(unavailable.observationsAvailable).toBe(false);
+      expect(unavailable.summary).toMatchObject({
+        sends: 4, delivered: null, bounced: null, dropped: null,
+        complaints: null, resolvedOutcomes: null, deliverabilityRate: null,
+      });
+      expect(unavailable.accounts.every((item) => item.delivered === null)).toBe(true);
+    } finally {
+      failure.mockRestore();
+    }
+  } finally {
+    await db()
+      .delete(workspace)
+      .where(inArray(workspace.id, [child.workspaceId, parent.id]));
+  }
+});
+
+it("batches immutable IP/pool cohorts without guessing multi-IP history or joining current pool membership", async () => {
+  const parent = await createPublisher({ name: `ip-report-${randomUUID()}` });
+  const child = await createNewsletter({
+    publisherId: parent.id, name: "IP history", slug: "ip-history",
+  });
+  const [ipA, ipB, otherIp] = [randomUUID(), randomUUID(), randomUUID()] as const;
+  try {
+    const first = await configureSendgridAccount({
+      publisherId: parent.id, name: "First", provider: "SendGrid",
+    });
+    const second = await configureSendgridAccount({
+      publisherId: parent.id, name: "Second", provider: "SendGrid",
+    });
+    const connections = await db().select().from(sendingConnection)
+      .where(inArray(sendingConnection.accountId, [first.id, second.id]));
+    for (const [id, accountId, address] of [
+      [ipA, first.id, "192.0.2.40"],
+      [ipB, first.id, "192.0.2.41"],
+      [otherIp, second.id, "192.0.2.40"],
+    ] as const) {
+      await db().insert(sendingIp).values({
+        id, publisherId: parent.id, accountId, address,
+        canonicalIpId: id === otherIp ? ipA : id,
+        hourlyLimit: 100, dailyLimit: 1000,
+      });
+    }
+    const oldPool = randomUUID();
+    const currentPool = randomUUID();
+    await db().insert(sendingPool).values([oldPool, currentPool].map((id) => ({
+      id, publisherId: parent.id, accountId: first.id,
+      name: id, providerPoolName: id,
+    })));
+    await db().insert(sendingPoolIp).values([
+      { poolId: oldPool, ipId: ipA }, { poolId: oldPool, ipId: ipB },
+    ]);
+    const explicit = randomUUID();
+    const multi = randomUUID();
+    const unknown = randomUUID();
+    const legacy = randomUUID();
+    const other = randomUUID();
+    await db().insert(newsletterSend).values([
+      { id: explicit, accountId: first.id, ipId: ipA, poolId: oldPool, actualIp: "192.0.2.41", candidateIpIds: [ipA] },
+      { id: multi, accountId: first.id, ipId: null, poolId: oldPool, actualIp: "192.0.2.41", candidateIpIds: [ipA, ipB] },
+      { id: unknown, accountId: first.id, ipId: null, poolId: null, actualIp: null, candidateIpIds: [ipA, ipB] },
+      { id: legacy, accountId: first.id, ipId: ipA, poolId: oldPool, actualIp: null, candidateIpIds: [ipA] },
+      { id: other, accountId: second.id, ipId: otherIp, poolId: null, actualIp: "192.0.2.40", candidateIpIds: [otherIp] },
+    ].map((cohort) => ({
+      ...cohort, publisherId: parent.id, workspaceId: child.workspaceId,
+      createdAt: new Date(Date.now() - 3600_000),
+      accountRevision: 1,
+      connectionId: connections.find((item) => item.accountId === cohort.accountId)!.id,
+      connectionRevision: 1,
+      selection: { accountId: cohort.accountId, mode: "automatic" as const },
+      logicalMessageId: cohort.id, userId: "reader",
+      mailboxHash: "synthetic-ip-report", payloadHash: "synthetic-ip-report",
+    })));
+    const now = Date.now();
+    const fixture = (
+      sendId: string, event: InternalEventType, ageDays: number,
+      properties: Record<string, string> = {},
+    ): BatchTrackData => ({
+      type: EventType.Track, event, userId: "reader",
+      messageId: randomUUID(),
+      timestamp: new Date(now - ageDays * 86400_000).toISOString(),
+      properties: {
+        newsletterSendId: sendId, messageId: sendId,
+        sendingAccountId: first.id, sendingIpId: ipA,
+        sendingPoolId: oldPool, senderDomain: "history.example.test",
+        ...properties,
+      },
+    });
+    const delivery = fixture(multi, InternalEventType.EmailDelivered, 2, {
+      sendingIpId: "", actualIp: "192.0.2.41",
+    });
+    const complaint = fixture(explicit, InternalEventType.EmailMarkedSpam, 0.5, {
+      actualIp: "192.0.2.41",
+    });
+    await submitBatch({
+      workspaceId: child.workspaceId,
+      data: { batch: [
+        fixture(explicit, InternalEventType.EmailDelivered, 5),
+        fixture(explicit, InternalEventType.EmailBounced, 1, { actualIp: "192.0.2.41" }),
+        delivery, delivery,
+        complaint, complaint,
+        fixture(explicit, InternalEventType.EmailMarkedSpam, 0.4, { actualIp: "192.0.2.41" }),
+        fixture(unknown, InternalEventType.EmailDelivered, 1, { sendingIpId: "", sendingPoolId: "" }),
+        fixture(legacy, InternalEventType.EmailDelivered, 1, { sendingPoolId: "" }),
+        fixture(other, InternalEventType.EmailDelivered, 1, {
+          sendingAccountId: second.id, sendingIpId: otherIp,
+          sendingPoolId: "", actualIp: "192.0.2.40",
+        }),
+      ] },
+    }, { writeModeOverride: "ch-sync" });
+    // Current pool membership must have no effect on either historical cohort.
+    await db().delete(sendingPoolIp).where(eq(sendingPoolIp.poolId, oldPool));
+    await db().insert(sendingPoolIp).values([
+      { poolId: currentPool, ipId: ipA }, { poolId: currentPool, ipId: ipB },
+    ]);
+    const report = await getPublisherDeliveryHealth(parent.id);
+    expect(report.pools).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        accountId: first.id, poolId: oldPool, sends: 3,
+        delivered: 1, bounced: 1, dropped: 0, complaints: 1,
+        resolvedOutcomes: 2, deliverabilityRate: 50,
+      }),
+      expect.objectContaining({
+        accountId: first.id, poolId: null, sends: 1, delivered: 2,
+      }),
+    ]));
+    expect(report.pools.some((cohort) => cohort.poolId === currentPool)).toBe(false);
+    expect(report.ipCohorts).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        accountId: first.id, ipId: ipA, actualIp: "192.0.2.41",
+        sends: 1, delivered: 0, bounced: 1, complaints: 1,
+      }),
+      expect.objectContaining({
+        accountId: first.id, ipId: null, actualIp: "192.0.2.41",
+        sends: 1, delivered: 1, bounced: 0,
+      }),
+      expect.objectContaining({
+        accountId: first.id, ipId: null, actualIp: null, sends: 1, delivered: 1,
+      }),
+      expect.objectContaining({
+        accountId: first.id, ipId: ipA, actualIp: null, sends: 1, delivered: 1,
+      }),
+    ]));
+    expect(report.ipCohorts.some((cohort) => cohort.ipId === ipB)).toBe(false);
+    const scoped = await getPublisherDeliveryHealth(parent.id, first.id);
+    const firstIpCohorts = report.ipCohorts.filter((cohort) => cohort.accountId === first.id);
+    const firstPoolCohorts = report.pools.filter((cohort) => cohort.accountId === first.id);
+    expect(scoped.ipCohorts).toHaveLength(firstIpCohorts.length);
+    expect(scoped.ipCohorts).toEqual(expect.arrayContaining(firstIpCohorts));
+    expect(scoped.pools).toHaveLength(firstPoolCohorts.length);
+    expect(scoped.pools).toEqual(expect.arrayContaining(firstPoolCohorts));
+    expect(scoped.summary).toMatchObject({
+      sends: 4, delivered: 3, bounced: 1, complaints: 1,
+      resolvedOutcomes: 4, deliverabilityRate: 75,
+    });
+    await expect(getPublisherDeliveryHealth(parent.id, randomUUID())).rejects.toThrow();
+    const failure = jest.spyOn(clickhouse, "query").mockRejectedValueOnce(new Error("unavailable"));
+    try {
+      const unavailable = await getPublisherDeliveryHealth(parent.id, first.id);
+      expect(unavailable.ipCohorts).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          ipId: ipA, actualIp: "192.0.2.41", sends: 1,
+          delivered: null, bounced: null, complaints: null, deliverabilityRate: null,
+          observationsAvailable: false,
+        }),
+      ]));
+      expect(unavailable.pools).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          poolId: oldPool, sends: 3, delivered: null, observationsAvailable: false,
+        }),
+      ]));
+    } finally {
+      failure.mockRestore();
+    }
+  } finally {
+    await db().delete(newsletterSend).where(eq(newsletterSend.publisherId, parent.id));
+    await db().delete(sendingIp).where(eq(sendingIp.id, otherIp));
+    await db().delete(workspace).where(inArray(workspace.id, [child.workspaceId, parent.id]));
+  }
+});
+
+it("reports a known empty workspace without inventing a delivery rate", async () => {
+  const parent = await createPublisher({ name: `empty-report-${randomUUID()}` });
+  try {
+    const report = await getPublisherDeliveryHealth(parent.id);
+    expect(report.summary).toMatchObject({
+      sends: 0, delivered: 0, bounced: 0, dropped: 0,
+      resolvedOutcomes: 0, complaints: 0, deliverabilityRate: null,
+      observationsAvailable: true,
+    });
+    expect(report.domains).toEqual([]);
+  } finally {
+    await db().delete(workspace).where(inArray(workspace.id, [parent.id]));
   }
 });

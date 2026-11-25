@@ -38,6 +38,8 @@ import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAppStorePick } from "../../lib/appStore";
+import useWorkspaceSwitch from "../../lib/useWorkspaceSwitch";
+import { useWorkspaceNavigation } from "../workspace/navigation";
 import CreateNewsletterDialog from "./createNewsletterDialog";
 import {
   errorText,
@@ -47,7 +49,6 @@ import {
   rows,
   text,
 } from "./settingsShared";
-import TrackingDomains from "./trackingDomains";
 
 interface Field {
   key: string;
@@ -368,12 +369,10 @@ export default function PublicationManagement({
   publisherId: string | null;
   section?: "newsletters" | "subscribers" | "reports" | "settings";
 }) {
-  const { workspace, apiBase, authMode } = useAppStorePick([
-    "workspace",
-    "apiBase",
-    "authMode",
-  ]);
+  const { workspace, apiBase } = useAppStorePick(["workspace", "apiBase"]);
+  const { switchWorkspace, switchingWorkspace } = useWorkspaceSwitch();
   const router = useRouter();
+  const workspaceNavigation = useWorkspaceNavigation();
   const queryClient = useQueryClient();
   const workspaceId =
     workspace.type === CompletionStatus.Successful ? workspace.value.id : "";
@@ -393,7 +392,6 @@ export default function PublicationManagement({
   const [selectedContacts, setSelectedContacts] = useState<RecordValue[]>([]);
   const [operationConsent, setOperationConsent] = useState("");
   const [historyOffsets, setHistoryOffsets] = useState({
-    actions: 0,
     suppressions: 0,
     sends: 0,
   });
@@ -405,13 +403,9 @@ export default function PublicationManagement({
       required.overview = "/overview";
     }
     if (section === "settings") {
-      if (tab === 4) required.infrastructure = "/infrastructure";
+      if (tab === 2) required.infrastructure = "/infrastructure";
+      if (tab === 0) required.suppressions = "/suppressions";
       if (tab === 1) {
-        required.automations = "/automations";
-        required.actions = "/automations/actions";
-      }
-      if (tab === 2) required.suppressions = "/suppressions";
-      if (tab === 3) {
         required.health = "/delivery-health";
         required.sends = "/sends";
       }
@@ -424,13 +418,16 @@ export default function PublicationManagement({
   }, [section, tab]);
   const publicationQueries = useQueries({
     queries: paths.map(([key, path]) => ({
-      queryKey: [
-        "publication-management",
-        apiBase,
-        workspaceId,
-        key,
-        key === "health" ? reportAccountId : "",
-      ],
+      queryKey:
+        key === "infrastructure"
+          ? ["workspace-infrastructure", apiBase, workspaceId]
+          : [
+              "publication-management",
+              apiBase,
+              workspaceId,
+              key,
+              key === "health" ? reportAccountId : "",
+            ],
       enabled: Boolean(publisherId) && isPublisher,
       staleTime: 15_000,
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
@@ -443,9 +440,7 @@ export default function PublicationManagement({
               ...(key === "health" && reportAccountId
                 ? { accountId: reportAccountId }
                 : {}),
-              ...(["actions", "suppressions", "sends"].includes(key)
-                ? { limit: 25 }
-                : {}),
+              ...(["suppressions", "sends"].includes(key) ? { limit: 25 } : {}),
             },
           },
         );
@@ -475,27 +470,29 @@ export default function PublicationManagement({
   }
   const refresh = useCallback(async () => {
     setData({});
-    setHistoryOffsets({ actions: 0, suppressions: 0, sends: 0 });
+    setHistoryOffsets({ suppressions: 0, sends: 0 });
     setSuppressionEmail("");
     setError(null);
-    await queryClient.invalidateQueries({
-      queryKey: ["publication-management", apiBase, workspaceId],
-    });
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ["publication-management", apiBase, workspaceId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["workspace-infrastructure", apiBase, workspaceId],
+      }),
+    ]);
   }, [apiBase, queryClient, workspaceId]);
   useEffect(() => {
     setData({});
-    setHistoryOffsets({ actions: 0, suppressions: 0, sends: 0 });
+    setHistoryOffsets({ suppressions: 0, sends: 0 });
     setSuppressionEmail("");
     setError(null);
   }, [section, tab, workspaceId]);
-  const historyPage = async (
-    key: "actions" | "suppressions" | "sends",
-    offset: number,
-  ) => {
+  const historyPage = async (key: "suppressions" | "sends", offset: number) => {
     setLoading(true);
     setError(null);
     try {
-      const path = key === "actions" ? "/automations/actions" : `/${key}`;
+      const path = `/${key}`;
       const parameters = { workspaceId, limit: 25, offset };
       const response =
         key === "suppressions" && suppressionEmail.trim()
@@ -516,29 +513,13 @@ export default function PublicationManagement({
     }
   };
   const switchNewsletter = async (targetId: string) => {
-    if (openingNewsletter) return;
+    if (switchingWorkspace) return;
     setOpeningNewsletter(targetId);
-    try {
-      if (authMode === "google")
-        await axios.post(`${apiBase}/api/account/workspace`, {
-          workspaceId: targetId,
-        });
-      else if (authMode === "single-tenant" || authMode === "anonymous")
-        await axios.post(`${apiBase}/api/public/single-tenant/workspace`, {
-          workspaceId: targetId,
-        });
-      else {
-        await router.push(`/select-workspace?workspaceId=${targetId}`);
-        return;
-      }
-      // Reload the document so no prior newsletter's client caches survive the switch.
-      window.location.assign(
-        `${router.basePath}${targetId === publisherId ? "/workspace/newsletters" : "/home"}`,
-      );
-    } catch (failure) {
-      setOpeningNewsletter(null);
-      setError(errorText(failure));
-    }
+    const switched = await switchWorkspace(
+      targetId,
+      targetId === publisherId ? "/workspace/newsletters" : "/home",
+    );
+    if (!switched) setOpeningNewsletter(null);
   };
   const common = { workspaceId, apiBase, onComplete: refresh };
   const newsletters = optionList(data.newsletters, "workspaceId", "name");
@@ -650,7 +631,9 @@ export default function PublicationManagement({
         ) : (
           <Button
             startIcon={<ArrowBackOutlined />}
-            onClick={() => void router.push("/workspace/newsletters")}
+            onClick={() =>
+              void workspaceNavigation.push("/workspace/newsletters")
+            }
             sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
           >
             Newsletters
@@ -780,7 +763,7 @@ export default function PublicationManagement({
                           <Button
                             aria-label={`Configure ${text(newsletter.name)}`}
                             onClick={() =>
-                              void router.push(
+                              void workspaceNavigation.push(
                                 `/workspace/newsletters/${text(newsletter.workspaceId)}`,
                               )
                             }
@@ -901,12 +884,12 @@ export default function PublicationManagement({
               <TextField
                 select
                 size="small"
-                label="IP address"
+                label="Dedicated IP"
                 value={reportIpId}
                 onChange={(event) => setReportIpId(event.target.value)}
                 sx={{ minWidth: 220 }}
               >
-                <MenuItem value="">All IPs</MenuItem>
+                <MenuItem value="">All dedicated IPs</MenuItem>
                 {rows(record(data.infrastructure).ips)
                   .filter(
                     (ip) =>
@@ -1081,14 +1064,12 @@ export default function PublicationManagement({
             variant="scrollable"
             scrollButtons="auto"
           >
-            <Tab label="Tracking" />
-            <Tab label="Automations" />
             <Tab label="Suppressions" />
             <Tab label="Activity" />
             <Tab label="Advanced" />
           </Tabs>
           {loading && <CircularProgress size={20} />}
-          {tab === 4 && (
+          {tab === 2 && (
             <Stack spacing={2}>
               <ActionForm
                 {...common}
@@ -1148,104 +1129,9 @@ export default function PublicationManagement({
                   },
                 ]}
               />
-              <ActionForm
-                {...common}
-                title="Advanced rule editor"
-                path="/automations"
-                method="put"
-                fields={[
-                  { key: "id", label: "Existing rule ID (optional)" },
-                  { key: "name", label: "Rule name", required: true },
-                  {
-                    ...newsletterField,
-                    key: "sourceNewsletterId",
-                    label: "Source newsletter",
-                  },
-                  {
-                    ...newsletterField,
-                    key: "destinationNewsletterId",
-                    label: "Destination newsletter",
-                  },
-                  { key: "enabled", label: "Enable rule", kind: "boolean" },
-                  {
-                    key: "definition",
-                    label:
-                      "Source conditions, destination actions, and field mappings",
-                    kind: "json",
-                    required: true,
-                    hint: "Use the newsletter automation schema.",
-                  },
-                ]}
-              />
             </Stack>
           )}
-          {tab === 1 && (
-            <Stack spacing={3}>
-              <Button
-                sx={{ alignSelf: "flex-start" }}
-                onClick={() => setTab(4)}
-              >
-                Advanced editor
-              </Button>
-              <DataTable
-                data={rows(data.automations).map((rule) => ({
-                  ...rule,
-                  source:
-                    newsletters.find(
-                      (newsletter) =>
-                        newsletter.value === rule.sourceNewsletterId,
-                    )?.label ?? "Unavailable",
-                  destination:
-                    newsletters.find(
-                      (newsletter) =>
-                        newsletter.value === rule.destinationNewsletterId,
-                    )?.label ?? "Unavailable",
-                  state: rule.enabled === true ? "Active" : "Paused",
-                }))}
-                columns={[
-                  ["name", "Rule"],
-                  ["source", "Source"],
-                  ["destination", "Destination"],
-                  ["state", "Status"],
-                ]}
-              />
-              <ActionForm
-                {...common}
-                title="Retire automation"
-                path="/automations"
-                method="delete"
-                description="Retains action history."
-                fields={[
-                  {
-                    key: "id",
-                    label: "Rule",
-                    kind: "select",
-                    options: optionList(data.automations, "id", "name"),
-                    required: true,
-                  },
-                ]}
-              />
-              <Typography variant="h4">Recent actions</Typography>
-              <DataTable
-                data={data.actions}
-                columns={[
-                  ["ruleId", "Rule"],
-                  ["sourceEventId", "Source event"],
-                  ["sourceUserId", "Source subscriber"],
-                  ["destinationUserId", "Destination subscriber"],
-                  ["disposition", "Result"],
-                  ["error", "Reason"],
-                ]}
-              />
-              <HistoryPages
-                offset={historyOffsets.actions}
-                count={rows(data.actions).length}
-                busy={loading}
-                onPage={(offset) => void historyPage("actions", offset)}
-              />
-            </Stack>
-          )}
-          {tab === 2 && (
+          {tab === 0 && (
             <Stack spacing={3}>
               <ActionForm
                 {...common}
@@ -1336,7 +1222,7 @@ export default function PublicationManagement({
               />
             </Stack>
           )}
-          {tab === 3 && (
+          {tab === 1 && (
             <Stack spacing={3}>
               <Typography color="text.secondary">
                 {text(record(data.health).periodStart)} —{" "}
@@ -1396,13 +1282,6 @@ export default function PublicationManagement({
                 onPage={(offset) => void historyPage("sends", offset)}
               />
             </Stack>
-          )}
-          {tab === 0 && (
-            <TrackingDomains
-              workspaceId={workspaceId}
-              apiBase={apiBase}
-              newsletters={newsletters}
-            />
           )}
         </Stack>
       )}

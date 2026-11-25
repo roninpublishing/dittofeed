@@ -142,7 +142,7 @@ Configure the matching **32-byte base64 `OPEN_TRACKING_RELAY_SECRET`** on backen
 and Worker and a stable private **32-byte base64 `SECRET_KEY`** for token/evidence
 encryption. Never rotate these blindly. There is no global-origin fallback.
 
-Migration `0019_send_open_tracking` adds the send-row fields and partial unique
+Migration `0020_send_open_tracking` adds the send-row fields and partial unique
 token-hash index, then removes the obsolete development mapping/receipt/tombstone
 tables only if all three are empty. It fails instead of discarding existing data.
 Historical migrations remain unchanged. No legacy token compatibility is needed

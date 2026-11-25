@@ -3,6 +3,7 @@ import {
   rows,
   text,
 } from "../components/publications/settingsShared";
+import { WorkspaceDomain } from "./workspaceDomains";
 
 export type WorkspaceObjectKind =
   | "workspace"
@@ -10,7 +11,8 @@ export type WorkspaceObjectKind =
   | "newsletter"
   | "account"
   | "ip"
-  | "pool";
+  | "pool"
+  | "domain";
 export interface WorkspaceObject {
   id: string;
   resourceId: string;
@@ -20,7 +22,13 @@ export interface WorkspaceObject {
   status?: string;
   accountName?: string;
   provider?: string;
-  configurations?: { accountName: string; path: string }[];
+  domainKind?: WorkspaceDomain["kind"];
+  configurations?: {
+    accountId: string;
+    accountName: string;
+    path: string;
+    status?: string;
+  }[];
 }
 export interface WorkspaceLink {
   id: string;
@@ -38,6 +46,7 @@ export function workspaceTopology(
   workspaceName: string,
   infrastructure: RecordValue,
   newsletters: unknown,
+  domains: WorkspaceDomain[] = [],
 ): WorkspaceTopology {
   const objects: WorkspaceObject[] = [
     {
@@ -57,6 +66,27 @@ export function workspaceTopology(
   const linkIds = new Set<string>();
   const ipNodeIds = new Map<string, string>();
   const add = (object: WorkspaceObject, parentId: string) => {
+    if (!objectById.has(parentId)) {
+      const groupId = "group:unassigned";
+      if (!objectById.has(groupId)) {
+        const group: WorkspaceObject = {
+          id: groupId,
+          resourceId: "unassigned",
+          kind: "group",
+          name: "Unassigned resources",
+          path: "/workspace",
+        };
+        objects.push(group);
+        objectById.set(groupId, group);
+        links.push({
+          id: `${objects[0]!.id}:${groupId}`,
+          source: objects[0]!.id,
+          target: groupId,
+          membership: false,
+        });
+      }
+      parentId = groupId;
+    }
     if (!objectById.has(object.id)) {
       objects.push(object);
       objectById.set(object.id, object);
@@ -122,6 +152,23 @@ export function workspaceTopology(
       "group:accounts",
     );
   }
+  for (const domain of domains) {
+    const parentId = `${domain.kind === "sending" ? "account" : "newsletter"}:${domain.ownerId}`;
+    const owner = objectById.get(parentId);
+    add(
+      {
+        id: `domain:${domain.viewId}`,
+        resourceId: domain.viewId,
+        kind: "domain",
+        domainKind: domain.kind,
+        name: domain.hostname,
+        status: domain.status,
+        accountName: owner?.name,
+        path: `/workspace/domains/${domain.viewId}`,
+      },
+      parentId,
+    );
+  }
   for (const pool of rows(infrastructure.pools)) {
     const id = text(pool.id);
     const account = accountById.get(text(pool.accountId));
@@ -134,14 +181,15 @@ export function workspaceTopology(
         accountName: account ? text(account.name) : undefined,
         path: `/workspace/ip-pools/${id}`,
       },
-      account ? `account:${text(account.id)}` : rootId,
+      `account:${text(pool.accountId)}`,
     );
   }
   for (const ip of rows(infrastructure.ips)) {
     const id = text(ip.id);
     const nodeId = `ip:${text(ip.canonicalIpId ?? ip.id)}`;
     const account = accountById.get(text(ip.accountId));
-    const accountName = account ? text(account.name) : "Unknown";
+    const accountId = text(ip.accountId);
+    const accountName = account ? text(account.name) : "Unknown account";
     const path = `/workspace/ips/${id}`;
     ipNodeIds.set(id, nodeId);
     const existing = objectById.get(nodeId);
@@ -151,7 +199,12 @@ export function workspaceTopology(
           (configuration) => configuration.path === path,
         )
       ) {
-        existing.configurations?.push({ accountName, path });
+        existing.configurations?.push({
+          accountId,
+          accountName,
+          path,
+          status: typeof ip.status === "string" ? ip.status : undefined,
+        });
         existing.accountName = existing.configurations
           ?.map((configuration) => configuration.accountName)
           .join(", ");
@@ -167,15 +220,19 @@ export function workspaceTopology(
           status: typeof ip.status === "string" ? ip.status : undefined,
           accountName,
           path,
-          configurations: [{ accountName, path }],
+          configurations: [
+            {
+              accountId,
+              accountName,
+              path,
+              status: typeof ip.status === "string" ? ip.status : undefined,
+            },
+          ],
         },
-        account ? `account:${text(account.id)}` : rootId,
+        `account:${accountId}`,
       );
     }
-    add(
-      existing ?? objectById.get(nodeId)!,
-      account ? `account:${text(account.id)}` : rootId,
-    );
+    add(existing ?? objectById.get(nodeId)!, `account:${accountId}`);
   }
   for (const membership of rows(infrastructure.memberships)) {
     const source = `pool:${text(membership.poolId)}`;

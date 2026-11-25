@@ -2,9 +2,9 @@ import {
   WorkflowExecutionAlreadyStartedError,
   WorkflowIdReusePolicy,
 } from "@temporalio/common";
+import { createHash, randomUUID } from "crypto";
 import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { schemaValidate } from "isomorphic-lib/src/resultHandling/schemaValidation";
-import { createHash, randomUUID } from "crypto";
 import { PoolClient } from "pg";
 
 import { ClickHouseQueryBuilder, query as chQuery } from "./clickhouse";
@@ -25,6 +25,7 @@ import {
   UserJourneyWorkflowVersion,
 } from "./journeys/userWorkflow";
 import { newsletterMailboxHash } from "./newsletterDelivery";
+import { requireNewsletterSecretKey } from "./newsletterSecrets";
 import {
   automationDedupeKey,
   automationLineage,
@@ -34,9 +35,9 @@ import {
   automationValue,
   PublicationAutomationDefinition,
   PublicationAutomationError,
+  validatePublicationAutomationDefinition,
 } from "./publicationAutomationDefinition";
 import { decrypt, encrypt } from "./secrets";
-import { requireNewsletterSecretKey } from "./newsletterSecrets";
 import { insertSegmentAssignments } from "./segments";
 import {
   buildSubscriptionChangeEvent,
@@ -75,12 +76,7 @@ function serializable<T>(value: T): T {
 }
 
 function definitionOf(value: unknown): PublicationAutomationDefinition {
-  const result = schemaValidate(value, PublicationAutomationDefinition);
-  if (result.isErr())
-    throw new PublicationAutomationError(
-      "Invalid publication automation definition",
-    );
-  const definition = result.value;
+  const definition = validatePublicationAutomationDefinition(value);
   if (
     !definition.destination.subscribe &&
     !definition.destination.welcomeJourneyId &&
@@ -89,16 +85,6 @@ function definitionOf(value: unknown): PublicationAutomationDefinition {
   )
     throw new PublicationAutomationError(
       "Configure at least one explicit destination action",
-    );
-  if (
-    definition.source.conditions?.some(
-      (condition) =>
-        condition.operator === "equals" &&
-        !Object.prototype.hasOwnProperty.call(condition, "value"),
-    )
-  )
-    throw new PublicationAutomationError(
-      "Equality conditions require an explicit value",
     );
   const destinations = new Set<string>();
   for (const mapping of definition.destination.fieldMappings ?? []) {
@@ -164,6 +150,42 @@ async function welcomeJourney(workspaceId: string, id: string) {
       "Welcome journey requires an exact event name and no custom entry key",
     );
   return { row, definition: result.value };
+}
+
+export async function listPublicationAutomationOptions(publisherId: string) {
+  const candidates = await db()
+    .select({
+      id: journey.id,
+      name: journey.name,
+      newsletterId: journey.workspaceId,
+      definition: journey.definition,
+    })
+    .from(journey)
+    .innerJoin(newsletter, eq(newsletter.workspaceId, journey.workspaceId))
+    .where(
+      and(
+        eq(newsletter.publisherId, publisherId),
+        eq(journey.status, JourneyResourceStatusEnum.Running),
+      ),
+    )
+    .orderBy(journey.name, journey.id);
+  const welcomeJourneys = [];
+  for (const candidate of candidates) {
+    const definition = schemaValidate(candidate.definition, JourneyDefinition);
+    if (
+      definition.isErr() ||
+      definition.value.entryNode.type !== JourneyNodeType.EventEntryNode ||
+      definition.value.entryNode.key ||
+      /[*?]/.test(definition.value.entryNode.event)
+    )
+      continue;
+    welcomeJourneys.push({
+      id: candidate.id,
+      name: candidate.name,
+      newsletterId: candidate.newsletterId,
+    });
+  }
+  return { welcomeJourneys };
 }
 
 export async function listPublicationAutomations(publisherId: string) {
@@ -792,13 +814,11 @@ async function executeAction(
       }
       created = !destinationUserId;
       destinationUserId = destinationUserId ?? randomUUID();
-      await db()
-        .insert(identities)
-        .values({
-          newsletterId: rule.destinationNewsletterId,
-          mailboxHash,
-          userId: destinationUserId,
-        });
+      await db().insert(identities).values({
+        newsletterId: rule.destinationNewsletterId,
+        mailboxHash,
+        userId: destinationUserId,
+      });
     }
     if (destinationUserId.startsWith("erased:")) {
       await saveAction(
@@ -1037,7 +1057,10 @@ export async function drainPublicationAutomations(): Promise<{
     .select()
     .from(outbox)
     .where(
-      and(isNull(outbox.processedAt), sql`${outbox.nextAttemptAt} <= clock_timestamp()`),
+      and(
+        isNull(outbox.processedAt),
+        sql`${outbox.nextAttemptAt} <= clock_timestamp()`,
+      ),
     )
     .orderBy(outbox.nextAttemptAt)
     .limit(50);

@@ -866,7 +866,10 @@
     "packages/dashboard/src/components/messageTemplateAutocomplete.tsx",
     "packages/dashboard/src/components/permissionsTable.tsx",
     "packages/dashboard/src/components/publications/createNewsletterDialog.tsx",
+    "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
     "packages/dashboard/src/components/publications/management.tsx",
+    "packages/dashboard/src/components/publications/sendingSettings.tsx",
+    "packages/dashboard/src/components/publications/settingsShared.ts",
     "packages/dashboard/src/components/publications/trackingDomains.tsx",
     "packages/dashboard/src/components/publisher.tsx",
     "packages/dashboard/src/components/rangeCalendar.tsx",
@@ -1213,7 +1216,7 @@
     "packages/worker/src/config.ts",
     "packages/worker/src/openTelemetry.ts"
   ],
-  "functionCount": 183266,
+  "functionCount": 183463,
   "functions": [
     {
       "file": "packages/admin-cli/scripts/cli.ts",
@@ -2458054,50 +2458057,1563 @@
       "boundary": "internal implementation; not independently exposed"
     },
     {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 61,
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 35,
+      "column": 13,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [
+        "path: string",
+        "payload: RecordValue",
+        "method?: \"put\" | \"post\""
+      ],
+      "returnType": "Promise<void>",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 49,
       "column": 1,
-      "name": "record",
+      "name": "SelectField",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "value: unknown"
+        "{\n  label,\n  value,\n  options,\n  onChange,\n  disabled,\n}: {\n  label: string;\n  value: string;\n  options: Option[];\n  onChange: (value: string) => void;\n  disabled?: boolean;\n}"
       ],
-      "returnType": "RecordValue",
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 59,
+      "column": 13,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [
+        "value: string"
+      ],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 71,
+      "column": 17,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 73,
+      "column": 20,
+      "name": "options.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "option"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 82,
+      "column": 1,
+      "name": "IpSelect",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  ips,\n  selected,\n  onChange,\n}: {\n  ips: RecordValue[];\n  selected: string[];\n  onChange: (value: string[]) => void;\n}"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 89,
+      "column": 13,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [
+        "value: string[]"
+      ],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 100,
+      "column": 22,
+      "name": "renderValue",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 102,
+      "column": 18,
+      "name": "selected .map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "id"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 102,
+      "column": 40,
+      "name": "ips.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "ip"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 105,
+      "column": 17,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 110,
+      "column": 16,
+      "name": "ips.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "ip"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 120,
+      "column": 1,
+      "name": "SettingsDialog",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  title,\n  action = \"Save\",\n  onClose,\n  onSubmit,\n  disabled = false,\n  children,\n  danger = false,\n}: {\n  title: string;\n  action?: string;\n  onClose: () => void;\n  onSubmit: () => Promise<void>;\n  disabled?: boolean;\n  children: ReactNode;\n  danger?: boolean;\n}"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 131,
+      "column": 12,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 132,
+      "column": 13,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [],
+      "returnType": "Promise<void>",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 139,
+      "column": 18,
+      "name": "submit",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event: FormEvent"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 199,
+      "column": 1,
+      "name": "IpDialog",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  item,\n  ips,\n  save,\n  onClose,\n}: {\n  item?: RecordValue;\n  ips: RecordValue[];\n  save: Save;\n  onClose: () => void;\n}"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 208,
+      "column": 12,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 217,
+      "column": 40,
+      "name": "useState callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 218,
+      "column": 36,
+      "name": "rows(item?.warmupSchedule).map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "stage",
+        "index"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 226,
+      "column": 3,
+      "name": "updateStage",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "id: number",
+        "field: \"afterDays\" | \"hourlyLimit\" | \"dailyLimit\"",
+        "value: string"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 231,
+      "column": 15,
+      "name": "setStages callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 232,
+      "column": 19,
+      "name": "current.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "stage"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 241,
+      "column": 17,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 245,
+      "column": 31,
+      "name": "ips.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "ip"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 250,
+      "column": 37,
+      "name": "stages.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "stage"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 256,
+      "column": 25,
+      "name": "schedule.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "stage",
+        "index"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 283,
+      "column": 19,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 303,
+      "column": 21,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 313,
+      "column": 21,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 325,
+      "column": 19,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 334,
+      "column": 20,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 337,
+      "column": 23,
+      "name": "setStages callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 356,
+      "column": 19,
+      "name": "stages.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "stage",
+        "index"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 365,
+      "column": 23,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 376,
+      "column": 23,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 387,
+      "column": 23,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 395,
+      "column": 22,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 396,
+      "column": 25,
+      "name": "setStages callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 397,
+      "column": 32,
+      "name": "current.filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "candidate"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 409,
+      "column": 1,
+      "name": "PoolDialog",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  item,\n  ips,\n  memberships,\n  save,\n  onClose,\n}: {\n  item?: RecordValue;\n  ips: RecordValue[];\n  memberships: RecordValue[];\n  save: Save;\n  onClose: () => void;\n}"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 420,
+      "column": 12,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 423,
+      "column": 38,
+      "name": "useState callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 425,
+      "column": 15,
+      "name": "memberships .filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "membership"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 426,
+      "column": 12,
+      "name": "memberships .filter((membership) => membership.poolId === item?.id) .map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "membership"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 433,
+      "column": 17,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 447,
+      "column": 19,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 455,
+      "column": 1,
+      "name": "connectionLabel",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "connection: RecordValue"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 468,
+      "column": 1,
+      "name": "RouteDialog",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  item,\n  newsletters,\n  connections,\n  pools,\n  memberships,\n  bindings,\n  save,\n  onClose,\n}: {\n  item?: RecordValue;\n  newsletters: Option[];\n  connections: RecordValue[];\n  pools: RecordValue[];\n  memberships: RecordValue[];\n  bindings: RecordValue[];\n  save: Save;\n  onClose: () => void;\n}"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 485,
+      "column": 12,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 496,
+      "column": 5,
+      "name": "connections.filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 499,
+      "column": 5,
+      "name": "pools.filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "pool"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 500,
+      "column": 26,
+      "name": "memberships.filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "membership"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 503,
+      "column": 9,
+      "name": "bindings.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "binding"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 519,
+      "column": 30,
+      "name": "availablePools.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "pool"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 522,
+      "column": 17,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 543,
+      "column": 17,
+      "name": "newsletters.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "newsletter"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 549,
+      "column": 17,
+      "name": "connections.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 552,
+      "column": 32,
+      "name": "pools.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "pool"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 557,
+      "column": 22,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 569,
+      "column": 23,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "value"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 578,
+      "column": 47,
+      "name": "availableConnections.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 582,
+      "column": 23,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "value"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 590,
+      "column": 41,
+      "name": "availablePools.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "pool"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 612,
+      "column": 1,
+      "name": "BindingDialog",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  pool,\n  item,\n  connections,\n  newsletters,\n  allowProviderWrites,\n  singleIp,\n  save,\n  onClose,\n}: {\n  pool: RecordValue;\n  item?: RecordValue;\n  connections: RecordValue[];\n  newsletters: Option[];\n  allowProviderWrites: boolean;\n  singleIp: boolean;\n  save: Save;\n  onClose: () => void;\n}"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 629,
+      "column": 12,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 652,
+      "column": 17,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 679,
+      "column": 17,
+      "name": "connections.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 687,
+      "column": 22,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 697,
+      "column": 38,
+      "name": "connections.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 699,
+      "column": 42,
+      "name": "newsletters.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "newsletter"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 701,
+      "column": 23,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "value"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 712,
+      "column": 23,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 723,
+      "column": 24,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 742,
+      "column": 1,
+      "name": "ReassignmentDialog",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  pool,\n  connections,\n  newsletters,\n  ips,\n  memberIds,\n  allowed,\n  save,\n  onClose,\n}: {\n  pool: RecordValue;\n  connections: RecordValue[];\n  newsletters: Option[];\n  ips: RecordValue[];\n  memberIds: string[];\n  allowed: boolean;\n  save: Save;\n  onClose: () => void;\n}"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 759,
+      "column": 12,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 773,
+      "column": 17,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 795,
+      "column": 17,
+      "name": "connections.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 800,
+      "column": 20,
+      "name": "ipIds .map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "id"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 800,
+      "column": 42,
+      "name": "ips.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "ip"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 806,
+      "column": 22,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 817,
+      "column": 38,
+      "name": "connections.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 819,
+      "column": 42,
+      "name": "newsletters.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "newsletter"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 837,
+      "column": 1,
+      "name": "IpPoolSettings",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  workspaceId,\n  apiBase,\n  infrastructure,\n  newsletters,\n  onComplete,\n}: PublisherSettingsProps"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 858,
+      "column": 5,
+      "name": "newsletters.filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "newsletter"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 859,
+      "column": 20,
+      "name": "routes.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "route"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 861,
+      "column": 3,
+      "name": "memberIds",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "poolId: unknown"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 863,
+      "column": 15,
+      "name": "memberships .filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "membership"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 864,
+      "column": 12,
+      "name": "memberships .filter((membership) => membership.poolId === poolId) .map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "membership"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 866,
+      "column": 17,
+      "name": "close",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 867,
+      "column": 22,
+      "name": "save",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "path",
+        "payload",
+        "method = \"put\""
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 890,
+      "column": 44,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 911,
+      "column": 22,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 930,
+      "column": 28,
+      "name": "pools.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "pool"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 935,
+      "column": 30,
+      "name": "memberIds(pool.id) .map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "id"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 936,
+      "column": 41,
+      "name": "ips.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "ip"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 943,
+      "column": 35,
+      "name": "bindings .filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "binding"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 944,
+      "column": 32,
+      "name": "bindings .filter((binding) => binding.poolId === pool.id) .map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "binding"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 949,
+      "column": 40,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 959,
+      "column": 35,
+      "name": "connections.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 968,
+      "column": 36,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 977,
+      "column": 34,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 984,
+      "column": 34,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1007,
+      "column": 22,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1029,
+      "column": 26,
+      "name": "ips.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "ip"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1054,
+      "column": 33,
+      "name": "memberships .filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "membership"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1055,
+      "column": 30,
+      "name": "memberships .filter((membership) => membership.ipId === ip.id) .map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "membership"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1057,
+      "column": 40,
+      "name": "pools.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "pool"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1066,
+      "column": 34,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1094,
+      "column": 22,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1113,
+      "column": 29,
+      "name": "routes.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "route"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1117,
+      "column": 25,
+      "name": "newsletters.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "newsletter"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1123,
+      "column": 27,
+      "name": "connections.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1129,
+      "column": 36,
+      "name": "pools.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "pool"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/ipPoolSettings.tsx",
+      "line": 1135,
+      "column": 34,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
       "documentation": null,
       "hasBody": true,
       "boundary": "internal implementation; not independently exposed"
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 64,
-      "column": 1,
-      "name": "rows",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "value: unknown"
-      ],
-      "returnType": "RecordValue[]",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 67,
-      "column": 1,
-      "name": "text",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "value: unknown"
-      ],
-      "returnType": "string",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 76,
+      "line": 70,
       "column": 1,
       "name": "optionList",
       "kind": "FunctionDeclaration",
@@ -2458113,7 +2459629,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 77,
+      "line": 71,
       "column": 26,
       "name": "rows(value).map callback[0]",
       "kind": "ArrowFunction",
@@ -2458127,21 +2459643,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 82,
-      "column": 1,
-      "name": "errorText",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "error: unknown"
-      ],
-      "returnType": "string",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 94,
+      "line": 77,
       "column": 1,
       "name": "DataTable",
       "kind": "FunctionDeclaration",
@@ -2458155,7 +2459657,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 112,
+      "line": 95,
       "column": 26,
       "name": "columns.map callback[0]",
       "kind": "ArrowFunction",
@@ -2458169,7 +2459671,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 118,
+      "line": 101,
       "column": 22,
       "name": "items.map callback[0]",
       "kind": "ArrowFunction",
@@ -2458184,7 +2459686,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 122,
+      "line": 105,
       "column": 28,
       "name": "columns.map callback[0]",
       "kind": "ArrowFunction",
@@ -2458198,12 +2459700,12 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 138,
+      "line": 121,
       "column": 1,
       "name": "ActionForm",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "{\n  title,\n  description,\n  path,\n  method = \"post\",\n  fields,\n  workspaceId,\n  apiBase,\n  onComplete,\n  buttonLabel,\n}: {\n  title: string;\n  description?: string;\n  path: string;\n  method?: \"post\" | \"put\" | \"patch\" | \"delete\";\n  fields: Field[];\n  workspaceId: string;\n  apiBase: string;\n  onComplete: () => Promise<void>;\n  buttonLabel?: string;\n}"
+        "{\n  title,\n  description,\n  path,\n  method = \"post\",\n  fields,\n  workspaceId,\n  apiBase,\n  onComplete,\n  buttonLabel,\n  showDetails = false,\n}: {\n  title: string;\n  description?: string;\n  path: string;\n  method?: \"post\" | \"put\" | \"patch\" | \"delete\";\n  fields: Field[];\n  workspaceId: string;\n  apiBase: string;\n  onComplete: () => Promise<void>;\n  buttonLabel?: string;\n  showDetails?: boolean;\n}"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -2458212,7 +2459714,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 156,
+      "line": 140,
       "column": 15,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -2458224,7 +2459726,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 177,
+      "line": 162,
       "column": 21,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458238,7 +2459740,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 202,
+      "line": 187,
       "column": 26,
       "name": "String(value) .split(/[,\\n]/) .map callback[0]",
       "kind": "ArrowFunction",
@@ -2458252,7 +2459754,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 214,
+      "line": 199,
       "column": 25,
       "name": "setValues callback[0]",
       "kind": "ArrowFunction",
@@ -2458266,7 +2459768,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 217,
+      "line": 202,
       "column": 21,
       "name": "Object.entries(current).filter callback[0]",
       "kind": "ArrowFunction",
@@ -2458280,7 +2459782,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 219,
+      "line": 204,
       "column": 25,
       "name": "fields.some callback[0]",
       "kind": "ArrowFunction",
@@ -2458294,7 +2459796,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 237,
+      "line": 222,
       "column": 25,
       "name": "fields.map callback[0]",
       "kind": "ArrowFunction",
@@ -2458308,7 +2459810,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 249,
+      "line": 234,
       "column": 35,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458322,7 +2459824,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 294,
+      "line": 279,
       "column": 29,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458336,7 +2459838,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 308,
+      "line": 293,
       "column": 39,
       "name": "field.options?.map callback[0]",
       "kind": "ArrowFunction",
@@ -2458350,7 +2459852,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 350,
+      "line": 329,
       "column": 1,
       "name": "HistoryPages",
       "kind": "FunctionDeclaration",
@@ -2458364,7 +2459866,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 359,
+      "line": 338,
       "column": 11,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -2458378,7 +2459880,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 365,
+      "line": 344,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458390,7 +2459892,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 372,
+      "line": 351,
       "column": 54,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458402,7 +2459904,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 379,
+      "line": 358,
       "column": 1,
       "name": "PublicationManagement",
       "kind": "FunctionDeclaration",
@@ -2458416,7 +2459918,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 421,
+      "line": 400,
       "column": 25,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -2458428,7 +2459930,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 442,
+      "line": 422,
       "column": 24,
       "name": "paths.map callback[0]",
       "kind": "ArrowFunction",
@@ -2458442,7 +2459944,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 446,
+      "line": 426,
       "column": 16,
       "name": "queryFn",
       "kind": "ArrowFunction",
@@ -2458456,7 +2459958,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 465,
+      "line": 445,
       "column": 17,
       "name": "paths.map callback[0]",
       "kind": "ArrowFunction",
@@ -2458471,7 +2459973,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 469,
+      "line": 449,
       "column": 48,
       "name": "publicationQueries.find callback[0]",
       "kind": "ArrowFunction",
@@ -2458485,7 +2459987,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 472,
+      "line": 452,
       "column": 51,
       "name": "publicationQueries.some callback[0]",
       "kind": "ArrowFunction",
@@ -2458499,7 +2460001,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 475,
+      "line": 455,
       "column": 5,
       "name": "publicationQueries.find callback[0]",
       "kind": "ArrowFunction",
@@ -2458514,7 +2460016,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 483,
+      "line": 463,
       "column": 31,
       "name": "useCallback callback[0]",
       "kind": "ArrowFunction",
@@ -2458526,7 +2460028,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 492,
+      "line": 472,
       "column": 13,
       "name": "useEffect callback[0]",
       "kind": "ArrowFunction",
@@ -2458538,7 +2460040,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 498,
+      "line": 478,
       "column": 23,
       "name": "historyPage",
       "kind": "ArrowFunction",
@@ -2458553,7 +2460055,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 517,
+      "line": 497,
       "column": 15,
       "name": "setData callback[0]",
       "kind": "ArrowFunction",
@@ -2458567,7 +2460069,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 518,
+      "line": 498,
       "column": 25,
       "name": "setHistoryOffsets callback[0]",
       "kind": "ArrowFunction",
@@ -2458581,7 +2460083,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 525,
+      "line": 505,
       "column": 28,
       "name": "switchNewsletter",
       "kind": "ArrowFunction",
@@ -2458595,7 +2460097,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 559,
+      "line": 535,
       "column": 26,
       "name": "publicationStats.map callback[0]",
       "kind": "ArrowFunction",
@@ -2458609,7 +2460111,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 608,
+      "line": 572,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458621,7 +2460123,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 619,
+      "line": 583,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458633,7 +2460135,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 671,
+      "line": 635,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458645,7 +2460147,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 679,
+      "line": 643,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458657,7 +2460159,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 690,
+      "line": 654,
       "column": 46,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458669,7 +2460171,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 702,
+      "line": 666,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458681,7 +2460183,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 703,
+      "line": 667,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458693,7 +2460195,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 737,
+      "line": 701,
       "column": 49,
       "name": "rows(data.newsletters).map callback[0]",
       "kind": "ArrowFunction",
@@ -2458707,7 +2460209,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 810,
+      "line": 774,
       "column": 38,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458719,7 +2460221,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 861,
+      "line": 825,
       "column": 19,
       "name": "( [ [\"subscriptionCount\", \"Publication subscriptions\"], [\"contactCount\", \"Contact records\"], [\"matchedMailboxCount\", \"Matched mailboxes\"], ] as const ).map callback[0]",
       "kind": "ArrowFunction",
@@ -2458733,7 +2460235,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 895,
+      "line": 859,
       "column": 66,
       "name": "rows(record(data.health).observations).map callback[0]",
       "kind": "ArrowFunction",
@@ -2458747,7 +2460249,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 899,
+      "line": 863,
       "column": 23,
       "name": "newsletters.find callback[0]",
       "kind": "ArrowFunction",
@@ -2458761,7 +2460263,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 923,
+      "line": 887,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458775,7 +2460277,105 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 950,
+      "line": 914,
+      "column": 27,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/management.tsx",
+      "line": 933,
+      "column": 45,
+      "name": "rows(searchResults.contacts).map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "contact"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/management.tsx",
+      "line": 940,
+      "column": 69,
+      "name": "newsletters.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "item"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/management.tsx",
+      "line": 944,
+      "column": 23,
+      "name": "selectedContacts.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "item"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/management.tsx",
+      "line": 946,
+      "column": 31,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/management.tsx",
+      "line": 947,
+      "column": 43,
+      "name": "setSelectedContacts callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/management.tsx",
+      "line": 951,
+      "column": 31,
+      "name": "current.filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "item"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/management.tsx",
+      "line": 966,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458790,104 +2460390,6 @@
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
       "line": 969,
-      "column": 45,
-      "name": "rows(searchResults.contacts).map callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "contact"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 976,
-      "column": 69,
-      "name": "newsletters.find callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "item"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 980,
-      "column": 23,
-      "name": "selectedContacts.some callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "item"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 982,
-      "column": 31,
-      "name": "<anonymous>",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "event"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 983,
-      "column": 43,
-      "name": "setSelectedContacts callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "current"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 987,
-      "column": 31,
-      "name": "current.filter callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "item"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1002,
-      "column": 27,
-      "name": "<anonymous>",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "event"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1005,
       "column": 51,
       "name": "[\"subscribe\", \"unsubscribe\"].map callback[0]",
       "kind": "ArrowFunction",
@@ -2458901,7 +2460403,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1009,
+      "line": 973,
       "column": 30,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458913,7 +2460415,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1018,
+      "line": 982,
       "column": 35,
       "name": "selectedContacts.map callback[0]",
       "kind": "ArrowFunction",
@@ -2458927,7 +2460429,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1022,
+      "line": 986,
       "column": 60,
       "name": "selectedContacts.map callback[0]",
       "kind": "ArrowFunction",
@@ -2458941,7 +2460443,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1056,
+      "line": 1015,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2458956,7 +2460458,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1083,
+      "line": 1043,
       "column": 64,
       "name": "[\"draft\", \"active\", \"paused\"].map callback[0]",
       "kind": "ArrowFunction",
@@ -2458970,12 +2460472,24 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1277,
-      "column": 63,
-      "name": "[\"nickname\", \"fromEmail\", \"replyTo\"].map callback[0]",
+      "line": 1128,
+      "column": 26,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/management.tsx",
+      "line": 1133,
+      "column": 50,
+      "name": "rows(data.automations).map callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
-        "key"
+        "rule"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -2458984,12 +2460498,12 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1289,
-      "column": 25,
-      "name": "[ \"fromName\", \"address\", \"city\", \"state\", \"zip\", \"country\", ].map callback[0]",
+      "line": 1137,
+      "column": 23,
+      "name": "newsletters.find callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
-        "key"
+        "newsletter"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -2458998,7 +2460512,21 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1523,
+      "line": 1142,
+      "column": 23,
+      "name": "newsletters.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "newsletter"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/management.tsx",
+      "line": 1186,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2459012,7 +2460540,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1551,
+      "line": 1209,
       "column": 27,
       "name": "[ \"manual\", \"publisher_optout\", \"complaint\", \"invalid_mailbox\", ].map callback[0]",
       "kind": "ArrowFunction",
@@ -2459026,7 +2460554,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1567,
+      "line": 1225,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2459040,7 +2460568,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1576,
+      "line": 1234,
       "column": 31,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2459054,7 +2460582,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1600,
+      "line": 1257,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2459068,7 +2460596,35 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1639,
+      "line": 1269,
+      "column": 31,
+      "name": "rows(data.suppressions) .filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "suppression"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/management.tsx",
+      "line": 1270,
+      "column": 28,
+      "name": "rows(data.suppressions) .filter((suppression) => suppression.active === true) .map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "suppression"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/management.tsx",
+      "line": 1297,
       "column": 57,
       "name": "rows(record(data.health).ips).map callback[0]",
       "kind": "ArrowFunction",
@@ -2459082,7 +2460638,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1679,
+      "line": 1337,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2459090,6 +2460646,1124 @@
         "offset"
       ],
       "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 69,
+      "column": 1,
+      "name": "requiredValue",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "values: Values",
+        "key: string",
+        "label: string"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 75,
+      "column": 1,
+      "name": "strings",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: unknown"
+      ],
+      "returnType": "string[]",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 77,
+      "column": 20,
+      "name": "value.filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "item"
+      ],
+      "returnType": "item is string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 81,
+      "column": 1,
+      "name": "list",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: string"
+      ],
+      "returnType": "string[]",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 86,
+      "column": 14,
+      "name": "value .split(/[\\n,]/) .map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "item"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 92,
+      "column": 1,
+      "name": "finding",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: string"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 107,
+      "column": 1,
+      "name": "checkedAt",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: unknown"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 113,
+      "column": 1,
+      "name": "Status",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{ ready, label }: { ready: boolean; label?: string }"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 123,
+      "column": 1,
+      "name": "DnsRecords",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{ domain }: { domain: RecordValue }"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 151,
+      "column": 24,
+      "name": "dns.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "dnsRecord"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 188,
+      "column": 1,
+      "name": "InspectionReport",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{ report }: { report: RecordValue }"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 211,
+      "column": 25,
+      "name": "findings.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "item"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 252,
+      "column": 33,
+      "name": "rows(report.domains).map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "domain"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 268,
+      "column": 42,
+      "name": "rows(report.bindings).map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "binding"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 290,
+      "column": 37,
+      "name": "rows(report.ips).map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "ip"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 306,
+      "column": 1,
+      "name": "SettingsForm",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  title,\n  fields,\n  initial,\n  submitLabel,\n  confirmation,\n  onSubmit,\n  onClose,\n}: {\n  title: string;\n  fields: Field[];\n  initial: Values;\n  submitLabel: string;\n  confirmation?: string;\n  onSubmit: (values: Values) => Promise<void>;\n  onClose: () => void;\n}"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 320,
+      "column": 13,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [
+        "values: Values"
+      ],
+      "returnType": "Promise<void>",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 321,
+      "column": 12,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 334,
+      "column": 19,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 353,
+      "column": 23,
+      "name": "setValues callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 355,
+      "column": 30,
+      "name": "fields.forEach callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "field"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 370,
+      "column": 26,
+      "name": "fields.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "field"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 390,
+      "column": 29,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 391,
+      "column": 31,
+      "name": "setValues callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 397,
+      "column": 39,
+      "name": "field.options?.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "option"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 416,
+      "column": 24,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 430,
+      "column": 1,
+      "name": "SendingSettingsContent",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  workspaceId,\n  apiBase,\n  infrastructure,\n  newsletters,\n  onComplete,\n  view,\n}: PublisherSettingsProps & { view: View }"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 456,
+      "column": 16,
+      "name": "name",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection: RecordValue"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 458,
+      "column": 7,
+      "name": "newsletters.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "newsletter"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 460,
+      "column": 23,
+      "name": "fingerprint",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection: RecordValue"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 471,
+      "column": 25,
+      "name": "currentReport",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection: RecordValue"
+      ],
+      "returnType": "RecordValue | undefined",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 477,
+      "column": 22,
+      "name": "invalidate",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connectionId?: string",
+        "clearDomains = true"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 479,
+      "column": 17,
+      "name": "setChecks callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 481,
+      "column": 42,
+      "name": "Object.entries(current).filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "[id]"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 485,
+      "column": 26,
+      "name": "setDomainResults callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 487,
+      "column": 44,
+      "name": "Object.entries(current).filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "[id]"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 490,
+      "column": 22,
+      "name": "setInvalidated callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 496,
+      "column": 27,
+      "name": "connections.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 501,
+      "column": 22,
+      "name": "saveReport",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection: RecordValue",
+        "report: RecordValue"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 503,
+      "column": 15,
+      "name": "setChecks callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 507,
+      "column": 20,
+      "name": "setInvalidated callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 509,
+      "column": 19,
+      "name": "refresh",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 516,
+      "column": 17,
+      "name": "check",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection: RecordValue"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 535,
+      "column": 5,
+      "name": "newsletters.filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "newsletter"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 537,
+      "column": 9,
+      "name": "connections.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 543,
+      "column": 22,
+      "name": "domainsFor",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection: RecordValue"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 548,
+      "column": 21,
+      "name": "results.forEach callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "domain"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 550,
+      "column": 9,
+      "name": "domains.findIndex callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "existing"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 557,
+      "column": 47,
+      "name": "strings(connection.senderDomains).forEach callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "domain"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 558,
+      "column": 25,
+      "name": "domains.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "existing"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 575,
+      "column": 9,
+      "name": "connections.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 677,
+      "column": 36,
+      "name": "connections.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 740,
+      "column": 36,
+      "name": "connections.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 780,
+      "column": 18,
+      "name": "submit",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "values: Values"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 826,
+      "column": 43,
+      "name": "connections.find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "item"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 843,
+      "column": 11,
+      "name": "[\"fromName\", \"address\", \"city\", \"state\", \"zip\", \"country\"].forEach callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "field"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 858,
+      "column": 26,
+      "name": "setDomainResults callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "current"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 864,
+      "column": 17,
+      "name": "(current[connectionId]?.domains ?? []).filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "domain"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 936,
+      "column": 24,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 966,
+      "column": 22,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 982,
+      "column": 42,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 987,
+      "column": 44,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1011,
+      "column": 32,
+      "name": "connections.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1067,
+      "column": 36,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1088,
+      "column": 36,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1108,
+      "column": 28,
+      "name": "connections.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "connection"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1131,
+      "column": 34,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1142,
+      "column": 34,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1155,
+      "column": 32,
+      "name": "domains.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "domain"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1173,
+      "column": 34,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1199,
+      "column": 18,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1208,
+      "column": 15,
+      "name": "( [ { kind: \"connection\", label: \"Edit credentials\" }, { kind: \"webhook\", label: \"Set up webhook\" }, { kind: \"provision\", label: \"Finish setup\" }, { kind: \"send callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "action"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1215,
+      "column": 22,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1233,
+      "column": 20,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1237,
+      "column": 55,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1249,
+      "column": 30,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/sendingSettings.tsx",
+      "line": 1257,
+      "column": 1,
+      "name": "SendingSettings",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  workspaceId,\n  ...props\n}: PublisherSettingsProps & { view: View }"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/settingsShared.ts",
+      "line": 15,
+      "column": 15,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [],
+      "returnType": "Promise<void>",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/settingsShared.ts",
+      "line": 18,
+      "column": 1,
+      "name": "record",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: unknown"
+      ],
+      "returnType": "RecordValue",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/settingsShared.ts",
+      "line": 22,
+      "column": 1,
+      "name": "rows",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: unknown"
+      ],
+      "returnType": "RecordValue[]",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/settingsShared.ts",
+      "line": 26,
+      "column": 1,
+      "name": "text",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: unknown"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/settingsShared.ts",
+      "line": 31,
+      "column": 1,
+      "name": "errorText",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "error: unknown"
+      ],
+      "returnType": "string",
       "documentation": null,
       "hasBody": true,
       "boundary": "internal implementation; not independently exposed"

@@ -19,6 +19,7 @@ import {
   MenuItem,
   Paper,
   Stack,
+  Switch,
   Tab,
   Table,
   TableBody,
@@ -31,18 +32,26 @@ import {
 } from "@mui/material";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { isObject } from "isomorphic-lib/src/objects";
 import { CompletionStatus } from "isomorphic-lib/src/types";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAppStorePick } from "../../lib/appStore";
 import CreateNewsletterDialog from "./createNewsletterDialog";
+import IpPoolSettings from "./ipPoolSettings";
+import SendingSettings from "./sendingSettings";
+import {
+  errorText,
+  Option,
+  PublisherSettingsProps,
+  record,
+  RecordValue,
+  rows,
+  text,
+} from "./settingsShared";
 import TrackingDomains from "./trackingDomains";
 
-type RecordValue = Record<string, unknown>;
-type Option = { value: string; label: string };
-type Field = {
+interface Field {
   key: string;
   label: string;
   kind?:
@@ -57,38 +66,12 @@ type Field = {
   options?: Option[];
   initial?: string | boolean;
   hint?: string;
-};
-function record(value: unknown): RecordValue {
-  return isObject(value) ? value : {};
-}
-function rows(value: unknown): RecordValue[] {
-  return Array.isArray(value) ? value.map(record) : [];
-}
-function text(value: unknown): string {
-  if (value === undefined || value === null) {
-    return "—";
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
 }
 function optionList(value: unknown, idKey: string, labelKey: string): Option[] {
   return rows(value).map((row) => ({
     value: text(row[idKey]),
     label: text(row[labelKey]),
   }));
-}
-function errorText(error: unknown): string {
-  if (axios.isAxiosError(error)) {
-    const data = record(error.response?.data);
-    return typeof data.message === "string"
-      ? data.message
-      : "Publication operation failed";
-  }
-  return error instanceof SyntaxError
-    ? "Invalid JSON in an advanced field"
-    : "Publication operation failed";
 }
 
 function DataTable({
@@ -145,6 +128,7 @@ function ActionForm({
   apiBase,
   onComplete,
   buttonLabel,
+  showDetails = false,
 }: {
   title: string;
   description?: string;
@@ -155,6 +139,7 @@ function ActionForm({
   apiBase: string;
   onComplete: () => Promise<void>;
   buttonLabel?: string;
+  showDetails?: boolean;
 }) {
   const [values, setValues] = useState<
     Record<string, string | boolean | string[]>
@@ -241,7 +226,7 @@ function ActionForm({
                     key={field.key}
                     label={field.label}
                     control={
-                      <Checkbox
+                      <Switch
                         required={field.required}
                         checked={Boolean(
                           values[field.key] ?? field.initial ?? false,
@@ -314,19 +299,13 @@ function ActionForm({
               );
             })}
             {error && <Alert severity="error">{error}</Alert>}
-            {result !== undefined && (
-              <Alert severity="success">
-                Operation completed. Review the updated status below.
-              </Alert>
-            )}
+            {result !== undefined && <Alert severity="success">Done.</Alert>}
             <Button type="submit" variant="contained" disabled={busy}>
               {busy ? "Working…" : buttonLabel ?? title}
             </Button>
-            {result !== undefined && (
+            {result !== undefined && showDetails && (
               <Box component="details">
-                <Box component="summary">
-                  Operation details / DNS requirements
-                </Box>
+                <Box component="summary">Details</Box>
                 <Box
                   component="pre"
                   sx={{
@@ -424,13 +403,14 @@ export default function PublicationManagement({
       required.overview = "/overview";
     }
     if (section === "settings") {
-      if (tab === 1 || tab === 2) required.infrastructure = "/infrastructure";
-      if (tab === 3) {
+      if ([0, 1, 2, 7].includes(tab))
+        required.infrastructure = "/infrastructure";
+      if (tab === 4) {
         required.automations = "/automations";
         required.actions = "/automations/actions";
       }
-      if (tab === 4) required.suppressions = "/suppressions";
-      if (tab === 5) {
+      if (tab === 5) required.suppressions = "/suppressions";
+      if (tab === 6) {
         required.health = "/delivery-health";
         required.sends = "/sends";
       }
@@ -549,11 +529,7 @@ export default function PublicationManagement({
   };
   const common = { workspaceId, apiBase, onComplete: refresh };
   const infrastructure = record(data.infrastructure);
-  const account = record(infrastructure.account);
   const newsletters = optionList(data.newsletters, "workspaceId", "name");
-  const connections = optionList(infrastructure.connections, "id", "username");
-  const ips = optionList(infrastructure.ips, "id", "address");
-  const pools = optionList(infrastructure.pools, "id", "name");
   const publicationStats = rows(record(data.overview).newsletters);
   const statsById = new Map(
     publicationStats.map((item) => [text(item.workspaceId), item]),
@@ -565,25 +541,13 @@ export default function PublicationManagement({
     options: newsletters,
     required: true,
   };
-  const connectionField: Field = {
-    key: "connectionId",
-    label: "Sending connection",
-    kind: "select",
-    options: connections,
-    required: true,
+  const settingsProps: PublisherSettingsProps = {
+    workspaceId,
+    apiBase,
+    infrastructure,
+    newsletters,
+    onComplete: refresh,
   };
-  const poolField: Field = {
-    key: "poolId",
-    label: "IP pool",
-    kind: "select",
-    options: pools,
-    required: true,
-  };
-  const bindingFields: Field[] = [
-    connectionField,
-    poolField,
-    { key: "providerPoolName", label: "SendGrid pool name", required: true },
-  ];
 
   if (!publisherId)
     return (
@@ -1046,27 +1010,23 @@ export default function PublicationManagement({
       )}
       {section === "settings" && (
         <Stack spacing={2}>
-          <Alert severity="info">
-            Provider changes and real sends require explicit release
-            authorization. Shared-IP limits cover Ditto-managed traffic;
-            external traffic can bypass them.
-          </Alert>
           <Tabs
             value={tab}
             onChange={(_event, value: number) => setTab(value)}
             variant="scrollable"
             scrollButtons="auto"
           >
-            <Tab label="Newsletters" />
             <Tab label="Sending" />
+            <Tab label="Domains" />
             <Tab label="IP pools" />
+            <Tab label="Tracking" />
             <Tab label="Automations" />
-            <Tab label="Suppression" />
-            <Tab label="Diagnostics" />
-            <Tab label="Tracking domains" />
+            <Tab label="Suppressions" />
+            <Tab label="Activity" />
+            <Tab label="Advanced" />
           </Tabs>
           {loading && <CircularProgress size={20} />}
-          {tab === 0 && (
+          {tab === 7 && (
             <Stack spacing={2}>
               <ActionForm
                 {...common}
@@ -1091,7 +1051,7 @@ export default function PublicationManagement({
                 {...common}
                 title="Adopt an existing newsletter"
                 path="/adopt"
-                description="Only an existing child workspace of this publisher can be adopted. Subscribers are not copied or merged. Live-contact migration requires separate release authorization."
+                description="Link an existing child workspace without moving subscribers."
                 fields={[
                   {
                     key: "newsletterId",
@@ -1106,362 +1066,23 @@ export default function PublicationManagement({
                   },
                 ]}
               />
-            </Stack>
-          )}
-          {tab === 1 && (
-            <Stack spacing={3}>
               <ActionForm
                 {...common}
-                title="Configure SendGrid management"
-                path="/infrastructure/account"
-                method="put"
-                description="Stored keys are encrypted and never returned. Entering a replacement key does not rotate any existing subuser key."
-                fields={[
-                  {
-                    key: "managementApiKey",
-                    label: "Parent management API key (leave blank to retain)",
-                    kind: "password",
-                  },
-                  {
-                    key: "region",
-                    label: "SendGrid region",
-                    kind: "select",
-                    initial:
-                      typeof account.region === "string"
-                        ? account.region
-                        : "global",
-                    options: [
-                      { value: "global", label: "Global" },
-                      { value: "eu", label: "EU" },
-                    ],
-                  },
-                  {
-                    key: "callbackBaseUrl",
-                    label: "Public HTTPS callback origin",
-                    initial:
-                      typeof account.callbackBaseUrl === "string"
-                        ? account.callbackBaseUrl
-                        : "",
-                  },
-                  {
-                    key: "allowProviderWrites",
-                    label: "Release gate: authorize provider resource changes",
-                    kind: "boolean",
-                    initial: account.allowProviderWrites === true,
-                  },
-                  {
-                    key: "allowIpReassignment",
-                    label: "Release gate: authorize explicit IP reassignment",
-                    kind: "boolean",
-                    initial: account.allowIpReassignment === true,
-                  },
-                  {
-                    key: "allowRealSends",
-                    label: "Release gate: authorize real email submission",
-                    kind: "boolean",
-                    initial: account.allowRealSends === true,
-                  },
-                  {
-                    key: "allTrafficControlled",
-                    label:
-                      "All traffic on these dedicated IPs enters Ditto's shared admission gate",
-                    kind: "boolean",
-                    initial: account.allTrafficControlled === true,
-                  },
-                ]}
-              />
-              <ActionForm
-                {...common}
-                title="Inspect existing AI Stock News resources"
+                title="SendGrid inventory"
                 path="/infrastructure/inspect"
-                description="Read-only. Existing aistocknews-ditto, restricted key metadata, domains, IPs, and pools must be inspected and adopted—not recreated."
+                buttonLabel="Check account"
+                showDetails
                 fields={[
                   {
                     key: "username",
-                    label: "Existing subuser",
-                    initial: "aistocknews-ditto",
+                    label: "SendGrid subuser",
                     required: true,
                   },
                 ]}
               />
               <ActionForm
                 {...common}
-                title="Register / adopt sending connection"
-                path="/infrastructure/connections"
-                method="put"
-                fields={[
-                  newsletterField,
-                  {
-                    key: "apiKey",
-                    label: "Existing restricted sending key",
-                    kind: "password",
-                  },
-                  { key: "apiKeyId", label: "Existing restricted key ID" },
-                  {
-                    key: "senderDomains",
-                    label: "Sending domains",
-                    kind: "list",
-                    hint: "Separate domains with commas or new lines.",
-                  },
-                  {
-                    key: "senderEmails",
-                    label: "Verified sender addresses",
-                    kind: "list",
-                  },
-                ]}
-              />
-              <DataTable
-                data={infrastructure.connections}
-                columns={[
-                  ["username", "Subuser"],
-                  ["administrativeEmail", "Administrative email"],
-                  ["status", "Provisioning"],
-                  ["revision", "Revision"],
-                  ["senderDomains", "Authenticated domains"],
-                  ["senderEmails", "Senders"],
-                ]}
-              />
-              <ActionForm
-                {...common}
-                title="Inspect connection"
-                path="/infrastructure/connections/inspect"
-                fields={[connectionField]}
-              />
-              <ActionForm
-                {...common}
-                title="Resume connection provisioning"
-                path="/infrastructure/connections/provision"
-                description="Reconciles existing resources. Provider writes remain gated; AI Stock News is adopted rather than recreated."
-                fields={[
-                  connectionField,
-                  { key: "domain", label: "Sending domain (optional)" },
-                  {
-                    key: "subdomain",
-                    label: "Authentication subdomain (optional)",
-                  },
-                  {
-                    key: "configureWebhook",
-                    label: "Configure signed connection webhook",
-                    kind: "boolean",
-                  },
-                ]}
-              />
-              <ActionForm
-                {...common}
-                title="Reconcile authenticated domain"
-                path="/infrastructure/domains"
-                fields={[
-                  connectionField,
-                  { key: "domain", label: "Domain", required: true },
-                  { key: "subdomain", label: "Subdomain (optional)" },
-                  {
-                    key: "validate",
-                    label: "Validate published DNS records",
-                    kind: "boolean",
-                  },
-                ]}
-              />
-              <ActionForm
-                {...common}
-                title="Reconcile signed webhook"
-                path="/infrastructure/webhooks"
-                fields={[connectionField]}
-              />
-              <ActionForm
-                {...common}
-                title="Manage verified sender identity"
-                path="/infrastructure/senders"
-                description="This explicit action can send a verification email after the provider-write gate is authorized."
-                fields={[
-                  connectionField,
-                  ...["nickname", "fromEmail", "replyTo"].map((key) => ({
-                    key,
-                    label: key,
-                    required: true,
-                  })),
-                  ...[
-                    "fromName",
-                    "address",
-                    "city",
-                    "state",
-                    "zip",
-                    "country",
-                  ].map((key) => ({ key, label: key })),
-                  {
-                    key: "sendVerificationEmail",
-                    label: "Authorize sending the sender-verification email",
-                    kind: "boolean",
-                    required: true,
-                  },
-                ]}
-              />
-            </Stack>
-          )}
-          {tab === 2 && (
-            <Stack spacing={3}>
-              <Alert severity="info">
-                Budgets belong to the physical IP, across all newsletters and
-                subusers. Registering an IP is not a purchase or provider
-                reassignment. Deterministic single-IP pool bindings are required
-                for strict per-IP admission.
-              </Alert>
-              <DataTable
-                data={infrastructure.ips}
-                columns={[
-                  ["address", "Physical IP"],
-                  ["status", "Status"],
-                  ["hourlyLimit", "Shared hourly budget"],
-                  ["dailyLimit", "Shared daily budget"],
-                  ["warmupStartedAt", "Warm-up started"],
-                  ["id", "IP ID"],
-                ]}
-              />
-              <ActionForm
-                {...common}
-                title="Register / update physical IP"
-                path="/infrastructure/ips"
-                method="put"
-                fields={[
-                  { key: "id", label: "Existing IP record ID (optional)" },
-                  {
-                    key: "address",
-                    label: "Already-owned IP address",
-                    required: true,
-                  },
-                  {
-                    key: "status",
-                    label: "Status",
-                    kind: "select",
-                    initial: "paused",
-                    options: [
-                      { value: "paused", label: "Paused" },
-                      { value: "active", label: "Active" },
-                    ],
-                    required: true,
-                  },
-                  {
-                    key: "hourlyLimit",
-                    label: "Aggregate hourly recipient budget",
-                    kind: "number",
-                    required: true,
-                  },
-                  {
-                    key: "dailyLimit",
-                    label: "Aggregate daily recipient budget",
-                    kind: "number",
-                    required: true,
-                  },
-                  {
-                    key: "warmupStartedAt",
-                    label: "Warm-up start (ISO UTC, optional)",
-                  },
-                  {
-                    key: "warmupSchedule",
-                    label: "Warm-up stages (JSON array)",
-                    kind: "json",
-                    hint: '[{"afterDays":0,"hourlyLimit":20,"dailyLimit":100}] — example only, not a recommended schedule',
-                  },
-                ]}
-              />
-              <DataTable
-                data={infrastructure.pools}
-                columns={[
-                  ["name", "Pool"],
-                  ["id", "Pool ID"],
-                ]}
-              />
-              <ActionForm
-                {...common}
-                title="Manage logical IP pool"
-                path="/infrastructure/pools"
-                method="put"
-                fields={[
-                  { key: "id", label: "Existing pool ID (optional)" },
-                  { key: "name", label: "Pool name", required: true },
-                  {
-                    key: "ipIds",
-                    label: "Physical IP members",
-                    kind: "multiselect",
-                    options: ips,
-                    required: true,
-                  },
-                ]}
-              />
-              <ActionForm
-                {...common}
-                title="Register provider pool binding"
-                path="/infrastructure/pool-bindings"
-                method="put"
-                fields={bindingFields}
-              />
-              <ActionForm
-                {...common}
-                title="Reconcile SendGrid pool"
-                path="/infrastructure/pool-bindings/reconcile"
-                fields={bindingFields}
-              />
-              <ActionForm
-                {...common}
-                title="Assign newsletter route"
-                path="/infrastructure/routes"
-                method="put"
-                description="Changes future sends only. Existing send attempts retain their pinned route; campaigns and journeys are not rebuilt."
-                fields={[newsletterField, connectionField, poolField]}
-              />
-              <DataTable
-                data={infrastructure.routes}
-                columns={[
-                  ["newsletterId", "Newsletter"],
-                  ["connectionId", "Connection"],
-                  ["poolId", "Pool"],
-                  ["version", "Route revision"],
-                ]}
-              />
-              <ActionForm
-                {...common}
-                title="Explicit provider IP reassignment"
-                path="/infrastructure/ip-reassignment"
-                description="A live infrastructure change. Both provider-write and IP-reassignment release gates must be authorized first. No IP purchase occurs."
-                fields={[
-                  connectionField,
-                  {
-                    key: "ipIds",
-                    label: "Assigned physical IPs",
-                    kind: "multiselect",
-                    options: ips,
-                    required: true,
-                  },
-                  {
-                    key: "confirm",
-                    label: "Authorize this live IP reassignment",
-                    kind: "boolean",
-                    required: true,
-                  },
-                ]}
-              />
-            </Stack>
-          )}
-          {tab === 3 && (
-            <Stack spacing={3}>
-              <Alert severity="info">
-                Rules coordinate independent subscribers deliberately. Repeated
-                clicks default to once per source subscriber. Destination
-                opt-outs and publisher suppression remain effective; an explicit
-                consent rule is required where resubscription is authorized.
-              </Alert>
-              <DataTable
-                data={data.automations}
-                columns={[
-                  ["name", "Rule"],
-                  ["sourceNewsletterId", "Source"],
-                  ["destinationNewsletterId", "Destination"],
-                  ["enabled", "Enabled"],
-                  ["id", "Rule ID"],
-                ]}
-              />
-              <ActionForm
-                {...common}
-                title="Create / update automation"
+                title="Advanced rule editor"
                 path="/automations"
                 method="put"
                 fields={[
@@ -1484,8 +1105,50 @@ export default function PublicationManagement({
                       "Source conditions, destination actions, and field mappings",
                     kind: "json",
                     required: true,
-                    hint: "Source link path for clicks: properties.url. destination.welcomeJourneyId must select a Running, event-entry journey in the destination; source.conditions and destination.fieldMappings configure explicit actions.",
+                    hint: "Use the newsletter automation schema.",
                   },
+                ]}
+              />
+            </Stack>
+          )}
+          {(tab === 0 || tab === 1) && data.infrastructure !== undefined && (
+            <SendingSettings
+              key={workspaceId}
+              {...settingsProps}
+              view={tab === 0 ? "connections" : "domains"}
+            />
+          )}
+          {tab === 2 && data.infrastructure !== undefined && (
+            <IpPoolSettings key={workspaceId} {...settingsProps} />
+          )}
+          {tab === 4 && (
+            <Stack spacing={3}>
+              <Button
+                sx={{ alignSelf: "flex-start" }}
+                onClick={() => setTab(7)}
+              >
+                Advanced editor
+              </Button>
+              <DataTable
+                data={rows(data.automations).map((rule) => ({
+                  ...rule,
+                  source:
+                    newsletters.find(
+                      (newsletter) =>
+                        newsletter.value === rule.sourceNewsletterId,
+                    )?.label ?? "Unavailable",
+                  destination:
+                    newsletters.find(
+                      (newsletter) =>
+                        newsletter.value === rule.destinationNewsletterId,
+                    )?.label ?? "Unavailable",
+                  state: rule.enabled === true ? "Active" : "Paused",
+                }))}
+                columns={[
+                  ["name", "Rule"],
+                  ["source", "Source"],
+                  ["destination", "Destination"],
+                  ["state", "Status"],
                 ]}
               />
               <ActionForm
@@ -1504,7 +1167,7 @@ export default function PublicationManagement({
                   },
                 ]}
               />
-              <Typography variant="h4">Automation action history</Typography>
+              <Typography variant="h4">Recent actions</Typography>
               <DataTable
                 data={data.actions}
                 columns={[
@@ -1524,16 +1187,11 @@ export default function PublicationManagement({
               />
             </Stack>
           )}
-          {tab === 4 && (
+          {tab === 5 && (
             <Stack spacing={3}>
-              <Alert severity="info">
-                Ordinary unsubscribe stays within its newsletter. Spam
-                complaints block marketing publisher-wide. Permanent invalid
-                mailboxes are distinct from transient or policy failures.
-              </Alert>
               <ActionForm
                 {...common}
-                title="Add publisher suppression"
+                title="Add suppression"
                 path="/suppressions"
                 method="put"
                 fields={[
@@ -1590,7 +1248,6 @@ export default function PublicationManagement({
                   ["reason", "Reason"],
                   ["sourceNewsletterId", "Source newsletter"],
                   ["active", "Active"],
-                  ["id", "Suppression ID"],
                 ]}
               />
               <HistoryPages
@@ -1601,26 +1258,27 @@ export default function PublicationManagement({
               />
               <ActionForm
                 {...common}
-                title="Explicitly deactivate suppression"
+                title="Remove suppression"
                 path="/suppressions/deactivate"
-                description="Resubscribing to a newsletter never clears a publisher suppression automatically."
                 fields={[
                   {
                     key: "suppressionId",
-                    label: "Suppression ID",
+                    label: "Suppression",
+                    kind: "select",
+                    options: rows(data.suppressions)
+                      .filter((suppression) => suppression.active === true)
+                      .map((suppression) => ({
+                        value: text(suppression.id),
+                        label: `${text(suppression.reason).replace(/_/g, " ")} · ${text(suppression.mailboxHash).slice(0, 12)}`,
+                      })),
                     required: true,
                   },
                 ]}
               />
             </Stack>
           )}
-          {tab === 5 && (
+          {tab === 6 && (
             <Stack spacing={3}>
-              <Alert severity="info">
-                Queued is not sent. SendGrid acceptance is not delivery. Opens
-                and clicks remain observed, not verified human engagement.
-                Unknown acceptance requires review—not resubmission.
-              </Alert>
               <Typography color="text.secondary">
                 {text(record(data.health).periodStart)} —{" "}
                 {text(record(data.health).periodEnd)}
@@ -1680,7 +1338,7 @@ export default function PublicationManagement({
               />
             </Stack>
           )}
-          {tab === 6 && (
+          {tab === 3 && (
             <TrackingDomains
               workspaceId={workspaceId}
               apiBase={apiBase}

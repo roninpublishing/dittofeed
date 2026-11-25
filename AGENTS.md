@@ -97,6 +97,9 @@ the corresponding tooling actually changes.
   Use accurate labels such as "Matched mailboxes" or "Observed opens" rather
   than adding caveat paragraphs or implying verified people/human engagement.
 - Put detailed semantics in documentation, not extra subtitles or tooltips.
+- Normal settings use named resources, status and contextual actions. Keep raw
+  UUID/JSON entry, migration and repair tools in Advanced; do not expose internal
+  rollout permissions as a standing checkbox panel or weaken backend safeguards.
 - Preserve the compact layout and existing palette. Do not initiate a production
   deployment for UI edits unless explicitly requested.
 

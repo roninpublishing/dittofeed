@@ -735,8 +735,9 @@ subscriber count, status and Open. Creation asks for a name and derives the
 sending ID, with optional customization before creation. Publisher navigation
 contains Newsletters, Subscribers, Reports and Publisher settings; native
 campaign/journey navigation appears inside an opened newsletter instead.
-Infrastructure, cross-publication rules, suppression, tracking, migration and
-diagnostics remain in Publisher settings with administrative forms collapsed.
+Publisher settings uses task-based sending connections, domains, IP pools and
+tracking with focused dialogs. Rules, suppressions and activity have separate
+tabs; migration, raw inventory and JSON rule editing live in Advanced.
 Cross-publication search and reporting have separate views. Matched mailboxes
 are not verified unique people; publication subscriptions must not be conflated
 with either measure.
@@ -1166,3 +1167,24 @@ as the production connection source.
   checks passed for Reports and Subscribers. Current combined Lite preview uses
   `NEXT_DIST_DIR=dist/ui-minimal-preview` with the same guarded dev resources and
   disabled workers/bootstrap/tracking. No production deployment was initiated.
+
+## Task-based publisher settings
+
+- Replaced the sending/IP operator-form stack with connection status, contextual
+  actions, DNS record tables, IP/pool editors, structured warm-up stages and
+  named newsletter routes. Settings opens on Sending; migration and raw inventory
+  are confined to Advanced. No newsletter-specific migration button or standing
+  authorization checkbox panel remains.
+- Provider permissions remain server-enforced and are never silently enabled.
+  Provider changes and route edits use explicit action confirmations; saved
+  credentials alone are not presented as verified connections. Changed credentials
+  invalidate prior inspection results.
+- Scoped source lint and the optimized dashboard build passed. Real development
+  UI rendering and isolated HTTP-fixture browser workflows covered permission
+  blocking, credential save/secret clearing, DNS/inspection response rendering,
+  domain confirmation, warm-up preservation and confirmed route changes.
+  No provider mutation, verification email, campaign send or production deployment
+  was performed. Test fixtures were confined to a separate, closed browser tab.
+- Current guarded development preview: `NEXT_DIST_DIR=dist/publisher-settings-preview`,
+  combined Lite on localhost:3000; dev Neon/ClickHouse/Temporal and disabled
+  workers/bootstrap/tracking are preserved.

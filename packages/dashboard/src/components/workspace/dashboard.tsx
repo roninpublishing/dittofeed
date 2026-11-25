@@ -1,13 +1,28 @@
-import { Alert, Button, CircularProgress, Stack } from "@mui/material";
+import {
+  Alert,
+  Button,
+  CircularProgress,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { CompletionStatus } from "isomorphic-lib/src/types";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { useAppStorePick } from "../../lib/appStore";
+import { buildWorkspaceDomains } from "../../lib/workspaceDomains";
 import { WorkspaceRoute } from "../../lib/workspaceRoutes";
 import PublicationManagement from "../publications/management";
-import { errorText, record, RecordValue } from "../publications/settingsShared";
+import {
+  errorText,
+  record,
+  RecordValue,
+  rows,
+  text,
+} from "../publications/settingsShared";
+import WorkspaceAutomations from "./automations";
+import Domains from "./domains";
 import EspAccounts from "./espAccounts";
 import IpResources from "./ipResources";
 import NewsletterDefaults from "./newsletterDefaults";
@@ -28,6 +43,7 @@ export default function WorkspaceDashboard({
   const managedSection =
     route.section === "overview" ||
     route.section === "esp-accounts" ||
+    route.section === "domains" ||
     route.section === "ips" ||
     route.section === "ip-pools" ||
     (route.section === "newsletters" && route.resourceId !== null);
@@ -55,6 +71,8 @@ export default function WorkspaceDashboard({
       Boolean(publisherId) &&
       isWorkspace &&
       (route.section === "overview" ||
+        route.section === "domains" ||
+        route.section === "automations" ||
         (route.section === "newsletters" && route.resourceId !== null)),
     staleTime: 15_000,
     queryFn: async ({ signal }) => {
@@ -65,6 +83,29 @@ export default function WorkspaceDashboard({
       return response.data.data;
     },
   });
+  const needsDomains =
+    route.section === "overview" || route.section === "domains";
+  const domainCatalog = useQuery({
+    queryKey: ["workspace-domain-catalog", apiBase, workspaceId],
+    enabled: Boolean(publisherId) && isWorkspace && needsDomains,
+    staleTime: 15_000,
+    queryFn: async ({ signal }) => {
+      const response = await axios.get<{ data: unknown }>(
+        `${apiBase}/api/publications/tracking-domains`,
+        { params: { workspaceId }, signal },
+      );
+      return response.data.data;
+    },
+  });
+  const domains = useMemo(
+    () =>
+      buildWorkspaceDomains(
+        workspaceId,
+        infrastructure.data ?? {},
+        domainCatalog.data,
+      ),
+    [workspaceId, infrastructure.data, domainCatalog.data],
+  );
   const refresh = useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({
@@ -75,6 +116,9 @@ export default function WorkspaceDashboard({
       }),
       queryClient.invalidateQueries({
         queryKey: ["publications", workspaceId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["workspace-domain-catalog", apiBase, workspaceId],
       }),
       queryClient.invalidateQueries({
         queryKey: ["newsletter-sending-options"],
@@ -100,8 +144,27 @@ export default function WorkspaceDashboard({
       />
     );
   }
+  if (route.section === "tracking")
+    return (
+      <Typography component="h1" variant="h2">
+        Tracking
+      </Typography>
+    );
+  if (route.section === "automations")
+    return (
+      <WorkspaceAutomations
+        workspaceId={workspaceId}
+        apiBase={apiBase}
+        newsletters={rows(newsletters.data).map((item) => ({
+          value: text(item.workspaceId),
+          label: text(item.name),
+        }))}
+      />
+    );
   const needsNewsletters =
-    route.section === "overview" || route.section === "newsletters";
+    route.section === "overview" ||
+    route.section === "newsletters" ||
+    route.section === "domains";
   const failure =
     infrastructure.error ?? (needsNewsletters ? newsletters.error : null);
   if (failure)
@@ -117,7 +180,11 @@ export default function WorkspaceDashboard({
         {errorText(failure)}
       </Alert>
     );
-  if (!infrastructure.data || (needsNewsletters && newsletters.isPending))
+  if (
+    !infrastructure.data ||
+    (needsNewsletters && newsletters.isPending) ||
+    (needsDomains && domainCatalog.isPending)
+  )
     return (
       <Stack alignItems="center" py={4}>
         <CircularProgress size={28} aria-label="Loading workspace" />
@@ -129,6 +196,20 @@ export default function WorkspaceDashboard({
     infrastructure: infrastructure.data,
     onComplete: refresh,
   };
+  if (route.section === "domains")
+    return (
+      <Stack spacing={2}>
+        {domainCatalog.isError && (
+          <Alert severity="warning">Tracking domains unavailable.</Alert>
+        )}
+        <Domains
+          {...common}
+          domains={domains}
+          newsletters={newsletters.data}
+          resourceId={route.resourceId ?? undefined}
+        />
+      </Stack>
+    );
   if (route.section === "esp-accounts")
     return (
       <EspAccounts
@@ -156,15 +237,21 @@ export default function WorkspaceDashboard({
       />
     );
   return (
-    <Overview
-      workspaceId={workspaceId}
-      workspaceName={
-        workspace.type === CompletionStatus.Successful
-          ? workspace.value.name
-          : "Workspace"
-      }
-      infrastructure={infrastructure.data}
-      newsletters={newsletters.data}
-    />
+    <Stack spacing={2}>
+      {domainCatalog.isError && (
+        <Alert severity="warning">Tracking domains unavailable.</Alert>
+      )}
+      <Overview
+        workspaceId={workspaceId}
+        workspaceName={
+          workspace.type === CompletionStatus.Successful
+            ? workspace.value.name
+            : "Workspace"
+        }
+        infrastructure={infrastructure.data}
+        newsletters={newsletters.data}
+        domains={domains}
+      />
+    </Stack>
   );
 }

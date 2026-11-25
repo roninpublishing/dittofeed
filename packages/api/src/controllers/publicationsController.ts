@@ -9,6 +9,7 @@ import {
 import {
   configureSendgridAccount,
   createSendgridSenderIdentity,
+  getNewsletterSendingOptions,
   getSendingInfrastructure,
   inspectSendgridAccount,
   inspectSendgridConnection,
@@ -16,11 +17,10 @@ import {
   reconcileSendgridDomain,
   reconcileSendgridPool,
   reconcileSendgridWebhook,
+  upsertNewsletterDefault,
   upsertPoolBinding,
   upsertSendingIp,
   upsertSendingPool,
-  getNewsletterSendingOptions,
-  upsertNewsletterDefault,
 } from "backend-lib/src/newsletterInfrastructure";
 import { getPublisherDeliveryHealth } from "backend-lib/src/newsletterReporting";
 import {
@@ -45,6 +45,7 @@ import {
 import {
   deletePublicationAutomation,
   listPublicationAutomationActions,
+  listPublicationAutomationOptions,
   listPublicationAutomations,
   upsertPublicationAutomation,
 } from "backend-lib/src/publicationAutomations";
@@ -108,12 +109,12 @@ async function trackingPublisher(
 ) {
   const { requestContext }: Partial<Pick<FastifyRequest, "requestContext">> =
     request;
-  const context = requestContext?.get("workspace");
+  const context = requestContext.get("workspace");
   if (context && context.id !== workspaceId)
     throw new NewsletterTrackingError(403, "publisher_access_required");
   // Bearer callers pass the shared workspace/scopes preHandler; browser sessions
   // additionally carry member roles from the authenticated request context.
-  if (mutation && requestContext?.get("member")) {
+  if (mutation && requestContext.get("member")) {
     const roles = requestContext.get("memberRoles") ?? [];
     if (
       !roles.some(
@@ -390,10 +391,21 @@ export default async function publicationsController(fastify: FastifyInstance) {
         });
       }),
   );
-  f.get("/sending-options", {
-    schema: { ...base, querystring: contracts.SendingOptionsQuery,
-      description: "Read redacted send-time ESP choices and optional defaults for the authorized newsletter." },
-  }, async (request, reply) => respond(reply, () => getNewsletterSendingOptions(request.query.workspaceId)));
+  f.get(
+    "/sending-options",
+    {
+      schema: {
+        ...base,
+        querystring: contracts.SendingOptionsQuery,
+        description:
+          "Read redacted send-time ESP choices and optional defaults for the authorized newsletter.",
+      },
+    },
+    async (request, reply) =>
+      respond(reply, () =>
+        getNewsletterSendingOptions(request.query.workspaceId),
+      ),
+  );
   f.get(
     "/infrastructure",
     {
@@ -722,6 +734,23 @@ export default async function publicationsController(fastify: FastifyInstance) {
         listPublicationAutomations(await publisher(request.query.workspaceId)),
       ),
   );
+  f.get(
+    "/automations/options",
+    {
+      schema: {
+        ...base,
+        description:
+          "Read eligible native welcome journeys for owned newsletter automation actions.",
+        querystring: contracts.PublisherQuery,
+      },
+    },
+    async (request, reply) =>
+      respond(reply, async () =>
+        listPublicationAutomationOptions(
+          await publisher(request.query.workspaceId),
+        ),
+      ),
+  );
   f.put(
     "/automations",
     {
@@ -807,13 +836,17 @@ export default async function publicationsController(fastify: FastifyInstance) {
     {
       schema: {
         ...base,
-        description: "Inspect scoped historical delivery observations and conservative shared-IP admission budgets.",
+        description:
+          "Inspect scoped historical delivery observations and conservative shared-IP admission budgets.",
         querystring: contracts.DeliveryHealthQuery,
       },
     },
     async (request, reply) =>
       respond(reply, async () =>
-        getPublisherDeliveryHealth(await publisher(request.query.workspaceId), request.query.accountId),
+        getPublisherDeliveryHealth(
+          await publisher(request.query.workspaceId),
+          request.query.accountId,
+        ),
       ),
   );
 }

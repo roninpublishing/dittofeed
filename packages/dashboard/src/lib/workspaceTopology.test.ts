@@ -1,3 +1,4 @@
+import { buildWorkspaceDomains } from "./workspaceDomains";
 import {
   workspaceNodeSize,
   workspaceTopology,
@@ -196,4 +197,79 @@ it("merges physical aliases without navigating to a hidden canonical resource", 
       .filter((link) => link.target === "ip:hidden-canonical")
       .map((link) => link.source),
   ).toEqual(["account:account-a", "account:account-b"]);
+});
+
+it("places sending and historical tracking domains below their actual owners", () => {
+  const infrastructure = {
+    accounts: [{ ...account, senderDomains: ["same.example"] }],
+    ips: [ip],
+    defaults: [
+      { newsletterId: "newsletter-a", selection: { accountId: account.id } },
+    ],
+  };
+  const newsletters = [
+    { workspaceId: "newsletter-a", name: "Newsletter A" },
+    { workspaceId: "newsletter-b", name: "Newsletter B" },
+  ];
+  const domains = buildWorkspaceDomains("root", infrastructure, {
+    domains: [
+      {
+        newsletterId: "newsletter-a",
+        hostname: "dt.same.example",
+        status: "pending",
+        isCurrent: true,
+      },
+      {
+        newsletterId: "newsletter-a",
+        hostname: "dt.old.example",
+        status: "active",
+        isCurrent: false,
+      },
+    ],
+  });
+  const topology = workspaceTopology(
+    "root",
+    "RONIN",
+    infrastructure,
+    newsletters,
+    domains,
+  );
+  const positions = workspaceTopologyPositions(topology);
+  expect(positions.size).toBe(topology.objects.length);
+  for (const domain of domains) {
+    const nodeId = `domain:${domain.viewId}`;
+    const parentId = `${domain.kind === "sending" ? "account" : "newsletter"}:${domain.ownerId}`;
+    expect(topology.links.filter((link) => link.target === nodeId)).toEqual([
+      expect.objectContaining({
+        source: parentId,
+        target: nodeId,
+        membership: false,
+      }),
+    ]);
+    expect(topology.objects.find((item) => item.id === nodeId)?.path).toBe(
+      `/workspace/domains/${domain.viewId}`,
+    );
+    expect(positions.get(nodeId)!.y).toBeGreaterThan(
+      positions.get(parentId)!.y,
+    );
+  }
+  expect(
+    topology.links.some(
+      (link) =>
+        link.source === "newsletter:newsletter-a" &&
+        link.target === `account:${account.id}`,
+    ),
+  ).toBe(false);
+  const rectangles = [...positions.values()];
+  for (let index = 0; index < rectangles.length; index += 1) {
+    for (const other of rectangles.slice(index + 1)) {
+      const rectangle = rectangles[index]!;
+      expect(
+        rectangle.x + workspaceNodeSize.width <= other.x ||
+          other.x + workspaceNodeSize.width <= rectangle.x ||
+          rectangle.y + workspaceNodeSize.height <= other.y ||
+          other.y + workspaceNodeSize.height <= rectangle.y,
+      ).toBe(true);
+    }
+  }
 });

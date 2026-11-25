@@ -1,9 +1,4 @@
-import {
-  Alert,
-  Checkbox,
-  MenuItem,
-  TextField,
-} from "@mui/material";
+import { Alert, Checkbox, MenuItem, TextField } from "@mui/material";
 import axios from "axios";
 import { useState } from "react";
 
@@ -45,7 +40,9 @@ export default function ResourceEditor({
       title={`${item ? "Edit" : "Add"} ${kind === "ips" ? "dedicated IP" : "shared IP pool"}`}
       disabled={
         !owner ||
-        (kind === "ips" ? !address.trim() : !name.trim() || !ipIds.length || ipIds.length > 100)
+        (kind === "ips"
+          ? !address.trim()
+          : !name.trim() || !ipIds.length || ipIds.length > 100)
       }
       onClose={onClose}
       onSubmit={async () => {
@@ -116,7 +113,10 @@ export default function ResourceEditor({
               value={status}
               onChange={(event) => setStatus(event.target.value)}
             >
-              <MenuItem value="active" disabled={!Number(item.hourlyLimit) || !Number(item.dailyLimit)}>
+              <MenuItem
+                value="active"
+                disabled={!Number(item.hourlyLimit) || !Number(item.dailyLimit)}
+              >
                 Active
               </MenuItem>
               <MenuItem value="paused">Paused</MenuItem>

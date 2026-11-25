@@ -18,7 +18,7 @@ describe("workspace dashboard routes", () => {
       });
     },
   );
-  it.each(["newsletters", "esp-accounts", "ips", "ip-pools"])(
+  it.each(["newsletters", "esp-accounts", "domains", "ips", "ip-pools"])(
     "opens a %s resource without changing workspace context",
     (section) => {
       expect(parseWorkspaceRoute([section, id])).toEqual({
@@ -32,6 +32,8 @@ describe("workspace dashboard routes", () => {
     ["ips", "not-an-id"],
     ["reports", id],
     ["settings", id],
+    ["tracking", id],
+    ["automations", id],
     ["esp-accounts", id, "extra"],
   ])("rejects unavailable route %j", (...parts) => {
     expect(parseWorkspaceRoute(parts)).toBeNull();

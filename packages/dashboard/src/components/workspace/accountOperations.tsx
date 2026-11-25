@@ -25,7 +25,7 @@ export default function AccountOperations({
   operation: AccountOperation;
   domain?: RecordValue;
   onClose: () => void;
-  onDomain: (domain: RecordValue) => void;
+  onDomain?: (domain: RecordValue) => void;
 }) {
   const [domain, setDomain] = useState(
     typeof initialDomain?.domain === "string" ? initialDomain.domain : "",
@@ -94,7 +94,7 @@ export default function AccountOperations({
         );
         if (operation === "domain") {
           const domainResult = record(record(response.data).data);
-          onDomain(domainResult);
+          onDomain?.(domainResult);
           setResult(domainResult);
         }
         await onComplete();

@@ -12,10 +12,12 @@ export function workspaceSelection(
   }));
   const currentWorkspaceId = current?.parentWorkspaceId ?? current?.id;
   // Keep newsletter-only memberships reachable without inventing parent access.
-  const otherNewsletters = memberships
+  const newsletterRoles = memberships.filter((role) => role.parentWorkspaceId);
+  const newsletters = newsletterRoles
     .filter(
       (role) =>
-        role.parentWorkspaceId && !workspaceIds.has(role.parentWorkspaceId),
+        role.parentWorkspaceId === currentWorkspaceId ||
+        !workspaceIds.has(role.parentWorkspaceId ?? ""),
     )
     .map((role) => ({ id: role.workspaceId, label: role.workspaceName }));
   return {
@@ -23,9 +25,7 @@ export function workspaceSelection(
     currentWorkspace: workspaces.find(
       (option) => option.id === currentWorkspaceId,
     ),
-    otherNewsletters,
-    currentNewsletter: otherNewsletters.find(
-      (option) => option.id === current?.id,
-    ),
+    newsletters,
+    currentNewsletter: newsletters.find((option) => option.id === current?.id),
   };
 }

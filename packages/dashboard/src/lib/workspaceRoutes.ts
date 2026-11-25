@@ -2,9 +2,12 @@ export const workspaceSections = [
   "overview",
   "newsletters",
   "esp-accounts",
+  "domains",
   "ips",
   "ip-pools",
   "subscribers",
+  "automations",
+  "tracking",
   "reports",
   "settings",
 ] as const;
@@ -17,6 +20,7 @@ export interface WorkspaceRoute {
 const detailSections: Partial<Record<WorkspaceSection, true>> = {
   newsletters: true,
   "esp-accounts": true,
+  domains: true,
   ips: true,
   "ip-pools": true,
 };

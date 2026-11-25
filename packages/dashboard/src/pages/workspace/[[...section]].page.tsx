@@ -76,6 +76,18 @@ export default function WorkspacePage({
             minWidth: 0,
             minHeight: 0,
             overflowY: "auto",
+            "& .MuiTableCell-root a:not(.MuiButtonBase-root)": {
+              color: "text.primary",
+              fontWeight: 500,
+              textDecoration: "none",
+              borderRadius: 0.5,
+              transition: "background-color 120ms ease",
+              "&:hover": { bgcolor: "action.hover" },
+              "&:focus-visible": {
+                outline: "2px solid",
+                outlineColor: "primary.main",
+              },
+            },
           }}
         >
           <WorkspaceDashboard

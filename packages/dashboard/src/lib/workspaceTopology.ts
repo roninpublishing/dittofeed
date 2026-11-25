@@ -3,6 +3,7 @@ import {
   rows,
   text,
 } from "../components/publications/settingsShared";
+import { WorkspaceDomain } from "./workspaceDomains";
 
 export type WorkspaceObjectKind =
   | "workspace"
@@ -10,7 +11,8 @@ export type WorkspaceObjectKind =
   | "newsletter"
   | "account"
   | "ip"
-  | "pool";
+  | "pool"
+  | "domain";
 export interface WorkspaceObject {
   id: string;
   resourceId: string;
@@ -90,13 +92,22 @@ export function workspaceTopologyPositions(topology: WorkspaceTopology) {
       x += accounts.length * columnWidth + (accounts.length - 1) * columnGap;
     } else {
       positions.set(group.id, { x, y: groupY });
-      members.forEach((member, row) => {
+      let row = 0;
+      members.forEach((member) => {
         positions.set(member.id, {
           x: groupX + indent,
           y: childY + row * (workspaceNodeSize.height + 12),
         });
+        row += 1;
+        for (const domain of children.get(member.id) ?? []) {
+          positions.set(domain.id, {
+            x: groupX + indent + 24,
+            y: childY + row * (workspaceNodeSize.height + 12),
+          });
+          row += 1;
+        }
       });
-      x += members.length ? columnWidth : workspaceNodeSize.width;
+      x += members.length ? columnWidth + 24 : workspaceNodeSize.width;
     }
     x += 64;
   }
@@ -115,6 +126,7 @@ export function workspaceTopology(
   workspaceName: string,
   infrastructure: RecordValue,
   newsletters: unknown,
+  domains: WorkspaceDomain[] = [],
 ): WorkspaceTopology {
   const objects: WorkspaceObject[] = [
     {
@@ -197,6 +209,23 @@ export function workspaceTopology(
         path: `/workspace/esp-accounts/${id}`,
       },
       "group:accounts",
+    );
+  }
+  for (const domain of domains) {
+    const parentId = `${domain.kind === "sending" ? "account" : "newsletter"}:${domain.ownerId}`;
+    const owner = objectById.get(parentId);
+    if (!owner) continue;
+    add(
+      {
+        id: `domain:${domain.viewId}`,
+        resourceId: domain.viewId,
+        kind: "domain",
+        name: domain.hostname,
+        status: domain.status,
+        accountName: owner.name,
+        path: `/workspace/domains/${domain.viewId}`,
+      },
+      parentId,
     );
   }
   for (const pool of rows(infrastructure.pools)) {

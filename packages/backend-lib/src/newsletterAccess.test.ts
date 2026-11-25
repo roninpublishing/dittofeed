@@ -15,6 +15,7 @@ import {
   workspaceMemberRole,
 } from "./db/schema";
 import { createNewsletter, createPublisher } from "./newsletters";
+import { findAndCreateRoles } from "./requestContext";
 
 const workspaceIds: string[] = [];
 const memberIds: string[] = [];
@@ -86,6 +87,20 @@ describe("publisher team access to independent newsletters", () => {
         }),
       ]),
     );
+    const legacyContext = await findAndCreateRoles({
+      ...member,
+      lastWorkspaceId: child.workspaceId,
+    });
+    expect(legacyContext.workspace?.id).toBe(child.workspaceId);
+    expect(legacyContext.memberRoles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workspaceId: child.workspaceId,
+          parentWorkspaceId: parent.id,
+          role: "Admin",
+        }),
+      ]),
+    );
     const direct = await db()
       .select()
       .from(workspaceMemberRole)
@@ -109,6 +124,44 @@ describe("publisher team access to independent newsletters", () => {
     await expect(
       selectAccountWorkspace(principal, foreignChild.workspaceId),
     ).rejects.toMatchObject({ code: "no_access" });
+  });
+
+  it("does not grant newsletter-only members parent or sibling selection", async () => {
+    const { parent, child, member, principal } = await fixture("Viewer");
+    const sibling = await createNewsletter({
+      publisherId: parent.id,
+      name: "Sibling publication",
+      slug: "sibling",
+    });
+    workspaceIds.push(sibling.workspaceId);
+    await db()
+      .delete(workspaceMemberRole)
+      .where(eq(workspaceMemberRole.workspaceMemberId, member.id));
+    await db().insert(workspaceMemberRole).values({
+      workspaceId: child.workspaceId,
+      workspaceMemberId: member.id,
+      role: "Viewer",
+    });
+    await selectAccountWorkspace(principal, child.workspaceId);
+    for (const workspaceId of [parent.id, sibling.workspaceId]) {
+      // eslint-disable-next-line no-await-in-loop -- Assert each unauthorized destination.
+      await expect(
+        selectAccountWorkspace(principal, workspaceId),
+      ).rejects.toMatchObject({ code: "no_access" });
+    }
+    const context = await getGoogleRequestContext(principal);
+    if (context.isErr()) throw context.error;
+    expect(context.value.memberRoles.map((role) => role.workspaceId)).toEqual([
+      child.workspaceId,
+    ]);
+    const legacyContext = await findAndCreateRoles({
+      ...member,
+      lastWorkspaceId: child.workspaceId,
+    });
+    expect(legacyContext.workspace?.id).toBe(child.workspaceId);
+    expect(legacyContext.memberRoles.map((role) => role.workspaceId)).toEqual([
+      child.workspaceId,
+    ]);
   });
 
   it("revokes inherited access immediately when the publisher membership is removed", async () => {

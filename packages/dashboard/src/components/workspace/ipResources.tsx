@@ -61,16 +61,20 @@ function IpResourcesContent(props: InfrastructureProps) {
     },
     { label: "ESP account", render: accountLink },
     ...(kind === "ips"
-      ? [{
-          label: "Status",
-          render: (item: RecordValue) => (
-            <Chip size="small" label={text(item.status)} />
-          ),
-        }]
-      : [{
-          label: "Members",
-          render: (item: RecordValue) => memberIps(item).length,
-        }]),
+      ? [
+          {
+            label: "Status",
+            render: (item: RecordValue) => (
+              <Chip size="small" label={text(item.status)} />
+            ),
+          },
+        ]
+      : [
+          {
+            label: "Members",
+            render: (item: RecordValue) => memberIps(item).length,
+          },
+        ]),
     {
       label: "Actions",
       render: (item: RecordValue) => (
@@ -95,12 +99,25 @@ function IpResourcesContent(props: InfrastructureProps) {
     <Stack spacing={2} sx={{ minWidth: 0 }}>
       {selected ? (
         <>
-          <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" useFlexGap>
-            <Button component={Link} href={`/workspace/${path}`} color="inherit">
+          <Stack
+            direction="row"
+            spacing={1}
+            flexWrap="wrap"
+            alignItems="center"
+            useFlexGap
+          >
+            <Button
+              component={Link}
+              href={`/workspace/${path}`}
+              color="inherit"
+            >
               {label}
             </Button>
             <Typography>/</Typography>
-            <Typography component={accountId ? "h2" : "h1"} variant={accountId ? "h4" : "h2"}>
+            <Typography
+              component={accountId ? "h2" : "h1"}
+              variant={accountId ? "h4" : "h2"}
+            >
               {text(selected.address ?? selected.name)}
             </Typography>
             <Button onClick={() => setEditor({ item: selected })}>Edit</Button>
@@ -108,52 +125,87 @@ function IpResourcesContent(props: InfrastructureProps) {
           <DataTable
             label={`${label} details`}
             data={[selected]}
-            columns={resourceColumns.filter((column) => column.label !== "Actions")}
+            columns={resourceColumns.filter(
+              (column) => column.label !== "Actions",
+            )}
           />
           <Typography variant="subtitle2">
             {kind === "ips" ? "Shared IP pools" : "Dedicated IPs"}
           </Typography>
           <DataTable
-            label={kind === "ips" ? "IP pool memberships" : "Shared pool members"}
-            data={kind === "ips"
-              ? pools.filter((pool) => memberships.some(
-                  (member) => member.poolId === pool.id && member.ipId === selected.id,
-                ))
-              : memberIps(selected)}
-            columns={kind === "ips"
-              ? [{
-                  label: "Name",
-                  render: (pool) => (
-                    <Link href={`/workspace/ip-pools/${text(pool.id)}`}>
-                      {text(pool.name)}
-                    </Link>
-                  ),
-                }]
-              : [
-                  {
-                    label: "Address",
-                    render: (ip) => (
-                      <Link href={`/workspace/ips/${text(ip.id)}`}>
-                        {text(ip.address)}
-                      </Link>
+            label={
+              kind === "ips" ? "IP pool memberships" : "Shared pool members"
+            }
+            data={
+              kind === "ips"
+                ? pools.filter((pool) =>
+                    memberships.some(
+                      (member) =>
+                        member.poolId === pool.id &&
+                        member.ipId === selected.id,
                     ),
-                  },
-                  { label: "Status", render: (ip) => text(ip.status) },
-                ]}
+                  )
+                : memberIps(selected)
+            }
+            columns={
+              kind === "ips"
+                ? [
+                    {
+                      label: "Name",
+                      render: (pool) => (
+                        <Link href={`/workspace/ip-pools/${text(pool.id)}`}>
+                          {text(pool.name)}
+                        </Link>
+                      ),
+                    },
+                  ]
+                : [
+                    {
+                      label: "Address",
+                      render: (ip) => (
+                        <Link href={`/workspace/ips/${text(ip.id)}`}>
+                          {text(ip.address)}
+                        </Link>
+                      ),
+                    },
+                    { label: "Status", render: (ip) => text(ip.status) },
+                  ]
+            }
           />
         </>
       ) : (
         <>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" useFlexGap flexWrap="wrap" spacing={1}>
-            <Typography component={accountId ? "h2" : "h1"} variant={accountId ? "h4" : "h2"}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            useFlexGap
+            flexWrap="wrap"
+            spacing={1}
+          >
+            <Typography
+              component={accountId ? "h2" : "h1"}
+              variant={accountId ? "h4" : "h2"}
+            >
               {label}
             </Typography>
-            <Button variant="contained" disabled={!accounts.length} onClick={() => setEditor({})}>
+            <Button
+              variant="contained"
+              disabled={!accounts.length}
+              onClick={() => setEditor({})}
+            >
               Add {kind === "ips" ? "dedicated IP" : "shared IP pool"}
             </Button>
           </Stack>
           {!accountId && (
-            <TextField select size="small" label="ESP account" value={filter} onChange={(event) => setFilter(event.target.value)} sx={{ maxWidth: 320 }}>
+            <TextField
+              select
+              size="small"
+              label="ESP account"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              sx={{ maxWidth: 320 }}
+            >
               <MenuItem value="">All accounts</MenuItem>
               {accounts.map((item) => (
                 <MenuItem key={text(item.id)} value={text(item.id)}>
@@ -163,7 +215,11 @@ function IpResourcesContent(props: InfrastructureProps) {
             </TextField>
           )}
           {!accounts.length && (
-            <Button component={Link} href="/workspace/esp-accounts" sx={{ alignSelf: "flex-start" }}>
+            <Button
+              component={Link}
+              href="/workspace/esp-accounts"
+              sx={{ alignSelf: "flex-start" }}
+            >
               Add account
             </Button>
           )}
@@ -177,7 +233,9 @@ function IpResourcesContent(props: InfrastructureProps) {
       {editor && (
         <ResourceEditor
           {...props}
-          accountId={editor.item ? text(editor.item.accountId) : filter || undefined}
+          accountId={
+            editor.item ? text(editor.item.accountId) : filter || undefined
+          }
           item={editor.item}
           onClose={() => setEditor(null)}
         />

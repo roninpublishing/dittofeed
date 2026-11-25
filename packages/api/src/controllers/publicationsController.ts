@@ -9,6 +9,7 @@ import {
 import {
   configureSendgridAccount,
   createSendgridSenderIdentity,
+  getNewsletterSendingOptions,
   getSendingInfrastructure,
   inspectSendgridAccount,
   inspectSendgridConnection,
@@ -16,11 +17,10 @@ import {
   reconcileSendgridDomain,
   reconcileSendgridPool,
   reconcileSendgridWebhook,
+  upsertNewsletterDefault,
   upsertPoolBinding,
   upsertSendingIp,
   upsertSendingPool,
-  getNewsletterSendingOptions,
-  upsertNewsletterDefault,
 } from "backend-lib/src/newsletterInfrastructure";
 import { getPublisherDeliveryHealth } from "backend-lib/src/newsletterReporting";
 import {
@@ -390,10 +390,21 @@ export default async function publicationsController(fastify: FastifyInstance) {
         });
       }),
   );
-  f.get("/sending-options", {
-    schema: { ...base, querystring: contracts.SendingOptionsQuery,
-      description: "Read redacted send-time ESP choices and optional defaults for the authorized newsletter." },
-  }, async (request, reply) => respond(reply, () => getNewsletterSendingOptions(request.query.workspaceId)));
+  f.get(
+    "/sending-options",
+    {
+      schema: {
+        ...base,
+        querystring: contracts.SendingOptionsQuery,
+        description:
+          "Read redacted send-time ESP choices and optional defaults for the authorized newsletter.",
+      },
+    },
+    async (request, reply) =>
+      respond(reply, () =>
+        getNewsletterSendingOptions(request.query.workspaceId),
+      ),
+  );
   f.get(
     "/infrastructure",
     {
@@ -807,13 +818,17 @@ export default async function publicationsController(fastify: FastifyInstance) {
     {
       schema: {
         ...base,
-        description: "Inspect scoped historical delivery observations and conservative shared-IP admission budgets.",
+        description:
+          "Inspect scoped historical delivery observations and conservative shared-IP admission budgets.",
         querystring: contracts.DeliveryHealthQuery,
       },
     },
     async (request, reply) =>
       respond(reply, async () =>
-        getPublisherDeliveryHealth(await publisher(request.query.workspaceId), request.query.accountId),
+        getPublisherDeliveryHealth(
+          await publisher(request.query.workspaceId),
+          request.query.accountId,
+        ),
       ),
   );
 }

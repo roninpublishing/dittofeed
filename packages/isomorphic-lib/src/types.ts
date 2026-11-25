@@ -6,8 +6,8 @@ import {
   SEGMENT_ID_HEADER,
   WORKSPACE_ID_HEADER,
 } from "./constants/headers";
-
 import { EspSelection } from "./publications";
+
 export { EspSelection } from "./publications";
 
 export type Present<T> = T extends undefined | null ? never : T;

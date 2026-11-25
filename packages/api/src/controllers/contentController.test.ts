@@ -1,15 +1,15 @@
 import * as messaging from "backend-lib/src/messaging";
 import { NewsletterInfrastructureError } from "backend-lib/src/newsletterInfrastructure";
-import { ok } from "neverthrow";
 import { randomUUID } from "crypto";
 import fastify from "fastify";
 import { TYPE_REFS } from "isomorphic-lib/src/typeRefs";
 import {
   ChannelType,
-  JsonResultType,
   InternalEventType,
+  JsonResultType,
   RenderMessageTemplateType,
 } from "isomorphic-lib/src/types";
+import { ok } from "neverthrow";
 
 import contentController from "./contentController";
 
@@ -118,41 +118,65 @@ describe("ESP selection send API consumers", () => {
     { accountId, mode: "automatic" },
     { accountId, mode: "pool", poolId },
     { accountId, mode: "ip", ipId },
-  ])("passes the complete $mode selection to the batch consumer", async (espSelection) => {
-    const send = jest.spyOn(messaging, "batchMessageUsers").mockResolvedValue({ results: [] });
-    const app = fastify();
-    TYPE_REFS.forEach((schema) => app.addSchema(schema));
-    await app.register(contentController);
-    try {
-      const response = await app.inject({
-        method: "POST", url: "/templates/batch-send",
-        payload: { workspaceId, templateId, channel: ChannelType.Email, users: [], espSelection },
-      });
-      expect(response.statusCode).toBe(200);
-      expect(send).toHaveBeenCalledWith(expect.objectContaining({ espSelection }));
-    } finally {
-      await app.close();
-    }
-  });
+  ])(
+    "passes the complete $mode selection to the batch consumer",
+    async (espSelection) => {
+      const send = jest
+        .spyOn(messaging, "batchMessageUsers")
+        .mockResolvedValue({ results: [] });
+      const app = fastify();
+      TYPE_REFS.forEach((schema) => app.addSchema(schema));
+      await app.register(contentController);
+      try {
+        const response = await app.inject({
+          method: "POST",
+          url: "/templates/batch-send",
+          payload: {
+            workspaceId,
+            templateId,
+            channel: ChannelType.Email,
+            users: [],
+            espSelection,
+          },
+        });
+        expect(response.statusCode).toBe(200);
+        expect(send).toHaveBeenCalledWith(
+          expect.objectContaining({ espSelection }),
+        );
+      } finally {
+        await app.close();
+      }
+    },
+  );
 
   it("keeps explicit selection on test-email requests", async () => {
     const espSelection = { accountId, mode: "pool" as const, poolId };
-    const send = jest.spyOn(messaging, "testTemplate").mockResolvedValue(ok({
-      type: InternalEventType.MessageQueued, sendId: ipId, state: "queued",
-    }));
+    const send = jest.spyOn(messaging, "testTemplate").mockResolvedValue(
+      ok({
+        type: InternalEventType.MessageQueued,
+        sendId: ipId,
+        state: "queued",
+      }),
+    );
     const app = fastify();
     TYPE_REFS.forEach((schema) => app.addSchema(schema));
     await app.register(contentController);
     try {
       const response = await app.inject({
-        method: "POST", url: "/templates/test",
+        method: "POST",
+        url: "/templates/test",
         payload: {
-          workspaceId, templateId, channel: ChannelType.Email,
-          userProperties: { email: "reader@example.invalid" }, espSelection,
+          workspaceId,
+          templateId,
+          channel: ChannelType.Email,
+          userProperties: { email: "reader@example.invalid" },
+          espSelection,
         },
       });
       expect(response.statusCode).toBe(200);
-      expect(send).toHaveBeenCalledWith(expect.objectContaining({ espSelection }));
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({ espSelection }),
+      );
     } finally {
       await app.close();
     }
@@ -165,9 +189,13 @@ describe("ESP selection send API consumers", () => {
     await app.register(contentController);
     try {
       const response = await app.inject({
-        method: "POST", url: "/templates/batch-send",
+        method: "POST",
+        url: "/templates/batch-send",
         payload: {
-          workspaceId, templateId, channel: ChannelType.Email, users: [],
+          workspaceId,
+          templateId,
+          channel: ChannelType.Email,
+          users: [],
           espSelection: { accountId, mode: "pool" },
         },
       });
@@ -184,34 +212,52 @@ describe("ESP selection send API consumers", () => {
     { accountId, mode: "pool", poolId, ipId },
     { accountId, mode: "ip", ipId, poolId },
     { accountId: "not-a-uuid", mode: "automatic" },
-  ])("rejects malformed or mixed-mode selection without mutating it into a different valid choice", async (espSelection) => {
-    const send = jest.spyOn(messaging, "batchMessageUsers");
-    const app = fastify();
-    TYPE_REFS.forEach((schema) => app.addSchema(schema));
-    await app.register(contentController);
-    try {
-      const response = await app.inject({
-        method: "POST", url: "/templates/batch-send",
-        payload: { workspaceId, templateId, channel: ChannelType.Email, users: [], espSelection },
-      });
-      expect(response.statusCode).toBe(400);
-      expect(send).not.toHaveBeenCalled();
-    } finally {
-      await app.close();
-    }
-  });
+  ])(
+    "rejects malformed or mixed-mode selection without mutating it into a different valid choice",
+    async (espSelection) => {
+      const send = jest.spyOn(messaging, "batchMessageUsers");
+      const app = fastify();
+      TYPE_REFS.forEach((schema) => app.addSchema(schema));
+      await app.register(contentController);
+      try {
+        const response = await app.inject({
+          method: "POST",
+          url: "/templates/batch-send",
+          payload: {
+            workspaceId,
+            templateId,
+            channel: ChannelType.Email,
+            users: [],
+            espSelection,
+          },
+        });
+        expect(response.statusCode).toBe(400);
+        expect(send).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    },
+  );
 
   it("returns explicit selection failures as client errors, not generic send failures", async () => {
-    jest.spyOn(messaging, "batchMessageUsers").mockRejectedValue(
-      new NewsletterInfrastructureError(400, "esp_selection_required"),
-    );
+    jest
+      .spyOn(messaging, "batchMessageUsers")
+      .mockRejectedValue(
+        new NewsletterInfrastructureError(400, "esp_selection_required"),
+      );
     const app = fastify();
     TYPE_REFS.forEach((schema) => app.addSchema(schema));
     await app.register(contentController);
     try {
       const response = await app.inject({
-        method: "POST", url: "/templates/batch-send",
-        payload: { workspaceId, templateId, channel: ChannelType.Email, users: [] },
+        method: "POST",
+        url: "/templates/batch-send",
+        payload: {
+          workspaceId,
+          templateId,
+          channel: ChannelType.Email,
+          users: [],
+        },
       });
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({ message: "esp_selection_required" });

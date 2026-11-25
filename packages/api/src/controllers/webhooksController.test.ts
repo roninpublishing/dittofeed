@@ -3,6 +3,7 @@ import {
   newsletter,
   newsletterWebhookReceipt,
   publisher,
+  publisherSendgridAccount,
   sendingConnection,
 } from "backend-lib/src/db/publisherSchema";
 import {
@@ -432,7 +433,13 @@ describe("SendGrid native signed callback bytes", () => {
     const childId = (await createWorkspace({ name: randomUUID() }).then(unwrap))
       .id;
     const connectionId = randomUUID();
+    const accountId = randomUUID();
     await db().insert(publisher).values({ workspaceId });
+    await db().insert(publisherSendgridAccount).values({
+      id: accountId,
+      publisherId: workspaceId,
+      name: "Signed callback fixture",
+    });
     await db().insert(newsletter).values({
       workspaceId: childId,
       publisherId: workspaceId,
@@ -442,6 +449,7 @@ describe("SendGrid native signed callback bytes", () => {
       .insert(sendingConnection)
       .values({
         id: connectionId,
+        accountId,
         publisherId: workspaceId,
         newsletterId: childId,
         username: "signed-subuser",

@@ -250,10 +250,11 @@ describe("publication management API", () => {
       });
     const unconfigured = await choices();
     expect(unconfigured.statusCode).toBe(200);
-    expect(
-      unconfigured.json<{ data: { selection: unknown; accounts: unknown[] } }>()
-        .data,
-    ).toMatchObject({ selection: null, accounts: expect.any(Array) });
+    const { data: unconfiguredData } = unconfigured.json<{
+      data: { selection: unknown; accounts: unknown[] };
+    }>();
+    expect(unconfiguredData.selection).toBeNull();
+    expect(unconfiguredData.accounts).toEqual(expect.any(Array));
     expect(unconfigured.body).not.toMatch(
       /fixture_secret|allowRealSends|hasManagementKey|encrypted|callbackBaseUrl/,
     );
@@ -294,22 +295,21 @@ describe("publication management API", () => {
     expect(data.accounts).toHaveLength(2);
     expect(data).not.toHaveProperty("account");
     expect(data).not.toHaveProperty("routes");
-    for (const path of [
-      "/infrastructure/account",
-      "/infrastructure/routes",
-      "/infrastructure/connections",
-    ]) {
-      expect(
-        (
-          await app.inject({
-            method: "PUT",
-            url: `/api/admin/publications${path}`,
-            headers: headers(apiKey),
-            payload: { workspaceId: publisherId },
-          })
-        ).statusCode,
-      ).toBe(404);
-    }
+    const removedRoutes = await Promise.all(
+      [
+        "/infrastructure/account",
+        "/infrastructure/routes",
+        "/infrastructure/connections",
+      ].map((path) =>
+        app.inject({
+          method: "PUT",
+          url: `/api/admin/publications${path}`,
+          headers: headers(apiKey),
+          payload: { workspaceId: publisherId },
+        }),
+      ),
+    );
+    removedRoutes.forEach((response) => expect(response.statusCode).toBe(404));
     const closedGates = await app.inject({
       method: "PUT",
       url: "/api/admin/publications/infrastructure/accounts",

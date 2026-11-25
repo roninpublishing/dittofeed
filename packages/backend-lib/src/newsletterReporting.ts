@@ -16,6 +16,7 @@ import { requireAccount } from "./newsletterInfrastructure";
 import { listNewsletters } from "./newsletters";
 import { InternalEventType } from "./types";
 
+// Module scope lets TypeScript name this type in exported declarations.
 interface Observation {
   newsletterId: string;
   accountId: string | null;

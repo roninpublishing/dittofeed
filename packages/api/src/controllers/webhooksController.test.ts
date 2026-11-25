@@ -3,6 +3,7 @@ import {
   newsletter,
   newsletterWebhookReceipt,
   publisher,
+  publisherSendgridAccount,
   sendingConnection,
 } from "backend-lib/src/db/publisherSchema";
 import {
@@ -136,21 +137,28 @@ describe("native Telnyx webhook authentication and durable receipt", () => {
         ).toBe(401);
       }),
     );
-    await Promise.all(
-      [-301, 301].map(async (offset) => {
-        const timestamp = String(Math.floor(Date.now() / 1000) + offset);
-        expect(
-          (
-            await app.inject({
-              method: "POST",
-              url: `/telnyx?workspaceId=${workspaceId}`,
-              payload: rawBody,
-              headers: headers(rawBody, timestamp),
-            })
-          ).statusCode,
-        ).toBe(401);
-      }),
-    );
+    // Pin wall time only: asynchronous credential lookup must not move the
+    // +301-second signature back inside the accepted 300-second window.
+    const clock = jest.spyOn(Date, "now").mockReturnValue(Date.now());
+    try {
+      await Promise.all(
+        [-301, 301].map(async (offset) => {
+          const timestamp = String(Math.floor(Date.now() / 1000) + offset);
+          expect(
+            (
+              await app.inject({
+                method: "POST",
+                url: `/telnyx?workspaceId=${workspaceId}`,
+                payload: rawBody,
+                headers: headers(rawBody, timestamp),
+              })
+            ).statusCode,
+          ).toBe(401);
+        }),
+      );
+    } finally {
+      clock.mockRestore();
+    }
     expect(
       await db()
         .select()
@@ -432,7 +440,13 @@ describe("SendGrid native signed callback bytes", () => {
     const childId = (await createWorkspace({ name: randomUUID() }).then(unwrap))
       .id;
     const connectionId = randomUUID();
+    const accountId = randomUUID();
     await db().insert(publisher).values({ workspaceId });
+    await db().insert(publisherSendgridAccount).values({
+      id: accountId,
+      publisherId: workspaceId,
+      name: "Signed callback fixture",
+    });
     await db().insert(newsletter).values({
       workspaceId: childId,
       publisherId: workspaceId,
@@ -442,6 +456,7 @@ describe("SendGrid native signed callback bytes", () => {
       .insert(sendingConnection)
       .values({
         id: connectionId,
+        accountId,
         publisherId: workspaceId,
         newsletterId: childId,
         username: "signed-subuser",

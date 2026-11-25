@@ -589,6 +589,7 @@ describe("durable newsletter sends and signed inbox", () => {
                 messageId: queued.logicalMessageId,
                 templateId: "original-template",
                 sendingIpId: ipId,
+                sendingPoolId: poolId,
                 senderDomain: "example.com",
                 connectionId: connectionIds[0],
                 variant: expect.objectContaining({
@@ -870,6 +871,48 @@ describe("durable newsletter sends and signed inbox", () => {
           properties: expect.objectContaining({
             senderDomain: "example.com",
             sendingAccountId: accountIds[1],
+          }),
+        })],
+      }),
+    }), expect.anything());
+  });
+
+  it("projects only the ledger's immutable pool identity on acceptance and callbacks", async () => {
+    const queued = await enqueue(0, 1, randomUUID(), "cc", {
+      accountId: accountIds[0]!, mode: "pool", poolId,
+    });
+    await drainNewsletterSends();
+    expect(projection).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        batch: [expect.objectContaining({
+          event: InternalEventType.MessageSent,
+          properties: expect.objectContaining({
+            newsletterSendId: queued.sendId,
+            sendingPoolId: poolId,
+            sendingIpId: null,
+            actualIp: null,
+          }),
+        })],
+      }),
+    }), expect.anything());
+    projection.mockClear();
+    await callback(0, [{
+      event: "delivered", email: "subscriber@example.com",
+      newsletterSendId: queued.sendId, sg_event_id: "pinned-pool",
+      timestamp: Math.floor(Date.now() / 1000),
+      sendingPoolId: poolIds[1], poolId: poolIds[1],
+      sendingIpId: ipIds[1], actualIp: "192.0.2.99",
+    }]);
+    await drainNewsletterWebhookReceipts();
+    expect(projection).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        batch: [expect.objectContaining({
+          event: InternalEventType.EmailDelivered,
+          properties: expect.objectContaining({
+            newsletterSendId: queued.sendId,
+            sendingPoolId: poolId,
+            sendingIpId: null,
+            actualIp: null,
           }),
         })],
       }),

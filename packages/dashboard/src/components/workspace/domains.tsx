@@ -11,16 +11,19 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   TextField,
   Typography,
 } from "@mui/material";
 import axios from "axios";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
+import { InventorySortDirection } from "../../lib/tableSorting";
 import { WorkspaceDomain } from "../../lib/workspaceDomains";
 import {
   errorText,
+  record,
   RecordValue,
   rows,
   text,
@@ -29,6 +32,18 @@ import TrackingDomains, {
   NewsletterDomainSetup,
 } from "../publications/trackingDomains";
 import {
+  DeliveryMetricCards,
+  deliveryMetricValue,
+  domainDeliverySummary,
+  useDeliveryHealth,
+} from "./deliveryMetrics";
+import {
+  buildDomainTableRows,
+  DomainSortKey,
+  emptyDomainFilters,
+  selectDomainTableRows,
+} from "./domainTable";
+import {
   DnsRecords,
   EditorDialog,
   InfrastructureProps,
@@ -36,12 +51,6 @@ import {
   strings,
 } from "./infrastructureShared";
 import Link from "./navigation";
-import {
-  DeliveryMetricCards,
-  deliveryMetricValue,
-  domainDeliverySummary,
-  useDeliveryHealth,
-} from "./deliveryMetrics";
 
 const AccountOperations = dynamic(() => import("./accountOperations"));
 
@@ -240,36 +249,85 @@ function SendingDomainDetails({
     </Stack>
   );
 }
+const domainColumns: {
+  key: DomainSortKey;
+  label: string;
+  numeric?: boolean;
+}[] = [
+  { key: "hostname", label: "Domain" },
+  { key: "kind", label: "Type" },
+  { key: "owner", label: "Owner" },
+  { key: "status", label: "Status" },
+  { key: "use", label: "Use" },
+  { key: "sends", label: "Attempts (30d)", numeric: true },
+  { key: "delivered", label: "Delivered", numeric: true },
+  { key: "deliverabilityRate", label: "Deliverability", numeric: true },
+];
+
 export default function Domains({
   domains,
   newsletters,
   ...props
 }: InfrastructureProps & { domains: WorkspaceDomain[]; newsletters: unknown }) {
   const [adding, setAdding] = useState<"sending" | "tracking" | null>(null);
+  const [filters, setFilters] = useState(emptyDomainFilters);
+  const [sort, setSort] = useState<DomainSortKey>("hostname");
+  const [direction, setDirection] = useState<InventorySortDirection>("asc");
   const health = useDeliveryHealth(props.apiBase, props.workspaceId);
-  const healthState = health.isError
-    ? "unavailable"
-    : health.isPending
-      ? "loading"
-      : "ready";
-  const unknownSenders = rows(health.data?.domains).filter(
-    (cohort) =>
-      !cohort.senderDomain &&
-      [cohort.sends, cohort.resolvedOutcomes, cohort.complaints].some(
-        (metric) => typeof metric === "number" && metric > 0,
-      ),
+  let healthState: "loading" | "unavailable" | "ready" = "ready";
+  if (health.isPending) healthState = "loading";
+  if (health.isError) healthState = "unavailable";
+  const accounts = useMemo(
+    () => rows(props.infrastructure.accounts),
+    [props.infrastructure.accounts],
   );
-  const accounts = rows(props.infrastructure.accounts);
-  const newsletterRows = rows(newsletters);
-  const owners = new Map([
-    ...accounts.map(
-      (item) => [`sending:${text(item.id)}`, text(item.name)] as const,
-    ),
-    ...newsletterRows.map(
-      (item) =>
-        [`tracking:${text(item.workspaceId)}`, text(item.name)] as const,
-    ),
-  ]);
+  const newsletterRows = useMemo(() => rows(newsletters), [newsletters]);
+  const owners = useMemo(
+    () =>
+      new Map([
+        ...accounts.map(
+          (item) => [`sending:${text(item.id)}`, text(item.name)] as const,
+        ),
+        ...newsletterRows.map(
+          (item) =>
+            [`tracking:${text(item.workspaceId)}`, text(item.name)] as const,
+        ),
+      ]),
+    [accounts, newsletterRows],
+  );
+  const tableRows = useMemo(
+    () => buildDomainTableRows(domains, owners, health.data),
+    [domains, owners, health.data],
+  );
+  const visibleRows = useMemo(
+    () => selectDomainTableRows(tableRows, filters, sort, direction),
+    [tableRows, filters, sort, direction],
+  );
+  const ownerOptions = useMemo(
+    () =>
+      [
+        ...new Map(
+          tableRows.map((item): [string, string] => [
+            `${item.kind}:${item.ownerId}`,
+            item.owner,
+          ]),
+        ).entries(),
+      ].sort((left, right) => left[1].localeCompare(right[1])),
+    [tableRows],
+  );
+  const statuses = useMemo(
+    () => [...new Set(tableRows.map((item) => item.status))].sort(),
+    [tableRows],
+  );
+  const reset = () => {
+    setFilters(emptyDomainFilters);
+    setSort("hostname");
+    setDirection("asc");
+  };
+  const changeSort = (key: DomainSortKey) => {
+    setDirection(sort === key && direction === "asc" ? "desc" : "asc");
+    setSort(key);
+  };
   const selected = domains.find((item) => item.viewId === props.resourceId);
   const selectedAccount =
     selected?.kind === "sending"
@@ -314,7 +372,7 @@ export default function Domains({
         summary={
           selected
             ? domainDeliverySummary(selected, health.data)
-            : (health.data?.summary as RecordValue | undefined)
+            : record(health.data?.summary)
         }
         state={selected?.kind === "tracking" ? "ready" : healthState}
       />
@@ -371,86 +429,155 @@ export default function Domains({
               />
             </Paper>
           )}
+          <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap">
+            <TextField
+              size="small"
+              label="Search domains"
+              value={filters.search}
+              onChange={(event) =>
+                setFilters({ ...filters, search: event.target.value })
+              }
+              sx={{ minWidth: 200, flex: 1 }}
+            />
+            <TextField
+              select
+              size="small"
+              label="Type"
+              value={filters.kind}
+              onChange={(event) =>
+                setFilters({ ...filters, kind: event.target.value })
+              }
+              sx={{ minWidth: 140 }}
+            >
+              <MenuItem value="">All types</MenuItem>
+              <MenuItem value="sending">Sending</MenuItem>
+              <MenuItem value="tracking">Tracking</MenuItem>
+            </TextField>
+            <TextField
+              select
+              size="small"
+              label="Owner"
+              value={filters.owner}
+              onChange={(event) =>
+                setFilters({ ...filters, owner: event.target.value })
+              }
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value="">All owners</MenuItem>
+              {ownerOptions.map(([key, name]) => (
+                <MenuItem key={key} value={key}>
+                  {name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              size="small"
+              label="Status"
+              value={filters.status}
+              onChange={(event) =>
+                setFilters({ ...filters, status: event.target.value })
+              }
+              sx={{ minWidth: 150 }}
+            >
+              <MenuItem value="">All statuses</MenuItem>
+              {statuses.map((status) => (
+                <MenuItem
+                  key={status}
+                  value={status}
+                  sx={{ textTransform: "capitalize" }}
+                >
+                  {status}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Button
+              color="inherit"
+              onClick={reset}
+              disabled={
+                !Object.values(filters).some(Boolean) &&
+                sort === "hostname" &&
+                direction === "asc"
+              }
+            >
+              Reset
+            </Button>
+          </Stack>
           <TableContainer component={Paper} variant="outlined">
             <Table size="small" aria-label="Workspace domains">
               <TableHead>
                 <TableRow>
-                  <TableCell>Domain</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Owner</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Use</TableCell>
-                  <TableCell align="right">Attempts (30d)</TableCell>
-                  <TableCell align="right">Delivered</TableCell>
-                  <TableCell align="right">Deliverability</TableCell>
+                  {domainColumns.map((column) => (
+                    <TableCell
+                      key={column.key}
+                      align={column.numeric ? "right" : "left"}
+                      sortDirection={sort === column.key ? direction : false}
+                    >
+                      <TableSortLabel
+                        active={sort === column.key}
+                        direction={sort === column.key ? direction : "asc"}
+                        onClick={() => changeSort(column.key)}
+                      >
+                        {column.label}
+                      </TableSortLabel>
+                    </TableCell>
+                  ))}
+                  <TableCell>Reputation</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {domains.map((item) => (
-                  <TableRow key={item.viewId} hover>
+                {visibleRows.map((item) => (
+                  <TableRow key={item.id} hover>
                     <TableCell>
-                      <Link href={`/workspace/domains/${item.viewId}`}>
-                        {item.hostname}
-                      </Link>
+                      {item.domain ? (
+                        <Link href={`/workspace/domains/${item.domain.viewId}`}>
+                          {item.hostname}
+                        </Link>
+                      ) : (
+                        item.hostname
+                      )}
                     </TableCell>
                     <TableCell>
                       {item.kind === "sending" ? "Sending" : "Tracking"}
                     </TableCell>
                     <TableCell>
-                      <Link
-                        href={
-                          item.kind === "sending"
-                            ? `/workspace/esp-accounts/${item.ownerId}`
-                            : `/workspace/newsletters/${item.ownerId}`
-                        }
-                      >
-                        {owners.get(`${item.kind}:${item.ownerId}`) ??
-                          "Unknown"}
-                      </Link>
+                      {item.ownerId ? (
+                        <Link
+                          href={
+                            item.kind === "sending"
+                              ? `/workspace/esp-accounts/${item.ownerId}`
+                              : `/workspace/newsletters/${item.ownerId}`
+                          }
+                        >
+                          {item.owner}
+                        </Link>
+                      ) : (
+                        item.owner
+                      )}
                     </TableCell>
                     <TableCell sx={{ textTransform: "capitalize" }}>
                       {item.status}
                     </TableCell>
-                    <TableCell>
-                      {item.kind === "tracking" &&
-                        (item.isCurrent ? "Current" : "Historical")}
-                      {item.kind !== "tracking" && "—"}
-                    </TableCell>
+                    <TableCell>{item.use}</TableCell>
                     {["sends", "delivered", "deliverabilityRate"].map(
                       (metric) => (
                         <TableCell key={metric} align="right">
                           {deliveryMetricValue(
-                            domainDeliverySummary(item, health.data),
+                            item.metrics,
                             metric,
                             item.kind === "tracking" ? "ready" : healthState,
                           )}
                         </TableCell>
                       ),
                     )}
+                    <TableCell aria-label="Reputation not available" />
                   </TableRow>
                 ))}
-                {unknownSenders.map((cohort) => (
-                  <TableRow key={`unknown:${text(cohort.accountId)}`}>
-                    <TableCell>Unknown sender</TableCell>
-                    <TableCell>Sending</TableCell>
-                    <TableCell>
-                      {owners.get(`sending:${text(cohort.accountId)}`) ??
-                        "Unknown"}
-                    </TableCell>
-                    <TableCell>Unknown</TableCell>
-                    <TableCell>—</TableCell>
-                    {["sends", "delivered", "deliverabilityRate"].map(
-                      (metric) => (
-                        <TableCell key={metric} align="right">
-                          {deliveryMetricValue(cohort, metric, healthState)}
-                        </TableCell>
-                      ),
-                    )}
-                  </TableRow>
-                ))}
-                {!domains.length && !unknownSenders.length && (
+                {!visibleRows.length && (
                   <TableRow>
-                    <TableCell colSpan={8}>No domains</TableCell>
+                    <TableCell colSpan={9}>
+                      {tableRows.length ? "No matching domains" : "No domains"}
+                    </TableCell>
                   </TableRow>
                 )}
               </TableBody>

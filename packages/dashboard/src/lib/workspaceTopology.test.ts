@@ -1,9 +1,5 @@
 import { buildWorkspaceDomains } from "./workspaceDomains";
-import {
-  workspaceNodeSize,
-  workspaceTopology,
-  workspaceTopologyPositions,
-} from "./workspaceTopology";
+import { workspaceTopology } from "./workspaceTopology";
 
 const account = {
   id: "account-a",
@@ -18,7 +14,7 @@ const ip = {
   status: "paused",
 };
 
-describe("workspace organizational map", () => {
+describe("workspace organizational hierarchy", () => {
   it("keeps newsletters independent even when a sending default exists", () => {
     const topology = workspaceTopology(
       "root",
@@ -102,65 +98,6 @@ describe("workspace organizational map", () => {
         ?.path,
     ).toBe(`/workspace/esp-accounts/${account.id}`);
   });
-  it("lays out organizational levels top-down without ranking pool memberships", () => {
-    const topology = workspaceTopology(
-      "root",
-      "RONIN",
-      {
-        accounts: [
-          account,
-          { ...account, id: "account-b", name: "SendGrid B" },
-        ],
-        ips: [
-          ip,
-          { ...ip, id: "ip-b", accountId: "account-b", address: "192.0.2.11" },
-        ],
-        pools: [
-          { id: "pool-a", accountId: account.id, name: "Pool A" },
-          { id: "pool-b", accountId: account.id, name: "Pool B" },
-          { id: "pool-c", accountId: "account-b", name: "Pool C" },
-        ],
-        memberships: [
-          { poolId: "pool-a", ipId: ip.id },
-          { poolId: "pool-b", ipId: ip.id },
-          { poolId: "pool-c", ipId: "ip-b" },
-        ],
-      },
-      [
-        { workspaceId: "newsletter-a", name: "Newsletter A" },
-        { workspaceId: "newsletter-b", name: "Newsletter B" },
-      ],
-    );
-    const positions = workspaceTopologyPositions(topology);
-    const y = (id: string) => positions.get(id)!.y;
-    expect(positions.size).toBe(topology.objects.length);
-    expect(y("workspace:root")).toBeLessThan(y("group:accounts"));
-    expect(y("group:newsletters")).toBe(y("group:accounts"));
-    expect(y("group:accounts")).toBeLessThan(y("account:account-a"));
-    expect(y("newsletter:newsletter-a")).toBe(y("account:account-a"));
-    expect(y("newsletter:newsletter-b")).toBeGreaterThan(
-      y("newsletter:newsletter-a"),
-    );
-    for (const link of topology.links.filter((item) => !item.membership))
-      expect(y(link.target)).toBeGreaterThan(y(link.source));
-    const rectangles = [...positions.values()];
-    for (let index = 0; index < rectangles.length; index += 1)
-      for (const other of rectangles.slice(index + 1)) {
-        const rectangle = rectangles[index]!;
-        expect(
-          rectangle.x + workspaceNodeSize.width <= other.x ||
-            other.x + workspaceNodeSize.width <= rectangle.x ||
-            rectangle.y + workspaceNodeSize.height <= other.y ||
-            other.y + workspaceNodeSize.height <= rectangle.y,
-        ).toBe(true);
-      }
-    expect(positions).toEqual(
-      workspaceTopologyPositions({
-        ...topology,
-        links: topology.links.filter((link) => !link.membership),
-      }),
-    );
-  });
 });
 
 it("merges physical aliases without navigating to a hidden canonical resource", () => {
@@ -189,8 +126,18 @@ it("merges physical aliases without navigating to a hidden canonical resource", 
   const physical = topology.objects.filter((object) => object.kind === "ip");
   expect(physical.map((object) => object.id)).toEqual(["ip:hidden-canonical"]);
   expect(physical[0]?.configurations).toEqual([
-    { accountName: "SendGrid A", path: "/workspace/ips/ip-a" },
-    { accountName: "SendGrid B", path: "/workspace/ips/ip-b" },
+    {
+      accountId: account.id,
+      accountName: "SendGrid A",
+      path: "/workspace/ips/ip-a",
+      status: "paused",
+    },
+    {
+      accountId: otherAccount.id,
+      accountName: "SendGrid B",
+      path: "/workspace/ips/ip-b",
+      status: "paused",
+    },
   ]);
   expect(
     topology.links
@@ -234,8 +181,6 @@ it("places sending and historical tracking domains below their actual owners", (
     newsletters,
     domains,
   );
-  const positions = workspaceTopologyPositions(topology);
-  expect(positions.size).toBe(topology.objects.length);
   for (const domain of domains) {
     const nodeId = `domain:${domain.viewId}`;
     const parentId = `${domain.kind === "sending" ? "account" : "newsletter"}:${domain.ownerId}`;
@@ -249,9 +194,6 @@ it("places sending and historical tracking domains below their actual owners", (
     expect(topology.objects.find((item) => item.id === nodeId)?.path).toBe(
       `/workspace/domains/${domain.viewId}`,
     );
-    expect(positions.get(nodeId)!.y).toBeGreaterThan(
-      positions.get(parentId)!.y,
-    );
   }
   expect(
     topology.links.some(
@@ -260,16 +202,96 @@ it("places sending and historical tracking domains below their actual owners", (
         link.target === `account:${account.id}`,
     ),
   ).toBe(false);
-  const rectangles = [...positions.values()];
-  for (let index = 0; index < rectangles.length; index += 1) {
-    for (const other of rectangles.slice(index + 1)) {
-      const rectangle = rectangles[index]!;
-      expect(
-        rectangle.x + workspaceNodeSize.width <= other.x ||
-          other.x + workspaceNodeSize.width <= rectangle.x ||
-          rectangle.y + workspaceNodeSize.height <= other.y ||
-          other.y + workspaceNodeSize.height <= rectangle.y,
-      ).toBe(true);
-    }
-  }
+});
+
+it("retains account-local configurations when account names match", () => {
+  const topology = workspaceTopology(
+    "root",
+    "RONIN",
+    {
+      accounts: [account, { ...account, id: "account-b" }],
+      ips: [
+        { ...ip, canonicalIpId: "physical" },
+        {
+          ...ip,
+          id: "ip-b",
+          accountId: "account-b",
+          canonicalIpId: "physical",
+          status: "active",
+        },
+        {
+          ...ip,
+          id: "ip-c",
+          canonicalIpId: "physical",
+          status: "draft",
+        },
+      ],
+    },
+    [],
+  );
+  const physical = topology.objects.find(
+    (object) => object.id === "ip:physical",
+  );
+  expect(physical?.configurations).toEqual([
+    {
+      accountId: account.id,
+      accountName: account.name,
+      path: "/workspace/ips/ip-a",
+      status: "paused",
+    },
+    {
+      accountId: "account-b",
+      accountName: account.name,
+      path: "/workspace/ips/ip-b",
+      status: "active",
+    },
+    {
+      accountId: account.id,
+      accountName: account.name,
+      path: "/workspace/ips/ip-c",
+      status: "draft",
+    },
+  ]);
+  expect(physical?.status).toBe("mixed");
+  expect(
+    topology.links
+      .filter((link) => link.target === physical?.id)
+      .map((link) => link.source),
+  ).toEqual(["account:account-a", "account:account-b"]);
+});
+
+it("keeps resources with unavailable owners visible without assigning another owner", () => {
+  const topology = workspaceTopology(
+    "root",
+    "RONIN",
+    {
+      accounts: [account],
+      pools: [{ id: "orphan-pool", accountId: "unavailable", name: "Pool" }],
+      ips: [{ ...ip, accountId: "unavailable" }],
+    },
+    [],
+    [
+      {
+        viewId: "orphan-domain",
+        kind: "tracking",
+        ownerId: "unavailable",
+        hostname: "dt.example.com",
+        status: "pending",
+        evidence: {},
+      },
+    ],
+  );
+  expect(
+    topology.links
+      .filter((link) => link.source === "group:unassigned")
+      .map((link) => link.target),
+  ).toEqual(["domain:orphan-domain", "pool:orphan-pool", "ip:ip-a"]);
+  expect(
+    topology.links.filter((link) => link.source === "account:account-a"),
+  ).toEqual([]);
+  expect(
+    topology.links.filter((link) => link.target === "group:unassigned"),
+  ).toEqual([
+    expect.objectContaining({ source: "workspace:root", membership: false }),
+  ]);
 });

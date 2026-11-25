@@ -804,7 +804,7 @@ SendGrid is the first managed-account adapter; native non-newsletter providers r
 
 | Left sidebar | Target URL | Main surface |
 | --- | --- | --- |
-| Overview | `/dashboard/workspace` | Organizational map with Map/List toggle and selected-object panel |
+| Overview | `/dashboard/workspace` | Static corporate hierarchy with full-size resource cards |
 | Newsletters | `/dashboard/workspace/newsletters` | Independent newsletter list, creation and Open |
 | ESP accounts | `/dashboard/workspace/esp-accounts` | All account instances, provider/status, connected date, volume and observed health |
 | Domains | `/dashboard/workspace/domains` | Sending and newsletter-owned tracking hosts, DNS and explicit configuration |
@@ -834,10 +834,11 @@ SendGrid is the first managed-account adapter; native non-newsletter providers r
   newsletter-only memberships never gain parent/sibling access.
 - Workspace views use nested routes under `/dashboard/workspace`; the former
   `?view=` navigation and obsolete combined sending/IP editors are removed.
-- Overview provides a lazy-loaded, top-down organizational map and a List
-  alternative. Fit includes every asset; pool membership never changes hierarchy ranks.
-  Dedicated IPs and shared-IP pools remain below their owning ESP accounts.
-  Its ownership structure is:
+- Overview is a static, top-down corporate hierarchy, not a ReactFlow editor.
+  Organizational headers contrast with light actual-resource cards. Names wrap at
+  readable sizes and the page scrolls naturally; there are no zoom/pan/drag controls
+  or Map/List toggle. Dedicated IPs and shared-IP pools remain below their owning
+  ESP accounts. Its ownership structure is:
 
 ```mermaid
 flowchart TD
@@ -854,15 +855,16 @@ flowchart TD
 
 - Do not draw newsletter-to-IP/pool assignment lines or permanent newsletter-to-
   ESP binding edges. Optional defaults belong in the newsletter configuration,
-  not in the graph as ownership. Dragging changes layout only.
-- Selecting a workspace, newsletter, ESP account, pool or IP opens configuration
-  for that object. Preserve the compact styling and minimal-copy rules.
+  not in the hierarchy as ownership.
+- Organizational headers are noninteractive. Actual resource cards link directly
+  to their configuration; preserve every account-local configuration of a shared
+  physical IP. Keep the existing palette and minimal-copy rules.
 - ESP accounts lists name, provider, verified connection state, connected date,
   observed send history and delivery health. Provider lifetime age/history is
   shown only if actually available. Account details contain credentials, sending
   domains/webhooks and IP/pool management; IPs are not managed under newsletters.
 - Keep backend authorization and consequential-action confirmation without a
-  standing release-gate checkbox panel. Do not auto-provision or send from the map.
+  standing release-gate checkbox panel. Do not auto-provision or send from the overview.
 
 #### Implementation sequence and acceptance
 
@@ -882,7 +884,7 @@ flowchart TD
 - [x] Preserve immutable attempt history, credential-owner attribution, signature
   verification, deduplication and conservative admission for multi-IP/automatic
   selection. Prove default changes cannot cause rerouting or duplicate submissions.
-- [x] Build the overview map/list from actual stored objects and relationships;
+- [x] Build the static corporate hierarchy from actual stored objects and relationships;
   allow independent newsletters/accounts with no sending setup and no binding edges.
 - [x] Verify multiple accounts from the same provider, a newsletter using different
   accounts/IP choices on different sends, default overrides, isolation and supported
@@ -908,7 +910,7 @@ Local implementation verification:
   layouts were checked. Temporary development accounts/IPs/pools/defaults were removed;
   newsletter/contact records were untouched and no send records were created.
 - Current combined local preview: `http://localhost:3000/dashboard/workspace`,
-  dashboard build `dist/workspace-flow-verified-preview`. Neon, ClickHouse and Temporal
+  dashboard build `dist/workspace-session-polished-preview`. Neon, ClickHouse and Temporal
   target development; workers, bootstrap, capture and provisioning remain off.
   No production deployment, provider mutations or real email sends were performed.
 - Workspace UI refinements: compact top-down columns keep every newsletter, ESP
@@ -983,6 +985,31 @@ Local implementation verification:
   paused visual-flow create/edit/drag/save/reopen, and trigger-type transitions.
   Owned smoke fixtures and isolated QA databases were removed/retired. Production,
   workers, provider permissions and existing send-time safeguards are unchanged.
+- Session wrap-up replaces the interactive overview with a static corporate
+  hierarchy: contrasting organizational headers, 16px resource names, full-size
+  wrapping cards, direct links and natural scrolling. All 22 current resources
+  are present; no overview canvas, zoom, drag or Map/List controls remain.
+- Domains supports type/owner/status/search filters, sortable headers and Reset;
+  Reputation cells are intentionally blank. Dedicated/shared IP inventories add
+  equivalent controls and Attempts/Delivered/Deliverability/Bounced/Complaints.
+  Unknown metrics sort last, distinct from zero; pool member-status filtering is
+  inventory metadata, never historical delivery attribution.
+- IP metrics prefer provider-reported addresses, otherwise explicit pinned routes.
+  Pool metrics use immutable send-time pool IDs copied into native events; missing
+  historical attribution remains unknown, never redistributed using current members.
+  Rates describe attributed outcomes only. No schema migration was required.
+- Added 32 fresh synthetic IP/pool attempts without rewriting earlier history.
+  Development now has 192 synthetic attempts, 162 delivered, 18 bounced, 12 dropped
+  and 10 complaints (84.375% overall). The 120 demo subscriber records remain.
+  There were no real transmissions or provider/resource changes.
+- Final verification: 57 focused tests passed across targeted reruns, including
+  real ClickHouse IP/pool history, durable metadata, ownership, filtering and numeric
+  sorting. Lite and optimized dashboard builds passed; scoped table/chart lint has
+  zero errors and three warnings. Real browser controls verified filters, Reset,
+  numeric sorting, blank reputation, attributed metrics, direct resource links,
+  readable static desktop/mobile cards and no document overflow at 390px.
+  QA databases/scripts were removed. Automations, navigation, production and
+  existing send-time safeguards are unchanged.
 - Thirty-six focused navigation/topology tests passed; the final compact-layout
   regression rerun passed all five topology cases. Optimized dashboard build and
   scoped lint passed (warnings only). Browser proof covered all 18 graph nodes

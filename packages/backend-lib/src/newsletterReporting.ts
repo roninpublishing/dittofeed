@@ -62,6 +62,9 @@ export async function getPublisherDeliveryHealth(
       .select({
         accountId: newsletterSend.accountId,
         senderDomain: newsletterSend.senderDomain,
+        ipId: newsletterSend.ipId,
+        poolId: newsletterSend.poolId,
+        actualIp: newsletterSend.actualIp,
         sends: count(),
       })
       .from(newsletterSend)
@@ -73,7 +76,10 @@ export async function getPublisherDeliveryHealth(
           lte(newsletterSend.createdAt, periodEnd),
         ),
       )
-      .groupBy(newsletterSend.accountId, newsletterSend.senderDomain),
+      .groupBy(
+        newsletterSend.accountId, newsletterSend.senderDomain,
+        newsletterSend.ipId, newsletterSend.poolId, newsletterSend.actualIp,
+      ),
   ]);
   const canonicalIds = [...new Set(ips.map((ip) => ip.canonicalIpId))];
   const [budgets, peers] = canonicalIds.length
@@ -119,6 +125,19 @@ export async function getPublisherDeliveryHealth(
   }>();
   const cohortKey = (account: string | null, domain: string | null) =>
     JSON.stringify([account, domain]);
+  const ipOutcomes = new Map<string, {
+    accountId: string | null; ipId: string | null; actualIp: string | null;
+    outcome: Outcome;
+  }>();
+  const poolOutcomes = new Map<string, {
+    accountId: string | null; poolId: string | null; outcome: Outcome;
+  }>();
+  const addOutcome = (outcome: Outcome, event: string, value: number) => {
+    if (event === InternalEventType.EmailDelivered) outcome.delivered += value;
+    if (event === InternalEventType.EmailBounced) outcome.bounced += value;
+    if (event === InternalEventType.EmailDropped) outcome.dropped += value;
+    if (event === InternalEventType.EmailMarkedSpam) outcome.complaints += value;
+  };
   const accountIds = new Set(accounts.map((account) => account.id));
   if (publications.length) {
     const qb = new ClickHouseQueryBuilder();
@@ -131,6 +150,8 @@ export async function getPublisherDeliveryHealth(
           SELECT workspace_id, user_or_anonymous_id, message_id, event_time, event,
             JSONExtractString(properties, 'sendingAccountId') AS accountId,
             JSONExtractString(properties, 'sendingIpId') AS ipId,
+            JSONExtractString(properties, 'sendingPoolId') AS poolId,
+            JSONExtractString(properties, 'actualIp') AS actualIp,
             lowerUTF8(replaceRegexpOne(trimBoth(JSONExtractString(properties, 'senderDomain')), '[.]+$', '')) AS senderDomain,
             JSONExtractString(properties, 'newsletterSendId') AS nativeSendId,
             JSONExtractString(properties, 'messageId') AS logicalMessageId,
@@ -148,41 +169,44 @@ export async function getPublisherDeliveryHealth(
             AND event IN ${qb.addQueryValue([InternalEventType.MessageSent, InternalEventType.EmailDelivered, InternalEventType.EmailBounced, InternalEventType.EmailDropped, InternalEventType.EmailMarkedSpam, InternalEventType.EmailOpened, InternalEventType.EmailClicked], "Array(String)")}
         ), resolved_sends AS (
           SELECT workspace_id, sendIdentity,
-            argMax(tuple(accountId, event, senderDomain), tuple(event_time,
+            argMax(tuple(accountId, event, senderDomain, ipId, poolId, actualIp), tuple(event_time,
               multiIf(event = '${InternalEventType.EmailDropped}', 3, event = '${InternalEventType.EmailBounced}', 2, 1),
-              message_id, accountId, senderDomain)) AS outcome
+              message_id, accountId, senderDomain, ipId, poolId, actualIp)) AS outcome
           FROM window_events
           WHERE hasSendIdentity AND event IN ${qb.addQueryValue([InternalEventType.EmailDelivered, InternalEventType.EmailBounced, InternalEventType.EmailDropped], "Array(String)")}
           GROUP BY workspace_id, sendIdentity
         ), resolved_complaints AS (
           SELECT workspace_id, sendIdentity,
-            argMax(tuple(accountId, senderDomain), tuple(event_time, message_id, accountId, senderDomain)) AS attribution
+            argMax(tuple(accountId, senderDomain, ipId, poolId, actualIp),
+              tuple(event_time, message_id, accountId, senderDomain, ipId, poolId, actualIp)) AS attribution
           FROM window_events
           WHERE hasSendIdentity AND event = '${InternalEventType.EmailMarkedSpam}'
           GROUP BY workspace_id, sendIdentity
         )
-        SELECT workspace_id AS newsletterId, accountId, ipId, '' AS senderDomain, event, 0 AS accountSummary,
+        SELECT workspace_id AS newsletterId, accountId, ipId, '' AS poolId, '' AS actualIp, '' AS senderDomain, event, 0 AS accountSummary,
           uniqExact(tuple(workspace_id, sendIdentity)) AS sendsWithEvent,
           uniqExact(tuple(message_id, event_time)) AS observedEventCount
         FROM window_events
         ${accountId ? `WHERE accountId = ${qb.addQueryValue(accountId, "String")}` : ""}
         GROUP BY workspace_id, accountId, ipId, event
         UNION ALL
-        SELECT '' AS newsletterId, tupleElement(outcome, 1) AS accountId, '' AS ipId,
-          tupleElement(outcome, 3) AS senderDomain,
+        SELECT '' AS newsletterId, tupleElement(outcome, 1) AS accountId,
+          tupleElement(outcome, 4) AS ipId, tupleElement(outcome, 5) AS poolId,
+          tupleElement(outcome, 6) AS actualIp, tupleElement(outcome, 3) AS senderDomain,
           tupleElement(outcome, 2) AS event, 1 AS accountSummary,
           count() AS sendsWithEvent, 0 AS observedEventCount
         FROM resolved_sends
         ${accountId ? `WHERE accountId = ${qb.addQueryValue(accountId, "String")}` : ""}
-        GROUP BY accountId, senderDomain, event
+        GROUP BY accountId, senderDomain, ipId, poolId, actualIp, event
         UNION ALL
-        SELECT '' AS newsletterId, tupleElement(attribution, 1) AS accountId, '' AS ipId,
-          tupleElement(attribution, 2) AS senderDomain,
+        SELECT '' AS newsletterId, tupleElement(attribution, 1) AS accountId,
+          tupleElement(attribution, 3) AS ipId, tupleElement(attribution, 4) AS poolId,
+          tupleElement(attribution, 5) AS actualIp, tupleElement(attribution, 2) AS senderDomain,
           '${InternalEventType.EmailMarkedSpam}' AS event, 1 AS accountSummary,
           count() AS sendsWithEvent, 0 AS observedEventCount
         FROM resolved_complaints
         ${accountId ? `WHERE accountId = ${qb.addQueryValue(accountId, "String")}` : ""}
-        GROUP BY accountId, senderDomain`,
+        GROUP BY accountId, senderDomain, ipId, poolId, actualIp`,
         query_params: qb.getQueries(),
         format: "JSONEachRow",
       });
@@ -190,6 +214,8 @@ export async function getPublisherDeliveryHealth(
         newsletterId: string;
         accountId: string;
         ipId: string;
+        poolId: string;
+        actualIp: string;
         senderDomain: string;
         event: string;
         accountSummary: string | number;
@@ -203,15 +229,23 @@ export async function getPublisherDeliveryHealth(
           const domain = attributedAccount ? row.senderDomain || null : null;
           const key = cohortKey(attributedAccount, domain);
           const outcome = outcomes.get(key)?.outcome ?? emptyOutcome();
-          if (row.event === InternalEventType.EmailDelivered)
-            outcome.delivered += Number(row.sendsWithEvent);
-          if (row.event === InternalEventType.EmailBounced)
-            outcome.bounced += Number(row.sendsWithEvent);
-          if (row.event === InternalEventType.EmailDropped)
-            outcome.dropped += Number(row.sendsWithEvent);
-          if (row.event === InternalEventType.EmailMarkedSpam)
-            outcome.complaints += Number(row.sendsWithEvent);
+          addOutcome(outcome, row.event, Number(row.sendsWithEvent));
           outcomes.set(key, { accountId: attributedAccount, senderDomain: domain, outcome });
+          const ipId = attributedAccount ? row.ipId || null : null;
+          const actualIp = attributedAccount ? row.actualIp || null : null;
+          const poolId = attributedAccount ? row.poolId || null : null;
+          const ipCohortKey = JSON.stringify([attributedAccount, ipId, actualIp]);
+          const ipOutcome = ipOutcomes.get(ipCohortKey)?.outcome ?? emptyOutcome();
+          addOutcome(ipOutcome, row.event, Number(row.sendsWithEvent));
+          ipOutcomes.set(ipCohortKey, {
+            accountId: attributedAccount, ipId, actualIp, outcome: ipOutcome,
+          });
+          const poolCohortKey = JSON.stringify([attributedAccount, poolId]);
+          const poolOutcome = poolOutcomes.get(poolCohortKey)?.outcome ?? emptyOutcome();
+          addOutcome(poolOutcome, row.event, Number(row.sendsWithEvent));
+          poolOutcomes.set(poolCohortKey, {
+            accountId: attributedAccount, poolId, outcome: poolOutcome,
+          });
         } else {
           observations.push({
             newsletterId: row.newsletterId,
@@ -227,6 +261,8 @@ export async function getPublisherDeliveryHealth(
       observationsAvailable = false;
       observations = [];
       outcomes.clear();
+      ipOutcomes.clear();
+      poolOutcomes.clear();
     }
   }
   const summarize = (sends: number, outcome: Outcome) => {
@@ -256,11 +292,27 @@ export async function getPublisherDeliveryHealth(
   }
   const accountAttempts = new Map<string, number>();
   const domainAttempts = new Map<string, number>();
+  const ipAttempts = new Map<string, number>();
+  const poolAttempts = new Map<string, number>();
   let totalAttempts = 0;
   for (const row of sendCounts) {
     totalAttempts += row.sends;
     accountAttempts.set(row.accountId, (accountAttempts.get(row.accountId) ?? 0) + row.sends);
-    domainAttempts.set(cohortKey(row.accountId, row.senderDomain), row.sends);
+    const domainKey = cohortKey(row.accountId, row.senderDomain);
+    domainAttempts.set(domainKey, (domainAttempts.get(domainKey) ?? 0) + row.sends);
+    const ipCohortKey = JSON.stringify([row.accountId, row.ipId, row.actualIp]);
+    ipAttempts.set(ipCohortKey, (ipAttempts.get(ipCohortKey) ?? 0) + row.sends);
+    if (!ipOutcomes.has(ipCohortKey))
+      ipOutcomes.set(ipCohortKey, {
+        accountId: row.accountId, ipId: row.ipId, actualIp: row.actualIp,
+        outcome: emptyOutcome(),
+      });
+    const poolCohortKey = JSON.stringify([row.accountId, row.poolId]);
+    poolAttempts.set(poolCohortKey, (poolAttempts.get(poolCohortKey) ?? 0) + row.sends);
+    if (!poolOutcomes.has(poolCohortKey))
+      poolOutcomes.set(poolCohortKey, {
+        accountId: row.accountId, poolId: row.poolId, outcome: emptyOutcome(),
+      });
     const key = cohortKey(row.accountId, row.senderDomain);
     if (!outcomes.has(key))
       outcomes.set(key, { accountId: row.accountId, senderDomain: row.senderDomain, outcome: emptyOutcome() });
@@ -276,6 +328,17 @@ export async function getPublisherDeliveryHealth(
       accountId: cohort.accountId,
       senderDomain: cohort.senderDomain,
       ...summarize(domainAttempts.get(key) ?? 0, cohort.outcome),
+    })),
+    ipCohorts: [...ipOutcomes.entries()].map(([key, cohort]) => ({
+      accountId: cohort.accountId,
+      ipId: cohort.ipId,
+      actualIp: cohort.actualIp,
+      ...summarize(ipAttempts.get(key) ?? 0, cohort.outcome),
+    })),
+    pools: [...poolOutcomes.entries()].map(([key, cohort]) => ({
+      accountId: cohort.accountId,
+      poolId: cohort.poolId,
+      ...summarize(poolAttempts.get(key) ?? 0, cohort.outcome),
     })),
     accounts: accounts.map((account) => ({
       accountId: account.id,
@@ -308,6 +371,6 @@ export async function getPublisherDeliveryHealth(
       accounts.length > 0 &&
       accounts.every((account) => account.allTrafficControlled),
     interpretation:
-      "Attempts count durable send records created in the 30-day window, including queued and uncertain records. Delivery outcomes use the latest terminal event per stable send identity in that window; ties prefer dropped, bounced, delivered, then event ID and attribution. Deliverability is delivered / (delivered + bounced + dropped), never acceptance or inbox placement. Complaints resolve independently per send. Workspace totals include unattributed outcomes; domains use immutable sender attribution, never current account inventory or newsletter defaults. Null outcomes mean observations unavailable; null rate means no resolved outcomes or unavailable observations. Historical IP observations remain independent.",
+      "Attempts count durable send records created in the 30-day window, including queued and uncertain records. Delivery outcomes use the latest terminal event per stable send identity in that window; ties prefer dropped, bounced, delivered, then event ID and attribution. Deliverability is delivered / (delivered + bounced + dropped), never acceptance or inbox placement. Complaints resolve independently per send. Workspace totals include unattributed outcomes; domains use immutable sender attribution, never current account inventory or newsletter defaults. IP cohorts retain pinned dedicated-route IDs separately from provider-reported actual IPs; missing actual IP never resolves from multi-IP candidates or current membership. Pool cohorts use immutable send-time pool IDs only; old missing attribution stays unknown. Null outcomes mean observations unavailable; null rate means no resolved outcomes or unavailable observations. Historical IP observations remain independent.",
   };
 }

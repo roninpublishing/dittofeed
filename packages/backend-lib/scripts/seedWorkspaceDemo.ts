@@ -145,6 +145,53 @@ async function main() {
         expiresAt: new Date(createdAt.getTime() + day),
       });
     }
+    // A fresh, explicitly synthetic cohort; never rewrite v2 send/event history.
+    // Pool selection and reported physical IP are separate fixture facts.
+    for (const metricPool of infrastructure.pools.filter(
+      (item) => item.accountId === account.id,
+    )) {
+      const memberIds = new Set(infrastructure.memberships
+        .filter((item) => item.poolId === metricPool.id)
+        .map((item) => item.ipId));
+      const metricIps = infrastructure.ips.filter(
+        (item) => item.accountId === account.id && memberIds.has(item.id),
+      );
+      if (!metricIps.length) continue;
+      if (metricIps.some((item) => item.status !== "paused"))
+        throw new Error("Demo metric pool members must remain paused");
+      for (const metricIp of metricIps) {
+        for (let index = 1; index <= 4; index += 1) {
+          const fixtureIdentity = `${account.id}:${metricPool.id}:${metricIp.id}:${index}`;
+          const publication = publications[(index - 1) % publications.length]!;
+          const createdAt = new Date(Date.now() - (index + 1) * day);
+          sends.push({
+            id: id(`ip-metric-send-v3:${fixtureIdentity}`),
+            publisherId: workspaceId,
+            accountId: account.id,
+            accountRevision: account.revision,
+            connectionId: connection.id,
+            connectionRevision: connection.revision,
+            workspaceId: publication.workspaceId,
+            selection: { accountId: account.id, mode: "pool", poolId: metricPool.id },
+            candidateIpIds: metricIps.map((item) => item.id),
+            ipId: null,
+            poolId: metricPool.id,
+            actualIp: metricIp.address,
+            logicalMessageId: `synthetic-demo-ip-v3:${fixtureIdentity}`,
+            userId: userId(index),
+            mailboxHash: newsletterMailboxHash(mailbox(index)),
+            senderDomain: `demo-${accountIndex ? "secondary" : "primary"}.example.test`,
+            payloadHash: createHash("sha256").update(`synthetic-only-ip-v3:${fixtureIdentity}`).digest("hex"),
+            state: "accepted",
+            providerMessageId: `synthetic-demo-ip-v3:${fixtureIdentity}`,
+            attempts: 0,
+            acceptedEventAt: new Date(createdAt.getTime() + 1000),
+            createdAt,
+            expiresAt: new Date(createdAt.getTime() + day),
+          });
+        }
+      }
+    }
   });
   await db().insert(newsletterSend).values(sends).onConflictDoNothing();
   const persisted = await db()
@@ -259,18 +306,27 @@ async function main() {
     )) {
       const index = Number(send.userId.split("-").at(-1));
       const primary = send.accountId === accounts[0]!.id;
-      const event =
-        index <= (primary ? 35 : 38)
+      const ipMetricFixture = send.logicalMessageId.startsWith("synthetic-demo-ip-v3:");
+      const event = ipMetricFixture
+        ? index <= 2
+          ? InternalEventType.EmailDelivered
+          : index === 3
+            ? InternalEventType.EmailBounced : InternalEventType.EmailDropped
+        : index <= (primary ? 35 : 38)
           ? InternalEventType.EmailDelivered
           : index === 40
-            ? InternalEventType.EmailDropped
-            : InternalEventType.EmailBounced;
+            ? InternalEventType.EmailDropped : InternalEventType.EmailBounced;
       const properties = {
         newsletterSendId: send.id,
         messageId: send.logicalMessageId,
         sendingAccountId: send.accountId,
         senderDomain: send.senderDomain,
-        sendingIpId: send.ipId!,
+        sendingIpId: send.ipId,
+        ...(ipMetricFixture ? {
+          sendingPoolId: send.poolId,
+          actualIp: send.actualIp,
+          syntheticDemoVersion: "ip-v3",
+        } : {}),
         syntheticDemo: true,
       };
       batch.push({
@@ -289,7 +345,7 @@ async function main() {
         timestamp: new Date(send.createdAt.getTime() + 2000).toISOString(),
         properties,
       });
-      if (index % 3 === 0)
+      if (!ipMetricFixture && index % 3 === 0)
         batch.push({
           type: EventType.Track,
           event: InternalEventType.EmailOpened,
@@ -307,7 +363,7 @@ async function main() {
           timestamp: new Date(send.createdAt.getTime() + 90_000).toISOString(),
           properties: { ...properties, url: "https://example.test/demo/read" },
         });
-      if (index === 39)
+      if (ipMetricFixture ? index === 2 : index === 39)
         batch.push({
           type: EventType.Track,
           event: InternalEventType.EmailMarkedSpam,
@@ -405,6 +461,9 @@ async function main() {
       developmentOnly: true,
       syntheticSubscribers: publications.length * 40,
       syntheticHistoricalAttempts: persisted.length,
+      syntheticIpMetricAttempts: persisted.filter(
+        (send) => send.logicalMessageId.startsWith("synthetic-demo-ip-v3:"),
+      ).length,
       accounts: accounts.length,
       pausedAutomations: 2,
       actualProviderSends: 0,

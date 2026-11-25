@@ -5,24 +5,54 @@ import {
   Chip,
   MenuItem,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TableSortLabel,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
+import {
+  compareInventoryValues,
+  InventorySortValue,
+} from "../../lib/tableSorting";
 import { RecordValue, rows, text } from "../publications/settingsShared";
+import { deliveryMetricValue, useDeliveryHealth } from "./deliveryMetrics";
 import { DataTable, InfrastructureProps } from "./infrastructureShared";
+import { ipDeliverySummary } from "./ipMetrics";
 import Link from "./navigation";
 
 const ResourceEditor = dynamic(() => import("./resourceEditor"));
 
 function IpResourcesContent(props: InfrastructureProps) {
-  const { infrastructure, accountId, resourceId, kind = "ips" } = props;
-  const accounts = rows(infrastructure.accounts);
-  const ips = rows(infrastructure.ips);
-  const pools = rows(infrastructure.pools);
-  const memberships = rows(infrastructure.memberships);
+  const {
+    infrastructure,
+    accountId,
+    resourceId,
+    apiBase,
+    workspaceId,
+    kind = "ips",
+  } = props;
+  const accounts = useMemo(
+    () => rows(infrastructure.accounts),
+    [infrastructure.accounts],
+  );
+  const ips = useMemo(() => rows(infrastructure.ips), [infrastructure.ips]);
+  const pools = useMemo(
+    () => rows(infrastructure.pools),
+    [infrastructure.pools],
+  );
+  const memberships = useMemo(
+    () => rows(infrastructure.memberships),
+    [infrastructure.memberships],
+  );
   const items = kind === "ips" ? ips : pools;
   const selected = resourceId
     ? items.find(
@@ -33,6 +63,26 @@ function IpResourcesContent(props: InfrastructureProps) {
     : undefined;
   const [filter, setFilter] = useState(accountId ?? "");
   const [editor, setEditor] = useState<{ item?: RecordValue } | null>(null);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" }>({
+    key: "resource",
+    direction: "asc",
+  });
+  const health = useDeliveryHealth(apiBase, workspaceId);
+  let metricState: "loading" | "unavailable" | "ready" = "ready";
+  if (health.isPending) metricState = "loading";
+  if (health.isError) metricState = "unavailable";
+  const metrics = useMemo(
+    () =>
+      new Map(
+        items.map((item) => [
+          item.id,
+          ipDeliverySummary(item, kind, health.data),
+        ]),
+      ),
+    [items, kind, health.data],
+  );
   const memberIps = (pool: RecordValue) =>
     memberships
       .filter((membership) => membership.poolId === pool.id)
@@ -88,6 +138,84 @@ function IpResourcesContent(props: InfrastructureProps) {
       ),
     },
   ];
+  const metricColumns = [
+    { key: "sends", label: "Attempts (30d)" },
+    { key: "delivered", label: "Delivered" },
+    { key: "deliverabilityRate", label: "Deliverability" },
+    { key: "bounced", label: "Bounced" },
+    { key: "complaints", label: "Complaints" },
+  ];
+  const inventoryColumns = [
+    ...resourceColumns.slice(0, -1).map((column, index) => ({
+      ...column,
+      key: ["resource", "account", kind === "ips" ? "status" : "members"][
+        index
+      ]!,
+    })),
+    ...metricColumns.map((column) => ({
+      ...column,
+      render: (item: RecordValue) =>
+        deliveryMetricValue(metrics.get(item.id), column.key, metricState),
+    })),
+    { ...resourceColumns[resourceColumns.length - 1]!, key: "actions" },
+  ];
+  const searchTerm = search.trim().toLowerCase();
+  const sortValue = (item: RecordValue): InventorySortValue => {
+    if (sort.key === "resource") return text(item.address ?? item.name);
+    if (sort.key === "account") {
+      const name = accounts.find(
+        (account) => account.id === item.accountId,
+      )?.name;
+      return typeof name === "string" ? name : null;
+    }
+    if (sort.key === "status") return text(item.status);
+    if (sort.key === "members") return memberIps(item).length;
+    if (metricState !== "ready") return null;
+    const summary = metrics.get(item.id);
+    if (sort.key !== "sends" && summary?.observationsAvailable === false)
+      return null;
+    const value = summary?.[sort.key];
+    return typeof value === "number" ? value : null;
+  };
+  const filteredItems = items
+    .filter((item) => {
+      if (filter && item.accountId !== filter) return false;
+      if (status) {
+        if (kind === "ips" && item.status !== status) return false;
+        if (kind === "pools") {
+          const members = memberIps(item);
+          if (
+            status === "empty"
+              ? members.length > 0
+              : !members.some((ip) => ip.status === status)
+          )
+            return false;
+        }
+      }
+      const account = accounts.find((entry) => entry.id === item.accountId);
+      return (
+        !searchTerm ||
+        [item.address, item.name, account?.name, item.status].some(
+          (value) =>
+            typeof value === "string" &&
+            value.toLowerCase().includes(searchTerm),
+        )
+      );
+    })
+    .sort(
+      (left, right) =>
+        compareInventoryValues(
+          sortValue(left),
+          sortValue(right),
+          sort.direction,
+        ) ||
+        compareInventoryValues(
+          text(left.address ?? left.name),
+          text(right.address ?? right.name),
+          "asc",
+        ) ||
+        text(left.id).localeCompare(text(right.id)),
+    );
   if (resourceId && !selected)
     return (
       <Alert severity="warning">
@@ -197,23 +325,61 @@ function IpResourcesContent(props: InfrastructureProps) {
               Add {kind === "ips" ? "dedicated IP" : "shared IP pool"}
             </Button>
           </Stack>
-          {!accountId && (
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+            <TextField
+              size="small"
+              label="Search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            {!accountId && (
+              <TextField
+                select
+                size="small"
+                label="ESP account"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                sx={{ minWidth: 180 }}
+              >
+                <MenuItem value="">All accounts</MenuItem>
+                {accounts.map((item) => (
+                  <MenuItem key={text(item.id)} value={text(item.id)}>
+                    {text(item.name)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
             <TextField
               select
               size="small"
-              label="ESP account"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-              sx={{ maxWidth: 320 }}
+              label={kind === "ips" ? "Status" : "Member status"}
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              sx={{ minWidth: 160 }}
             >
-              <MenuItem value="">All accounts</MenuItem>
-              {accounts.map((item) => (
-                <MenuItem key={text(item.id)} value={text(item.id)}>
-                  {text(item.name)}
-                </MenuItem>
-              ))}
+              <MenuItem value="">All statuses</MenuItem>
+              <MenuItem value="active">
+                {kind === "ips" ? "Active" : "Active members"}
+              </MenuItem>
+              <MenuItem value="paused">
+                {kind === "ips" ? "Paused" : "Paused members"}
+              </MenuItem>
+              {kind === "pools" && (
+                <MenuItem value="empty">No members</MenuItem>
+              )}
             </TextField>
-          )}
+            <Button
+              color="inherit"
+              disabled={!search && !status && filter === (accountId ?? "")}
+              onClick={() => {
+                setSearch("");
+                setStatus("");
+                setFilter(accountId ?? "");
+              }}
+            >
+              Reset
+            </Button>
+          </Stack>
           {!accounts.length && (
             <Button
               component={Link}
@@ -223,11 +389,78 @@ function IpResourcesContent(props: InfrastructureProps) {
               Add account
             </Button>
           )}
-          <DataTable
-            label={`Workspace ${label}`}
-            data={items.filter((item) => !filter || item.accountId === filter)}
-            columns={resourceColumns}
-          />
+          <TableContainer sx={{ maxWidth: "100%", overflowX: "auto" }}>
+            <Table size="small" aria-label={`Workspace ${label}`}>
+              <TableHead>
+                <TableRow>
+                  {inventoryColumns.map((column) => (
+                    <TableCell
+                      key={column.key}
+                      sortDirection={
+                        sort.key === column.key ? sort.direction : false
+                      }
+                    >
+                      {column.key === "actions" ? (
+                        column.label
+                      ) : (
+                        <Tooltip
+                          describeChild
+                          title={
+                            metricColumns.some(
+                              (metric) => metric.key === column.key,
+                            )
+                              ? "Attributed history only"
+                              : ""
+                          }
+                        >
+                          <TableSortLabel
+                            active={sort.key === column.key}
+                            direction={
+                              sort.key === column.key ? sort.direction : "asc"
+                            }
+                            onClick={() =>
+                              setSort({
+                                key: column.key,
+                                direction:
+                                  sort.key === column.key &&
+                                  sort.direction === "asc"
+                                    ? "desc"
+                                    : "asc",
+                              })
+                            }
+                          >
+                            {column.label}
+                          </TableSortLabel>
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredItems.map((item) => (
+                  <TableRow key={text(item.id)}>
+                    {inventoryColumns.map((column, index) => (
+                      <TableCell
+                        key={column.key}
+                        component={index === 0 ? "th" : "td"}
+                        scope={index === 0 ? "row" : undefined}
+                      >
+                        {column.render(item)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+                {!filteredItems.length && (
+                  <TableRow>
+                    <TableCell colSpan={inventoryColumns.length}>
+                      {items.length ? "No matching records" : "No records"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </>
       )}
       {editor && (

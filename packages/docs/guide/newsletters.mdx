@@ -12,10 +12,11 @@ IPs/pools belong to the relevant provider account, not a newsletter. Optional
 newsletter defaults prefill sending choices and can be overridden for each send.
 
 The workspace dashboard is `/dashboard/workspace`. Its left sidebar contains
-Overview, Newsletters, ESP accounts, Dedicated IPs, Shared IPs, Subscribers, Reports
-and Settings. Shared IPs are account-owned pools of dedicated IPs, not a provider-
-shared service. The top-down map fits all assets; dragging changes layout only,
-never newsletter ownership or sending choices.
+Overview, Newsletters, ESP accounts, Domains, Dedicated IPs, Shared IPs, Subscribers,
+Automations, Tracking, Reports and Settings. Shared IPs are account-owned pools of
+dedicated IPs, not a provider-shared service. The overview is a static corporate
+hierarchy: contrasting organizational headers, full-size resource cards and direct
+configuration links. It scrolls naturally without zoom, dragging or editor controls.
 
 **Domains** centralizes account sending domains and newsletter-owned tracking
 hosts. **Automations** provides workspace rules and history independently of user
@@ -28,6 +29,11 @@ Dedicated/shared IP pages are inventories, not operational control panels.
 Registration does not require a capacity policy; unconfigured IPs remain paused
 with zero admission. Edits preserve existing policies. Warm-up, reassignment and
 provider reconciliation remain backend-controlled rather than everyday UI fields.
+
+Domain and IP inventories offer search, filters, sortable headers and 30-day
+volume/delivery observations. Unknown metrics are not zero and sort last in either
+direction. Domain **Reputation** is intentionally blank until a real source is
+selected; no score is inferred from delivery observations.
 
 ```mermaid
 flowchart TD
@@ -45,7 +51,7 @@ A person's name, email, fields, consent, subscription state and engagement can d
 
 The dashboard's **Newsletters** entry starts with a simple newsletter list: name, subscriber count, status and **Open**. **New newsletter** asks for a name; its sending ID is generated automatically, with optional customization before creation. Opening a newsletter enters its native audience/campaign/journey environment.
 
-The top-right Workspace selector scopes every dashboard section and lists authorized workspaces, not their newsletters. Inside a newsletter it retains the containing workspace; **All newsletters** returns to the workspace list. Direct newsletter-only memberships remain accessible without granting parent access. ESP account details contain credentials, sender domains, signed webhooks, IPs/pools and observed activity. Settings retains tracking, automations, suppressions, activity and Advanced tools.
+The top-right Workspace selector scopes every dashboard section and lists authorized workspaces, not their newsletters. A matching Newsletter selector hot-swaps newsletters; the brand returns to the containing workspace. Direct newsletter-only memberships remain accessible without granting parent access. ESP account details contain credentials, signed webhooks, IPs/pools and observed activity. Domains owns sending/tracking hosts; Settings retains access, suppressions, activity and Advanced tools.
 
 Search/export identities are `(newsletterId, userId)`, never `userId` alone. Contact/subscription counts and matched normalized mailboxes are separate measures; a matched mailbox is not a verified unique person. Every campaign and journey remains owned by its newsletter. Management workspaces cannot create campaigns or send.
 
@@ -196,6 +202,13 @@ unknown senders remain a separate cohort. Overall rates use total resolved
 outcomes, not an average of percentages. Newsletter-owned `dt.*` hosts are tracking
 domains, not shared IPs or sending domains; delivery metrics are N/A for them.
 No reputation or inbox-placement score is inferred from delivery observations.
+
+Dedicated-IP history prefers a provider-reported physical address when present,
+otherwise an explicit pinned dedicated route. Multi-IP candidates do not establish
+an actual IP. Shared-IP history uses the stored send-time pool ID copied into
+native events, not current pool membership. Missing older attribution remains
+unknown; displayed counts/rates cover the attributable subset. Selecting another
+pool or changing membership never retargets old history.
 
 ## AI Stock News release preflight
 

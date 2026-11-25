@@ -23,7 +23,12 @@ export interface WorkspaceObject {
   accountName?: string;
   provider?: string;
   domainKind?: WorkspaceDomain["kind"];
-  configurations?: { accountName: string; path: string }[];
+  configurations?: {
+    accountId: string;
+    accountName: string;
+    path: string;
+    status?: string;
+  }[];
 }
 export interface WorkspaceLink {
   id: string;
@@ -34,92 +39,6 @@ export interface WorkspaceLink {
 export interface WorkspaceTopology {
   objects: WorkspaceObject[];
   links: WorkspaceLink[];
-}
-
-export const workspaceNodeSize = { width: 212, height: 36 };
-
-export function workspaceTopologyPositions(topology: WorkspaceTopology) {
-  const positions = new Map<string, { x: number; y: number }>();
-  const objects = new Map(
-    topology.objects.map((object) => [object.id, object]),
-  );
-  const children = new Map<string, WorkspaceObject[]>();
-  for (const link of topology.links) {
-    if (link.membership) continue;
-    const child = objects.get(link.target);
-    if (!child) continue;
-    const siblings = children.get(link.source);
-    if (siblings) siblings.push(child);
-    else children.set(link.source, [child]);
-  }
-  const root = topology.objects.find((object) => object.kind === "workspace");
-  if (!root) return positions;
-  const groups = children.get(root.id) ?? [];
-  const groupY = workspaceNodeSize.height + 28;
-  const childY = groupY + workspaceNodeSize.height + 28;
-  const indent = workspaceNodeSize.width / 2 + 24;
-  const columnWidth = indent + workspaceNodeSize.width;
-  const columnGap = 32;
-  let x = 24;
-  // Vertical leaf lists keep real infrastructures readable instead of creating
-  // one enormous horizontal rank. Edges still express actual ownership.
-  for (const group of groups) {
-    const groupX = x;
-    const members = children.get(group.id) ?? [];
-    const accounts = members.filter((member) => member.kind === "account");
-    if (accounts.length) {
-      positions.set(group.id, {
-        x: x + ((accounts.length - 1) * (columnWidth + columnGap)) / 2,
-        y: groupY,
-      });
-      accounts.forEach((account, column) => {
-        const accountX = groupX + column * (columnWidth + columnGap);
-        positions.set(account.id, { x: accountX, y: childY });
-        let row = 0;
-        for (const asset of children.get(account.id) ?? []) {
-          // One physical IP can have several account-local configurations.
-          if (positions.has(asset.id)) continue;
-          positions.set(asset.id, {
-            x: accountX + indent,
-            y:
-              childY +
-              workspaceNodeSize.height +
-              32 +
-              row * (workspaceNodeSize.height + 12),
-          });
-          row += 1;
-        }
-      });
-      x += accounts.length * columnWidth + (accounts.length - 1) * columnGap;
-    } else {
-      positions.set(group.id, { x, y: groupY });
-      let row = 0;
-      members.forEach((member) => {
-        positions.set(member.id, {
-          x: groupX + indent,
-          y: childY + row * (workspaceNodeSize.height + 12),
-        });
-        row += 1;
-        for (const domain of children.get(member.id) ?? []) {
-          positions.set(domain.id, {
-            x: groupX + indent + 24,
-            y: childY + row * (workspaceNodeSize.height + 12),
-          });
-          row += 1;
-        }
-      });
-      x += members.length ? columnWidth + 24 : workspaceNodeSize.width;
-    }
-    x += 64;
-  }
-  const first = groups[0] && positions.get(groups[0].id);
-  const last = groups.at(-1);
-  const lastPosition = last && positions.get(last.id);
-  positions.set(root.id, {
-    x: first && lastPosition ? (first.x + lastPosition.x) / 2 : 24,
-    y: 0,
-  });
-  return positions;
 }
 
 export function workspaceTopology(
@@ -147,6 +66,27 @@ export function workspaceTopology(
   const linkIds = new Set<string>();
   const ipNodeIds = new Map<string, string>();
   const add = (object: WorkspaceObject, parentId: string) => {
+    if (!objectById.has(parentId)) {
+      const groupId = "group:unassigned";
+      if (!objectById.has(groupId)) {
+        const group: WorkspaceObject = {
+          id: groupId,
+          resourceId: "unassigned",
+          kind: "group",
+          name: "Unassigned resources",
+          path: "/workspace",
+        };
+        objects.push(group);
+        objectById.set(groupId, group);
+        links.push({
+          id: `${objects[0]!.id}:${groupId}`,
+          source: objects[0]!.id,
+          target: groupId,
+          membership: false,
+        });
+      }
+      parentId = groupId;
+    }
     if (!objectById.has(object.id)) {
       objects.push(object);
       objectById.set(object.id, object);
@@ -215,7 +155,6 @@ export function workspaceTopology(
   for (const domain of domains) {
     const parentId = `${domain.kind === "sending" ? "account" : "newsletter"}:${domain.ownerId}`;
     const owner = objectById.get(parentId);
-    if (!owner) continue;
     add(
       {
         id: `domain:${domain.viewId}`,
@@ -224,7 +163,7 @@ export function workspaceTopology(
         domainKind: domain.kind,
         name: domain.hostname,
         status: domain.status,
-        accountName: owner.name,
+        accountName: owner?.name,
         path: `/workspace/domains/${domain.viewId}`,
       },
       parentId,
@@ -242,14 +181,15 @@ export function workspaceTopology(
         accountName: account ? text(account.name) : undefined,
         path: `/workspace/ip-pools/${id}`,
       },
-      account ? `account:${text(account.id)}` : rootId,
+      `account:${text(pool.accountId)}`,
     );
   }
   for (const ip of rows(infrastructure.ips)) {
     const id = text(ip.id);
     const nodeId = `ip:${text(ip.canonicalIpId ?? ip.id)}`;
     const account = accountById.get(text(ip.accountId));
-    const accountName = account ? text(account.name) : "Unknown";
+    const accountId = text(ip.accountId);
+    const accountName = account ? text(account.name) : "Unknown account";
     const path = `/workspace/ips/${id}`;
     ipNodeIds.set(id, nodeId);
     const existing = objectById.get(nodeId);
@@ -259,7 +199,12 @@ export function workspaceTopology(
           (configuration) => configuration.path === path,
         )
       ) {
-        existing.configurations?.push({ accountName, path });
+        existing.configurations?.push({
+          accountId,
+          accountName,
+          path,
+          status: typeof ip.status === "string" ? ip.status : undefined,
+        });
         existing.accountName = existing.configurations
           ?.map((configuration) => configuration.accountName)
           .join(", ");
@@ -275,15 +220,19 @@ export function workspaceTopology(
           status: typeof ip.status === "string" ? ip.status : undefined,
           accountName,
           path,
-          configurations: [{ accountName, path }],
+          configurations: [
+            {
+              accountId,
+              accountName,
+              path,
+              status: typeof ip.status === "string" ? ip.status : undefined,
+            },
+          ],
         },
-        account ? `account:${text(account.id)}` : rootId,
+        `account:${accountId}`,
       );
     }
-    add(
-      existing ?? objectById.get(nodeId)!,
-      account ? `account:${text(account.id)}` : rootId,
-    );
+    add(existing ?? objectById.get(nodeId)!, `account:${accountId}`);
   }
   for (const membership of rows(infrastructure.memberships)) {
     const source = `pool:${text(membership.poolId)}`;

@@ -1,11 +1,17 @@
 import { randomUUID } from "crypto";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 import { installNewsletterSecretFixture } from "../test/newsletterSecretFixture";
 import { submitBatch } from "./apps/batch";
 import * as clickhouse from "./clickhouse";
 import { db } from "./db";
-import { newsletterSend, sendingConnection } from "./db/publisherSchema";
+import {
+  newsletterSend,
+  sendingConnection,
+  sendingIp,
+  sendingPool,
+  sendingPoolIp,
+} from "./db/publisherSchema";
 import { workspace } from "./db/schema";
 import { configureSendgridAccount } from "./newsletterInfrastructure";
 import { getPublisherDeliveryHealth } from "./newsletterReporting";
@@ -147,6 +153,7 @@ it("resolves event-time terminal outcomes once per native send without changing 
     ].map((cohort) => ({
       ...cohort,
       publisherId: parent.id,
+      createdAt: new Date(Date.now() - 3600_000),
       workspaceId: child.workspaceId,
       accountRevision: 1,
       connectionId: connections.find((item) => item.accountId === cohort.accountId)!.id,
@@ -368,6 +375,170 @@ it("resolves event-time terminal outcomes once per native send without changing 
     await db()
       .delete(workspace)
       .where(inArray(workspace.id, [child.workspaceId, parent.id]));
+  }
+});
+
+it("batches immutable IP/pool cohorts without guessing multi-IP history or joining current pool membership", async () => {
+  const parent = await createPublisher({ name: `ip-report-${randomUUID()}` });
+  const child = await createNewsletter({
+    publisherId: parent.id, name: "IP history", slug: "ip-history",
+  });
+  const [ipA, ipB, otherIp] = [randomUUID(), randomUUID(), randomUUID()] as const;
+  try {
+    const first = await configureSendgridAccount({
+      publisherId: parent.id, name: "First", provider: "SendGrid",
+    });
+    const second = await configureSendgridAccount({
+      publisherId: parent.id, name: "Second", provider: "SendGrid",
+    });
+    const connections = await db().select().from(sendingConnection)
+      .where(inArray(sendingConnection.accountId, [first.id, second.id]));
+    for (const [id, accountId, address] of [
+      [ipA, first.id, "192.0.2.40"],
+      [ipB, first.id, "192.0.2.41"],
+      [otherIp, second.id, "192.0.2.40"],
+    ] as const) {
+      await db().insert(sendingIp).values({
+        id, publisherId: parent.id, accountId, address,
+        canonicalIpId: id === otherIp ? ipA : id,
+        hourlyLimit: 100, dailyLimit: 1000,
+      });
+    }
+    const oldPool = randomUUID();
+    const currentPool = randomUUID();
+    await db().insert(sendingPool).values([oldPool, currentPool].map((id) => ({
+      id, publisherId: parent.id, accountId: first.id,
+      name: id, providerPoolName: id,
+    })));
+    await db().insert(sendingPoolIp).values([
+      { poolId: oldPool, ipId: ipA }, { poolId: oldPool, ipId: ipB },
+    ]);
+    const explicit = randomUUID();
+    const multi = randomUUID();
+    const unknown = randomUUID();
+    const legacy = randomUUID();
+    const other = randomUUID();
+    await db().insert(newsletterSend).values([
+      { id: explicit, accountId: first.id, ipId: ipA, poolId: oldPool, actualIp: "192.0.2.41", candidateIpIds: [ipA] },
+      { id: multi, accountId: first.id, ipId: null, poolId: oldPool, actualIp: "192.0.2.41", candidateIpIds: [ipA, ipB] },
+      { id: unknown, accountId: first.id, ipId: null, poolId: null, actualIp: null, candidateIpIds: [ipA, ipB] },
+      { id: legacy, accountId: first.id, ipId: ipA, poolId: oldPool, actualIp: null, candidateIpIds: [ipA] },
+      { id: other, accountId: second.id, ipId: otherIp, poolId: null, actualIp: "192.0.2.40", candidateIpIds: [otherIp] },
+    ].map((cohort) => ({
+      ...cohort, publisherId: parent.id, workspaceId: child.workspaceId,
+      createdAt: new Date(Date.now() - 3600_000),
+      accountRevision: 1,
+      connectionId: connections.find((item) => item.accountId === cohort.accountId)!.id,
+      connectionRevision: 1,
+      selection: { accountId: cohort.accountId, mode: "automatic" as const },
+      logicalMessageId: cohort.id, userId: "reader",
+      mailboxHash: "synthetic-ip-report", payloadHash: "synthetic-ip-report",
+    })));
+    const now = Date.now();
+    const fixture = (
+      sendId: string, event: InternalEventType, ageDays: number,
+      properties: Record<string, string> = {},
+    ): BatchTrackData => ({
+      type: EventType.Track, event, userId: "reader",
+      messageId: randomUUID(),
+      timestamp: new Date(now - ageDays * 86400_000).toISOString(),
+      properties: {
+        newsletterSendId: sendId, messageId: sendId,
+        sendingAccountId: first.id, sendingIpId: ipA,
+        sendingPoolId: oldPool, senderDomain: "history.example.test",
+        ...properties,
+      },
+    });
+    const delivery = fixture(multi, InternalEventType.EmailDelivered, 2, {
+      sendingIpId: "", actualIp: "192.0.2.41",
+    });
+    const complaint = fixture(explicit, InternalEventType.EmailMarkedSpam, 0.5, {
+      actualIp: "192.0.2.41",
+    });
+    await submitBatch({
+      workspaceId: child.workspaceId,
+      data: { batch: [
+        fixture(explicit, InternalEventType.EmailDelivered, 5),
+        fixture(explicit, InternalEventType.EmailBounced, 1, { actualIp: "192.0.2.41" }),
+        delivery, delivery,
+        complaint, complaint,
+        fixture(explicit, InternalEventType.EmailMarkedSpam, 0.4, { actualIp: "192.0.2.41" }),
+        fixture(unknown, InternalEventType.EmailDelivered, 1, { sendingIpId: "", sendingPoolId: "" }),
+        fixture(legacy, InternalEventType.EmailDelivered, 1, { sendingPoolId: "" }),
+        fixture(other, InternalEventType.EmailDelivered, 1, {
+          sendingAccountId: second.id, sendingIpId: otherIp,
+          sendingPoolId: "", actualIp: "192.0.2.40",
+        }),
+      ] },
+    }, { writeModeOverride: "ch-sync" });
+    // Current pool membership must have no effect on either historical cohort.
+    await db().delete(sendingPoolIp).where(eq(sendingPoolIp.poolId, oldPool));
+    await db().insert(sendingPoolIp).values([
+      { poolId: currentPool, ipId: ipA }, { poolId: currentPool, ipId: ipB },
+    ]);
+    const report = await getPublisherDeliveryHealth(parent.id);
+    expect(report.pools).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        accountId: first.id, poolId: oldPool, sends: 3,
+        delivered: 1, bounced: 1, dropped: 0, complaints: 1,
+        resolvedOutcomes: 2, deliverabilityRate: 50,
+      }),
+      expect.objectContaining({
+        accountId: first.id, poolId: null, sends: 1, delivered: 2,
+      }),
+    ]));
+    expect(report.pools.some((cohort) => cohort.poolId === currentPool)).toBe(false);
+    expect(report.ipCohorts).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        accountId: first.id, ipId: ipA, actualIp: "192.0.2.41",
+        sends: 1, delivered: 0, bounced: 1, complaints: 1,
+      }),
+      expect.objectContaining({
+        accountId: first.id, ipId: null, actualIp: "192.0.2.41",
+        sends: 1, delivered: 1, bounced: 0,
+      }),
+      expect.objectContaining({
+        accountId: first.id, ipId: null, actualIp: null, sends: 1, delivered: 1,
+      }),
+      expect.objectContaining({
+        accountId: first.id, ipId: ipA, actualIp: null, sends: 1, delivered: 1,
+      }),
+    ]));
+    expect(report.ipCohorts.some((cohort) => cohort.ipId === ipB)).toBe(false);
+    const scoped = await getPublisherDeliveryHealth(parent.id, first.id);
+    const firstIpCohorts = report.ipCohorts.filter((cohort) => cohort.accountId === first.id);
+    const firstPoolCohorts = report.pools.filter((cohort) => cohort.accountId === first.id);
+    expect(scoped.ipCohorts).toHaveLength(firstIpCohorts.length);
+    expect(scoped.ipCohorts).toEqual(expect.arrayContaining(firstIpCohorts));
+    expect(scoped.pools).toHaveLength(firstPoolCohorts.length);
+    expect(scoped.pools).toEqual(expect.arrayContaining(firstPoolCohorts));
+    expect(scoped.summary).toMatchObject({
+      sends: 4, delivered: 3, bounced: 1, complaints: 1,
+      resolvedOutcomes: 4, deliverabilityRate: 75,
+    });
+    await expect(getPublisherDeliveryHealth(parent.id, randomUUID())).rejects.toThrow();
+    const failure = jest.spyOn(clickhouse, "query").mockRejectedValueOnce(new Error("unavailable"));
+    try {
+      const unavailable = await getPublisherDeliveryHealth(parent.id, first.id);
+      expect(unavailable.ipCohorts).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          ipId: ipA, actualIp: "192.0.2.41", sends: 1,
+          delivered: null, bounced: null, complaints: null, deliverabilityRate: null,
+          observationsAvailable: false,
+        }),
+      ]));
+      expect(unavailable.pools).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          poolId: oldPool, sends: 3, delivered: null, observationsAvailable: false,
+        }),
+      ]));
+    } finally {
+      failure.mockRestore();
+    }
+  } finally {
+    await db().delete(newsletterSend).where(eq(newsletterSend.publisherId, parent.id));
+    await db().delete(sendingIp).where(eq(sendingIp.id, otherIp));
+    await db().delete(workspace).where(inArray(workspace.id, [child.workspaceId, parent.id]));
   }
 });
 

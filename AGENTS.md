@@ -104,8 +104,11 @@ the corresponding tooling actually changes.
   IPs, Subscribers, Automations, Tracking, Reports and Settings. Inventories span the workspace
   while preserving ESP-account ownership. Do not put this system inside newsletter
   settings or rename backend `/api/publications` contracts as part of the UI move.
-  The overview is top-down and fits all assets. "Shared IPs" labels account-owned
-  pools, not a provider-shared service; preserve actual pool selection semantics.
+  The overview is a static corporate hierarchy with readable full-size cards,
+  contrasting organizational headers and resource cards, and natural scrolling.
+  No overview zoom/pan/drag editor or map/list toggle. Keep the interactive native
+  journey/automation editors independent. "Shared IPs" labels account-owned pools,
+  not a provider-shared service; preserve actual pool selection semantics.
   Use the guarded workspace navigation helper for internal workspace links.
   Real workspace/newsletter changes still require server-authorized navigation;
   never cache identity or membership checks to speed up page switching.
@@ -126,6 +129,10 @@ the corresponding tooling actually changes.
   Never present placeholder operations or decorative connections as executable.
   Sending-domain KPIs require immutable actual-From attribution per send; tracking
   hosts have no delivery rate. Historical unknown attribution stays unknown.
+  Inventory tables use basic search/filter controls and sortable headers; unknown
+  metrics remain distinct from zero and sort last. Domain reputation stays blank
+  until a real data source is selected. IP/pool history uses actual reported IPs
+  and immutable send-time selections, never today's pool membership.
 - The top-left brand returns to the authorized workspace dashboard. Workspace and
   newsletter selectors use the same searchable interaction; actual tenant changes
   use server-authorized switching and a full context load, never shallow routing.

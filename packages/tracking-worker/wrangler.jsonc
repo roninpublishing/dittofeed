@@ -11,6 +11,31 @@
   "vars": {
     "ENABLED": "false"
   },
+  // Wrangler resolves this binding name locally without an ID. Before deploying,
+  // the operator must supply the existing RONIN KV namespace ID here; do not use
+  // a placeholder ID or create a namespace as part of local verification.
+  "kv_namespaces": [
+    { "binding": "NETWORK_SETS" }
+  ],
+  // These are operator-required resource names, not IDs. Provisioning the queue
+  // and its DLQ requires separate authorization; this file never provisions them.
+  "queues": {
+    "producers": [
+      { "binding": "TRACKING_QUEUE", "queue": "newsletter-tracking" }
+    ],
+    "consumers": [
+      {
+        "queue": "newsletter-tracking",
+        "max_batch_size": 50,
+        "max_batch_timeout": 5,
+        "max_retries": 10,
+        "dead_letter_queue": "newsletter-tracking-dlq"
+      }
+    ]
+  },
+  "triggers": {
+    "crons": ["0 3 * * 1"]
+  },
   // TRACKING_ORIGIN must be an operator-configured HTTPS origin (no path).
   // Set OPEN_TRACKING_RELAY_SECRET using Wrangler's secret store, never vars.
   // Local development may explicitly set LOCAL_DEVELOPMENT=true and a loopback

@@ -14,7 +14,7 @@ The protected built-in uses `{ "type": "Performed", "event": "DFEmailOpened", "v
 - The **Last opened** segment preset supports recency, before/after, exists, and no-open conditions using actual event time.
 - Existing contact property filters and Liquid `{{ user.last_opened }}` work normally. Handle absent values for never-opened contacts.
 
-A future human-engagement classifier must preserve this observed history and define its own policy/version. Do not silently reinterpret existing timestamps as verified human activity.
+Versioned heuristic classifications live separately in `trackingEvent`; they do not reinterpret observed history or establish verified human activity.
 
 ## Newsletter-branded tracking domains
 
@@ -26,7 +26,7 @@ links. It contains an opaque token, not the subscriber's email address.
 Newsletter identity is the independent Newsletter child workspace—not a
 subscription group or a provider sending sub-user.
 
-Open **Newsletters → Tracking domains** in the publisher management workspace:
+Open **Newsletters → Tracking domains** in the Workspace:
 
 1. Choose a newsletter and enter its base domain, without `https://` or `dt.`.
 2. **Save pending tracking domain** records configuration locally. It does not
@@ -78,6 +78,11 @@ The capture backend must have dedicated hosting, not share the existing servers.
 - Put the same explicit **32-byte base64 `OPEN_TRACKING_RELAY_SECRET`** in the
   backend secret store and Worker secret store. It is separate from `SECRET_KEY`;
   never commit it as a Wrangler variable or log it.
+- Create the `newsletter-tracking` Queue, `newsletter-tracking-dlq` dead-letter
+  queue, and `NETWORK_SETS` KV namespace only with deployment authorization.
+  Supply the RONIN KV namespace ID in Wrangler configuration and enable the
+  weekly refresh trigger. Monitor consumer failures, DLQ backlog and refresh
+  failures; request logging remains disabled.
 - Configure backend `CLOUDFLARE_TRACKING_ZONE_ID`,
   `CLOUDFLARE_TRACKING_CNAME_TARGET`, and secret
   `CLOUDFLARE_TRACKING_API_TOKEN`. Use a scoped token for this zone's custom
@@ -90,21 +95,26 @@ The capture backend must have dedicated hosting, not share the existing servers.
 
 The Worker exposes only branded pixel GET/HEAD requests. It does not forward the
 dashboard, arbitrary URLs, sending endpoints, cookies, authorization, or referers.
-It sends a bounded, HMAC-SHA256-authenticated envelope to
-`POST /api/public/email/open/relay` and waits for durable acknowledgement before
-returning its transparent image. The origin verifies raw body bytes and a
-five-minute timestamp window before any hostname/token lookup, then binds the
-request to both the saved hostname and newsletter. Redirects are not followed.
-Unknown tokens do not create evidence; storage failures return retryable errors,
-not a fake-success pixel. Signatures establish trusted transport, not human
-identity or exactly-once delivery.
+It returns the transparent GIF immediately for an enabled, well-formed branded
+request, then enriches and enqueues evidence with `waitUntil`. A pixel response
+is not a durable-capture acknowledgement; unknown tokens receive the same image.
+Enqueue failures cannot change an already-returned response.
+
+The Queue consumer signs batches of up to 50 observations / 1 MiB and POSTs to
+`/api/public/email/open/batch`. The origin verifies exact body bytes and the
+five-minute HMAC timestamp window before hostname/token lookups, then checks
+the saved hostname and newsletter. Only 204 acknowledges durable encrypted
+receipts; failures retry with stable event IDs, eventually reaching the DLQ.
+Redirects are never followed. Legacy `/email/open/relay` v1 and direct pixel
+routes remain synchronous and supported. Signatures establish transport
+authenticity, not human identity or exactly-once physical delivery.
 
 Local verification without deploying or sending email:
 
 ```bash
 node .yarn/releases/yarn-4.1.1.cjs workspace tracking-worker check
 node .yarn/releases/yarn-4.1.1.cjs workspace tracking-worker test:workerd
-node .yarn/releases/yarn-4.1.1.cjs workspace tracking-worker deploy --dry-run
+node .yarn/releases/yarn-4.1.1.cjs workspace tracking-worker dev
 ```
 
 Explicit local-only `LOCAL_DEVELOPMENT=true` permits loopback HTTP origins and
@@ -140,7 +150,7 @@ the requesting recipient. Possession of a token does not establish identity.
 
 ## Captured evidence and deliberate omissions
 
-Each valid-token GET is durably captured before the image is returned. Unknown/deleted tokens return the same image without creating evidence. Persistence failures return 503 instead of acknowledging durable capture. HEAD requests are retained as raw-only evidence and never become opens.
+Direct and legacy-relay requests persist valid-token evidence before responding; persistence failures return 503. The queued Worker path responds first and validates tokens at the backend. Unknown/deleted tokens never create observations. HEAD requests are classified but never produce native opens.
 
 The encrypted request envelope includes:
 
@@ -149,10 +159,11 @@ The encrypted request envelope includes:
 - Socket-observed remote address, HTTP version, and socket TLS status. `request.encrypted` is the **transport TLS flag**, not a statement about encryption at rest; it is false on the local HTTP preview.
 - Bounded `forwarded`, `x-forwarded-for`, `x-real-ip`, `via`, and Cloudflare proxy hints, explicitly separated as **untrustedProxyHeaders**. Never use these as authoritative client identity.
 - Relayed requests separately retain bounded `edgeObserved` metadata: Cloudflare
-  Worker source, branded hostname, receipt time, client-address hint, and observed
-  HTTP/TLS versions when available. Origin socket fields still describe the
-  Worker-to-backend hop; they are never overwritten with a claimed client address.
-  Edge/proxy evidence does not establish a person's identity.
+  Worker source, branded hostname, occurrence time, client-address hint, observed
+  HTTP/TLS versions, network owner, ASN, country and published-network match/version.
+  An unavailable live network set is distinct from an unmatched address. Origin
+  socket fields still describe the Worker-to-backend hop. No edge/proxy field
+  establishes a person's identity.
 
 Authorization, Cookie, Set-Cookie, Referer, arbitrary query parameters/headers, and literal bearer pixel URLs are not retained. GET/HEAD bodies are not captured. This is deliberately selected request evidence, not an untouched full HTTP wire dump. Header strings are bounded to 512 characters, arrays to four 128-character values, total header values to 3,072 characters, and the encrypted plaintext envelope to 16 KiB; individual values can be truncated. Query values are at most 20 numeric digits. Proxies may hide the original IP/user-agent completely; do not fabricate missing values.
 
@@ -179,10 +190,41 @@ The response contains that scope and an `evidence` JSON object. Missing, expired
 
 Delivery API/CSV exports include nullable `lastOpenedAt` and `openCount`. Native ingestion keeps its existing permissions: client-supplied timestamps, provider/source labels, and evidence IDs are not signature verification or identity proof. Available SendGrid/SES/Telnyx open metadata remains provider evidence. Verified raw Telnyx callbacks remain separately retained in `TelnyxEmailReceipt`, under `TELNYX_WEBHOOK_RETENTION_DAYS`; they are not original browser requests. Owned open capture adds no click redirect. [Explicit URL contact tokens](/guide/click-tracking#explicit-url-contact-tokens) render only where authored; nothing is appended automatically, and they do not change open classification.
 
+## Classified open events
+
+The shared `mail-tracker`-derived classifier emits `human`, `apple_proxy`,
+`gmail_proxy`, `prefetch`, `scanner`, `self` or `unknown`, plus a reason,
+`counted` flag and `rulesVersion`. These are heuristic labels. Gmail on-open
+proxies can count; delivery-prefetch within ±30 seconds, Apple MPP, scanners,
+self, unknown and same-actor duplicates within 30 seconds do not. Yahoo/Outlook
+on-open proxies retain counting under the `human` policy label with explicit
+proxy reasons. No rule verifies a human or discards observed native history.
+
+Delivery age uses correlated provider delivery events, never send acceptance.
+Unavailable delivery time remains unknown. Duplicate history is scoped to the
+same workspace, send, method, IP and user-agent in occurrence order. Configure
+`OPEN_TRACKING_SELF_IPS` with at most 256 comma-separated staff IPv4/IPv6 addresses
+to identify self hits; the default is empty. Seed/test-send metadata is not guessed.
+
+The weekly refresh publishes versioned Apple, Google, Microsoft and Mimecast
+lists to KV. Any source failure or shrink greater than 20% preserves the previous
+active set and raises an error. Proofpoint Essentials uses the reference's pinned
+published US/EU ranges; its sign-in-only source requires manual operator review.
+The separate source-doc rule tab still requires review; assumptions are recorded
+in `packages/tracking-worker/DESIGN.md`.
+
+Backend cron batches classifications into monthly-partitioned ClickHouse
+`trackingEvent`. All reads require `FINAL` for logical retry deduplication.
+`findEmailOpenTrackingEvents` applies an immediate 30-day IP/user-agent cutoff;
+column TTLs physically null those values during merges. The remaining class,
+reason, network owner and country persist. The table has no new dashboard or
+public API in this slice. Restrict direct database access.
+
+
 ## Retention, erasure, and operational limits
 
-Raw owned receipts default to 30 days (configurable whole days, 1–365). Expired evidence is immediately hidden by retrieval; bounded cron cleanup physically deletes it. Native events/aggregates use their existing separate retention. Projection is synchronous to native ClickHouse storage but PostgreSQL and ClickHouse do not share an atomic commit: a crash can replay the same native event. Stable event identity deduplicates delivery counts.
+Raw owned receipts default to 30 days (configurable whole days, 1–365). Expired evidence is immediately hidden by retrieval; bounded cron cleanup physically deletes it. `trackingEvent` IP/user-agent retention is fixed at 30 days, independently of encrypted receipt retention. Native events/aggregates retain their existing separate retention. PostgreSQL and ClickHouse do not share an atomic commit: a crash can replay an event. Stable receipt identity and `FINAL` reads deduplicate classifications; native delivery counts retain their existing event/time deduplication.
 
-Contact deletion serializes against capture/projection and removes its mapping, encrypted evidence, and pending outbox before native history erasure. Hash-only contact/send barriers remain to prevent stale requests and retries from recreating erased evidence; reusing an explicitly erased contact ID fails closed for owned tracking. These hashes are pseudonymous barriers, not a claim of anonymization. Workspace-wide contact erasure covers known owned correlations, does not permanently disable future new contact IDs, and is not a global shutdown of new ingestion/sending workflows.
+Contact deletion serializes against capture/projection and synchronously removes its `trackingEvent` rows, mapping, encrypted evidence, and pending outbox before native history erasure. Hash-only contact/send barriers prevent stale queued retries from recreating erased evidence; reusing an explicitly erased contact ID fails closed for owned tracking. These hashes are pseudonymous barriers, not anonymization. Workspace-wide contact erasure covers known owned correlations and does not permanently disable future new contact IDs or ingestion/sending workflows.
 
 Cleanup handles at most 1,000 expired receipts per pass; projection handles up to 50 pending observations within its bounded drain. Monitor worker failures/backlog and size processing capacity for traffic. Evidence can expire while a prolonged projection outage persists. Keep raw data only as long as needed, and treat all observed counts as unqualified while developing the filtering policy.

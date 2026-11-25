@@ -2,7 +2,9 @@ import { createHash, randomBytes, randomUUID } from "crypto";
 import { isValid, parseISO } from "date-fns";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import escapeHtml from "escape-html";
+import deepEqual from "fast-deep-equal";
 import { SourceType } from "isomorphic-lib/src/constants";
+import { PUBLISHED_NETWORKS } from "isomorphic-lib/src/tracking/networks";
 import { isIP } from "net";
 
 import { submitBatch } from "../apps/batch";
@@ -16,6 +18,11 @@ import {
 import { getNewsletterTrackingOrigin } from "../newsletterTracking";
 import { decrypt, encrypt } from "../secrets";
 import { EventType, InternalEventType } from "../types";
+import {
+  buildEmailOpenTrackingEvent, deleteEmailOpenTrackingEvents,
+  findExistingEmailOpenTrackingReceiptIds, getEmailOpenProjectionContext,
+  insertEmailOpenTrackingEvents, readEmailOpenRequest, TrackingEvent,
+} from "./openTrackingEvents";
 
 export const OPEN_TRACKING_PIXEL_PATH = "/api/public/email/open/:token.gif";
 export const OPEN_TRACKING_REQUEST_LIMITS = {
@@ -49,6 +56,11 @@ export interface OpenTrackingEdgeObservation {
   remoteAddress?: string;
   httpVersion?: string;
   tlsVersion?: string;
+  asOrganization?: string;
+  asn?: number;
+  country?: string;
+  network?: { id: string; version: string };
+  networkSetVersion?: string | null;
 }
 
 export interface OpenTrackingRequestInput {
@@ -138,6 +150,17 @@ export function sanitizeOpenTrackingRequest(input: OpenTrackingRequestInput): Op
       receivedAt: parseISO(edge.receivedAt).toISOString(),
       ...(typeof edge.remoteAddress === "string" && isIP(edge.remoteAddress) ? { remoteAddress: edge.remoteAddress } : {}),
       ...(typeof edge.httpVersion === "string" && /^HTTP\/(?:1\.[01]|2|3)$/.test(edge.httpVersion) ? { httpVersion: edge.httpVersion } : {}),
+      ...(typeof edge.asOrganization === "string" ? { asOrganization: edge.asOrganization.slice(0, 256) } : {}),
+      ...(typeof edge.asn === "number" && Number.isSafeInteger(edge.asn) && edge.asn >= 0 && edge.asn <= 4_294_967_295
+        ? { asn: edge.asn } : {}),
+      ...(typeof edge.country === "string" && /^[A-Z]{2}$/.test(edge.country) ? { country: edge.country } : {}),
+      ...(edge.network && typeof edge.network.id === "string" &&
+        PUBLISHED_NETWORKS.some((network) => network.id === edge.network?.id) &&
+        typeof edge.network.version === "string" && /^[a-z0-9_.:-]{1,128}$/i.test(edge.network.version)
+        ? { network: { id: edge.network.id, version: edge.network.version } } : {}),
+      ...(edge.networkSetVersion === null || (typeof edge.networkSetVersion === "string" &&
+        /^[a-z0-9_.:-]{1,128}$/i.test(edge.networkSetVersion))
+        ? { networkSetVersion: edge.networkSetVersion } : {}),
       ...(typeof edge.tlsVersion === "string" && /^TLSv1\.[23]$/.test(edge.tlsVersion) ? { tlsVersion: edge.tlsVersion } : {}),
     };
   }
@@ -235,17 +258,34 @@ export async function prepareEmailOpenTracking(input: {
   }
 }
 
-export async function captureEmailOpenRequest({ token, request, expectedHostname, expectedWorkspaceId }: {
-  token: string; request: OpenTrackingRequestInput;
-  expectedHostname?: string; expectedWorkspaceId?: string;
-}): Promise<void> {
+export interface CaptureEmailOpenRequestInput {
+  token: string;
+  request: OpenTrackingRequestInput;
+  expectedHostname?: string;
+  expectedWorkspaceId?: string;
+  eventId?: string;
+}
+
+export async function captureEmailOpenRequest({ token, request, expectedHostname, expectedWorkspaceId, eventId }:
+CaptureEmailOpenRequestInput): Promise<void> {
   try {
     if (!TOKEN_PATTERN.test(token) || !config().enableOpenTracking) return;
     const sanitized = sanitizeOpenTrackingRequest(request);
     if (!sanitized) return;
+    // Queue occurrence times are edge observations, never queue retry time.
+    // Preserve direct/v1 historical evidence semantics during the rollout.
+    if (eventId !== undefined && (!UUID_PATTERN.test(eventId) ||
+        !expectedHostname || !expectedWorkspaceId ||
+        Date.parse(sanitized.receivedAt) < Date.now() - config().openTrackingRetentionDays * 86_400_000 ||
+        Date.parse(sanitized.receivedAt) > Date.now() + 300_000)) return;
+    if (eventId !== undefined && sanitized.edgeObserved &&
+        sanitized.edgeObserved.networkSetVersion === undefined) {
+      // An older v2 producer without KV provenance means unavailable live data,
+      // never permission to silently substitute the committed reference snapshot.
+      sanitized.edgeObserved.networkSetVersion = sanitized.edgeObserved.network?.version ?? null;
+    }
     const hash = tokenHash(token);
-    // The preliminary read acquires no row locks. Recheck after the barrier to
-    // close capture-vs-erasure races without reversing the projection lock order.
+    // Recheck after the barrier without reversing the projection lock order.
     const [candidate] = await db().select({ workspaceId: send.workspaceId }).from(send).where(eq(send.tokenHash, hash)).limit(1);
     if (!candidate) return;
     await db().transaction(async (tx) => {
@@ -256,14 +296,29 @@ export async function captureEmailOpenRequest({ token, request, expectedHostname
       if (!mapping) return;
       if ((expectedWorkspaceId !== undefined && expectedWorkspaceId !== candidate.workspaceId) ||
           (expectedHostname !== undefined && new URL(mapping.baseUrl).hostname !== expectedHostname)) return;
-      const id = randomUUID();
+      const id = eventId?.toLowerCase() ?? randomUUID();
       const plaintext = JSON.stringify({ id, sendId: mapping.id, request: sanitized });
       if (Buffer.byteLength(plaintext, "utf8") > OPEN_TRACKING_REQUEST_LIMITS.envelopeBytes) throw new OpenTrackingError();
-      await tx.insert(receipt).values({
+      const [inserted] = await tx.insert(receipt).values({
         id, sendId: mapping.id, encryptedRequest: encrypt(plaintext, secretKey()),
         receivedAt: new Date(sanitized.receivedAt), method: sanitized.method,
-        disposition: sanitized.method === "GET" ? "pending" : "raw_only_head",
-      });
+        disposition: "pending",
+      }).onConflictDoNothing({ target: receipt.id }).returning({ id: receipt.id });
+      if (!inserted) {
+        const [existing] = await tx.select().from(receipt).where(eq(receipt.id, id)).limit(1);
+        const immutable = (observation: OpenTrackingRequest) => ({
+          receivedAt: observation.receivedAt, method: observation.method,
+          query: observation.query, headers: observation.headers,
+          untrustedProxyHeaders: observation.untrustedProxyHeaders,
+          edgeObserved: observation.edgeObserved,
+        });
+        // Retain the first origin socket/TLS evidence: backend transport can
+        // legitimately change on retries of the same signed queue observation.
+        if (!existing || existing.sendId !== mapping.id ||
+            !deepEqual(immutable(readEmailOpenRequest(existing, secretKey())), immutable(sanitized))) {
+          throw new OpenTrackingError();
+        }
+      }
     });
   } catch {
     throw new OpenTrackingError();
@@ -274,58 +329,73 @@ export async function drainEmailOpenEvents(): Promise<void> {
   try {
     const deadline = Date.now() + 45_000;
     const retentionDays = config().openTrackingRetentionDays;
-    // Cleanup does not acquire workspace barriers or later touch send rows;
-    // SKIP LOCKED keeps it from waiting behind an in-flight native projection.
     await db().execute(sql`delete from "EmailOpenTrackingReceipt" where "id" in (
       select "id" from "EmailOpenTrackingReceipt"
       where "receivedAt" < now() - (${retentionDays} * interval '1 day')
       order by "receivedAt", "id" limit 1000 for update skip locked
     )`);
-    // Read a bounded candidate set without row locks; concurrent drains can skip
-    // another worker's receipt and still make progress on the other candidates.
     const candidates = await db().select({ id: receipt.id, workspaceId: send.workspaceId }).from(receipt)
       .innerJoin(send, eq(send.id, receipt.sendId)).where(and(
-        eq(receipt.disposition, "pending"), eq(receipt.method, "GET"),
+        eq(receipt.disposition, "pending"),
         sql`${receipt.nextAttemptAt} <= now()`,
         sql`${receipt.receivedAt} >= now() - (${retentionDays} * interval '1 day')`,
-      )).orderBy(receipt.nextAttemptAt, receipt.id).limit(50);
+      )).orderBy(receipt.receivedAt, receipt.id).limit(50);
+    const workspaces = new Map<string, string[]>();
     for (const candidate of candidates) {
+      const ids = workspaces.get(candidate.workspaceId) ?? [];
+      ids.push(candidate.id);
+      workspaces.set(candidate.workspaceId, ids);
+    }
+    for (const [workspaceId, ids] of workspaces) {
       if (Date.now() >= deadline) break;
-      // No receipt row lock until AFTER the shared workspace lock. Deletion
-      // takes the exclusive workspace lock first, so neither can deadlock.
       await db().transaction(async (tx) => {
-        await tx.execute(sql`select pg_advisory_xact_lock_shared(hashtextextended(${candidate.workspaceId}, 0))`);
-        const [row] = await tx.select({ receipt, send }).from(receipt).innerJoin(send, eq(send.id, receipt.sendId)).where(and(
-          eq(receipt.id, candidate.id), eq(send.workspaceId, candidate.workspaceId),
-          eq(receipt.disposition, "pending"), eq(receipt.method, "GET"),
-          sql`${receipt.nextAttemptAt} <= now()`,
-          sql`${receipt.receivedAt} >= now() - (${retentionDays} * interval '1 day')`,
-        )).limit(1).for("update", { of: receipt, skipLocked: true });
-        if (!row) return;
+        // Hold the shared barrier through BOTH synchronous ClickHouse writes;
+        // erasure takes the exclusive barrier before touching receipt row locks.
+        await tx.execute(sql`select pg_advisory_xact_lock_shared(hashtextextended(${workspaceId}, 0))`);
+        const rows = await tx.select({ receipt, send }).from(receipt)
+          .innerJoin(send, eq(send.id, receipt.sendId)).where(and(
+            inArray(receipt.id, ids), eq(send.workspaceId, workspaceId),
+            eq(receipt.disposition, "pending"),
+            sql`${receipt.nextAttemptAt} <= now()`,
+            sql`${receipt.receivedAt} >= now() - (${retentionDays} * interval '1 day')`,
+          )).orderBy(receipt.receivedAt, receipt.id).for("update", { of: receipt, skipLocked: true });
+        if (!rows.length) return;
         try {
-          // Keep the shared barrier through ClickHouse completion. Erasure can
-          // then delete native history only AFTER every older projection ends.
-          // PG and native storage are not atomic: crash recovery is at-least-once.
-          const timestamp = row.receipt.receivedAt.toISOString();
-          await submitBatch({ workspaceId: row.send.workspaceId, data: {
+          const existing = await findExistingEmailOpenTrackingReceiptIds(workspaceId, rows.map((row) => row.receipt.id));
+          const events: TrackingEvent[] = [];
+          for (const row of rows) {
+            // Freeze the first durable classification across native-write crashes,
+            // even if a delayed provider callback arrives before the retry.
+            if (existing.has(row.receipt.id)) continue;
+            const request = readEmailOpenRequest(row.receipt, secretKey());
+            const context = await getEmailOpenProjectionContext(tx, row.send, row.receipt, request, secretKey());
+            events.push(buildEmailOpenTrackingEvent({
+              mapping: row.send, receipt: row.receipt, request, ...context,
+              selfIps: config().openTrackingSelfIps,
+            }));
+          }
+          await insertEmailOpenTrackingEvents(events);
+          const opens = rows.filter((row) => row.receipt.method === "GET");
+          if (opens.length) await submitBatch({ workspaceId, data: {
             context: { source: SourceType.Webhook },
-            batch: [{
+            batch: opens.map((row) => ({
               type: EventType.Track, event: InternalEventType.EmailOpened,
-              userId: row.send.userId, messageId: row.receipt.id, timestamp,
+              userId: row.send.userId, messageId: row.receipt.id,
+              timestamp: row.receipt.receivedAt.toISOString(),
               properties: {
-                workspaceId: row.send.workspaceId, userId: row.send.userId,
+                workspaceId, userId: row.send.userId,
                 messageId: row.send.messageId, evidenceId: row.receipt.id,
                 evidenceSource: "owned_pixel", engagementClassification: "observed_unqualified",
-                openedAt: timestamp,
+                openedAt: row.receipt.receivedAt.toISOString(),
               },
-            }],
+            })),
           } }, { writeModeOverride: "ch-sync", workspaceLockHeld: true });
           await tx.update(receipt).set({
-            disposition: "projected", processedAt: sql`now()`, attempts: row.receipt.attempts + 1,
-          }).where(eq(receipt.id, row.receipt.id));
+            disposition: "projected", processedAt: sql`now()`, attempts: sql`${receipt.attempts} + 1`,
+          }).where(inArray(receipt.id, rows.map((row) => row.receipt.id)));
         } catch {
-          // No downstream exceptions or encrypted/raw evidence go into logs.
-          await tx.update(receipt).set({
+          // No downstream exceptions, raw actor data or encrypted evidence in logs.
+          for (const row of rows) await tx.update(receipt).set({
             attempts: row.receipt.attempts + 1,
             nextAttemptAt: sql`now() + (${Math.min(3_600_000, 30_000 * 2 ** Math.min(row.receipt.attempts, 7))} * interval '1 millisecond')`,
           }).where(eq(receipt.id, row.receipt.id));
@@ -368,6 +438,9 @@ export async function deleteEmailOpenData({ workspaceId, userIds }: {
           // The FK cascades encrypted receipts and pending outbox entries atomically.
           await tx.delete(send).where(inArray(send.id, rows.map((row) => row.id)));
         }
+        // Synchronous mutation completes before releasing the workspace barrier.
+        // Tombstones + removed mappings make queued retries non-resurrecting.
+        await deleteEmailOpenTrackingEvents(workspaceId, scopeIds);
       }
     });
   } catch {

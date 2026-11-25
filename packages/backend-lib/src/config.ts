@@ -1,6 +1,7 @@
 import { Static, Type } from "@sinclair/typebox";
 import { parseFloat, parseInt } from "isomorphic-lib/src/numbers";
 import { hasProtocol } from "isomorphic-lib/src/urls";
+import { isIP } from "net";
 import queryString from "querystring";
 import { URL } from "url";
 import { Overwrite } from "utility-types";
@@ -45,6 +46,7 @@ const BaseRawConfigProps = {
   enableOpenTracking: Type.Optional(BoolStr),
   openTrackingBaseUrl: Type.Optional(Type.String()),
   openTrackingRelaySecret: Type.Optional(Type.String()),
+  openTrackingSelfIps: Type.Optional(Type.String()),
   cloudflareTrackingApiToken: Type.Optional(Type.String()),
   cloudflareTrackingZoneId: Type.Optional(Type.String()),
   cloudflareTrackingCnameTarget: Type.Optional(Type.String()),
@@ -322,6 +324,7 @@ export type Config = Overwrite<
     enableOpenTracking: boolean;
     openTrackingBaseUrl?: string;
     openTrackingRetentionDays: number;
+    openTrackingSelfIps: readonly string[];
     cloudflareTrackingAllowProvisioning: boolean;
     exportLogsHyperDx: boolean;
     enableColdStorage: boolean;
@@ -550,6 +553,7 @@ function parseOpenTrackingConfig(rawConfig: RawConfig): {
   enableOpenTracking: boolean;
   openTrackingBaseUrl?: string;
   openTrackingRetentionDays: number;
+  openTrackingSelfIps: readonly string[];
   cloudflareTrackingAllowProvisioning: boolean;
 } {
   const openTrackingRetentionDays = rawConfig.openTrackingRetentionDays
@@ -558,6 +562,17 @@ function parseOpenTrackingConfig(rawConfig: RawConfig): {
   if (!Number.isInteger(openTrackingRetentionDays) ||
       openTrackingRetentionDays < 1 || openTrackingRetentionDays > 365) {
     throw new Error("OPEN_TRACKING_RETENTION_DAYS must be between 1 and 365.");
+  }
+  const openTrackingSelfIps = rawConfig.openTrackingSelfIps?.trim()
+    ? rawConfig.openTrackingSelfIps.split(",").map((ip) => ip.trim())
+    : [];
+  if (
+    openTrackingSelfIps.length > 256 ||
+    openTrackingSelfIps.some((ip) => !isIP(ip))
+  ) {
+    throw new Error(
+      "OPEN_TRACKING_SELF_IPS must contain at most 256 comma-separated IP addresses.",
+    );
   }
   const enableOpenTracking = rawConfig.enableOpenTracking === "true";
   if (rawConfig.openTrackingRelaySecret &&
@@ -597,7 +612,7 @@ function parseOpenTrackingConfig(rawConfig: RawConfig): {
       (!rawConfig.secretKey || Buffer.from(rawConfig.secretKey, "base64").length !== 32)) {
     throw new Error("Enabling open tracking requires an explicit 32-byte base64 SECRET_KEY.");
   }
-  return { enableOpenTracking, openTrackingBaseUrl, openTrackingRetentionDays,
+  return { enableOpenTracking, openTrackingBaseUrl, openTrackingRetentionDays, openTrackingSelfIps,
     cloudflareTrackingAllowProvisioning: rawConfig.cloudflareTrackingAllowProvisioning === "true" };
 }
 

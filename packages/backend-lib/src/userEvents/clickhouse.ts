@@ -14,6 +14,36 @@ export interface InsertValue {
   messageId: string;
 }
 
+// ReplacingMergeTree is logically idempotent for receipt retries. All tracking
+// readers must use FINAL; physical duplicate rows may exist until a merge.
+export const CREATE_TRACKING_EVENT_TABLE_QUERY = `
+  CREATE TABLE IF NOT EXISTS trackingEvent (
+    eventId UUID,
+    workspaceId String,
+    messageId String,
+    userId String,
+    newsletterId Nullable(String),
+    kind LowCardinality(String),
+    occurredAt DateTime64(3, 'UTC'),
+    ip Nullable(String) TTL toDateTime(occurredAt) + INTERVAL 30 DAY,
+    userAgent Nullable(String) TTL toDateTime(occurredAt) + INTERVAL 30 DAY,
+    asnOrg String,
+    asn Nullable(UInt32),
+    country LowCardinality(String),
+    method LowCardinality(String),
+    secondsSinceDelivery Nullable(Float64),
+    class LowCardinality(String),
+    reason String,
+    counted Boolean,
+    rulesVersion LowCardinality(String),
+    networkId Nullable(String),
+    networkVersion Nullable(String)
+  )
+  ENGINE = ReplacingMergeTree()
+  PARTITION BY toYYYYMM(occurredAt)
+  ORDER BY (workspaceId, userId, occurredAt, eventId);
+`;
+
 export const CREATE_INTERNAL_EVENTS_TABLE_QUERY = `
   CREATE TABLE IF NOT EXISTS internal_events (
     workspace_id String,
@@ -295,6 +325,7 @@ export async function createUserEventsTables() {
 
   const queries = [
     // This is the primary table for user events, which serves as the source of truth for user traits and behaviors.
+    CREATE_TRACKING_EVENT_TABLE_QUERY,
     `
         CREATE TABLE IF NOT EXISTS user_events_v2 (
           event_type Enum(

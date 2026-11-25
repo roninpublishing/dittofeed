@@ -1,8 +1,8 @@
 {
   "name": "tracking-worker",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
-  "description": "Fail-closed branded newsletter pixel relay",
+  "description": "Respond-first branded pixel capture with queued signed batches",
   "type": "module",
   "scripts": {
     "check": "tsc --noEmit",
@@ -10,6 +10,9 @@
     "test:workerd": "node --test test/*.test.mjs",
     "dev": "wrangler dev --local",
     "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "isomorphic-lib": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20251109.0",

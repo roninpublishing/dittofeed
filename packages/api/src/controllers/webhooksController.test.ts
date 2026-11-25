@@ -3,6 +3,7 @@ import {
   newsletter,
   newsletterWebhookReceipt,
   publisher,
+  publisherSendgridAccount,
   sendingConnection,
 } from "backend-lib/src/db/publisherSchema";
 import {
@@ -432,7 +433,13 @@ describe("SendGrid native signed callback bytes", () => {
     const childId = (await createWorkspace({ name: randomUUID() }).then(unwrap))
       .id;
     const connectionId = randomUUID();
+    const accountId = randomUUID();
     await db().insert(publisher).values({ workspaceId });
+    await db().insert(publisherSendgridAccount).values({
+      id: accountId,
+      publisherId: workspaceId,
+      name: "Signed callback fixture",
+    });
     await db().insert(newsletter).values({
       workspaceId: childId,
       publisherId: workspaceId,
@@ -443,6 +450,7 @@ describe("SendGrid native signed callback bytes", () => {
       .values({
         id: connectionId,
         publisherId: workspaceId,
+        accountId,
         newsletterId: childId,
         username: "signed-subuser",
         administrativeEmail: "admin@example.com",
@@ -504,6 +512,9 @@ describe("SendGrid native signed callback bytes", () => {
       expect(rows[0]?.encryptedPayload).not.toBeNull();
       expect(JSON.stringify(rows)).not.toContain("forged-contact");
     } finally {
+      await db()
+        .delete(sendingConnection)
+        .where(eq(sendingConnection.id, connectionId));
       await db().delete(workspace).where(eq(workspace.id, childId));
       await db()
         .delete(publisher)

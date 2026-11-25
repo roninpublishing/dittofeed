@@ -17,11 +17,14 @@ matching. Output is `{ class, reason, counted, rulesVersion }`; classes are
 `human`, `apple_proxy`, `gmail_proxy`, `prefetch`, `scanner`, `self`, `unknown`.
 These are heuristic labels, never verified humanity. Opens only provide no
 cross-link burst evidence. Missing delivery time is unknown, not time zero.
-Self classification requires an explicit operator staff-IP list; no trusted
-owner identity, seed-inbox or test-send signal is invented.
+Self classification requires an explicit `OPEN_TRACKING_SELF_IPS` list (up to
+256 comma-separated IPv4/IPv6 addresses); no trusted owner identity, seed-inbox
+or test-send signal is invented.
 
-Weekly Worker refresh fetches the reference Apple, Google, Microsoft, Mimecast
-and Proofpoint sources. KV stores immutable versioned sets and an active pointer.
+Weekly Worker refresh fetches the reference Apple, Google, Microsoft and Mimecast
+sources. Proofpoint Essentials retains the reference's pinned published US/EU
+ranges because its source requires sign-in; operators must review that list
+manually. KV stores immutable versioned sets and an active pointer.
 Reject failed, empty, invalid or >20%-smaller source sets, preserving the previous
 active set and raising an error without request evidence. Missing initial data
 is explicit in the evidence; it does not invent network matches. The committed
@@ -31,7 +34,9 @@ reference ranges can bootstrap local fixtures, not pretend a successful refresh.
 
 One queue message is `{ v: 2, eventId, hostname, token, method, query, headers,
 edge: { receivedAt, remoteAddress?, httpVersion?, tlsVersion?, asOrganization?,
-asn?, country?, network?: { id, version } } }`. `eventId` is a random UUID stable
+asn?, country?, networkSetVersion?: string | null, network?: { id, version } } }`.
+`networkSetVersion: null` distinguishes missing KV data from an unmatched IP in
+an active set. `eventId` is a random UUID stable
 across retries. Header/query bounds and token/hostname/path checks remain. Edge
 values come from Cloudflare metadata, never forwarded origin request headers.
 No Cookie, Authorization, Referer or full URL enters the envelope. No raw request
@@ -109,5 +114,5 @@ this slice never guesses it or edits their files.
 
 Assumptions pending source-doc review: reference proxy reasons map to the requested
 expanded classes; reference on-open proxy counting remains; duplicates are
-non-counted within 30 seconds for the same send/IP/UA; no staff IPs by default;
+non-counted within 30 seconds for the same send/method/IP/UA; no staff IPs by default;
 no late-provider-delivery reclassification or human-rate denominator is invented.

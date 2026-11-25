@@ -51,6 +51,50 @@ const RelayBody = Type.Object(
   { additionalProperties: false },
 );
 
+const BatchEvent = Type.Object(
+  {
+    ...RelayBody.properties,
+    v: Type.Literal(2),
+    eventId: Type.String({ format: "uuid" }),
+    edge: Type.Object(
+      {
+        ...RelayBody.properties.edge.properties,
+        asOrganization: Type.Optional(Type.String({ maxLength: 256 })),
+        asn: Type.Optional(
+          Type.Integer({ minimum: 0, maximum: 4_294_967_295 }),
+        ),
+        country: Type.Optional(Type.String({ pattern: "^[A-Z]{2}$" })),
+        network: Type.Optional(
+          Type.Object(
+            {
+              id: Type.String({ minLength: 1, maxLength: 64 }),
+              version: Type.String({ minLength: 1, maxLength: 128 }),
+            },
+            { additionalProperties: false },
+          ),
+        ),
+        networkSetVersion: Type.Optional(
+          Type.Union([
+            Type.String({ minLength: 1, maxLength: 128 }),
+            Type.Null(),
+          ]),
+        ),
+      },
+      { additionalProperties: false },
+    ),
+  },
+  { additionalProperties: false },
+);
+export type QueuedOpenEvent = Static<typeof BatchEvent>;
+const BatchBody = Type.Object(
+  {
+    v: Type.Literal(2),
+    events: Type.Array(BatchEvent, { minItems: 1, maxItems: 50 }),
+  },
+  { additionalProperties: false },
+);
+const BATCH_BODY_BYTES = 1_048_576;
+
 export default async function openTrackingController(fastify: FastifyInstance) {
   await fastify.register(fastifyRawBody, {
     encoding: false,
@@ -122,6 +166,78 @@ export default async function openTrackingController(fastify: FastifyInstance) {
         return reply.status(204).send();
       } catch {
         logger().error("Unable to persist relayed open request evidence");
+        return reply.status(503).send();
+      }
+    },
+  );
+  fastify.post<{ Body: Static<typeof BatchBody> }>(
+    "/email/open/batch",
+    {
+      config: { rawBody: true },
+      logLevel: "silent",
+      bodyLimit: BATCH_BODY_BYTES,
+      schema: { hide: true, body: BatchBody },
+      errorHandler(error, _request, reply) {
+        void reply.status(error.statusCode === 413 ? 413 : 400).send();
+      },
+    },
+    async (request, reply) => {
+      const settings = config();
+      if (!settings.enableOpenTracking || !settings.openTrackingRelaySecret)
+        return reply.status(503).send();
+      if (
+        !Buffer.isBuffer(request.rawBody) ||
+        !verifyOpenTrackingRelay({
+          rawBody: request.rawBody,
+          timestamp: request.headers["x-df-tracking-timestamp"],
+          signature: request.headers["x-df-tracking-signature"],
+          secret: settings.openTrackingRelaySecret,
+          maxBodyBytes: BATCH_BODY_BYTES,
+        })
+      )
+        return reply.status(403).send();
+      try {
+        // Resolve all hosts before writing. A signed batch cannot cross the
+        // hostname -> newsletter -> original token-origin ownership boundary.
+        const hosts = new Map<string, string>();
+        for (const event of request.body.events) {
+          if (hosts.has(event.hostname)) continue;
+          // eslint-disable-next-line no-await-in-loop -- Bound lookups and reject all hosts before writing.
+          const workspaceId = await getTrackingHostnameNewsletter(
+            event.hostname,
+          );
+          if (!workspaceId) return reply.status(403).send();
+          hosts.set(event.hostname, workspaceId);
+        }
+        for (const event of request.body.events) {
+          // eslint-disable-next-line no-await-in-loop -- Preserve bounded partial-retry persistence without flooding the pool.
+          await captureEmailOpenRequest({
+            token: event.token,
+            eventId: event.eventId,
+            expectedHostname: event.hostname,
+            expectedWorkspaceId: hosts.get(event.hostname),
+            request: {
+              receivedAt: event.edge.receivedAt,
+              method: event.method,
+              headers: event.headers,
+              query: event.query,
+              remoteAddress: request.raw.socket.remoteAddress,
+              httpVersion: request.raw.httpVersion,
+              encrypted:
+                "encrypted" in request.raw.socket &&
+                request.raw.socket.encrypted === true,
+              edgeObserved: {
+                ...event.edge,
+                source: "cloudflare_worker",
+                hostname: event.hostname,
+              },
+            },
+          });
+        }
+        return reply.status(204).send();
+      } catch {
+        // Partially stored batches may retry; stable receipt IDs deduplicate.
+        logger().error("Unable to persist queued open request evidence");
         return reply.status(503).send();
       }
     },

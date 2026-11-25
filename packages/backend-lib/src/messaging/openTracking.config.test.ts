@@ -15,6 +15,7 @@ function isolatedConfig(overrides: Record<string, string> = {}): Config {
   delete process.env.OPEN_TRACKING_BASE_URL;
   delete process.env.OPEN_TRACKING_RETENTION_DAYS;
   delete process.env.OPEN_TRACKING_RELAY_SECRET;
+  delete process.env.OPEN_TRACKING_SELF_IPS;
   Object.assign(process.env, overrides);
   process.env.SECRET_KEY = overrides.SECRET_KEY ?? Buffer.alloc(32, 7).toString("base64");
   let settings: Config | undefined;
@@ -86,6 +87,24 @@ describe("owned open tracking configuration", () => {
 
   it.each(["1", "2", "30", "365"])("accepts bounded whole-day retention: %s", (days) => {
     expect(isolatedConfig({ OPEN_TRACKING_RETENTION_DAYS: days }).openTrackingRetentionDays).toBe(Number(days));
+  });
+
+  it("accepts only explicit staff IPv4 and IPv6 addresses without guessing identities", () => {
+    expect(isolatedConfig().openTrackingSelfIps).toEqual([]);
+    expect(
+      isolatedConfig({ OPEN_TRACKING_SELF_IPS: "192.0.2.8, 2001:db8::8" })
+        .openTrackingSelfIps,
+    ).toEqual(["192.0.2.8", "2001:db8::8"]);
+    for (const value of [
+      "private-host.invalid",
+      "192.0.2.8/24",
+      "192.0.2.8,",
+      Array(257).fill("192.0.2.8").join(","),
+    ]) {
+      expect(() => isolatedConfig({ OPEN_TRACKING_SELF_IPS: value })).toThrow(
+        "OPEN_TRACKING_SELF_IPS must contain at most 256 comma-separated IP addresses.",
+      );
+    }
   });
 
   it.each(["0", "-1", "1.5", "366", "Infinity", "999999"])("rejects unbounded or invalid retention: %s", (days) => {

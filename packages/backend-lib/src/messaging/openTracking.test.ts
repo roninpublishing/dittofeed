@@ -2,10 +2,13 @@ import { createHash, randomBytes, randomUUID } from "crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import { EventEmitter, once } from "events";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
+import { Pool } from "pg";
+import { setImmediate as yieldToIo } from "timers/promises";
 
 import * as batch from "../apps/batch";
+import { clickhouseClient } from "../clickhouse";
 import config, { Config } from "../config";
-import { db } from "../db";
+import { db, pool } from "../db";
 import {
   emailOpenTrackingReceipt as receipt,
   emailOpenTrackingSend as send,
@@ -23,6 +26,9 @@ import {
   OpenTrackingError, OpenTrackingRequestInput, prepareEmailOpenTracking,
   sanitizeOpenTrackingRequest,
 } from "./openTracking";
+import {
+  findEmailOpenTrackingEvents, insertEmailOpenTrackingEvents,
+} from "./openTrackingEvents";
 
 describe("owned email open evidence", () => {
   let workspaceId: string;
@@ -30,7 +36,7 @@ describe("owned email open evidence", () => {
   let input: Parameters<typeof prepareEmailOpenTracking>[0];
   let request: OpenTrackingRequestInput;
   let originalSettings: Pick<Config,
-    "enableOpenTracking" | "openTrackingBaseUrl" | "openTrackingRetentionDays" | "secretKey" | "writeMode">;
+    "enableOpenTracking" | "openTrackingBaseUrl" | "openTrackingRetentionDays" | "secretKey" | "writeMode" | "openTrackingSelfIps">;
 
   beforeEach(async () => {
     const settings = config();
@@ -39,10 +45,11 @@ describe("owned email open evidence", () => {
       openTrackingBaseUrl: settings.openTrackingBaseUrl,
       openTrackingRetentionDays: settings.openTrackingRetentionDays,
       secretKey: settings.secretKey, writeMode: settings.writeMode,
+      openTrackingSelfIps: settings.openTrackingSelfIps,
     };
     Object.assign(settings, {
       enableOpenTracking: true, openTrackingBaseUrl: "https://pixels.example.com",
-      openTrackingRetentionDays: 30,
+      openTrackingRetentionDays: 30, openTrackingSelfIps: [],
     });
     workspaceId = (await createWorkspace({ name: randomUUID() }).then(unwrap)).id;
     otherWorkspaceId = (await createWorkspace({ name: randomUUID() }).then(unwrap)).id;
@@ -97,12 +104,19 @@ describe("owned email open evidence", () => {
   // Observe actual database lock queues, never timing sleeps. Hash halves are
   // PostgreSQL's documented pg_locks representation of bigint advisory keys.
   async function waitForLock(mode: "ShareLock" | "ExclusiveLock") {
-    for (let i = 0; i < 200; i += 1) {
+    // Drizzle uses instanceof Pool to pin a transaction to one connection.
+    // Inheriting the migration pool across Jest VM realms breaks that check.
+    expect(pool()).toBeInstanceOf(Pool);
+    // Connection authentication must get an event-loop turn before we expect
+    // its lock request to exist; a fixed query count only measures reader speed.
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
       const result = await db().execute<{ waiting: number }>(sql`select count(*)::integer as waiting from pg_locks
         where locktype = 'advisory' and not granted and mode = ${mode}
         and classid = ((hashtextextended(${workspaceId}, 0) >> 32) & 4294967295)::oid
         and objid = (hashtextextended(${workspaceId}, 0) & 4294967295)::oid`);
       if ((result.rows[0]?.waiting ?? 0) > 0) return;
+      await yieldToIo();
     }
     throw new Error("Expected the erasure serialization lock to be queued");
   }
@@ -227,15 +241,18 @@ describe("owned email open evidence", () => {
     expect(JSON.stringify(await evidence(row.id))).not.toContain(pixel.token);
   });
 
-  it("retains HEAD as encrypted raw evidence but never emits an open", async () => {
+  it("classifies HEAD evidence but never emits a native open", async () => {
     const pixel = await prepare();
     await captureEmailOpenRequest({ token: pixel.token, request: { ...request, method: "HEAD" } });
     const row = (await receipts())[0]!;
-    expect(row.disposition).toBe("raw_only_head");
+    expect(row.disposition).toBe("pending");
     const projection = jest.spyOn(batch, "submitBatch");
     await drainEmailOpenEvents();
     expect(projection).not.toHaveBeenCalled();
     expect(await findUserEvents({ workspaceId, messageId: row.id })).toHaveLength(0);
+    expect(await findEmailOpenTrackingEvents({ workspaceId })).toEqual([
+      expect.objectContaining({ eventId: row.id, method: "HEAD", class: "scanner", counted: false }),
+    ]);
     expect(await evidence(row.id)).toMatchObject({ isOpenObservation: false, request: { method: "HEAD" } });
   });
 
@@ -337,9 +354,13 @@ describe("owned email open evidence", () => {
     await captureEmailOpenRequest({ token: second.token, request });
     await captureEmailOpenRequest({ token: other.token, request });
     const firstId = (await receipts())[0]!.id;
+    await drainEmailOpenEvents();
+    expect(await findEmailOpenTrackingEvents({ workspaceId })).toHaveLength(2);
     await deleteEmailOpenData({ workspaceId, ...(scope === "contact" ? { userIds: [input.userId] } : {}) });
     expect(await receipts()).toHaveLength(scope === "contact" ? 1 : 0);
     expect(await receipts(otherWorkspaceId)).toHaveLength(1);
+    expect(await findEmailOpenTrackingEvents({ workspaceId })).toHaveLength(scope === "contact" ? 1 : 0);
+    expect(await findEmailOpenTrackingEvents({ workspaceId: otherWorkspaceId })).toHaveLength(1);
     expect(await evidence(firstId)).toBeNull();
     await captureEmailOpenRequest({ token: first.token, request });
     await expect(prepare()).rejects.toBeInstanceOf(OpenTrackingError);
@@ -445,5 +466,221 @@ describe("owned email open evidence", () => {
     if (!a || !b) throw new Error("Expected both receipt envelopes");
     await db().update(receipt).set({ encryptedRequest: b.encryptedRequest }).where(eq(receipt.id, a.id));
     await expect(evidence(a.id)).rejects.toThrow("Email open tracking operation failed.");
+  });
+  it("deduplicates a stable queue UUID and rejects conflicting receipt identities", async () => {
+    const pixel = await prepare();
+    const eventId = randomUUID();
+    const queued = {
+      token: pixel.token, request, eventId,
+      expectedHostname: "pixels.example.com", expectedWorkspaceId: workspaceId,
+    };
+    await Promise.all(Array.from({ length: 6 }, () => captureEmailOpenRequest(queued)));
+    expect(await receipts()).toHaveLength(1);
+    expect((await receipts())[0]?.id).toBe(eventId);
+    await drainEmailOpenEvents();
+    await captureEmailOpenRequest(queued);
+    // Queue retries can arrive through a different backend socket/TLS session.
+    await captureEmailOpenRequest({ ...queued, request: {
+      ...request, remoteAddress: "198.51.100.99", httpVersion: "2", encrypted: false,
+    } });
+    expect(await evidence(eventId)).toMatchObject({ request: {
+      remoteAddress: request.remoteAddress, httpVersion: request.httpVersion, encrypted: true,
+    } });
+    expect(await findEmailOpenTrackingEvents({ workspaceId })).toHaveLength(1);
+    const other = await prepare({ userId: randomUUID(), messageId: randomUUID() });
+    await expect(captureEmailOpenRequest({ ...queued, token: other.token })).rejects.toBeInstanceOf(OpenTrackingError);
+    await expect(captureEmailOpenRequest({ ...queued, request: { ...request, method: "HEAD" } }))
+      .rejects.toBeInstanceOf(OpenTrackingError);
+    expect(await receipts()).toHaveLength(1);
+  });
+
+  it("requires both queue bindings and bounds only v2 occurrence dates", async () => {
+    const pixel = await prepare();
+    const queued = {
+      token: pixel.token, request, eventId: randomUUID(),
+      expectedHostname: "pixels.example.com", expectedWorkspaceId: workspaceId,
+    };
+    for (const overrides of [
+      { eventId: "invalid" }, { expectedHostname: undefined }, { expectedWorkspaceId: undefined },
+      { expectedHostname: "other.example.com" }, { expectedWorkspaceId: otherWorkspaceId },
+      { request: { ...request, receivedAt: new Date(Date.now() + 301_000).toISOString() } },
+      { request: { ...request, receivedAt: new Date(Date.now() - 31 * 86_400_000).toISOString() } },
+    ]) await captureEmailOpenRequest({ ...queued, ...overrides });
+    expect(await receipts()).toHaveLength(0);
+    await captureEmailOpenRequest(queued);
+    expect(await receipts()).toHaveLength(1);
+  });
+
+  it("bounds edge metadata and never promotes forwarded actor hints", async () => {
+    const edge = {
+      source: "cloudflare_worker" as const, hostname: "dt.example.com", receivedAt: request.receivedAt,
+      remoteAddress: "198.51.100.5", asOrganization: "a".repeat(1000), asn: 64512,
+      country: "CA", network: { id: "mimecast", version: "2026-11-25" }, networkSetVersion: "2026-11-25",
+    };
+    expect(sanitizeOpenTrackingRequest({ ...request, edgeObserved: edge })?.edgeObserved).toEqual({
+      ...edge, asOrganization: "a".repeat(256),
+    });
+    const invalid = sanitizeOpenTrackingRequest({ ...request, edgeObserved: {
+      ...edge, asn: -1, country: "secret-country", network: { id: "invented", version: "bad value" },
+      networkSetVersion: null,
+    } })?.edgeObserved;
+    expect(invalid).not.toHaveProperty("asn");
+    expect(invalid).not.toHaveProperty("country");
+    expect(invalid).not.toHaveProperty("network");
+    expect(invalid?.networkSetVersion).toBeNull();
+  });
+
+  it("orders actor history by occurrence, isolates method/send/UA, and excludes future receipts", async () => {
+    const first = await prepare();
+    const secondMessageId = randomUUID();
+    const second = await prepare({ messageId: secondMessageId });
+    const base = Date.now() - 120_000;
+    const human = { ...request, headers: { "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36" } };
+    const hit = (token: string, offset: number, overrides: Partial<OpenTrackingRequestInput> = {}) =>
+      captureEmailOpenRequest({ token, request: { ...human, receivedAt: new Date(base + offset).toISOString(), ...overrides } });
+    // Capture backwards, so insertion order cannot be mistaken for occurrence.
+    await hit(first.token, 40_000);
+    await hit(first.token, 1_000);
+    await hit(first.token, 0, { method: "HEAD" });
+    await hit(first.token, 2_000);
+    await hit(first.token, 3_000, { headers: { "user-agent": "Thunderbird/128.0" } });
+    await hit(second.token, 2_000);
+    await drainEmailOpenEvents();
+    const events = await findEmailOpenTrackingEvents({ workspaceId, messageId: input.messageId });
+    expect(events.map((event) => [event.method, event.counted])).toEqual([
+      ["HEAD", false], ["GET", true], ["GET", false], ["GET", true], ["GET", true],
+    ]);
+    expect(events[2]?.reason).toContain("duplicate");
+    expect(await findEmailOpenTrackingEvents({ workspaceId, messageId: secondMessageId }))
+      .toEqual([expect.objectContaining({ counted: true })]);
+    // Native observations remain unqualified, including the duplicate GET.
+    expect(await findUserEvents({ workspaceId, event: [InternalEventType.EmailOpened] })).toHaveLength(5);
+  });
+
+  it("uses actual native delivery, not acceptance, and freezes the first durable classification on retry", async () => {
+    const pixel = await prepare();
+    const occurredAt = new Date(Date.now() - 60_000);
+    const deliveredAt = new Date(occurredAt.getTime() - 6_000);
+    await clickhouseClient().insert({
+      table: "internal_events", format: "JSONEachRow",
+      values: [{
+        workspace_id: workspaceId, user_id: input.userId, origin_message_id: input.messageId,
+        event: InternalEventType.EmailDelivered, event_time: deliveredAt.toISOString(),
+      }, {
+        workspace_id: workspaceId, user_id: input.userId, origin_message_id: input.messageId,
+        event: InternalEventType.MessageSent, event_time: new Date(deliveredAt.getTime() - 100_000).toISOString(),
+      }, {
+        workspace_id: otherWorkspaceId, user_id: input.userId, origin_message_id: input.messageId,
+        event: InternalEventType.EmailDelivered, event_time: new Date(deliveredAt.getTime() - 200_000).toISOString(),
+      }, {
+        workspace_id: workspaceId, user_id: randomUUID(), origin_message_id: input.messageId,
+        event: InternalEventType.EmailDelivered, event_time: new Date(deliveredAt.getTime() - 300_000).toISOString(),
+      }],
+      clickhouse_settings: { wait_end_of_query: 1, date_time_input_format: "best_effort" },
+    });
+    await captureEmailOpenRequest({ token: pixel.token, request: { ...request,
+      receivedAt: occurredAt.toISOString(), headers: { "user-agent": "Mozilla/5.0 (via ggpht.com GoogleImageProxy)" },
+    } });
+    jest.spyOn(batch, "submitBatch").mockRejectedValueOnce(new Error("crash after classified insert"));
+    await drainEmailOpenEvents();
+    expect(await findEmailOpenTrackingEvents({ workspaceId })).toEqual([
+      expect.objectContaining({ class: "prefetch", counted: false, secondsSinceDelivery: 6 }),
+    ]);
+    const row = (await receipts())[0]!;
+    await db().update(receipt).set({ nextAttemptAt: new Date(0) }).where(eq(receipt.id, row.id));
+    await drainEmailOpenEvents();
+    expect(await findEmailOpenTrackingEvents({ workspaceId })).toHaveLength(1);
+    expect((await receipts())[0]?.disposition).toBe("projected");
+  });
+
+  it("nulls expired raw columns at insertion, enforces read cutoff, and materializes the actual column TTL", async () => {
+    const pixel = await prepare();
+    await captureEmailOpenRequest({ token: pixel.token, request });
+    await drainEmailOpenEvents();
+    const [event] = await findEmailOpenTrackingEvents({ workspaceId });
+    if (!event) throw new Error("Missing tracking projection");
+    const old = { ...event, eventId: randomUUID(), occurredAt: new Date(Date.now() - 31 * 86_400_000).toISOString(),
+      ip: "192.0.2.7", userAgent: "private-old-agent" };
+    await insertEmailOpenTrackingEvents([old]);
+    const raw = async (eventId: string) => {
+      const result = await clickhouseClient().query({
+        query: "SELECT ip, userAgent FROM trackingEvent FINAL WHERE workspaceId = {workspaceId:String} AND eventId = {eventId:UUID}",
+        query_params: { workspaceId, eventId }, format: "JSONEachRow",
+      });
+      return result.json<{ ip: string | null; userAgent: string | null }>();
+    };
+    expect(await raw(old.eventId)).toEqual([{ ip: null, userAgent: null }]);
+    const expiredId = randomUUID();
+    // Bypass application redaction to exercise the real database TTL itself.
+    await clickhouseClient().insert({
+      table: "trackingEvent", values: [{ ...old, eventId: expiredId }], format: "JSONEachRow",
+      clickhouse_settings: { wait_end_of_query: 1, date_time_input_format: "best_effort" },
+    });
+    expect(await findEmailOpenTrackingEvents({ workspaceId })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ eventId: expiredId, ip: null, userAgent: null }),
+    ]));
+    await clickhouseClient().command({
+      query: "ALTER TABLE trackingEvent MATERIALIZE TTL",
+      clickhouse_settings: { mutations_sync: "2", wait_end_of_query: 1 },
+    });
+    expect(await raw(expiredId)).toEqual([{ ip: null, userAgent: null }]);
+    expect((await findEmailOpenTrackingEvents({ workspaceId })).find((row) => row.eventId === event.eventId))
+      .toMatchObject({ ip: request.remoteAddress, userAgent: "privacy-proxy-observation" });
+  });
+
+  it("collapses physical crash retries with FINAL without changing the receipt key", async () => {
+    const pixel = await prepare();
+    await captureEmailOpenRequest({ token: pixel.token, request });
+    await drainEmailOpenEvents();
+    const [event] = await findEmailOpenTrackingEvents({ workspaceId });
+    if (!event) throw new Error("Missing tracking projection");
+    await insertEmailOpenTrackingEvents([event, event]);
+    expect(await findEmailOpenTrackingEvents({ workspaceId })).toHaveLength(1);
+  });
+  it("distinguishes missing and unmatched live networks from an explicitly attributed legacy snapshot", async () => {
+    jest.spyOn(trackingDomains, "getNewsletterTrackingOrigin").mockResolvedValue("https://dt.example.com");
+    const browser = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36";
+    const cases = [
+      { networkSetVersion: null, network: undefined, expectedClass: "human", expectedVersion: null },
+      { networkSetVersion: "active-v1", network: undefined, expectedClass: "human", expectedVersion: "active-v1" },
+      { networkSetVersion: "active-v1", network: { id: "apple-private-relay", version: "active-v1" },
+        expectedClass: "apple_proxy", expectedVersion: "active-v1" },
+    ].map((testCase) => ({ ...testCase, eventId: randomUUID() }));
+    for (const testCase of cases) {
+      const pixel = await prepare({ messageId: randomUUID() });
+      await captureEmailOpenRequest({
+        token: pixel.token, eventId: testCase.eventId,
+        expectedHostname: "dt.example.com", expectedWorkspaceId: workspaceId,
+        request: { ...request, headers: { "user-agent": browser }, edgeObserved: {
+          source: "cloudflare_worker", hostname: "dt.example.com", receivedAt: request.receivedAt,
+          remoteAddress: "104.28.28.1", asOrganization: "Independent fixture", asn: 64512, country: "CA",
+          networkSetVersion: testCase.networkSetVersion, network: testCase.network,
+        } },
+      });
+    }
+    const legacy = await prepare();
+    await captureEmailOpenRequest({ token: legacy.token,
+      request: { ...request, remoteAddress: "104.28.28.1", headers: { "user-agent": browser } } });
+    await drainEmailOpenEvents();
+    const events = await findEmailOpenTrackingEvents({ workspaceId });
+    for (const testCase of cases) {
+      expect(events.find((event) => event.eventId === testCase.eventId))
+        .toMatchObject({ class: testCase.expectedClass, networkVersion: testCase.expectedVersion,
+          asnOrg: "Independent fixture", asn: 64512, country: "CA", newsletterId: null });
+    }
+    expect(await findEmailOpenTrackingEvents({ workspaceId, messageId: input.messageId })).toEqual([
+      expect.objectContaining({ class: "apple_proxy", networkId: "apple-private-relay",
+        networkVersion: "reference:51ea4e7551564f6ddb55b60a34754863400e9133" }),
+    ]);
+  });
+  it("uses only explicitly configured staff IPs for self classification", async () => {
+    const pixel = await prepare();
+    config().openTrackingSelfIps = [request.remoteAddress!];
+    await captureEmailOpenRequest({ token: pixel.token, request });
+    await drainEmailOpenEvents();
+    expect(await findEmailOpenTrackingEvents({ workspaceId })).toEqual([
+      expect.objectContaining({ class: "self", counted: false }),
+    ]);
+    expect(await findUserEvents({ workspaceId, event: [InternalEventType.EmailOpened] })).toHaveLength(1);
   });
 });

@@ -1,16 +1,24 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
 /** Authenticity of an edge observation, never identity or human-open proof. */
-export function verifyOpenTrackingRelay({ rawBody, timestamp, signature, secret, now = Date.now() }: {
+export function verifyOpenTrackingRelay({
+  rawBody,
+  timestamp,
+  signature,
+  secret,
+  now = Date.now(),
+  maxBodyBytes = 16_384,
+}: {
   rawBody: Buffer;
   timestamp: unknown;
   signature: unknown;
   secret: string | undefined;
   now?: number;
+  maxBodyBytes?: number;
 }): boolean {
   if (!secret || typeof timestamp !== "string" || !/^\d{1,12}$/.test(timestamp) ||
       typeof signature !== "string" || !/^[a-f0-9]{64}$/.test(signature) ||
-      rawBody.byteLength > 16_384) return false;
+      rawBody.byteLength > maxBodyBytes) return false;
   const seconds = Number(timestamp);
   if (!Number.isSafeInteger(seconds) || Math.abs(now / 1000 - seconds) > 300) return false;
   const key = Buffer.from(secret, "base64");

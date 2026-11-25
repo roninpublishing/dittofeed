@@ -21,6 +21,11 @@ with one `dt.<newsletter-domain>` hostname per native newsletter. Public
 deployment, DNS/TLS activation, capture, and sending remain disabled; local
 inbound-only verification is not a production cutover.
 
+Versioned open-hit heuristics, respond-first queued capture and classified
+ClickHouse storage are implemented locally on `feat/tracking-classifier`.
+`last_opened` remains observed/unqualified; heuristic `human` labels are not
+verification that a person read a message. No rollout gates were enabled.
+
 Google OIDC and application-owned accounts, explicit workspace memberships,
 roles, private invitations, and revocable sessions are implemented. The local
 preview now uses a dedicated **DITTO Email Client** Google project under Ronin;
@@ -404,8 +409,10 @@ original HTTP request; an optional owned pixel supplies request-level evidence.
   the worker/global cron. Explicit scoped authenticated raw retrieval is available
   from per-send History. Contact erasure serializes with capture/native insertion,
   removes encrypted receipts/mappings, and retains hash-only retry/contact barriers.
-- [ ] Develop a defensible bot/proxy/human classifier with policy version/reasons.
-  Preserve observations for replay instead of silently reclassifying timestamps.
+- [x] Add versioned open-hit proxy/scanner heuristics with reasons and counting
+  flags, preserving observed timestamps independently.
+- [ ] Calibrate qualified human-engagement policy against real evidence. Stored
+  observations and rule versions remain available instead of rewriting history.
 - [ ] Analyze real user-agents/proxy behavior and send-to-event timing. Evaluate
   Carson's suggested ten-minute window only as a candidate heuristic; early
   requests are captured now, not discarded.
@@ -471,8 +478,8 @@ instructions, disabled-by-default provisioning, and explicit read-only
 verification. Saving a domain does not contact Cloudflare or send email.
 `packages/tracking-worker` serves only the branded GET/HEAD pixel path and
 relays bounded evidence with a timestamped HMAC to the authenticated capture
-API. It requires durable receipt acceptance before returning the pixel, never
-forwards cookies or authorization, and disables caching and request logs.
+API. Its initial synchronous acknowledgement is superseded by the queued path
+below. It never forwards cookies or authorization and disables caching/logs.
 
 Verification: 145 targeted Jest tests passed in isolated PostgreSQL/ClickHouse
 databases; the native workerd suite passed 10 tests and Wrangler dry-run passed.
@@ -496,6 +503,55 @@ isolated OAuth attempt timed out before authorization. Live rollout therefore
 still requires fresh RONIN authentication, the first newsletter's actual base
 domain, and dedicated hosting access/budget. No public resources were created
 and neither existing shared server was changed.
+
+#### Queued open classification: local implementation
+
+The opens-only classifier adapts `yuriyward/mail-tracker` at
+`51ea4e7551564f6ddb55b60a34754863400e9133`, with shared deterministic rules,
+IPv4/IPv6 published-network lookup and `isbot`. It preserves the reference timing
+windows and explicit rule reasons. No click redirects, href rewriting, stateless
+tokens, send-path edits, dashboard screens or provider changes are included.
+See [the design](packages/tracking-worker/DESIGN.md).
+
+The default-off Worker now returns GIFs before queue/backend acknowledgement.
+Bounded edge evidence enters a Queue; timestamped HMAC v2 batches resolve
+hostname/newsletter/token ownership and durably deduplicate receipt UUIDs in
+Postgres. Legacy v1 relay/direct pixels and observed `DFEmailOpened` still work.
+HEAD is classified without becoming an observed native open.
+
+Backend cron inserts classified `trackingEvent` rows in ClickHouse with monthly
+partitions and logical retry deduplication through `FINAL`. Delivery age uses
+actual correlated provider delivery, never acceptance. IP/user-agent columns are
+nulled after 30 days; scoped reads enforce the cutoff before background TTL
+merges. Erasure synchronizes against capture/projection and deletes these rows.
+
+Weekly KV refresh preserves the previous active set on source failure or >20%
+shrink. Proofpoint Essentials retains the reference's pinned published ranges
+and requires manual review of its sign-in-only source. The separate source-doc
+tracking tab was unavailable; all counting assumptions are recorded in the
+design. Gmail on-open proxy counting is retained; Yahoo/Outlook image proxies
+use the `human` policy label with explicit proxy reasons, not verified-human
+claims. Explicit staff IPs use `OPEN_TRACKING_SELF_IPS`; seed/test-send signals
+remain a send-path hand-off rather than guessed metadata.
+
+Local native workerd → Queue/KV → signed HTTP batch → encrypted Postgres →
+ClickHouse proof produced the expected human, Apple proxy and scanner rows,
+including delivery-age correlation. All three GIFs returned while backend
+acknowledgement was deliberately blocked. No email was sent, public resource
+created, provider configured or deployment initiated. Production still needs
+RONIN-scoped authentication, a Queue/DLQ, KV ID, cron/alerting, dedicated backend
+origin/secrets and the selected newsletter's verified hostname.
+
+Verification: 247 targeted tests passed (146 classifier/network, 22 native
+Worker, 35 capture/storage/erasure, 32 configuration, 11 HTTP API and one signed
+callback fixture). Shared/backend/API/Worker typechecks passed. New standalone
+modules and API/Worker lint passed; full-file lint on legacy capture/config
+files still fails, so the guide's complete clean-lint gate is not met.
+Carson explicitly selected the focused implementation over legacy-file lint
+cleanup, waiving that full-file gate for this branch and requesting a draft PR.
+The database harness now closes its migration-owned pool before Jest creates
+test VMs, preventing cross-realm Pool identity from disabling Drizzle transaction
+pinning. Tests assert real advisory-lock queues and preserve erase/capture races.
 
 ## Telnyx replacement: implemented and locally verified
 

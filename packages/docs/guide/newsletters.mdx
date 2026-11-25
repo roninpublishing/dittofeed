@@ -4,37 +4,37 @@ title: Ronin multi-newsletter operations
 
 ## Product structure
 
-One installation; a Ronin publisher management workspace above independent newsletter workspaces. A publication is a native child workspace plus explicit newsletter metadata. No master subscriber profile, automatic contact merging, dynamically created per-newsletter tables, or separate installation is required.
+One installation contains workspaces, each with independent newsletters. Internally, a newsletter uses a native child workspace plus newsletter metadata. Subscriber profiles, consent, campaigns and history remain newsletter-local.
 
 ```mermaid
 flowchart TD
-  P[Ronin publisher management workspace]
-  P --> C[Central connections, suppression, IPs and pools]
-  P --> A[Newsletter A workspace]
-  P --> B[Newsletter B workspace]
+  P[Workspace]
+  P --> C[Shared connections, suppression, IPs and pools]
+  P --> A[Newsletter A]
+  P --> B[Newsletter B]
   A --> DA[Independent subscribers, consent, fields, segments, campaigns, journeys and history]
   B --> DB[Independent subscribers, consent, fields, segments, campaigns, journeys and history]
   A -. explicit audited automation .-> B
   C --> IP[Shared physical-IP admission budget]
 ```
 
-A person's name, email, fields, consent, subscription state and engagement can differ between publications. Importing or updating A does not update B. Publisher suppression is a separate, deliberately shared mailbox-level control, not a shared profile.
+A person's name, email, fields, consent, subscription state and engagement can differ between newsletters. Importing or updating A does not update B. Workspace suppression is a separate, deliberately shared mailbox-level control, not a shared profile.
 
 The dashboard's **Newsletters** entry starts with a simple newsletter list: name, subscriber count, status and **Open**. **New newsletter** asks for a name; its sending ID is generated automatically, with optional customization before creation. Opening a newsletter enters its native audience/campaign/journey environment.
 
-Publisher navigation is limited to **Newsletters**, **Subscribers**, **Reports** and **Publisher settings**. Search and combined reporting have their own views. Sending connections, IP pools, cross-publication automation rules, suppression, tracking and diagnostics remain available under Publisher settings, with individual administrative actions collapsed until needed. Ordinary newsletter work does not require navigating infrastructure forms.
+Workspace navigation contains **Newsletters**, **Subscribers**, **Reports** and **Workspace settings**. The top-right Workspace selector lists authorized workspaces, not their newsletters. Inside a newsletter, it retains the containing workspace and provides **All newsletters** to return. Newsletter-only memberships remain separately accessible without granting parent access. Workspace settings uses focused sending, domain and IP workflows; raw administration lives in **Advanced**.
 
-Search/export identities are `(newsletterId, userId)`, never `userId` alone. Contact/subscription counts and matched normalized mailboxes are separate measures; a matched mailbox is not a verified unique person. Every campaign and journey remains owned by its newsletter workspace. Publisher control-plane workspaces cannot create campaigns or send.
+Search/export identities are `(newsletterId, userId)`, never `userId` alone. Contact/subscription counts and matched normalized mailboxes are separate measures; a matched mailbox is not a verified unique person. Every campaign and journey remains owned by its newsletter. Management workspaces cannot create campaigns or send.
 
-Publisher memberships dynamically authorize newsletter access without copying child roles. Existing role levels and revocation continue to apply. Child-only credentials cannot manage their parent or siblings. Shared-login development selection is stored in the signed session; do not disable its HTTP cookie warning or enable secure cookies without TLS.
+Workspace memberships dynamically authorize newsletter access without copying child roles. Existing role levels and revocation continue to apply. Newsletter-only credentials cannot manage their parent or siblings. Shared-login development selection is stored in the signed session; do not disable its HTTP cookie warning or enable secure cookies without TLS.
 
 ## HTTP API and MCP
 
-Browser operations use `/api/publications`; bearer operations use `/api/admin/publications`. Supply the authenticated publisher's `workspaceId` in the documented body/query. A target newsletter uses `newsletterId`, not an unchecked replacement workspace ID. Responses use `{data: ...}` and never expose stored management/runtime keys.
+Browser operations use `/api/publications`; bearer operations use `/api/admin/publications`. Supply the authenticated management workspace's `workspaceId` in the documented body/query. A target newsletter uses `newsletterId`, not an unchecked replacement workspace ID. Responses use `{data: ...}` and never expose stored management/runtime keys. Historical `publisher` schema identifiers, API paths and configuration names remain unchanged; they are not product terminology.
 
-The authenticated live OpenAPI document and operation catalog describe the current schemas. The stdio MCP bridge generates the same operations from them. A publisher-bound MCP process can also supply top-level `newsletterId` to a native product tool (contacts, ingestion, templates, broadcasts, journeys, etc.). Before execution the bridge verifies that the selected newsletter is a direct child of its configured publisher, then applies that scope consistently to headers/query/body. Publisher-management tools remain publisher-bound. No host, bearer key, arbitrary workspace or browser identity override is accepted. Revocation/ownership is checked on every call, not cached.
+The authenticated live OpenAPI document and operation catalog describe the current schemas. The stdio MCP bridge generates the same operations from them. A workspace-bound MCP process can also supply top-level `newsletterId` to a native product tool (contacts, ingestion, templates, broadcasts, journeys, etc.). Before execution the bridge verifies that the selected newsletter is a direct child of its configured workspace, then applies that scope consistently to headers/query/body. Workspace-management tools remain bound to the management workspace. No host, bearer key, arbitrary workspace or browser identity override is accepted. Revocation/ownership is checked on every call, not cached.
 
-Example native contact query arguments from a publisher-bound MCP process:
+Example native contact query arguments from a workspace-bound MCP process:
 
 ```json
 {"newsletterId":"NEWSLETTER_WORKSPACE_UUID","body":{"limit":25}}
@@ -44,8 +44,8 @@ Read-only keys can inspect registry/reporting and search contacts. Management-ke
 
 | Operation | Purpose |
 | --- | --- |
-| `POST /publisher` | Explicitly opt an authorized, campaign-free top-level workspace into publisher management. |
-| `GET /`, `POST /`, `PATCH /` | List, create, rename, activate or pause independent newsletters. Creation is resumable by publisher/slug. |
+| `POST /publisher` | Explicitly opt an authorized, campaign-free top-level workspace into newsletter management. |
+| `GET /`, `POST /`, `PATCH /` | List, create, rename, activate or pause independent newsletters. Creation is resumable by workspace/slug. |
 | `POST /adopt` | Adopt an already-owned child workspace; reject foreign roots. Select its existing email subscription group explicitly if ambiguous. No contacts are copied. |
 | `GET /overview` | Combined publication-local contacts/subscriptions and matched-mailbox counts. |
 | `POST /contacts/search`, `POST /contacts/operations` | Scoped search and explicit subscribe/unsubscribe operations. Cross-publication operations require composite targets; no implicit all-contact edit. |
@@ -59,7 +59,7 @@ Read-only keys can inspect registry/reporting and search contacts. Management-ke
 | `PUT /infrastructure/pool-bindings`, `POST /infrastructure/pool-bindings/reconcile` | Bind/verify account-scoped provider pool names and reconcile provider pools behind the write gate. |
 | `PUT /infrastructure/routes` | Change the connection/pool for future sends without rebuilding campaigns. |
 | `POST /infrastructure/ip-reassignment` | Explicit, separately gated provider assignment with `confirm:true`; never an automatic purchase. |
-| `GET /suppressions`, `POST /suppressions/search`, `PUT /suppressions`, `POST /suppressions/deactivate` | List/search publisher mailbox blocks and explicitly deactivate them. Newsletter resubscription cannot clear these blocks. |
+| `GET /suppressions`, `POST /suppressions/search`, `PUT /suppressions`, `POST /suppressions/deactivate` | List/search workspace mailbox blocks and explicitly deactivate them. Newsletter resubscription cannot clear these blocks. |
 | `GET /automations`, `PUT /automations`, `DELETE /automations`, `GET /automations/actions` | Configure/retire audited cross-publication rules and inspect outcomes. Retirement retains history. |
 | `GET /sends`, `GET /delivery-health` | Inspect durable attempts, uncertainty, native delivery observations and physical-IP budgets. |
 
@@ -71,7 +71,7 @@ An enabled rule can match A's `DFEmailClicked` at a specified URL, find or creat
 
 ```json
 {
-  "workspaceId": "PUBLISHER_WORKSPACE_UUID",
+  "workspaceId": "WORKSPACE_UUID",
   "name": "A link to B welcome",
   "sourceNewsletterId": "NEWSLETTER_A_UUID",
   "destinationNewsletterId": "NEWSLETTER_B_UUID",
@@ -96,7 +96,7 @@ An enabled rule can match A's `DFEmailClicked` at a specified URL, find or creat
 
 Use the exact observed link URL; authored attribution tokens/query parameters may change it. Conditions support `equals`/`exists` against source traits or event paths. The destination welcome journey must be Running, event-entry, and compatible with the generated native entry event; custom-key journeys are rejected rather than silently restarted.
 
-A deliberately configured matching rule can subscribe a newly created B subscriber and records the rule's authorization/provenance. It does not override an existing B unsubscribe. An explicit, evidenced consent rule is required to authorize resubscription; publisher suppression is never overridden. A click alone does not establish human engagement or universally valid legal consent: operators remain responsible for the offered opt-in and applicable requirements.
+A deliberately configured matching rule can subscribe a newly created B subscriber and records the rule's authorization/provenance. It does not override an existing B unsubscribe. An explicit, evidenced consent rule is required to authorize resubscription; workspace suppression is never overridden. A click alone does not establish human engagement or universally valid legal consent: operators remain responsible for the offered opt-in and applicable requirements.
 
 Durable source intent precedes native ingestion. The bounded worker verifies the exact native source exists before acting, records deterministic per-step IDs/progress and checks lineage to prevent cycles. Stable source-event deduplication and default once-per-source-subscriber behavior prevent repeated clicks or retries from creating duplicate subscriptions or restarting welcomes. Native PostgreSQL/ClickHouse projection is not a claim of exactly-once storage.
 
@@ -112,15 +112,15 @@ Start with one already-owned dedicated IP shared by newsletter subusers. Pool bi
 
 ## Admission, queuing and uncertainty
 
-Every opted-in newsletter email path—broadcast, journey, API and actual test email—uses central durable admission after native personalization and tracking preparation. Shared hourly/daily windows and configured warm-up stages are enforced by physical-IP reservations across newsletters and workers, counting To/CC/BCC copies. Newsletter or pool names are not separate capacity budgets. Tests are real email if submitted; publisher suppression and release gates still apply.
+Every opted-in newsletter email path—broadcast, journey, API and actual test email—uses central durable admission after native personalization and tracking preparation. Shared hourly/daily windows and configured warm-up stages are enforced by physical-IP reservations across newsletters and workers, counting To/CC/BCC copies. Newsletter or pool names are not separate capacity budgets. Tests are real email if submitted; workspace suppression and release gates still apply.
 
-The initial result is `DFInternalMessageQueued`, not `DFInternalMessageSent`. A registered worker submits eligible mail and emits native MessageSent only after acceptance. Journey nodes wait for acceptance before advancing; broadcasts do not report completion while their queue is unsettled. Unknown provider acceptance requires review and never authorizes a blind resend. Paused/cancelled campaign state, subscription changes, erasure, expiry and publisher blocks are rechecked before submission. Accepted mail cannot be recalled by a local cancellation.
+The initial result is `DFInternalMessageQueued`, not `DFInternalMessageSent`. A registered worker submits eligible mail and emits native MessageSent only after acceptance. Journey nodes wait for acceptance before advancing; broadcasts do not report completion while their queue is unsettled. Unknown provider acceptance requires review and never authorizes a blind resend. Paused/cancelled campaign state, subscription changes, erasure, expiry and workspace blocks are rechecked before submission. Accepted mail cannot be recalled by a local cancellation.
 
 A persisted attempt pins its rendered payload, connection revision/credential, region and intended route. Route changes apply to new attempts, not the existing payload. SendGrid acceptance means neither delivery nor human engagement. Our reservation limits govern API admission, not SendGrid's subsequent SMTP timing. Traffic outside Ditto can bypass them: do not claim a hard aggregate limit unless all traffic through the IP enters these controls. Provider warm-up overflow/deferral behavior is a separate control.
 
 ## Suppression, callbacks and engagement
 
-Ordinary unsubscribe stays newsletter-specific. Spam complaints block publisher-wide marketing; explicit publisher opt-outs/manual blocks are central. Only genuinely permanent invalid-mailbox failures become publisher delivery blocks. Temporary failures, full-mailbox deferrals and policy/reputation rejection are not permanent invalid addresses.
+Ordinary unsubscribe stays newsletter-specific. Spam complaints block workspace-wide marketing; explicit workspace opt-outs/manual blocks are shared. Only genuinely permanent invalid-mailbox failures become workspace delivery blocks. Temporary failures, full-mailbox deferrals and policy/reputation rejection are not permanent invalid addresses.
 
 Signed callbacks use `/api/public/webhooks/sendgrid/connections/{connectionId}`. Verification uses exact raw bytes, bounded timestamp replay checks and retained verification-key generations. Durable receipts correlate provider IDs with stored newsletter/send/recipient ownership; callback-supplied tenant/contact metadata is not authority. Duplicate or early callbacks are retained/reconciled rather than guessed. The existing legacy callback remains for non-opted-in workspaces.
 

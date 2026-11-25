@@ -88,6 +88,11 @@ the corresponding tooling actually changes.
 
 ## UI and copy
 
+- Product hierarchy is **Workspace → Newsletters**. Use "Workspace" for the
+  top-level selector/settings and "Newsletter" for its children; never call the
+  workspace a publisher. Preserve tenant IDs, memberships and internal API/schema
+  identifiers unless an explicit migration is requested.
+
 - Default to no explanatory copy. Each section/area may have at most one
   extremely concise sentence, only when it adds necessary information.
 - Prefer clear headings, labels, values and actions. Do not explain obvious

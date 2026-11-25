@@ -37,8 +37,7 @@ const menuItems: { items: MenuItemGroup[] } = {
           type: "item",
           url: "/publications",
           icon: BookOutlined,
-          description:
-            "Manage independent publications and publisher-wide sending infrastructure.",
+          description: "Manage your newsletters.",
         },
       ],
     },

@@ -18,9 +18,16 @@ import {
 import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
 
-type NewsletterOption = { value: string; label: string };
-type DnsRecord = { type: "CNAME" | "TXT"; name: string; value: string };
-type TrackingDomain = {
+interface NewsletterOption {
+  value: string;
+  label: string;
+}
+interface DnsRecord {
+  type: "CNAME" | "TXT";
+  name: string;
+  value: string;
+}
+interface TrackingDomain {
   id: string;
   newsletterId: string;
   domain: string;
@@ -31,13 +38,13 @@ type TrackingDomain = {
   sslStatus: string | null;
   lastCheckedAt: string | null;
   dnsRecords: DnsRecord[];
-};
-type TrackingConfiguration = {
+}
+interface TrackingConfiguration {
   domains: TrackingDomain[];
   cnameTarget: string | null;
   provisioningEnabled: boolean;
   configured: boolean;
-};
+}
 
 function operationError(error: unknown): string {
   if (axios.isAxiosError(error)) {
@@ -58,7 +65,7 @@ function operationError(error: unknown): string {
       tracking_provider_failed:
         "Cloudflare status could not be read or updated. No active status can be assumed; refresh and try again.",
       newsletter_not_found:
-        "This newsletter no longer exists or is not managed by this publisher.",
+        "This newsletter no longer exists or is not managed by this workspace.",
     };
     if (
       data &&
@@ -78,7 +85,7 @@ function operationError(error: unknown): string {
       return data.message.slice(0, 512);
     }
     if (error.response?.status === 403)
-      return "Publisher management permission is required.";
+      return "Workspace management permission is required.";
     if (error.response?.status === 401)
       return "Your session has expired. Sign in again.";
     if (!error.response)

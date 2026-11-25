@@ -170,7 +170,7 @@ export default function Home({
             Home
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            {workspaceName} workspace overview
+            {workspaceName} overview
           </Typography>
         </Box>
 

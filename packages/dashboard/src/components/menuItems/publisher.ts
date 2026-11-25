@@ -39,11 +39,11 @@ const publisherMenuItems: MenuItemGroup[] = [
       },
       {
         id: "publisher-settings",
-        title: "Publisher settings",
+        title: "Workspace settings",
         type: "item",
         url: "/publications?view=settings",
         icon: SettingsOutlined,
-        description: "Manage shared sending, tracking and publisher controls.",
+        description: "Manage workspace settings.",
       },
     ],
   },

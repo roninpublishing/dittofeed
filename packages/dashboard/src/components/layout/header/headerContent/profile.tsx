@@ -3,6 +3,7 @@ import {
   Autocomplete,
   Avatar,
   Box,
+  Button,
   ButtonBase,
   CardContent,
   ClickAwayListener,
@@ -23,6 +24,7 @@ import React, { useEffect, useId, useRef, useState } from "react";
 
 import { useAppStorePick } from "../../../../lib/appStore";
 import isNode from "../../../../lib/isNode";
+import { workspaceSelection } from "../../../../lib/workspaceSelection";
 // project import
 import MainCard from "../../../mainCard";
 import Transitions from "../../../transitions";
@@ -77,17 +79,9 @@ function Profile() {
   const name = hasPersonalIdentity
     ? member.name ?? member.nickname ?? member.email
     : workspace?.name ?? "Workspace";
-  const options = React.useMemo(
-    () =>
-      memberRoles.map((role) => ({
-        id: role.workspaceId,
-        label: role.workspaceName,
-      })),
-    [memberRoles],
-  );
-  const option = React.useMemo(
-    () => options.find((o) => o.id === workspace?.id),
-    [options, workspace?.id],
+  const selection = React.useMemo(
+    () => workspaceSelection(memberRoles, workspace),
+    [memberRoles, workspace],
   );
   const changeWorkspace = async (workspaceId: string) => {
     if (switchingWorkspace) return;
@@ -258,19 +252,79 @@ function Profile() {
                       </Grid>
                     </CardContent>
                     <Box sx={{ p: 1, width: "100%" }}>
-                      <Autocomplete
-                        value={option}
-                        options={options}
-                        disableClearable
-                        disabled={switchingWorkspace}
-                        size="small"
-                        onChange={(_e, newValue) => {
-                          void changeWorkspace(newValue.id);
-                        }}
-                        renderInput={(params) => (
-                          <TextField {...params} label="Current Workspace" />
+                      {selection.workspaces.length > 0 && (
+                        <Autocomplete
+                          value={selection.currentWorkspace ?? null}
+                          options={selection.workspaces}
+                          disableClearable={Boolean(selection.currentWorkspace)}
+                          isOptionEqualToValue={(left, right) =>
+                            left.id === right.id
+                          }
+                          disabled={switchingWorkspace}
+                          size="small"
+                          onChange={(_event, value) => {
+                            if (value) void changeWorkspace(value.id);
+                          }}
+                          renderInput={(params) => (
+                            <TextField {...params} label="Workspace" />
+                          )}
+                        />
+                      )}
+                      {workspace?.parentWorkspaceId &&
+                        selection.currentWorkspace && (
+                          <Stack spacing={0.5} sx={{ mt: 1.5, px: 1 }}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Newsletter
+                            </Typography>
+                            <Typography variant="body2">
+                              {workspace.name}
+                            </Typography>
+                            <Button
+                              size="small"
+                              disabled={switchingWorkspace}
+                              onClick={() => {
+                                if (selection.currentWorkspace)
+                                  void changeWorkspace(
+                                    selection.currentWorkspace.id,
+                                  );
+                              }}
+                              sx={{ alignSelf: "flex-start" }}
+                            >
+                              All newsletters
+                            </Button>
+                          </Stack>
                         )}
-                      />
+                      {selection.otherNewsletters.length > 0 && (
+                        <Autocomplete
+                          value={selection.currentNewsletter ?? null}
+                          options={selection.otherNewsletters}
+                          disableClearable={Boolean(
+                            selection.currentNewsletter,
+                          )}
+                          isOptionEqualToValue={(left, right) =>
+                            left.id === right.id
+                          }
+                          disabled={switchingWorkspace}
+                          size="small"
+                          sx={{ mt: selection.workspaces.length ? 1.5 : 0 }}
+                          onChange={(_event, value) => {
+                            if (value) void changeWorkspace(value.id);
+                          }}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              label={
+                                selection.currentWorkspace
+                                  ? "Other newsletters"
+                                  : "Newsletter"
+                              }
+                            />
+                          )}
+                        />
+                      )}
                     </Box>
                     <ProfileTab />
                   </MainCard>

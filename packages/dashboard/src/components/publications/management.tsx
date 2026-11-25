@@ -67,6 +67,14 @@ interface Field {
   initial?: string | boolean;
   hint?: string;
 }
+
+const suppressionReasons: Option[] = [
+  { value: "manual", label: "Manual" },
+  { value: "publisher_optout", label: "Workspace opt-out" },
+  { value: "complaint", label: "Spam complaint" },
+  { value: "invalid_mailbox", label: "Invalid address" },
+];
+
 function optionList(value: unknown, idKey: string, labelKey: string): Option[] {
   return rows(value).map((row) => ({
     value: text(row[idKey]),
@@ -554,18 +562,20 @@ export default function PublicationManagement({
       <Stack spacing={3}>
         <Typography variant="h3">Ronin newsletter management</Typography>
         <Alert severity="info">
-          This workspace is not yet a publisher. Initialization does not move
-          contacts, provision SendGrid, or send email.
+          Set up this workspace to manage newsletters.
         </Alert>
         <ActionForm
           {...common}
-          title="Initialize publisher workspace"
+          title="Set up workspace"
           path="/publisher"
           fields={[
             {
               key: "name",
-              label: "Management workspace name",
-              initial: "Ronin Publishing",
+              label: "Workspace name",
+              initial:
+                workspace.type === CompletionStatus.Successful
+                  ? workspace.value.name
+                  : "Ronin Publishing",
               required: true,
             },
           ]}
@@ -618,7 +628,7 @@ export default function PublicationManagement({
                 newsletters: "Newsletters",
                 subscribers: "Subscribers",
                 reports: "Reports",
-                settings: "Publisher settings",
+                settings: "Workspace settings",
               }[section]
             }
           </Typography>
@@ -818,7 +828,7 @@ export default function PublicationManagement({
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
             {(
               [
-                ["subscriptionCount", "Publication subscriptions"],
+                ["subscriptionCount", "Newsletter subscriptions"],
                 ["contactCount", "Contact records"],
                 ["matchedMailboxCount", "Matched mailboxes"],
               ] as const
@@ -1201,12 +1211,7 @@ export default function PublicationManagement({
                     label: "Reason",
                     kind: "select",
                     required: true,
-                    options: [
-                      "manual",
-                      "publisher_optout",
-                      "complaint",
-                      "invalid_mailbox",
-                    ].map((value) => ({ value, label: value })),
+                    options: suppressionReasons,
                   },
                   {
                     ...newsletterField,
@@ -1229,7 +1234,7 @@ export default function PublicationManagement({
               >
                 <Stack direction="row" spacing={2}>
                   <TextField
-                    label="Find publisher suppression by mailbox"
+                    label="Find suppression by email"
                     value={suppressionEmail}
                     onChange={(event) =>
                       setSuppressionEmail(event.target.value)
@@ -1242,10 +1247,16 @@ export default function PublicationManagement({
                 </Stack>
               </Box>
               <DataTable
-                data={data.suppressions}
+                data={rows(data.suppressions).map((suppression) => ({
+                  ...suppression,
+                  reasonLabel:
+                    suppressionReasons.find(
+                      (reason) => reason.value === suppression.reason,
+                    )?.label ?? text(suppression.reason),
+                }))}
                 columns={[
                   ["mailboxHash", "Mailbox fingerprint"],
-                  ["reason", "Reason"],
+                  ["reasonLabel", "Reason"],
                   ["sourceNewsletterId", "Source newsletter"],
                   ["active", "Active"],
                 ]}
@@ -1269,7 +1280,7 @@ export default function PublicationManagement({
                       .filter((suppression) => suppression.active === true)
                       .map((suppression) => ({
                         value: text(suppression.id),
-                        label: `${text(suppression.reason).replace(/_/g, " ")} · ${text(suppression.mailboxHash).slice(0, 12)}`,
+                        label: `${suppressionReasons.find((reason) => reason.value === suppression.reason)?.label ?? text(suppression.reason)} · ${text(suppression.mailboxHash).slice(0, 12)}`,
                       })),
                     required: true,
                   },

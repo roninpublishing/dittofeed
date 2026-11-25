@@ -1060,6 +1060,7 @@ export async function getGoogleRequestContext(
       const memberRoles = rows.map((row) => ({
         workspaceId: row.workspace.id,
         workspaceName: row.workspace.name,
+        parentWorkspaceId: row.workspace.parentWorkspaceId,
         workspaceMemberId: principal.memberId,
         role: row.role,
       }));

@@ -33,6 +33,7 @@ export async function getWorkspaceMemberRoles({
         workspaceMemberId: schema.workspaceMemberRole.workspaceMemberId,
         workspaceId: schema.workspaceMemberRole.workspaceId,
         workspaceName: schema.workspace.name,
+        parentWorkspaceId: schema.workspace.parentWorkspaceId,
       },
     })
     .from(schema.workspaceMemberRole)
@@ -136,6 +137,7 @@ export async function createWorkspaceMemberRole({
     workspaceMemberId: workspaceMember.id,
     workspaceId,
     workspaceName: workspace.name,
+    parentWorkspaceId: workspace.parentWorkspaceId,
   };
 }
 
@@ -186,6 +188,7 @@ export async function updateWorkspaceMemberRole({
     workspaceMemberId: workspaceMember.id,
     workspaceId,
     workspaceName: workspace.name,
+    parentWorkspaceId: workspace.parentWorkspaceId,
   };
 }
 

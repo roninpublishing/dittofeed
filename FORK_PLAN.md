@@ -722,20 +722,20 @@ ingestion with focused checks; do not equate fewer menu items with full teardown
 
 ## Ronin multi-newsletter operating model
 
-Carson approved one Ronin publisher management workspace above independent native
-child workspaces presented as newsletters/publications. This supersedes the
-earlier shared-contact proposal: profiles, fields, subscriptions, consent,
-acquisition history, engagement, segments, templates, campaigns, journeys and
-send history remain publication-local. No automatic contact merging or separate
-physical table/database per newsletter. Publisher access covers its newsletters;
-existing role levels and immediate revocation remain enforced.
+The product hierarchy is **Workspace → Newsletters**. A workspace is the top-level
+management context selected in the top-right menu; its newsletters use independent
+native child workspaces internally. This supersedes the shared-contact proposal:
+profiles, fields, subscriptions, consent, acquisition history, engagement, segments,
+templates, campaigns, journeys and send history remain newsletter-local.
+No contact merging or separate physical database/table per newsletter is implied.
+Existing role levels, tenant identities and immediate revocation remain enforced.
 
 The management view is newsletter-first: a simple list with newsletter name,
 subscriber count, status and Open. Creation asks for a name and derives the
-sending ID, with optional customization before creation. Publisher navigation
-contains Newsletters, Subscribers, Reports and Publisher settings; native
+sending ID, with optional customization before creation. Workspace navigation
+contains Newsletters, Subscribers, Reports and Workspace settings; native
 campaign/journey navigation appears inside an opened newsletter instead.
-Publisher settings uses task-based sending connections, domains, IP pools and
+Workspace settings uses task-based sending connections, domains, IP pools and
 tracking with focused dialogs. Rules, suppressions and activity have separate
 tabs; migration, raw inventory and JSON rule editing live in Advanced.
 Cross-publication search and reporting have separate views. Matched mailboxes
@@ -1188,3 +1188,24 @@ as the production connection source.
 - Current guarded development preview: `NEXT_DIST_DIR=dist/publisher-settings-preview`,
   combined Lite on localhost:3000; dev Neon/ClickHouse/Temporal and disabled
   workers/bootstrap/tracking are preserved.
+
+## Workspace terminology and hierarchy
+
+- Replaced organizational publisher wording with Workspace in navigation, settings,
+  setup, tracking-access messages and suppression labels. Newsletters are the
+  child-level product term; proper company names and historical API/schema
+  identifiers are unchanged.
+- The top-right Workspace selector excludes newsletter rows and retains the
+  containing workspace while a newsletter is open. The current newsletter is
+  shown separately with All newsletters to return. Direct newsletter-only
+  memberships remain reachable without fabricating parent access.
+- Added optional parent-workspace metadata to existing membership responses for
+  Google, shared-login/legacy and anonymous contexts. No tenant IDs, stored
+  membership grants, provider settings or schema migrations changed.
+- Six isolated selection regressions and Lite compilation passed. The optimized
+  dashboard build and real authenticated browser checks verified workspace-only
+  options, entering the existing development newsletter, retaining its parent
+  selection and returning to the workspace list.
+- Current development preview output is `dist/workspace-terminology-preview`.
+  Development resources and disabled workers/bootstrap/tracking are retained;
+  no production deployment or provider/send operation was initiated.

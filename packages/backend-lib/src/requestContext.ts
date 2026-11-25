@@ -173,6 +173,7 @@ export async function findAndCreateRoles(
       role: r.role,
       workspaceMemberId: member.id,
       workspaceName: workspace.name,
+      parentWorkspaceId: workspace.parentWorkspaceId,
     };
   });
 
@@ -432,6 +433,7 @@ async function getAnonymousRequestContext(selectedWorkspaceId?: string): Promise
     memberRoles: accessible.map((candidate) => ({
       workspaceId: candidate.id,
       workspaceName: candidate.name,
+      parentWorkspaceId: candidate.parentWorkspaceId,
       workspaceMemberId: "anonymous",
       role: "Admin",
     })),

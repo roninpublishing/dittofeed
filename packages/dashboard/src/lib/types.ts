@@ -141,7 +141,11 @@ export type AppState = {
   apiBase: string;
   dashboardUrl: string;
   features: FeatureMap;
-  workspace: RequestStatus<WorkspaceResource, Error>;
+  workspace: RequestStatus<
+    WorkspaceResource &
+      Pick<DFRequestContext["workspace"], "parentWorkspaceId">,
+    Error
+  >;
   member: WorkspaceMemberResource | null;
   memberRoles: WorkspaceMemberRoleResource[];
   drawerOpen: boolean;

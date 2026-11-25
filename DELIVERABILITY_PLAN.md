@@ -4,9 +4,24 @@ Nov 24, 2026 · Carson
 
 ## Summary
 
-We build one Deliverability system in three layers: **See** (every IP and domain, every signal), **Decide** (a health state per asset per mailbox provider, with reasons), and **Act** (warm-up, volume caps, routing, and automatic pullback). SendGrid and Telnyx are both live sending providers. Google Postmaster v2, Microsoft SNDS, PowerDMARC, DNS checks and our own event data are the signal sources.
+We build one Deliverability system in three layers: **See** (every IP and domain, every signal), **Decide** (a health state per asset per mailbox provider, with reasons), and **Act** (warm-up, volume caps, routing, and automatic pullback). SendGrid and Telnyx are the two sending providers. Google Postmaster v2, Microsoft SNDS, PowerDMARC, DNS checks and our own event data are the signal sources.
 
-_System architecture diagram (see, decide, act): kept in the source doc, not reproduced here._
+_The system architecture diagram (see, decide, act), the Open tracking tab and the KPI framework tab live in the source doc and still need to be added to this repository before tracking or KPI work starts._
+
+## Codebase alignment (read first)
+
+This spec was checked against the fork on Nov 25, 2026. Build on what exists; don't duplicate it.
+
+- **Neither provider has sent a real email yet.** SendGrid newsletter sending is built and tested locally with mocks. Telnyx email works only through the basic workspace email-provider path (`destinations/telnyx.ts`, `messaging.ts`). It has no accounts, IPs, pools, gates or capacity budgets.
+- **Real sends can't be switched on.** Every newsletter send requires `allowRealSends` and `allTrafficControlled` on its `PublisherSendgridAccount`. Both default to false, and no API, screen or command sets them; the admin API rejects `allowRealSends: true`. An approved enable path is a prerequisite, not part of this spec.
+- **Routing is a per-send ESP choice, not `NewsletterRoute`.** In-progress work replaces `NewsletterRoute` with `NewsletterDefault` plus a per-send `EspSelection` (account, pool or IP). The choice and its candidate IPs are saved on each `NewsletterSend` and checked again before submission (`verifyPinnedNewsletterSelection`). The router in this spec produces `EspSelection`s; it doesn't add a route table.
+- **One account model.** Multi-instance ESP accounts are being built on `PublisherSendgridAccount` + `SendingConnection`. Generalize that model to cover Telnyx; don't add a parallel `providerAccount` table. Coordinate with that work before changing these tables.
+- **Caps and warm-up already exist.** `SendingIp` has `hourlyLimit`, `dailyLimit`, `warmupStartedAt` and `warmupSchedule`. `newsletterCapacityLimits` and `reserveCapacity` (with `SendingIpBudget`) enforce them per physical IP (`canonicalIpId`). The warm-up planner and volume governor extend these.
+- **Delivery data already exists.** Signed SendGrid webhook receipts (`NewsletterWebhookReceipt`, `receiveNewsletterWebhook`), suppressions (`PublisherSuppression`, `NewsletterSuppression`) and `getPublisherDeliveryHealth` / `getNewsletterDeliveryHealth`. The send-events adapter reads from these.
+- **Open tracking already exists.** Owned pixel (`messaging/openTracking.ts`, `/api/public/email/open/<token>.gif`), the relay Worker (`packages/tracking-worker`), per-newsletter tracking domains (`NewsletterTrackingDomain`, `newsletterTracking*.ts`), and the protected `last_opened` / `last_clicked` contact properties. The tracker in this spec extends these (see Open and click tracking).
+- **Events live in ClickHouse.** Contact events, opens and clicks are stored in ClickHouse (`userEvents/clickhouse.ts`). High-volume tables (`trackingEvent`, `eventRollupHourly`, `signalObservation`) go in ClickHouse; registry, states, rules, incidents and approvals go in Postgres (Neon).
+- **Naming.** The UI is now Workspace → Newsletters. "Publisher" below means the workspace; database columns keep `publisherId`. Contacts are Dittofeed users: use `userId` wherever this spec says subscriber.
+- **Cloudflare.** Every Worker, Queue and KV goes in the RONIN account (`2c0f822ce2342b56b3998e7981c03332`), never ADVERTISE.
 
 Every source writes into one signal store. Only the health engine judges, and every control decision reads its states. Send events from SendGrid and Telnyx come back in as the first source.
 
@@ -22,16 +37,16 @@ The registry and health engine come first. Every later piece (warm-up, routing, 
 
 ## Asset registry
 
-The registry is the single list of everything we send from. Every signal, health state and routing decision attaches to a registry row. It builds on the existing `sendingIp`, `sendingPool`, `newsletterRoute` and `sendingConnection` tables. It extends them and doesn't replace them.
+The registry is the single list of everything we send from. Every signal, health state and routing decision attaches to a registry row. It builds on the existing `PublisherSendgridAccount`, `SendingConnection`, `SendingIp`, `SendingPool`, `SendingPoolIp`, `NewsletterDefault` and `NewsletterTrackingDomain` tables. It extends them and doesn't replace them.
 
 | Asset | Key fields | Source of truth |
 | --- | --- | --- |
-| Provider account | provider (sendgrid, telnyx), account or subuser, region, credentials ref | Our config |
+| Provider account | provider (sendgrid, telnyx), account or subuser, region, credentials ref; extends `PublisherSendgridAccount` / `SendingConnection` | Our config |
 | IP | address, provider, **dedicated or shared**, pool, region, rDNS/PTR, SNDS-registered flag, lifecycle state, warm-up plan | Provider inventory sync + our lifecycle |
 | Pool | provider, purpose (warm-up, engaged, bulk, cold, transactional), member IPs | Ours, mirrored to the provider |
 | Domain | root domain, **role** (from, return-path, DKIM `d=`, tracking, link), parent domain, provider verification, Postmaster verification, DMARC policy, lifecycle state | Ours + DNS + Postmaster |
 | Sending identity | from-domain + return-path + DKIM domain + tracking domain, bound to a provider connection | Ours |
-| Route | newsletter → sending identity → pool(s), with weights | Existing `newsletterRoute`, extended |
+| Route | newsletter default (`NewsletterDefault.selection`) + per-send `EspSelection` (account, pool or IP), with optional weights | Existing default/selection model, extended |
 
 **Shared IPs** are stored as one row per provider pool, not per address. We can't list or register a provider's shared addresses, so their health comes only from our own rates and blocklist hits on addresses we actually observe in the logs.
 
@@ -48,7 +63,7 @@ The registry is the single list of everything we send from. Every signal, health
 | Quarantined | Pulled after a Critical state; sends only recovery traffic | Recovery only |
 | Retired | Released or parked | No |
 
-State changes are logged with who or what made them (person, rule, provider sync). The newsletter view filters on the route graph: newsletter → identities → pools → IPs and domains.
+State changes are logged with who or what made them (person, rule, provider sync). Lifecycle extends the existing `SendingIp.status` (`active` / `paused`); `paused` maps to Provisioning or Retired. The newsletter view filters on the route graph: newsletter → default and per-send selections → accounts → pools → IPs and domains, plus the IPs actually used (`NewsletterSend.ipId`, `actualIp`).
 
 ## Signal ingestion
 
@@ -56,7 +71,7 @@ Each source is one adapter. Every adapter writes the same normalized row: **asse
 
 | Adapter | Assets | What it gives | Cadence | Notes |
 | --- | --- | --- | --- | --- |
-| Send events (SendGrid + Telnyx webhooks) + our tracker | IP, domain, newsletter, segment | sent, delivered, bounced (hard/soft), deferred, dropped, spam reports and unsubscribes from the providers; classified opens and clicks from our own tracker | Real time, rolled up hourly | Strongest signal. The only signal for shared IPs. |
+| Send events (SendGrid + Telnyx webhooks) + our tracker | IP, domain, newsletter, segment | sent, delivered, bounced (hard/soft), deferred, dropped, spam reports and unsubscribes from the providers; classified opens and clicks from our own tracker | Real time, rolled up hourly | Strongest signal. The only signal for shared IPs. Reads existing `NewsletterWebhookReceipt` / `NewsletterSend` (SendGrid) and `messaging/telnyxEvents.ts` (Telnyx); doesn't add a second webhook receiver. |
 | Bounce and deferral parser | IP, domain | Block/throttle reasons per mailbox provider (Gmail rate-limit and policy codes, Microsoft and Yahoo block codes) | Real time | **Earliest warning.** Blocks show up here hours before Postmaster or SNDS. |
 | Mailbox-provider classifier | All | Maps each recipient domain to Gmail, Microsoft, Yahoo, Apple or other **by MX lookup**, not just by `gmail.com` | Cached per recipient domain | Catches Google Workspace and Microsoft 365 business addresses. |
 | Google Postmaster v2 | Domain | Spam rate, FBL spam rates, SPF/DKIM/DMARC pass, TLS, delivery errors, compliance status | Daily (`batchQuery`) | Data only for 50+ Gmail recipients a day. Domain registration and verification are scripted. |
@@ -70,6 +85,10 @@ Each source is one adapter. Every adapter writes the same normalized row: **asse
 
 ## Open and click tracking
 
+**Existing tracking this extends:** the owned open pixel (`messaging/openTracking.ts`, path `/api/public/email/open/<43-char token>.gif`, encrypted request/outbox, retention and erasure), the relay Worker `packages/tracking-worker`, per-newsletter tracking domains (`NewsletterTrackingDomain`, Cloudflare provisioning in `newsletterTrackingCloudflare.ts`), and the protected `last_opened` / `last_clicked` contact properties. The new classifier, click redirect and queue are added to `packages/tracking-worker` and the existing pixel route. Pixel tokens already in sent mail keep working. Classified events also update `last_opened` / `last_clicked`, counting only human events.
+
+**Decision change required:** `FORK_PLAN.md` currently records "no click redirect" and "no automatic href rewriting". Click tracking below reverses both. It needs Carson's explicit approval, and `FORK_PLAN.md` must be updated when approved. Until then, build opens and the classifier only.
+
 We run our own open and click tracking on each newsletter's tracking domain, instead of SendGrid's and Telnyx's. One classifier then works for both providers, and every hit carries a class (human, proxy, prefetch, scanner, self, unknown), a reason, and whether it counts. The design follows the open-source project `yuriyward/mail-tracker`. The full rule set, IP sources and research are in the Open tracking tab of the source doc.
 
 **Using mail-tracker:** we own this repository and use its code as the base, adapted for bulk newsletter sending. Keep as is: the classifier (`src/classify.ts`), the published-network lookup (`src/networks.ts`) and its refresh script (`scripts/refresh-networks.ts`), the Gmail proxy and delivery-prefetch rules, and the Worker's pixel and redirect routes. Replace: per-draft registration and D1 token rows (one-to-one features), the Mailspring plugin, the compose CLI, and the personal dashboard. The table below lists each change.
@@ -78,10 +97,10 @@ We run our own open and click tracking on each newsletter's tracking domain, ins
 
 | Piece | mail-tracker | Adaptation |
 | --- | --- | --- |
-| Runtime | Cloudflare Worker (Hono, TypeScript) | Same |
-| Tokens | Random token per recipient, stored in D1 before sending | **Signed, stateless tokens**: HMAC-SHA256 over send ID, subscriber ID, kind and link index, base64url. No row per recipient and nothing to register before sending. Keys rotate with a key ID in the token. |
+| Runtime | Cloudflare Worker (Hono, TypeScript) | Existing `packages/tracking-worker`, RONIN Cloudflare account |
+| Tokens | Random token per recipient, stored in D1 before sending | **Signed, stateless tokens**: HMAC-SHA256 over send ID, user ID, kind and link index, base64url. No row per recipient and nothing to register before sending. Keys rotate with a key ID in the token. Existing open-pixel tokens stay valid. |
 | Link destinations | Stored per token | Stored once per send (`sendLink`); the token carries the link index |
-| Event writes | One D1 row per hit | Respond first, then `waitUntil` → Cloudflare Queue → batch consumer → Neon `trackingEvent` |
+| Event writes | One D1 row per hit | Respond first, then `waitUntil` → Cloudflare Queue → batch consumer → ClickHouse `trackingEvent` |
 | Classifier | Pure function, ordered rules | Use classify.ts as is, same constants (10 s click, 3 s burst, 30 s open, 30 s duplicate), plus `isbot` and an "every link clicked" rule |
 | IP lists | JSON file regenerated by script, then redeploy | Run refresh-networks.ts as a weekly scheduled Worker that writes a versioned set to KV instead of a committed file; alert if a source fails or shrinks > 20% |
 | Gmail delivery prefetch (±30 s) | Applied when read | Applied in the hourly rollup |
@@ -90,7 +109,7 @@ We run our own open and click tracking on each newsletter's tracking domain, ins
 
 ### Request flow
 
-1. **At send**, the renderer rewrites every body link to `https://<tracking domain>/c/<token>` and adds one image, `https://<tracking domain>/o/<token>.gif`, with empty alt text and no class or style (filters look for those).
+1. **At send**, the renderer rewrites every body link to `https://<tracking domain>/c/<token>` (only once the click-redirect decision is approved) and adds one image on the existing pixel path, `https://<tracking domain>/api/public/email/open/<token>.gif`, with empty alt text and no class or style (filters look for those).
 2. **The Worker** checks the HMAC. An open returns a 1×1 GIF with `Cache-Control: no-store`. A click returns a 302 to the stored destination. A bad token on a click goes to the newsletter's home page, so the endpoint is never an open redirect.
 3. **After responding**, the Worker sends IP, user agent, network owner (`request.cf.asOrganization`), country, method and time to the queue. The pixel and the redirect never wait on a database.
 4. **The consumer** looks up the delivery time from the provider events and works out seconds since delivery and recent clicks by the same actor. It then classifies and inserts in batches.
@@ -105,7 +124,7 @@ We run our own open and click tracking on each newsletter's tracking domain, ins
 
 ### What it feeds
 
-Per event: `class`, `reason`, `counted`. Per subscriber: `mppUser` (opens come only through Apple's relay, so judged on clicks only), `hasRealOpen`, last human open and click. Per newsletter × mailbox provider: human open rate (non-MPP recipients only), human click rate, MPP share, unknown share. These drive the engagement tiers and the Tier 3 KPIs.
+Per event: `class`, `reason`, `counted`. Per contact (Dittofeed user): `mppUser` (opens come only through Apple's relay, so judged on clicks only), `hasRealOpen`, last human open and click. Per newsletter × mailbox provider: human open rate (non-MPP recipients only), human click rate, MPP share, unknown share. These drive the engagement tiers and the Tier 3 KPIs.
 
 ## Health engine
 
@@ -159,11 +178,14 @@ Signup source is kept on every subscriber. A source with high bounce or complain
 - One plan per new IP **and** per new sending subdomain. Each plan is a day-by-day cap **per mailbox provider**, starting with Hot users only.
 - A plan moves to the next step only if the asset was Healthy at every provider yesterday. Watch means hold the current step. At risk means go back one step. Critical means pause and quarantine.
 - **Our planner is the source of truth.** Provider auto-warm-up (SendGrid's, Telnyx's) is turned off or matched to our plan, so two schedules never fight each other.
+- **Builds on the existing schedule.** `SendingIp.warmupStartedAt` / `warmupSchedule` (steps by days since start) and `newsletterCapacityLimits` already apply warm-up caps per IP. Extend them with per-mailbox-provider caps and health-gated stepping (hold or step back), rather than replacing them.
 - Warm-up plans are templates (for example, conservative 30-day or standard 21-day) that can be cloned and edited.
 
 ### Volume governor
 
 The governor sets hourly and daily caps per **IP × mailbox provider** and **subdomain × mailbox provider**. It also limits day-over-day growth (default +20%) on Active assets. Caps come from the asset's warm-up step, or from the last 30 days' steady volume for Active assets, lowered by its health state: Throttled is 50% of normal, Quarantined is recovery traffic only. Mail over the cap waits for the next window. It never spills onto another asset without a routing decision.
+
+The governor extends the existing admission path: `reserveCapacity` charges each message to every candidate IP's physical budget (`SendingIpBudget`, keyed by `canonicalIpId`) and defers with "Capacity deferred" when full. Health multipliers, per-mailbox-provider windows and growth limits are added there.
 
 ### Routing and load balancing
 
@@ -177,6 +199,8 @@ For each batch the router:
 
 Routing across providers (SendGrid vs Telnyx) works the same way, because each provider's pools are just more eligible assets. Weights per newsletter can be pinned by hand.
 
+**Output is an `EspSelection`.** The router's result for each slice is the existing per-send selection (account, pool or IP) and its candidate IP list. These are saved on the `NewsletterSend` and verified again before submission, so a queued retry never re-routes. Routing never changes the selection of a send that's already queued. Cross-provider routing needs Telnyx on the newsletter path first (see Codebase alignment).
+
 ### Automatic actions and approval gates
 
 | Action | Trigger | Default |
@@ -189,7 +213,7 @@ Routing across providers (SendGrid vs Telnyx) works the same way, because each p
 | Add or buy IPs, add subdomains, move a newsletter to a new identity | Person starts it | **Approval** |
 | Delist requests, provider tickets | Blocklist or block | Draft for a person |
 
-What the system does on its own only ever lowers risk. Anything that adds risk needs a person. The existing `publisherSendgridAccount` gates (write, IP reassignment, real send) still apply on top. Telnyx gets the same three gates.
+What the system does on its own only ever lowers risk. Anything that adds risk needs a person. The existing `PublisherSendgridAccount` gates (`allowProviderWrites`, `allowIpReassignment`, `allowRealSends`, plus `allTrafficControlled`) still apply on top. Telnyx gets the same gates once it has a newsletter-path account. Automation never sets these gates.
 
 ## Alerts and incidents
 
@@ -206,7 +230,7 @@ Routing rules per publisher decide who gets what. Alerts also go out as signed w
 
 ## UI
 
-Add **Deliverability** as a top-level item in publisher navigation, next to Newsletters, Subscribers, Reports and Publisher settings. Each newsletter gets a **Deliverability** tab showing the same screens, filtered. Setup (providers, pools, warm-up templates, thresholds, alert routing) lives under Publisher settings. The existing Sending, IP pools and Tracking domains tabs move there.
+Add **Deliverability** as an item in the workspace left sidebar (`/dashboard/workspace`), alongside the planned Overview, Newsletters, ESP accounts, IPs, IP pools, Subscribers, Reports and Settings. Each newsletter gets a **Deliverability** tab showing the same screens, filtered. The workspace IPs and IP pools screens being built for multi-account ESP show the deliverability state columns, rather than this spec adding a second IP list. Setup (warm-up templates, thresholds, alert routing) lives under workspace Settings. Infrastructure stays at workspace level, never inside a newsletter.
 
 | Screen | What's on it | Answers |
 | --- | --- | --- |
@@ -223,52 +247,57 @@ On every screen, the state and its reason come first. Numbers and charts are one
 
 ## Data model
 
-New tables sit beside `publisherSchema.ts`. Existing tables are extended, not replaced. Every table is scoped to a publisher.
+Postgres tables sit beside `publisherSchema.ts` (Drizzle migrations). High-volume tables go in ClickHouse (marked **CH**). Existing tables are extended, not replaced. Every table is scoped to a workspace (`publisherId` / `workspaceId`).
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
-| `sendingIp` (extend) | IPs | + `provider`, `providerAccountId`, `ipType` (dedicated, shared\_pool), `lifecycleState`, `ptr`, `sndsRegistered`, `warmupPlanId` |
-| `providerAccount` | SendGrid accounts and subusers, Telnyx accounts | `provider`, `externalId`, gate flags (write, reassign, real send) |
-| `sendingDomain` | Every domain and subdomain | `name`, `parentId`, `role[]`, `lifecycleState`, `postmasterStatus`, `dmarcPolicy` |
-| `sendingIdentity` | from + return-path + DKIM + tracking bundle | domain ids per role, `providerAccountId` |
-| `newsletterRoute` (extend) | Newsletter → identities → pools | + `weight`, `pinned` |
+| `SendingIp` (extend) | IPs | + `ipType` (dedicated, shared\_pool), `lifecycleState`, `ptr`, `sndsRegistered`, `warmupPlanId`. Provider and account come from the existing `accountId`. |
+| `PublisherSendgridAccount` / `SendingConnection` (extend, shared with the multi-ESP work) | Provider accounts and subusers | + `provider` (sendgrid, telnyx); existing gate flags stay |
+| `sendingDomain` | Every domain and subdomain | `name`, `parentId`, `role[]`, `lifecycleState`, `postmasterStatus`, `dmarcPolicy`; links existing `NewsletterTrackingDomain` rows |
+| `sendingIdentity` | from + return-path + DKIM + tracking bundle | domain ids per role, `accountId` |
+| `NewsletterDefault` / `EspSelection` (extend) | Newsletter default and per-send choice | + optional `weight`, `pinned` |
 | `mailboxProviderMap` | Recipient domain → mailbox provider | `recipientDomain`, `mxHost`, `mailboxProvider`, `checkedAt` |
-| `subscriberEngagement` | Tier per subscriber | `tier`, `lastEngagedAt`, `signupSource`, `stickyIpId`, `stickyDomainId` |
-| `signalObservation` | Normalized readings from every adapter | `assetType`, `assetId`, `mailboxProvider`, `metric`, `value`, `periodStart`, `periodEnd`, `source` |
-| `eventRollupHourly` | First-party counts | asset, newsletter, mailbox provider, tier, hour, counts by event type |
+| `contactEngagement` | Tier per contact | `userId`, `tier`, `lastEngagedAt`, `signupSource`, `stickyIpId`, `stickyDomainId` |
+| `signalObservation` (CH) | Normalized readings from every adapter | `assetType`, `assetId`, `mailboxProvider`, `metric`, `value`, `periodStart`, `periodEnd`, `source` |
+| `eventRollupHourly` (CH) | First-party counts | asset, newsletter, mailbox provider, tier, hour, counts by event type |
 | `healthRule` | Versioned thresholds | `metric`, `watch`, `atRisk`, `critical`, `minVolume`, `version` |
 | `healthState` | Current state per asset × mailbox provider | `state`, `reasons` (JSON), `since` |
 | `healthSnapshotDaily` | History | asset, mailbox provider, day, state, key metrics |
 | `stateChange` | Audit log for health and lifecycle | asset, from, to, `actor` (rule, user, sync), reasons |
 | `warmupPlan` / `warmupStep` | Templates and per-asset plans | day, cap per mailbox provider, tiers allowed |
-| `volumeCap` | Live caps | asset, mailbox provider, hourly, daily, reason |
+| `SendingIp` limits + `SendingIpBudget` (extend) | Live caps | existing hourly/daily limits and budgets; + per-mailbox-provider caps and health multiplier, reason |
 | `routingDecision` | Per-batch plan and outcome | batch, slices, assets chosen, held volume |
 | `incident` / `incidentEvent` | Incidents and their timelines | asset, opened, closed, events |
 | `approvalRequest` | Risk-adding actions waiting on a person | action, evidence, requested by, decision |
 | `blocklistListing` | Listing history | asset, list, listed at, delisted at |
 
-`signalObservation` and `eventRollupHourly` are the heavy tables. Partition them by month and keep 13 months of history (an assumption: change it if you want longer).
+`signalObservation` and `eventRollupHourly` are the heavy tables. Store them in ClickHouse, partitioned by month, with 13 months of history (an assumption: change it if you want longer).
 
 **Tracking tables:**
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
 | `sendLink` | Link destinations per send, so tokens carry only an index | `sendId`, `linkIndex`, `url`, `linkText` |
-| `trackingEvent` | Every pixel and link hit, raw and classified | `sendId`, `subscriberId`, `newsletterId`, `kind` (open/click), `linkIndex`, `occurredAt`, `ip` and `userAgent` (nulled after 30 days), `asnOrg`, `country`, `method`, `secondsSinceDelivery`, `class`, `reason`, `counted`, `rulesVersion` |
+| `trackingEvent` (CH) | Every pixel and link hit, raw and classified | `sendId`, `userId`, `newsletterId`, `kind` (open/click), `linkIndex`, `occurredAt`, `ip` and `userAgent` (nulled after 30 days), `asnOrg`, `country`, `method`, `secondsSinceDelivery`, `class`, `reason`, `counted`, `rulesVersion` |
 | `networkRangeSet` | Versions of the published IP lists | `source` (apple, google, microsoft, mimecast, proofpoint), `fetchedAt`, `blockCount`, `kvKey`, `status` |
 | `trackingKey` | HMAC signing keys | `keyId`, `createdAt`, `retiredAt` (the secret itself lives in Worker secrets) |
-| `subscriberEngagement` (extend) | Flags from tracking | + `mppUser`, `hasRealOpen`, `lastHumanOpenAt`, `lastHumanClickAt` |
+| `contactEngagement` (extend) | Flags from tracking | + `mppUser`, `hasRealOpen`, `lastHumanOpenAt`, `lastHumanClickAt` |
 
-`trackingEvent` is the largest table in the system. Partition it by month, like `signalObservation`.
+`trackingEvent` is the largest table in the system. It goes in ClickHouse, partitioned by month, next to the existing event tables.
 
 ## Build order
 
 There are three phases. Each one is usable on its own, and each needs the one before it. Phase 1 only watches. Nothing in it changes how mail is sent.
 
+0. **Prerequisites (outside this spec).**
+   - The multi-account ESP and per-send selection work lands on `main`, so this builds on the final account and selection model.
+   - An approved, audited way to enable real sends on an account.
+   - Telnyx on the newsletter send path (account, IPs, gates, capacity) before any Telnyx-specific item below. Until then, Telnyx items are limited to inventory sync and webhook signals.
+   - The source doc's architecture diagram, Open tracking tab and KPI framework tab added to this repository.
 1. **Phase 1: See (visibility).**
-   1. Registry: extend tables, add `providerAccount`, `sendingDomain`, `sendingIdentity`.
+   1. Registry: extend the existing account, IP, pool and tracking-domain tables; add `sendingDomain`, `sendingIdentity`.
    2. Inventory sync for SendGrid and Telnyx, plus drift detection.
-   3. Mailbox-provider classifier and hourly event rollups (SendGrid + Telnyx webhooks), plus our own open and click tracker: tracking Worker, signed tokens, queue, classifier and weekly IP-list refresh, built from the mail-tracker code. Starts collecting engagement baselines from day one.
+   3. Mailbox-provider classifier and hourly event rollups (SendGrid + Telnyx webhooks), plus our own open tracker in `packages/tracking-worker`: signed tokens, queue, classifier and weekly IP-list refresh, adapted from the mail-tracker code. Click redirects only after the decision change is approved. Starts collecting engagement baselines from day one.
    4. Bounce and deferral parser.
    5. DNS posture checker.
    6. Postmaster v2 adapter, including scripted domain verification.
@@ -296,6 +325,9 @@ There are three phases. Each one is usable on its own, and each needs the one be
 **Decisions for Carson:**
 
 - [ ] Approve this design as the plan for Phase 1.
+- [ ] Approve click redirects and link rewriting (reverses the "no click redirect / no automatic href rewriting" decision in `FORK_PLAN.md`).
+- [ ] How real sends get enabled on an account: who can do it, and how it's recorded.
+- [ ] Bring Telnyx onto the newsletter send path, or keep Phase 1–2 SendGrid-only?
 - [ ] Blocklist source: PowerDMARC (blocklists + DMARC in one) or HetrixTools (cheaper, documented API)? Depends on the PowerDMARC check below.
 - [ ] Which automatic actions run without approval in Phase 3 (the gate table's defaults, or stricter)?
 - [ ] Subdomain scheme: one sending subdomain per newsletter, or per newsletter group?
@@ -314,7 +346,8 @@ There are three phases. Each one is usable on its own, and each needs the one be
 
 **Tracking:**
 
-- [ ] Pick the Cloudflare account that hosts the tracking Worker, Queue and KV.
+- [x] Cloudflare account for the tracking Worker, Queue and KV: RONIN (`2c0f822ce2342b56b3998e7981c03332`), never ADVERTISE.
+- [ ] Migration for existing open-pixel tokens and `last_opened` / `last_clicked` data when the classifier goes live.
 - [ ] Approve 30-day retention for raw IPs and user agents, and update the privacy policy.
 - [ ] Legal review before adding hidden honeypot links (US patent 12,489,787).
 - [ ] Turn off SendGrid and Telnyx open and click tracking once our tracker is live, and confirm nothing is counted twice.

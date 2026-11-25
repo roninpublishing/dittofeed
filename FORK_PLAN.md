@@ -19,10 +19,11 @@ live in [AGENTS.md](AGENTS.md); `CLAUDE.md` delegates there.
 Newsletter-branded Cloudflare tracking uses one `dt.<newsletter-domain>` hostname
 per native newsletter. Carson authorized public provisioning and development-only
 deployment using shared target `dt.dittotrx.com` in RONIN and the current server.
-Rollout is in progress; email sends and sender workers remain prohibited.
+Development capture is live and inbound-verified; email sends and sender workers
+remain prohibited. Real newsletter-domain onboarding still requires operator input.
 
-Versioned open-hit heuristics and respond-first queued capture are implemented
-locally on `feat/tracking-classifier`. Carson approved a clean development
+Versioned open-hit heuristics and respond-first queued capture are deployed from
+`feat/tracking-classifier`. Carson approved a clean development
 cutover: every outbound recipient send owns tracking metadata on its existing
 NewsletterSend row; all pixel-hit evidence/classifications live in ClickHouse,
 with no PG mapping row or PG per-hit receipt/outbox. No mail has shipped and no
@@ -30,7 +31,7 @@ old generic-path compatibility is required. `last_opened` remains observed;
 heuristic `human` labels never verify that a person read a message. Sender gates stay off.
 
 Carson approved a default-off `ENABLE_OPEN_TRACKING_DEV_LAKE` collection-only
-mode, implemented and locally verified on the tracking branch. It records request
+mode, now deployed and inbound-verified on the existing production infrastructure. It records request
 and Cloudflare evidence in the dedicated ClickHouse `developmentOpenPixelEvent`
 table without native opens, counts, classification, computed-property updates or
 automation triggers. Known credentials/cookies and pixel capabilities stay
@@ -47,25 +48,27 @@ and structured body evidence, without normal/native events or send-row changes.
 Evidence remained readable after disabling collection. Security coverage includes
 sensitive-scope access, TTL, encrypted correlation, partial-write retries and
 cross-host erasure races. The focused legacy-lint waiver remains; no new clean
-lint claim. All databases were disposable and local; no mail, deployment or
-public resource changes occurred.
+lint claim. That local proof used disposable databases; it did not send mail,
+deploy or change public resources.
 
 Authorized live rollout uses RONIN account `2c0f822ce2342b56b3998e7981c03332`,
 zone `dittotrx.com` (`a8a65a84a6701e6d9dcc8b617e7b4659`), shared CNAME target
 `dt.dittotrx.com`, and existing app origin `https://email.roninpublishing.com`.
 Scoped account-owned tokens are stored privately outside the repository. No
-ADVERTISE resources, separate hosting or paid upgrade is authorized. Cloudflare
-resources are staged disabled pending schema/app readiness; sender workers and
+ADVERTISE resources, separate hosting or paid upgrade is authorized. Production
+Worker/backend capture and development-lake mode are enabled; sender workers and
 bootstrap remain off. Existing Google/session keys, contacts, database endpoints,
-Temporal and logging must be preserved.
+Temporal and logging were preserved. Default/local capture remains disabled.
 
 Mainline integration preserves historical `0019_newsletter_sender_domain`; the
-unshipped tracking migrations are now `0020_send_open_tracking` and
+tracking migrations are `0020_send_open_tracking` and
 `0021_development_pixel_erasure`, with unchanged SQL bytes/hashes. Fresh/restartable
 journal and empty-only teardown proofs passed. Production's three obsolete
-tracking tables and all send/infrastructure inventories were verified empty;
-private PostgreSQL/runtime backups and a read-only ClickHouse history archive
-were verified before schema execution was authorized.
+tracking tables and all send/infrastructure inventories were verified empty.
+Private PostgreSQL/runtime backups and a read-only ClickHouse history archive
+were verified before applying the four pending migrations. The journal now has
+22 entries; new migration `when` values must exceed `1795651300000`, never rewrite
+already-applied history.
 
 Live source inspection found Mimecast DoH requires exact `application/dns-json`
 and Apple's current official CSV is 12,052,078 bytes. The refresh now sends that
@@ -74,6 +77,52 @@ Accept value and permits a bounded 16 MiB Apple source (other sources retain
 oversize preservation of the previous set. The shared CNAME service host is
 excluded from capture, preventing unowned root requests from poisoning batches
 of real newsletter observations.
+
+Live deployment on 2026-11-25: PR #7 merged; GitHub deployment run `45716538775`
+successfully deployed immutable application revision
+`fe45f5fa8d4ae7eae6097e526c6d0700c0739742`. The app uses its existing PostgreSQL,
+ClickHouse and Google authentication, with capture/development-lake/provisioning
+enabled and sender-worker/bootstrap flags disabled. Verified private backups and
+paired runtime rollback files are under
+`/opt/dittofeed-backups/pre-tracking-20261125T223526Z/`.
+
+Six real inbound HTTPS requests through Cloudflare → Queue → signed API →
+ClickHouse produced six distinct development events: GET/repeat/HEAD, unknown
+token, malformed path and POST. Ordinary DNS/default trusted TLS were used from
+the existing server, without overrides or retries. Full 1,500-plus-character
+user-agent, 2,500-character custom header, encrypted IP/Cloudflare metadata,
+repeated queries and redacted structured body survived; normal/native increments
+were zero. No sends, contacts, provider accounts or memberships were created.
+
+The owned temporary probe was inside the dedicated SaaS zone. Cloudflare always
+flattens same-zone CNAME targets; its DNS-only A/AAAA path reached the originless
+fallback rather than the edge. A temporary proxied probe therefore exercised
+capture using historical verified-host eligibility while its current domain
+remained pending/unverified. This is not cross-zone DNS-only onboarding proof.
+Real newsletter base domains must be outside `dittotrx.com`, with their own
+DNS-only CNAME, ownership/certificate proofs and active readiness verification.
+The shared target itself is never a newsletter pixel origin.
+
+Actual deployed Worker version `04ec6d82-965a-461b-aeda-7142492fa0b1` passed a
+real scheduled refresh, publishing network version
+`2026-11-25T23:21:43.317Z-7281449b-6486-4839-a619-b7c56046600d` from official
+sources. The temporary minute schedule was restored to weekly `0 3 * * 1`
+and verified through the API. No local refresh adapter or HTTP probe supplied
+this proof; Proofpoint remains explicitly reference-pinned/manual-review.
+
+Before real newsletter traffic, select an alert destination and configure
+consumer-failure, DLQ and refresh-failure alerts. The notification-policy API
+returned 200 but no applicable enabled policies; external monitoring remains
+unverified. Current sender/domain gates still prevent newsletter sending.
+
+After proof, the owned custom hostname and four DNS records were removed.
+Two stable Queue/DLQ zero-backlog snapshots preceded supported scoped erasure
+of all six probe events and five temporary registry/workspace rows. Metrics are
+best-effort distributed observations, not a transactional future-traffic guarantee.
+Final runtime/image/signing checks passed; the original workspace, two contacts,
+one Google account and native-event baselines were preserved. Both tracking
+tables are empty after fixture cleanup, and no newsletter/sender resources remain.
+Private backups and sanitized deployment proof were retained.
 
 Google OIDC and application-owned accounts, explicit workspace memberships,
 roles, private invitations, and revocable sessions are implemented. The local
@@ -479,8 +528,9 @@ Preserve each canonical send's original verified origin and domain ownership.
 New sends fail closed without an active verified newsletter hostname and enabled
 tracking; no global-origin or legacy direct-send fallback remains. Shared CC/BCC
 payloads cannot identify independent readers and are rejected before queuing.
-Backend hosting and actual domains remain operator choices. No deployment,
-DNS/certificate/provider-account changes or real sends are authorized.
+The current server and shared target are selected and development capture is
+authorized. Newsletter domains remain operator choices; no ESP-account changes
+or real sends are authorized.
 
 Capture remains explicitly gated by `ENABLE_OPEN_TRACKING`; a stable private
 32-byte base64 `SECRET_KEY` is required. Newsletter-only origins use a separate
@@ -513,7 +563,7 @@ segment controls. Temporary contacts/templates/draft segment were removed.
 An actual loopback SMTP send also proved that outbound HTML contains the owned
 pixel while stored/preview HTML remains untracked; no external delivery occurred.
 
-#### Per-newsletter Cloudflare tracking: implemented locally, not deployed
+#### Per-newsletter Cloudflare tracking: deployed in collection-only mode
 
 Migration `0017_newsletter_tracking_domains` adds immutable newsletter-owned
 hostnames, explicit pending/active state, and retained domain history. Newsletter
@@ -542,19 +592,15 @@ owned synthetic preview rows were removed; the original local preview was
 restored with workers and capture disabled. This verification did not send
 email, deploy a Worker, provision provider resources, or change public DNS.
 
-An earlier request authorized public tracking deployment without sending. The
-current integration request explicitly prohibits deployment; release gates remain
-closed. The Worker is pinned to RONIN and its disabled dry-run passes.
-The current legacy CLI login belongs to ADVERTISE and cannot access RONIN.
-The separate macOS profile has an expired, unrefreshable login, and a fresh
-isolated OAuth attempt timed out before authorization. Live rollout therefore
-still requires fresh RONIN authentication, the first newsletter's actual base
-domain, the shared CNAME target and the current application server's HTTPS origin
-and relay secret. Carson subsequently selected that current server and existing
-PostgreSQL/ClickHouse databases, superseding separate capture-hosting access/budget.
-No public resources were created and neither existing shared server was changed.
+The earlier integration-only deployment prohibition and failed RONIN OAuth
+attempt are superseded by Carson's explicit live-provisioning authorization and
+isolated account-owned tokens. The shared target, SaaS zone, Worker, Queue/DLQ,
+KV, relay secret and existing backend are provisioned. No ADVERTISE login was
+replaced and no separate backend was created. Real newsletter domains still need
+explicit DNS-only onboarding outside the dedicated SaaS zone; a CNAME alone is
+not ownership, certificate or functional-routing proof.
 
-#### Queued open classification: local implementation
+#### Queued open classification: deployed code, inactive in development mode
 
 The opens-only classifier adapts `yuriyward/mail-tracker` at
 `51ea4e7551564f6ddb55b60a34754863400e9133`, with shared deterministic rules,
@@ -590,9 +636,9 @@ Queue/KV → signed HTTP batch → encrypted Postgres → ClickHouse and produce
 the expected human, Apple proxy and scanner rows,
 including delivery-age correlation. All three GIFs returned while backend
 acknowledgement was deliberately blocked. No email was sent, public resource
-created, provider configured or deployment initiated. Production still needs
-RONIN-scoped authentication, a Queue/DLQ, KV ID, cron/alerting, the current
-application server's HTTPS origin/relay secret and verified newsletter hostnames.
+created, provider configured or deployment initiated during that prototype.
+The later live collection-only rollout is recorded above; normal classification
+and sending remain inactive, and real newsletter onboarding remains operator work.
 
 Initial prototype verification before the storage cutover: 247 targeted tests passed (146 classifier/network, 22 native
 Worker, 35 capture/storage/erasure, 32 configuration, 11 HTTP API and one signed

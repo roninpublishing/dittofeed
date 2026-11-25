@@ -2,7 +2,8 @@
 
 ## Boundary and approved development cutover
 
-Opens only; no click redirects, provider changes, real sends or deployments.
+Opens only; no click redirects, ESP-provider changes or real sends. Carson later
+authorized live infrastructure deployment and collection-only capture.
 Reference: `yuriyward/mail-tracker` at `51ea4e7551564f6ddb55b60a34754863400e9133`.
 The separate Open tracking source-doc tab was not supplied. Rules below derive
 from that repository; assumptions and operator inputs are recorded here.
@@ -116,13 +117,13 @@ Gmail on-open proxies can count under the ported policy; Apple MPP, prefetch,
 scanners, self, unknown and duplicate loads do not. No late-delivery
 reclassification or verified-human denominator is invented.
 
-No credentials or public resources are needed locally. Before separately
-authorized deployment: isolated RONIN authentication, Queue/DLQ, KV/weekly cron,
-current application server's HTTPS origin, matching private 32-byte base64 relay
-key, private SECRET_KEY, verified newsletter `dt.` hostname, migrations and
-ClickHouse setup. Capture shares the existing PostgreSQL/ClickHouse databases;
-no separate backend hosting is required. This supersedes the earlier isolation
-plan, without authorizing provisioning or deployment.
+Local verification needs no credentials or public resources. The later authorized
+live deployment provisions isolated RONIN authentication, Queue/DLQ, KV/weekly
+cron, the existing application HTTPS origin, matching private 32-byte base64 relay
+key, existing private SECRET_KEY, migrations and ClickHouse setup. Capture shares
+the existing PostgreSQL/ClickHouse databases; no separate backend is required.
+Actual newsletter hostnames still require DNS-only onboarding outside the
+dedicated SaaS zone. Public capture does not authorize sending.
 The existing computed-property worker still materializes `last_opened`.
 Enable capture only after consumer readiness and failure/backlog alerting.
 Failed network refresh must alert and preserve the active set.
@@ -147,7 +148,7 @@ Encrypted evidence is available through workspace-scoped sensitive API access,
 with default 30-day expiry and serialized erasure. Unknown/invalid pixel traffic
 is retained without inventing contact identity; erased tokens cannot resurrect
 raw evidence. No PG per-hit rows. This mode uses the current application server
-and existing databases and does not authorize public provisioning/deployment.
+and existing databases; its addition alone does not authorize public deployment.
 
 Local verification passed 40 native workerd tests, 135 targeted Jest tests,
 shared/backend/API/Worker typechecks and fresh/restartable migrations. A real
@@ -155,6 +156,13 @@ Worker → Queue → signed HTTP backend → ClickHouse proof preserved six dive
 requests, full under-cap metadata/body evidence and secret redactions with zero
 native/normal tracking writes. Capture-off evidence review also passed. Only
 disposable local databases and inbound fixtures were used.
+
+## Authorized live rollout
+
+RONIN's production environment enables collection-only capture; local/default
+capture and sender workers remain disabled. See
+[Open tracking](../docs/guide/open-tracking.mdx#authorized-live-deployment) for
+deployed resources, real inbound proof and the same-zone CNAME limitation.
 
 ## Reference assumptions
 

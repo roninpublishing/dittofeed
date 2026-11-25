@@ -10,6 +10,10 @@ import {
   searchDeliveriesCount,
 } from "backend-lib/src/deliveries";
 import logger from "backend-lib/src/logger";
+import {
+  DevelopmentOpenTrackingError,
+  findDevelopmentPixelEvents,
+} from "backend-lib/src/messaging/developmentOpenTracking";
 import { getEmailOpenEvidence } from "backend-lib/src/messaging/openTracking";
 import {
   DownloadDeliveriesRequest,
@@ -23,6 +27,39 @@ import {
   SearchDeliveriesResponse,
 } from "backend-lib/src/types";
 import { FastifyInstance } from "fastify";
+import { DevelopmentPixelEvidenceSchema } from "isomorphic-lib/src/tracking/development";
+
+const DevelopmentOpenRequest = Type.Object({
+  workspaceId: Type.String({ format: "uuid" }),
+  eventId: Type.Optional(Type.String({ format: "uuid" })),
+  userId: Type.Optional(Type.String({ minLength: 1 })),
+  messageId: Type.Optional(Type.String({ minLength: 1 })),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+  before: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
+}, { additionalProperties: false });
+
+const DevelopmentOpenResponse = Type.Object({
+  events: Type.Array(Type.Object({
+    eventId: Type.String(),
+    workspaceId: Type.String(),
+    hostname: Type.String(),
+    sendId: Type.Union([Type.String(), Type.Null()]),
+    userId: Type.Union([Type.String(), Type.Null()]),
+    messageId: Type.Union([Type.String(), Type.Null()]),
+    status: Type.Union([
+      Type.Literal("matched"), Type.Literal("unmatched"), Type.Literal("invalid"),
+    ]),
+    method: Type.String(),
+    occurredAt: Type.String(),
+    receivedAt: Type.String(),
+    rawExpiresAt: Type.String(),
+    ip: Type.Union([Type.String(), Type.Null()]),
+    userAgent: Type.Union([Type.String(), Type.Null()]),
+    requestHash: Type.String(),
+    evidence: Type.Union([DevelopmentPixelEvidenceSchema, Type.Null()]),
+  }, { additionalProperties: false })),
+  nextCursor: Type.Optional(Type.String()),
+}, { additionalProperties: false });
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export default async function deliveriesController(fastify: FastifyInstance) {
@@ -97,6 +134,38 @@ export default async function deliveriesController(fastify: FastifyInstance) {
       if (!evidence)
         return reply.status(404).send({ message: "Open evidence not found" });
       return reply.status(200).send({ ...request.body, evidence });
+    },
+  );
+
+  fastify.withTypeProvider<TypeBoxTypeProvider>().post(
+    "/development-opens",
+    {
+      logLevel: "silent",
+      onRequest(_request, reply, done) {
+        void reply.header("Cache-Control", "private, no-store");
+        done();
+      },
+      schema: {
+        description:
+          "Scoped retained development pixel evidence; never native open engagement.",
+        tags: ["Deliveries"],
+        body: DevelopmentOpenRequest,
+        response: {
+          200: DevelopmentOpenResponse,
+          400: Type.Object({ message: Type.String() }),
+          503: Type.Object({ message: Type.String() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.status(200).send(await findDevelopmentPixelEvents(request.body));
+      } catch (error) {
+        if (error instanceof DevelopmentOpenTrackingError && error.status === 400)
+          return reply.status(400).send({ message: "Invalid development evidence query" });
+        logger().error("Unable to read development open evidence");
+        return reply.status(503).send({ message: "Development evidence unavailable" });
+      }
     },
   );
 

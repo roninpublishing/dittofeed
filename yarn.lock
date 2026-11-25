@@ -22340,6 +22340,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"isbot@npm:5.1.32":
+  version: 5.1.32
+  resolution: "isbot@npm:5.1.32"
+  checksum: 10/a27816c079797273fc33e3aad180f89cda50a6d2265f583fa13389198f5faecb2a19f3cb6e92b0200072f49248e3a3e6856ec6416223ef824aa12adc67ae65e5
+  languageName: node
+  linkType: hard
+
 "isexe@npm:^2.0.0":
   version: 2.0.0
   resolution: "isexe@npm:2.0.0"
@@ -22370,6 +22377,7 @@ __metadata:
     eslint-plugin-react: "npm:^7.32.2"
     eslint-plugin-react-hooks: "npm:^4.6.0"
     eslint-plugin-simple-import-sort: "npm:^10.0.0"
+    isbot: "npm:5.1.32"
     jest: "npm:^29.4.0"
     jest-expect-message: "npm:^1.1.3"
     json-bigint: "npm:^1.0.0"
@@ -30844,6 +30852,7 @@ __metadata:
   dependencies:
     "@cloudflare/workers-types": "npm:4.20251109.0"
     esbuild: "npm:0.25.4"
+    isomorphic-lib: "workspace:*"
     miniflare: "npm:4.20251109.0"
     typescript: "npm:5.6.3"
     wrangler: "npm:4.47.0"

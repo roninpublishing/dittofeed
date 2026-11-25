@@ -13,9 +13,11 @@ import {
 } from "drizzle-orm";
 import { SourceType } from "isomorphic-lib/src/constants";
 import { err, ok } from "neverthrow";
+import addressparser from "nodemailer/lib/addressparser";
 import { v5 as uuidv5 } from "uuid";
 
 import { submitBatch } from "./apps/batch";
+import config from "./config";
 import { db, Db } from "./db";
 import { broadcast, journey, workspace } from "./db/schema";
 import {
@@ -40,6 +42,8 @@ import {
   verifyPinnedNewsletterSelection,
 } from "./newsletterInfrastructure";
 import { decrypt, encrypt } from "./secrets";
+import { OPEN_TRACKING_PIXEL_PATH, prepareEmailOpenTracking } from "./messaging/openTracking";
+import { DEVELOPMENT_PIXEL_ERASURE_LOCK, eraseDevelopmentPixelEvents } from "./messaging/developmentOpenTracking";
 import {
   newsletterContactHash,
   upsertNewsletterConsent,
@@ -108,6 +112,52 @@ function unpack<T>(value: NonNullable<Send["encryptedPayload"]>): T {
   if (!text) throw new NewsletterDeliveryError();
   return JSON.parse(text) as T;
 }
+function singleMailbox(value: MailDataRequired["to"]): string {
+  const recipient = Array.isArray(value) && value.length === 1 ? value[0] : value;
+  const text = typeof recipient === "string"
+    ? recipient
+    : recipient && !Array.isArray(recipient) ? recipient.email : undefined;
+  if (!text || /[\r\n\0]/.test(text)) throw new NewsletterDeliveryError("Email requires a valid single To recipient");
+  const addresses = addressparser(text, { flatten: true });
+  const mailbox = addresses.length === 1 ? addresses[0]?.address : undefined;
+  if (!mailbox || mailbox.length > 254 || !/^[^\s@<>;,]+@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/i.test(mailbox))
+    throw new NewsletterDeliveryError("Email requires a valid single To recipient");
+  return mailbox;
+}
+function requireSingleRecipient(mailData: MailDataRequired, recipients: readonly string[]): void {
+  if ((Array.isArray(mailData.cc) ? mailData.cc.length > 0 : !!mailData.cc) ||
+      (Array.isArray(mailData.bcc) ? mailData.bcc.length > 0 : !!mailData.bcc) ||
+      mailData.personalizations !== undefined || mailData.isMultiple ||
+      mailData.templateId !== undefined || mailData.dynamicTemplateData !== undefined ||
+      mailData.content !== undefined || mailData.mailSettings?.bcc?.enable ||
+      Object.keys(mailData.headers ?? {}).some((key) => /^(to|cc|bcc)$/i.test(key)) ||
+      recipients.length !== 1 ||
+      singleMailbox(mailData.to).toLowerCase() !== singleMailbox(recipients[0]).toLowerCase())
+    throw new NewsletterDeliveryError("Email requires one recipient without CC, BCC or provider personalizations");
+  if (typeof mailData.html !== "string")
+    throw new NewsletterDeliveryError("Email requires an HTML body for open tracking");
+}
+function openTrackingReady(row: Send, envelope: Envelope): boolean {
+  const settings = config();
+  if (!settings.enableOpenTracking || !settings.secretKey ||
+      Buffer.from(settings.secretKey, "base64").length !== 32 ||
+      !row.openTrackingTokenHash || !row.encryptedOpenTrackingToken || !row.openTrackingOrigin)
+    return false;
+  try {
+    requireSingleRecipient(envelope.mailData, envelope.recipients);
+    const plaintext = decrypt(row.encryptedOpenTrackingToken);
+    if (!plaintext) return false;
+    const token = JSON.parse(plaintext) as { id?: unknown; token?: unknown };
+    return token.id === row.id && typeof token.token === "string" &&
+      /^[A-Za-z0-9_-]{43}$/.test(token.token) &&
+      createHash("sha256").update(token.token).digest("hex") === row.openTrackingTokenHash &&
+      envelope.mailData.html?.includes(
+        `${row.openTrackingOrigin}${OPEN_TRACKING_PIXEL_PATH.replace(":token", token.token)}`,
+      ) === true;
+  } catch {
+    return false;
+  }
+}
 async function barrier(tx: Tx, workspaceId: string): Promise<void> {
   await tx.execute(
     sql`select pg_advisory_xact_lock_shared(hashtextextended(${workspaceId}, 0))`,
@@ -126,7 +176,7 @@ async function publisherBarrier(
   );
 }
 
-/** null means legacy, not an invitation to fall back after an opted-in error. */
+/** Only registered newsletters can queue tracked recipient sends. */
 export async function getNewsletterEmailContext(
   workspaceId: string,
 ): Promise<NewsletterEmailContext | null> {
@@ -512,7 +562,7 @@ async function eligible(
   return "ready";
 }
 
-export async function sendNewsletterEmail(input: {
+export interface NewsletterEmailInput {
   workspaceId: string;
   publisherId: string;
   userId: string;
@@ -524,10 +574,17 @@ export async function sendNewsletterEmail(input: {
   tags?: MessageTags;
   subscriptionGroupId?: string;
   espSelection?: EspSelection | null;
-}): Promise<BackendMessageSendResult> {
+}
+
+export async function sendNewsletterEmail(input: NewsletterEmailInput): Promise<BackendMessageSendResult> {
   try {
+    requireSingleRecipient(input.mailData, input.recipients);
+    const mailbox = singleMailbox(input.mailData.to);
     const id = await db().transaction(async (tx) => {
       await barrier(tx, input.workspaceId);
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${JSON.stringify(["newsletter-send", input.workspaceId, input.logicalMessageId])}, 0))`,
+      );
       const [deleted] = await tx
         .select()
         .from(newsletterErasure)
@@ -556,7 +613,7 @@ export async function sendNewsletterEmail(input: {
         if (
           prior.publisherId !== input.publisherId ||
           prior.userId !== input.userId ||
-          prior.mailboxHash !== newsletterMailboxHash(input.recipients[0] ?? "")
+          prior.mailboxHash !== newsletterMailboxHash(mailbox)
         )
           throw new NewsletterDeliveryError("Send identity conflict");
         return prior.id;
@@ -597,10 +654,16 @@ export async function sendNewsletterEmail(input: {
           "Sender is not authorized for this connection",
         );
       const sendId = randomUUID();
+      const tracking = await prepareEmailOpenTracking({
+        sendId,
+        workspaceId: input.workspaceId,
+        html: input.mailData.html as string,
+      }, tx);
       // The caller cannot smuggle an IP pool into automatic selection.
       const { ipPoolName: _callerPool, ...renderedMailData } = input.mailData;
       const mailData: MailDataRequired = {
         ...renderedMailData,
+        html: tracking.html,
         ...(providerPoolName ? { ipPoolName: providerPoolName } : {}),
         customArgs: { ...input.mailData.customArgs, newsletterSendId: sendId },
         headers: { ...input.mailData.headers, "X-Message-ID": sendId },
@@ -615,7 +678,7 @@ export async function sendNewsletterEmail(input: {
           userId: input.userId,
           messageId: input.logicalMessageId,
         },
-        recipients: input.recipients,
+        recipients: [mailbox],
         subscriptionGroupId:
           input.subscriptionGroupId ??
           publication.subscriptionGroupId ??
@@ -642,14 +705,17 @@ export async function sendNewsletterEmail(input: {
           userId: input.userId,
           broadcastId: input.tags?.broadcastId,
           journeyId: input.tags?.journeyId,
-          mailboxHash: newsletterMailboxHash(input.recipients[0] ?? ""),
+          mailboxHash: newsletterMailboxHash(mailbox),
           senderDomain,
-          encryptedRecipient: encrypt(JSON.stringify(input.recipients)),
+          encryptedRecipient: encrypt(JSON.stringify([mailbox])),
           encryptedPayload: encrypt(payload),
           encryptedCredential: connection.encryptedApiKey,
+          openTrackingTokenHash: tracking.openTrackingTokenHash,
+          encryptedOpenTrackingToken: tracking.encryptedOpenTrackingToken,
+          openTrackingOrigin: tracking.openTrackingOrigin,
           payloadHash: createHash("sha256").update(payload).digest("hex"),
           state: "queued",
-          recipientCount: input.recipients.length,
+          recipientCount: 1,
           expiresAt: new Date(Date.now() + 86_400_000),
         })
         .onConflictDoNothing({
@@ -671,7 +737,7 @@ export async function sendNewsletterEmail(input: {
         !winner ||
         winner.publisherId !== input.publisherId ||
         winner.userId !== input.userId ||
-        winner.mailboxHash !== newsletterMailboxHash(input.recipients[0] ?? "")
+        winner.mailboxHash !== newsletterMailboxHash(mailbox)
       )
         throw new NewsletterDeliveryError("Send identity conflict");
       return winner.id;
@@ -741,6 +807,14 @@ async function attemptNewsletterSend(id: string): Promise<void> {
       .for("update", { skipLocked: true });
     if (!row || !row.encryptedPayload || !row.encryptedCredential) return false;
     const envelope = unpack<Envelope>(row.encryptedPayload);
+    if (!openTrackingReady(row, envelope)) {
+      await tx.update(newsletterSend).set({
+        error: "Open tracking unavailable",
+        nextAttemptAt: new Date(Date.now() + 60_000),
+        updatedAt: new Date(),
+      }).where(eq(newsletterSend.id, id));
+      return false;
+    }
     const now = new Date();
     const status = await eligible(row, envelope);
     if (
@@ -850,6 +924,15 @@ async function attemptNewsletterSend(id: string): Promise<void> {
       .for("update");
     if (!row || !row.encryptedPayload || !row.encryptedCredential) return;
     const envelope = unpack<Envelope>(row.encryptedPayload);
+    if (!openTrackingReady(row, envelope)) {
+      await tx.update(newsletterSend).set({
+        state: "queued",
+        error: "Open tracking unavailable",
+        nextAttemptAt: new Date(Date.now() + 60_000),
+        updatedAt: new Date(),
+      }).where(eq(newsletterSend.id, id));
+      return;
+    }
     const [account] = await tx
       .select()
       .from(publisherSendgridAccount)
@@ -1794,6 +1877,7 @@ export async function deleteNewsletterDeliveryData(input: {
 }): Promise<void> {
   if (input.userIds && !input.userIds.length) return;
   await db().transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${DEVELOPMENT_PIXEL_ERASURE_LOCK}, 1))`);
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtextextended(${input.workspaceId}, 0))`,
     );
@@ -1802,6 +1886,7 @@ export async function deleteNewsletterDeliveryData(input: {
       .from(newsletter)
       .where(eq(newsletter.workspaceId, input.workspaceId));
     if (!publication) return;
+    await eraseDevelopmentPixelEvents(tx, input.workspaceId, input.userIds);
     if (input.userIds)
       for (let offset = 0; offset < input.userIds.length; offset += 500)
         await tx
@@ -1905,6 +1990,9 @@ export async function deleteNewsletterDeliveryData(input: {
             encryptedPayload: null,
             encryptedRecipient: null,
             encryptedCredential: null,
+            openTrackingTokenHash: null,
+            encryptedOpenTrackingToken: null,
+            openTrackingOrigin: null,
             state: "suppressed",
             error: "Erased",
             erasedAt: new Date(),

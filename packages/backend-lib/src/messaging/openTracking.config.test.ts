@@ -12,9 +12,10 @@ function isolatedConfig(overrides: Record<string, string> = {}): Config {
   const previous = process.env;
   process.env = { ...previous };
   delete process.env.ENABLE_OPEN_TRACKING;
-  delete process.env.OPEN_TRACKING_BASE_URL;
+  delete process.env.ENABLE_OPEN_TRACKING_DEV_LAKE;
   delete process.env.OPEN_TRACKING_RETENTION_DAYS;
   delete process.env.OPEN_TRACKING_RELAY_SECRET;
+  delete process.env.OPEN_TRACKING_SELF_IPS;
   Object.assign(process.env, overrides);
   process.env.SECRET_KEY = overrides.SECRET_KEY ?? Buffer.alloc(32, 7).toString("base64");
   let settings: Config | undefined;
@@ -30,26 +31,35 @@ function isolatedConfig(overrides: Record<string, string> = {}): Config {
 }
 
 describe("owned open tracking configuration", () => {
-  it("defaults to disabled without inventing a public URL and retains evidence for 30 days", () => {
-    expect(isolatedConfig()).toMatchObject({ enableOpenTracking: false, openTrackingRetentionDays: 30 });
-    expect(isolatedConfig().openTrackingBaseUrl).toBeUndefined();
+  it("defaults to disabled and retains evidence for 30 days", () => {
+    expect(isolatedConfig()).toMatchObject({ enableOpenTracking: false, enableOpenTrackingDevLake: false, openTrackingRetentionDays: 30 });
   });
 
-  it("requires deliberate enablement as well as a configured public URL", () => {
-    expect(isolatedConfig({ OPEN_TRACKING_BASE_URL: "https://pixels.example.com" }).enableOpenTracking).toBe(false);
+  it("requires deliberate enablement and an authenticated relay key", () => {
+    const relay = Buffer.alloc(32, 9).toString("base64");
+    expect(isolatedConfig({ OPEN_TRACKING_RELAY_SECRET: relay }).enableOpenTracking).toBe(false);
     expect(() => isolatedConfig({ ENABLE_OPEN_TRACKING: "true" })).toThrow();
-    expect(isolatedConfig({ ENABLE_OPEN_TRACKING: "true", OPEN_TRACKING_BASE_URL: "https://pixels.example.com/" }))
-      .toMatchObject({ enableOpenTracking: true, openTrackingBaseUrl: "https://pixels.example.com" });
+    expect(isolatedConfig({ ENABLE_OPEN_TRACKING: "true", OPEN_TRACKING_RELAY_SECRET: relay }).enableOpenTracking).toBe(true);
   });
 
-  it("allows newsletter-only origins with an explicit relay key instead of a fabricated shared hostname", () => {
-    const settings = isolatedConfig({
-      ENABLE_OPEN_TRACKING: "true",
-      OPEN_TRACKING_RELAY_SECRET: Buffer.alloc(32, 9).toString("base64"),
+  it("requires explicit capture enablement before the isolated development lake can collect", () => {
+    const relay = Buffer.alloc(32, 9).toString("base64");
+    expect(() => isolatedConfig({ ENABLE_OPEN_TRACKING_DEV_LAKE: "true" }))
+      .toThrow("ENABLE_OPEN_TRACKING_DEV_LAKE requires ENABLE_OPEN_TRACKING.");
+    const enabled = isolatedConfig({
+      ENABLE_OPEN_TRACKING: "true", ENABLE_OPEN_TRACKING_DEV_LAKE: "true",
+      OPEN_TRACKING_RELAY_SECRET: relay,
     });
-    expect(settings.enableOpenTracking).toBe(true);
-    expect(settings.openTrackingBaseUrl).toBeUndefined();
+    expect(enabled).toMatchObject({ enableOpenTracking: true, enableOpenTrackingDevLake: true });
+    expect(isolatedConfig({
+      ENABLE_OPEN_TRACKING: "true", ENABLE_OPEN_TRACKING_DEV_LAKE: "false",
+      OPEN_TRACKING_RELAY_SECRET: relay,
+    }).enableOpenTrackingDevLake).toBe(false);
+    expect(() => isolatedConfig({
+      ENABLE_OPEN_TRACKING: "true", ENABLE_OPEN_TRACKING_DEV_LAKE: "true",
+    })).toThrow("Enabling open tracking requires OPEN_TRACKING_RELAY_SECRET.");
   });
+
 
   it.each(["malformed", Buffer.alloc(16, 9).toString("base64")])(
     "refuses an explicitly invalid relay key",
@@ -62,30 +72,33 @@ describe("owned open tracking configuration", () => {
     "refuses capture with a missing or invalid encryption key",
     (key) => {
       expect(() => isolatedConfig({
-        ENABLE_OPEN_TRACKING: "true", OPEN_TRACKING_BASE_URL: "https://pixels.example.com",
+        ENABLE_OPEN_TRACKING: "true", OPEN_TRACKING_RELAY_SECRET: Buffer.alloc(32, 9).toString("base64"),
         SECRET_KEY: key,
       })).toThrow("Enabling open tracking requires an explicit 32-byte base64 SECRET_KEY.");
     },
   );
 
-  it.each([
-    "http://localhost:3000", "http://127.0.0.1:3000", "http://127.0.0.2:3000", "http://[::1]:3000",
-  ])("permits explicit HTTP only for loopback: %s", (url) => {
-    expect(isolatedConfig({ ENABLE_OPEN_TRACKING: "true", OPEN_TRACKING_BASE_URL: url }).openTrackingBaseUrl).toBe(url);
-  });
-
-  it.each([
-    "http://pixels.example.com", "https://user:credential-secret@pixels.example.com",
-    "https://pixels.example.com?token=query-secret", "https://pixels.example.com/#fragment-secret",
-    "https://pixels.example.com/prefix", "not-a-url", "file:///private/path",
-    "http://localhost.example.com", "http://192.168.1.10:3000",
-  ])("rejects unsafe/non-origin URLs without echoing supplied secrets: %s", (url) => {
-    expect(() => isolatedConfig({ ENABLE_OPEN_TRACKING: "true", OPEN_TRACKING_BASE_URL: url }))
-      .toThrow("OPEN_TRACKING_BASE_URL must be an HTTPS origin (HTTP is allowed only on loopback).");
-  });
 
   it.each(["1", "2", "30", "365"])("accepts bounded whole-day retention: %s", (days) => {
     expect(isolatedConfig({ OPEN_TRACKING_RETENTION_DAYS: days }).openTrackingRetentionDays).toBe(Number(days));
+  });
+
+  it("accepts only explicit staff IPv4 and IPv6 addresses without guessing identities", () => {
+    expect(isolatedConfig().openTrackingSelfIps).toEqual([]);
+    expect(
+      isolatedConfig({ OPEN_TRACKING_SELF_IPS: "192.0.2.8, 2001:db8::8" })
+        .openTrackingSelfIps,
+    ).toEqual(["192.0.2.8", "2001:db8::8"]);
+    for (const value of [
+      "private-host.invalid",
+      "192.0.2.8/24",
+      "192.0.2.8,",
+      Array(257).fill("192.0.2.8").join(","),
+    ]) {
+      expect(() => isolatedConfig({ OPEN_TRACKING_SELF_IPS: value })).toThrow(
+        "OPEN_TRACKING_SELF_IPS must contain at most 256 comma-separated IP addresses.",
+      );
+    }
   });
 
   it.each(["0", "-1", "1.5", "366", "Infinity", "999999"])("rejects unbounded or invalid retention: %s", (days) => {

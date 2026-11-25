@@ -1632,12 +1632,48 @@ as the production connection source.
 - The approved UI build above now specifies workspace-level Overview, Newsletters,
   ESP accounts, IPs, IP pools, Subscribers, Reports and Settings in the left sidebar,
   plus account detail sections and shared workspace/account infrastructure views.
-  Those new screens and the map remain planned, not implemented.
+  Those screens and the static organization diagram are now implemented and deployed;
+  the release record below supersedes this initial route-cutover checkpoint.
 - Lite compilation and the optimized dashboard build passed. All 29 isolated
   navigation/Google-authorization tests passed without database setup or teardown.
   The real authenticated local browser verified the renamed page, all four existing
   sidebar views, home redirection and the retired route's 404.
-- Current guarded local preview is `dist/workspace-dashboard-preview`, served by
-  combined Lite on localhost:3000. Dev Neon/ClickHouse/Temporal are verified;
-  workers/bootstrap/tracking remain off. No production deployment, provider
-  mutation or email send occurred.
+- At the route-cutover checkpoint, combined Lite used
+  `dist/workspace-dashboard-preview` with development Neon/ClickHouse/Temporal.
+  Workers, bootstrap and tracking stayed off; no production operation occurred
+  during that earlier checkpoint.
+
+## Workspace production release: 2026-11-25
+
+- Live application: `https://email.roninpublishing.com`, revision
+  `fe45f5fa8d4ae7eae6097e526c6d0700c0739742`, image
+  `sha256:1a8d41799bbb28a80b3142341dd7531b34675cd1ecf3295a62df6d389c97f5c8`.
+  Its complete source tree is identical to integrated main release
+  `905494c22e944ba68d5d7b161f01ad4d1ddaa43e`
+  (`f2ded9e270e0dadcc627086c1972f042e57015f9`).
+- The concurrent tracking rollout applied migrations through `0021` and retired
+  the empty legacy tracking tables. Integrated its committed compatible code;
+  verified all 22 production migration hashes/timestamps against the release.
+  Our guarded migration attempt refused the changed journal and rolled back
+  without applying anything. Neither historical migrations nor live records
+  were reverted to accommodate the older application.
+- Private PostgreSQL backup:
+  `/opt/dittofeed-backups/pre-workspace-08014323-20261125T224520Z`
+  (192,787 bytes; `pg_restore --list` passed). The original runtime and Compose
+  contract are retained there with restricted permissions.
+- Public and loopback API health return the active revision. Actual authenticated
+  browser checks verified the new branding/workspace route and both existing
+  contacts. Production's existing `Default` workspace still needs its explicit
+  **Set up workspace** action before the organization dashboard is populated.
+  No development demo records, new workspaces, newsletters or ESP accounts were
+  created in production by this rollout.
+- Sender workers and all bootstrap flags remain false. The separately authorized
+  tracking rollout enabled normal capture, development-lake mode and Cloudflare
+  provisioning; this is not authorization or evidence of email sending.
+  Temporal remains `ditto.lrwcc`, with the existing production ClickHouse host.
+  OpenTelemetry and the collector destination are present; `json-file` logging
+  remains bounded to 10m × 3. No new sending or provider-account operation occurred.
+- The production SMS preflight passed: zero legacy resources and zero legacy
+  inputs among two running workflows. Cancelled duplicate workflow `45716611846`
+  before its deploy step because the identical application was already live.
+  Its cancellation is not a failure of the active production release.

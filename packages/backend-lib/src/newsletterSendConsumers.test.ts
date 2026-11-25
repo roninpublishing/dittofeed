@@ -179,7 +179,7 @@ describe("newsletter send consumers", () => {
     expect(legacyProvider).not.toHaveBeenCalled();
   });
 
-  it("preserves native provider overrides outside managed newsletters", async () => {
+  it("rejects actual non-newsletter sends without consulting native provider settings", async () => {
     jest.mocked(getNewsletterEmailContext).mockResolvedValue(null);
     legacyProvider.mockResolvedValue({
       type: EmailProviderType.Test,
@@ -193,11 +193,11 @@ describe("newsletter send consumers", () => {
       providerOverride: EmailProviderType.Test,
       messageTags: { messageId: "native-message" },
     });
-    expect(result._unsafeUnwrap()).toMatchObject({
-      type: InternalEventType.MessageSent,
-      variant: { provider: { type: EmailProviderType.Test } },
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      type: InternalEventType.BadWorkspaceConfiguration,
+      variant: { message: "Email sending requires a newsletter and tracked recipient send" },
     });
-    expect(legacyProvider).toHaveBeenCalledTimes(1);
+    expect(legacyProvider).not.toHaveBeenCalled();
     expect(sendNewsletterEmail).not.toHaveBeenCalled();
   });
 

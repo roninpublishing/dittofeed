@@ -1,0 +1,19 @@
+Tracking classifier and network primitives are adapted from yuriyward/mail-tracker:
+https://github.com/yuriyward/mail-tracker
+Commit: 51ea4e7551564f6ddb55b60a34754863400e9133
+
+Adapted source: src/classify.ts, src/gmail-proxy.ts, src/ip-key.ts,
+src/ip.ts, src/networks.ts, and relevant src/__tests__ fixtures.
+networkSnapshot.json is the unmodified reference src/networks.json snapshot, generated
+2026-11-11T11:00:09.555Z. Official range sources are retained in networks.ts.
+
+The supplied reference commit has no LICENSE, NOTICE or COPYING file and no
+package license declaration. No license grant or copyright statement is
+invented here. Reuse is authorized by the project owner's implementation brief.
+The repository's existing license and copyright notices remain unchanged.
+
+Adaptations: expanded proxy classes, provider-delivery-relative Gmail prefetch,
+nullable delivery age, fixed rules version, duplicate counting suppression,
+isbot supplement, normalized self-IP comparisons, malformed IPv6 rejection,
+and Jest tests. isbot is a separately installed dependency; its own package
+license and notices apply.

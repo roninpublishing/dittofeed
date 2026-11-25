@@ -57,7 +57,8 @@ export function classifyApiOperation(
   if (
     isApiCredentialAdministration(normalizedPath) ||
     isTrackingDomainAdministration(normalizedMethod, normalizedPath) ||
-    normalizedPath === "/api/deliveries/opens/evidence"
+    normalizedPath === "/api/deliveries/opens/evidence" ||
+    normalizedPath === "/api/deliveries/development-opens"
   ) {
     return "sensitive";
   }

@@ -20,12 +20,24 @@ Unchecked items are planned work; checked items must reflect verified changes.
   A CNAME alone is not certificate/ownership verification. Keep capture and
   Cloudflare provisioning default-off, preserve old send origins/domain ownership,
   and never fall back to another newsletter/global host for an unverified newsletter.
-  Backend hosting and actual domains remain operator choices. Do not provision
-  public resources or change provider accounts without explicit authorization.
+  Actual domains remain operator choices. Do not provision public resources,
+  deploy, or change provider accounts without explicit authorization.
   Cloudflare deployments must target RONIN account
   `2c0f822ce2342b56b3998e7981c03332`, never ADVERTISE. Use isolated RONIN
   authentication; do not overwrite another project's Cloudflare login. Carson
-  selected a dedicated capture backend, not either existing shared server.
+  selected the current application server and existing PostgreSQL/ClickHouse
+  databases for capture; this supersedes the earlier dedicated-hosting plan.
+  The shared Worker queues signed batches to that server's capture API.
+  Keep its origin outside tracking Worker routes to prevent forwarding loops.
+  Carson confirmed no mail has shipped in the development tracking cutover.
+  Do not preserve old generic direct-send paths or PG tracking receipt/mapping
+  tables for compatibility. Migration 0020 must refuse nonempty legacy tables;
+  never discard live data or rewrite historical migrations.
+  Carson authorized RONIN Cloudflare SaaS/Worker/Queue/KV provisioning for shared
+  target `dt.dittotrx.com` and development-only capture on the existing
+  `https://email.roninpublishing.com` server. Keep sender workers and bootstrap
+  disabled; this does not authorize email sends, provider-account changes, new
+  hosting or paid plan upgrades. Preserve unrelated account/zone resources.
 
 - SMS runtime is removed. Do not reintroduce SMS, Twilio, or SignalWire sending;
   Hermes owns SMS. Preserve historical data/migrations and run the read-only
@@ -58,7 +70,8 @@ Unchecked items are planned work; checked items must reflect verified changes.
   can count; this is not qualified human engagement. Reuse the native registry.
 - `last_opened` is also a protected OBSERVED event-time maximum, not a qualified
   human-open property. Preserve per-send history and source identity; never infer
-  opens from clicks. Bot/human classification remains planned.
+  opens from clicks. Versioned heuristics are separate; calibrated human-open
+  qualification remains planned.
 - URL attribution is opt-in: never append or replace `subscriber_email`
   automatically. Reuse Liquid: `{{subscriber_email}}` is the URL-encoded resolved
   single To mailbox (honor custom identifierKey in sends and previews).
@@ -68,11 +81,27 @@ Unchecked items are planned work; checked items must reflect verified changes.
   contact values as template code. URLs without tokens stay unchanged.
   Explicit tokens may disclose the primary recipient in shared/forwarded copies;
   hashes are not anonymization, authentication, or verified identity.
-- Optional owned open pixels use opaque per-send tokens and encrypted, bounded
-  request evidence. Require explicit public origin and private SECRET_KEY; keep
-  raw headers/IPs out of native events and general logs. HEAD is raw-only.
-  Preserve 30-day default retention, scoped access, and erasure serialization/
-  hash-only barriers. Provider callbacks are not original browser requests.
+- Every outbound recipient email uses the canonical NewsletterSend row's opaque
+  token hash, encrypted token and original tracking origin; no extra mapping row.
+  Legacy direct dispatch and shared CC/BCC/multiple-To payloads fail explicitly
+  instead of sending without independent tracking. Previews/stored HTML stay
+  untracked. Actual sending requires tracking readiness; rollout remains off.
+  Pixel hits go Worker → Queue → signed backend batches → ClickHouse, never a
+  PostgreSQL per-hit receipt/outbox. Every valid GET/HEAD load is recorded,
+  including repeat/scanner hits; transport retries retain event IDs. HEAD is
+  classified but never a native open. Keep bounded raw evidence encrypted,
+  30-day default retention, scoped access, existing erasure barriers and
+  synchronous deletion. Never copy raw headers/IPs into native events/logs.
+  Provider callbacks are separate evidence, not original browser requests.
+- `ENABLE_OPEN_TRACKING_DEV_LAKE` is a separate default-off development toggle
+  on both Worker and backend. When enabled, pixel requests go only to ClickHouse
+  `developmentOpenPixelEvent`, never native opens, normal `trackingEvent`, computed
+  properties, segments or automations. Preserve normal capture when disabled.
+  Capture all available request/Cloudflare metadata, including non-allowlisted
+  headers, with known credentials/cookies and bearer pixel capabilities redacted.
+  Encrypt raw evidence; mark every truncation/unavailable field. Retain bounded
+  transport, expiry, sensitive-scope access and erasure barriers even in development.
+  Do not enable deployment/capture/sends merely by adding this optional mode.
 - Never equate a pixel load, Apple privacy-proxy request, or a 10-minute delay with
   a verified human open. Keep raw evidence available for revised classification.
 - Tracking data can contain PII. Do not log secrets or blindly dump credentials,

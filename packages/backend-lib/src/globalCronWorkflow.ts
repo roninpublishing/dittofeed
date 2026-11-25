@@ -6,7 +6,7 @@ const { emitGlobalSignals } = proxyActivities<typeof activities>({
   startToCloseTimeout: "5 minutes",
 });
 
-const { drainTelnyxEmailEvents, drainEmailOpenEvents } = proxyActivities<typeof activities>({
+const { drainTelnyxEmailEvents } = proxyActivities<typeof activities>({
   // One ingestion call can use the existing 180-second ClickHouse timeout.
   startToCloseTimeout: "5 minutes",
   scheduleToCloseTimeout: "15 minutes",
@@ -33,9 +33,6 @@ export async function globalCronWorkflow() {
   await emitGlobalSignals();
   if (patched("telnyx-email-events-v1")) {
     await drainTelnyxEmailEvents();
-  }
-  if (patched("email-open-events-v1")) {
-    await drainEmailOpenEvents();
   }
   if (patched("ronin-publication-workers-v1")) {
     // Apply suppression receipts before admitting queued mail or coordinating subscribers.

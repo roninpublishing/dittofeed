@@ -1,5 +1,6 @@
 import axios from "axios";
 import { randomUUID } from "crypto";
+import { err, ok } from "neverthrow";
 import { SecretNames } from "isomorphic-lib/src/constants";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import {
@@ -8,18 +9,14 @@ import {
   Base64EncodedFile,
   ParsedWebhookBody,
   WebhookTemplateResource,
-  WorkspaceTypeAppEnum,
 } from "isomorphic-lib/src/types";
 
 import config from "./config";
-import { db, insert } from "./db";
+import { insert } from "./db";
 import { getStoredEmailForViewInBrowser } from "./viewInBrowser";
 import {
-  defaultEmailProvider as dbDefaultEmailProvider,
-  emailProvider as dbEmailProvider,
   messageTemplate as dbMessageTemplate,
   secret as dbSecret,
-  subscriptionGroup as dbSubscriptionGroup,
   userProperty as dbUserProperty,
   workspace as dbWorkspace,
 } from "./db/schema";
@@ -28,8 +25,13 @@ import {
   sendEmail,
   sendWebhook,
   upsertMessageTemplate,
+  SendMessageParametersEmail,
 } from "./messaging";
 import { upsertEmailProvider } from "./messaging/email";
+import * as newsletterDelivery from "./newsletterDelivery";
+import { NewsletterEmailInput } from "./newsletterDelivery";
+import { ResolvedNewsletterSelection } from "./newsletterInfrastructure";
+import * as newsletterInfrastructure from "./newsletterInfrastructure";
 import {
   upsertSubscriptionGroup,
   upsertSubscriptionSecret,
@@ -37,6 +39,7 @@ import {
 import {
   BatchMessageUsersResultTypeEnum,
   ChannelType,
+  BackendMessageSendResult,
   EmailContentsType,
   EmailProviderType,
   EmailProviderTypeSchema,
@@ -97,6 +100,18 @@ async function setupEmailTemplate(workspace: Workspace) {
 describe("messaging", () => {
   let workspace: Workspace;
 
+  let queue: jest.SpyInstance<Promise<BackendMessageSendResult>, [NewsletterEmailInput]>;
+
+  async function renderQueuedEmail(input: Omit<SendMessageParametersEmail, "channel">) {
+    const result = await sendEmail(input);
+    if (result.isErr()) return err(result.error);
+    expect(result.value.type).toBe(InternalEventType.MessageQueued);
+    const queued = queue.mock.lastCall?.[0];
+    if (!queued) throw new Error("Expected a newsletter queue request");
+    return ok(queued.success);
+  }
+
+  afterEach(() => jest.restoreAllMocks());
   beforeEach(async () => {
     workspace = unwrap(
       await insert({
@@ -109,10 +124,23 @@ describe("messaging", () => {
         },
       }),
     );
+    jest.spyOn(newsletterDelivery, "getNewsletterEmailContext").mockResolvedValue({
+      publisherId: randomUUID(),
+    });
+    queue = jest.spyOn(newsletterDelivery, "sendNewsletterEmail")
+      .mockResolvedValue(ok({
+        type: InternalEventType.MessageQueued,
+        sendId: randomUUID(),
+        state: "queued",
+        nextAttemptAt: new Date().toISOString(),
+      }));
+    jest.spyOn(newsletterInfrastructure, "resolveNewsletterSelection").mockResolvedValue({
+      selection: { accountId: randomUUID(), mode: "automatic" },
+    } as ResolvedNewsletterSelection);
   });
 
   it.each([false, true])(
-    "replaces explicit tokens using the resolved destination, including actual test sends (preview=%s)",
+    "renders explicit recipient tokens before the managed queue (preview=%s)",
     async (isPreview) => {
       const template = unwrap(await insert({
         table: dbMessageTemplate,
@@ -123,15 +151,15 @@ describe("messaging", () => {
             identifierKey: "destination", from: "sender@example.invalid",
             subject: "Attribution",
             body: '<a href="https://example.invalid/read?subscriber_email={{subscriber_email}}&edition={{ user.edition | url_encode }}&hash={{subscriber_email_sha256}}#article">Read</a><a href="https://plain.invalid/?subscriber_email=authored">Literal</a>',
-            cc: "copy@example.invalid",
           } satisfies EmailTemplateResource,
           updatedAt: new Date(), createdAt: new Date(),
         },
       }));
       await upsertEmailProvider({ workspaceId: workspace.id, config: { type: EmailProviderType.Test } });
-      const sent = unwrap(await sendEmail({
+      const sent = unwrap(await renderQueuedEmail({
         workspaceId: workspace.id, templateId: template.id, userId: randomUUID(),
-        providerOverride: EmailProviderType.Test, isPreview, useDraft: false,
+        providerOverride: EmailProviderType.SendGrid, isPreview, useDraft: false,
+        messageTags: { messageId: randomUUID() },
         userPropertyAssignments: {
           email: "not-the-recipient@example.invalid",
           destination: '"Actual Reader" <actual+edition@example.invalid>',
@@ -179,265 +207,36 @@ describe("messaging", () => {
         expect(result._unsafeUnwrapErr()).toEqual({
           type: InternalEventType.BadWorkspaceConfiguration,
           variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderNotFound,
+            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
+            message: "unsupported_newsletter_provider",
           },
         });
       },
     );
 
-    describe("when sent from a child workspace", () => {
-      let childWorkspace: Workspace;
-      let parentWorkspace: Workspace;
-      let template: MessageTemplate;
-      let subscriptionGroup: SubscriptionGroup;
-
-      beforeEach(async () => {
-        const parentWorkspaceId = randomUUID();
-        [parentWorkspace, childWorkspace] = await Promise.all([
-          insert({
-            table: dbWorkspace,
-            values: {
-              id: parentWorkspaceId,
-              name: `parent-workspace-${randomUUID()}`,
-              type: WorkspaceTypeAppEnum.Parent,
-              updatedAt: new Date(),
-              createdAt: new Date(),
-            },
-          }).then(unwrap),
-          insert({
-            table: dbWorkspace,
-            values: {
-              id: randomUUID(),
-              parentWorkspaceId,
-              name: `child-workspace-${randomUUID()}`,
-              type: WorkspaceTypeAppEnum.Child,
-              updatedAt: new Date(),
-              createdAt: new Date(),
-            },
-          }).then(unwrap),
-        ]);
-        [template, subscriptionGroup] = await Promise.all([
-          insert({
-            table: dbMessageTemplate,
-            values: {
-              id: randomUUID(),
-              workspaceId: childWorkspace.id,
-              name: `template-${randomUUID()}`,
-              updatedAt: new Date(),
-              createdAt: new Date(),
-              definition: {
-                type: ChannelType.Email,
-                from: "support@company.com",
-                subject: "Hello",
-                body: "{% unsubscribe_link here %}.",
-              } satisfies EmailTemplateResource,
-            },
-          }).then(unwrap),
-          insert({
-            table: dbSubscriptionGroup,
-            values: {
-              id: randomUUID(),
-              workspaceId: childWorkspace.id,
-              name: `group-${randomUUID()}`,
-              type: "OptOut",
-              channel: ChannelType.Email,
-              updatedAt: new Date(),
-              createdAt: new Date(),
-            },
-          }).then(unwrap),
-          upsertSubscriptionSecret({
-            workspaceId: childWorkspace.id,
-          }),
-          upsertEmailProvider({
-            workspaceId: parentWorkspace.id,
-            config: { type: EmailProviderType.Test },
-          }),
-        ]);
-      });
-      it.each<[string, Record<string, string> | null]>([
-        ["PostMark", { type: "PostMark" }],
-        ["MailChimp", { type: "MailChimp" }],
-        ["UnknownProvider", { type: EmailProviderType.Test }],
-        [EmailProviderType.Test, null],
-      ])(
-        "rejects an invalid local default %p without using the parent",
-        async (type, configValue) => {
-          let secretId: string | undefined;
-          if (configValue) {
-            const secret = unwrap(
-              await insert({
-                table: dbSecret,
-                values: {
-                  workspaceId: childWorkspace.id,
-                  name: `legacy-provider-${randomUUID()}`,
-                  configValue,
-                },
-              }),
-            );
-            secretId = secret.id;
-          }
-          const provider = unwrap(
-            await insert({
-              table: dbEmailProvider,
-              values: {
-                workspaceId: childWorkspace.id,
-                type,
-                secretId,
-              },
-            }),
-          );
-          unwrap(
-            await insert({
-              table: dbDefaultEmailProvider,
-              values: {
-                workspaceId: childWorkspace.id,
-                emailProviderId: provider.id,
-              },
-            }),
-          );
-          const result = await sendEmail({
-            workspaceId: childWorkspace.id,
-            templateId: template.id,
-            userId: "test-user",
-            userPropertyAssignments: { email: "test@example.com" },
-            useDraft: false,
-          });
-          expect(result.isErr()).toBe(true);
-          expect(result._unsafeUnwrapErr()).toEqual({
-            type: InternalEventType.BadWorkspaceConfiguration,
-            variant: {
-              type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-              message:
-                "Application error: message service provider config malformed.",
-            },
-          });
-        },
-      );
-
-      it("should use the parent workspace's email provider", async () => {
-        const userId = 1234;
-        const email = "test@email.com";
-
-        const payload = await sendEmail({
-          workspaceId: childWorkspace.id,
-          templateId: template.id,
-          messageTags: {
-            workspaceId: childWorkspace.id,
-            templateId: template.id,
-            runId: "run-id-1",
-            nodeId: "node-id-1",
-            messageId: "message-id-1",
-          } satisfies MessageTags,
-          userPropertyAssignments: {
-            id: userId,
-            email,
-          },
-          userId: String(userId),
-          useDraft: false,
-          subscriptionGroupDetails: {
-            id: subscriptionGroup.id,
-            name: subscriptionGroup.name,
-            type: SubscriptionGroupType.OptOut,
-            action: null,
-          },
-          providerOverride: EmailProviderType.Test,
+    it.each([EmailProviderType.SendGrid, EmailProviderType.Telnyx, EmailProviderType.Test])(
+      "rejects non-newsletter %s sends instead of using an untracked provider",
+      async (providerOverride) => {
+        jest.mocked(newsletterDelivery.getNewsletterEmailContext).mockResolvedValue(null);
+        const { template } = await setupEmailTemplate(workspace);
+        mockAxios.post.mockClear();
+        const result = await sendEmail({
+          workspaceId: workspace.id, templateId: template.id,
+          userId: "legacy-contact", useDraft: false, providerOverride,
+          userPropertyAssignments: { email: "recipient@example.com" },
+          messageTags: { messageId: randomUUID() },
         });
-        const unwrapped = unwrap(payload);
-        expect(unwrapped.type).toBe(InternalEventType.MessageSent);
-      });
-
-      it.each([undefined, EmailProviderType.Telnyx])(
-        "correlates inherited Telnyx credentials and deduplicates retries (override %p)",
-        async (providerOverride) => {
-          await upsertEmailProvider({
-            workspaceId: parentWorkspace.id,
-            config: {
-              type: EmailProviderType.Telnyx,
-              apiKey: "parent-api-key",
-              publicKey: Buffer.alloc(32, 1).toString("base64"),
-              sandboxMode: true,
-            },
-            setDefault: true,
-          });
-          const providerMessageId = randomUUID();
-          const messageId = randomUUID();
-          mockAxios.post.mockClear();
-          mockAxios.post.mockResolvedValue({
-            status: 202,
-            data: {
-              data: {
-                id: providerMessageId,
-                record_type: "email_message",
-                status: "sandbox",
-              },
-            },
-          });
-          const request = {
-            workspaceId: childWorkspace.id,
-            templateId: template.id,
-            userId: "native-contact",
-            userPropertyAssignments: { email: "recipient@example.com" },
-            messageTags: {
-              workspaceId: "untrusted-workspace",
-              templateId: "untrusted-template",
-              userId: "untrusted-user",
-              messageId,
-              runId: "journey-run",
-              privateDetail: "must-not-leave-the-app",
-            } as MessageTags,
-            subscriptionGroupDetails: {
-              id: subscriptionGroup.id,
-              name: subscriptionGroup.name,
-              type: SubscriptionGroupType.OptOut,
-              action: null,
-            },
-            providerOverride,
-            useDraft: false,
-          };
-          const first = unwrap(await sendEmail(request));
-          const second = unwrap(await sendEmail(request));
-          expect(first).toEqual(second);
-          expect(first).toMatchObject({
-            type: InternalEventType.MessageSent,
-            variant: {
-              type: ChannelType.Email,
-              provider: { type: EmailProviderType.Telnyx, messageId: providerMessageId },
-            },
-          });
-          expect(mockAxios.post).toHaveBeenCalledTimes(1);
-          const payload = JSON.parse(mockAxios.post.mock.calls[0]?.[1] as string) as {
-            metadata: Record<string, string>;
-            sandbox_mode: boolean;
-            headers: Record<string, string>;
-          };
-          expect(payload.metadata).toEqual({
-            workspaceId: childWorkspace.id,
-            templateId: template.id,
-            userId: "native-contact",
-            messageId,
-            runId: "journey-run",
-            channel: ChannelType.Email,
-            subscriptionGroupId: subscriptionGroup.id,
-          });
-          expect(payload.sandbox_mode).toBe(true);
-          expect(payload.headers["List-Unsubscribe"]).toBeDefined();
-          expect(payload.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
-          expect(mockAxios.post.mock.calls[0]?.[2]?.headers).toMatchObject({
-            Authorization: "Bearer parent-api-key",
-          });
-          const send = await db().query.telnyxEmailSend.findFirst({
-            where: (row, { eq }) => eq(row.messageId, messageId),
-          });
-          expect(send).toMatchObject({
-            workspaceId: childWorkspace.id,
-            credentialWorkspaceId: parentWorkspace.id,
-            userId: "native-contact",
-            primaryEmail: "recipient@example.com",
-            providerMessageId,
-          });
-        },
-      );
-    });
+        expect(result._unsafeUnwrapErr()).toEqual({
+          type: InternalEventType.BadWorkspaceConfiguration,
+          variant: {
+            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
+            message: "Email sending requires a newsletter and tracked recipient send",
+          },
+        });
+        expect(queue).not.toHaveBeenCalled();
+        expect(mockAxios.post).not.toHaveBeenCalled();
+      },
+    );
 
     describe("when an email to a user with a numeric id includes an unsusbcribe link tag", () => {
       let template: MessageTemplate;
@@ -449,7 +248,7 @@ describe("messaging", () => {
         const userId = 1234;
         const email = "test@email.com";
 
-        const payload = await sendEmail({
+        const payload = await renderQueuedEmail({
           workspaceId: workspace.id,
           templateId: template.id,
           messageTags: {
@@ -471,12 +270,12 @@ describe("messaging", () => {
             type: SubscriptionGroupType.OptOut,
             action: null,
           },
-          providerOverride: EmailProviderType.Test,
+          providerOverride: EmailProviderType.SendGrid,
         });
         const unwrapped = unwrap(payload);
         expect(unwrapped.type).toBe(InternalEventType.MessageSent);
         if (unwrapped.type !== InternalEventType.MessageSent) {
-          throw new Error("Expected an immediate legacy Test transport result");
+          throw new Error("Expected rendered newsletter success content");
         }
         expect(unwrapped.variant.to).toBe(email);
 
@@ -531,7 +330,7 @@ describe("messaging", () => {
       });
 
       it("should send to the custom identifier key address", async () => {
-        const payload = await sendEmail({
+        const payload = await renderQueuedEmail({
           workspaceId: workspace.id,
           templateId: template.id,
           messageTags: {
@@ -554,7 +353,7 @@ describe("messaging", () => {
             type: SubscriptionGroupType.OptOut,
             action: null,
           },
-          providerOverride: EmailProviderType.Test,
+          providerOverride: EmailProviderType.SendGrid,
         });
 
         const result = unwrap(payload);
@@ -588,7 +387,7 @@ describe("messaging", () => {
             type: SubscriptionGroupType.OptOut,
             action: null,
           },
-          providerOverride: EmailProviderType.Test,
+          providerOverride: EmailProviderType.SendGrid,
         });
 
         expect(payload.isErr()).toBe(true);
@@ -603,7 +402,7 @@ describe("messaging", () => {
       });
 
       it("should generate unsubscribe link with custom identifierKey", async () => {
-        const payload = await sendEmail({
+        const payload = await renderQueuedEmail({
           workspaceId: workspace.id,
           templateId: template.id,
           messageTags: {
@@ -626,7 +425,7 @@ describe("messaging", () => {
             type: SubscriptionGroupType.OptOut,
             action: null,
           },
-          providerOverride: EmailProviderType.Test,
+          providerOverride: EmailProviderType.SendGrid,
         });
 
         const result = unwrap(payload);
@@ -708,7 +507,7 @@ describe("messaging", () => {
       });
 
       it("should fall back to default email identifier", async () => {
-        const payload = await sendEmail({
+        const payload = await renderQueuedEmail({
           workspaceId: workspace.id,
           templateId: defaultTemplate.id,
           messageTags: {
@@ -731,7 +530,7 @@ describe("messaging", () => {
             type: SubscriptionGroupType.OptOut,
             action: null,
           },
-          providerOverride: EmailProviderType.Test,
+          providerOverride: EmailProviderType.SendGrid,
         });
 
         const result = unwrap(payload);
@@ -1117,7 +916,7 @@ describe("messaging", () => {
         });
       });
 
-      it("should send messages to all users and return success results", async () => {
+      it("queues messages for all users without claiming provider success", async () => {
         const users = [
           {
             id: "user1",
@@ -1145,11 +944,11 @@ describe("messaging", () => {
 
         expect(result.results).toHaveLength(2);
         expect(result.results[0]?.type).toBe(
-          BatchMessageUsersResultTypeEnum.Success,
+          BatchMessageUsersResultTypeEnum.Queued,
         );
         expect(result.results[0]?.userId).toBe("user1");
         expect(result.results[1]?.type).toBe(
-          BatchMessageUsersResultTypeEnum.Success,
+          BatchMessageUsersResultTypeEnum.Queued,
         );
         expect(result.results[1]?.userId).toBe("user2");
       });
@@ -1214,10 +1013,10 @@ describe("messaging", () => {
         // is working correctly (even when segments aren't set up)
         expect(result.results).toHaveLength(2);
         expect(result.results[0]?.type).toBe(
-          BatchMessageUsersResultTypeEnum.Success,
+          BatchMessageUsersResultTypeEnum.Queued,
         );
         expect(result.results[1]?.type).toBe(
-          BatchMessageUsersResultTypeEnum.Success,
+          BatchMessageUsersResultTypeEnum.Queued,
         );
       });
     });
@@ -1266,7 +1065,7 @@ describe("messaging", () => {
         data: base64FileData,
       };
 
-      const result = await sendEmail({
+      const result = await renderQueuedEmail({
         workspaceId: workspace.id,
         templateId: template.id,
         messageTags: {
@@ -1346,7 +1145,7 @@ describe("messaging", () => {
       const email = "test@email.com";
       const userId = randomUUID();
 
-      const result = await sendEmail({
+      const result = await renderQueuedEmail({
         workspaceId: workspace.id,
         templateId: template.id,
         messageTags: {
@@ -1362,7 +1161,7 @@ describe("messaging", () => {
         },
         userId,
         useDraft: false,
-        providerOverride: EmailProviderType.Test,
+        providerOverride: EmailProviderType.SendGrid,
       });
 
       expect(result.isOk()).toBe(true);

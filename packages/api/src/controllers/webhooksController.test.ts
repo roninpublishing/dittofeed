@@ -519,6 +519,9 @@ describe("SendGrid native signed callback bytes", () => {
       expect(rows[0]?.encryptedPayload).not.toBeNull();
       expect(JSON.stringify(rows)).not.toContain("forged-contact");
     } finally {
+      await db()
+        .delete(sendingConnection)
+        .where(eq(sendingConnection.id, connectionId));
       await db().delete(workspace).where(eq(workspace.id, childId));
       await db()
         .delete(publisher)

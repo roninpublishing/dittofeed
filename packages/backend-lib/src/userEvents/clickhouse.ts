@@ -1,3 +1,5 @@
+import { DEVELOPMENT_PIXEL_TABLE } from "isomorphic-lib/src/tracking/development";
+
 import { clickhouseClient } from "../clickhouse";
 import config from "../config";
 import { NodeEnvEnum } from "../config/loader";
@@ -13,6 +15,63 @@ export interface InsertValue {
   messageRaw: Record<string, JSONValue>;
   messageId: string;
 }
+
+// Retries are logically idempotent; all tracking readers must use FINAL.
+export const CREATE_TRACKING_EVENT_TABLE_QUERY = `
+  CREATE TABLE IF NOT EXISTS trackingEvent (
+    eventId UUID,
+    workspaceId String,
+    messageId String,
+    userId String,
+    newsletterId Nullable(String),
+    kind LowCardinality(String),
+    occurredAt DateTime64(3, 'UTC'),
+    ip Nullable(String) TTL toDateTime(occurredAt) + INTERVAL 30 DAY,
+    userAgent Nullable(String) TTL toDateTime(occurredAt) + INTERVAL 30 DAY,
+    asnOrg String,
+    asn Nullable(UInt32),
+    country LowCardinality(String),
+    method LowCardinality(String),
+    secondsSinceDelivery Nullable(Float64),
+    class LowCardinality(String),
+    reason String,
+    counted Boolean,
+    rulesVersion LowCardinality(String),
+    networkId Nullable(String),
+    networkVersion Nullable(String),
+    rawExpiresAt DateTime64(3, 'UTC') DEFAULT occurredAt + INTERVAL 30 DAY,
+    encryptedRequest Nullable(String) TTL toDateTime(rawExpiresAt),
+    requestHash String DEFAULT ''
+  )
+  ENGINE = ReplacingMergeTree()
+  PARTITION BY toYYYYMM(occurredAt)
+  ORDER BY (workspaceId, userId, occurredAt, eventId);
+`;
+
+export const CREATE_DEVELOPMENT_OPEN_PIXEL_EVENT_TABLE_QUERY = `
+  CREATE TABLE IF NOT EXISTS ${DEVELOPMENT_PIXEL_TABLE} (
+    eventId UUID,
+    workspaceId String,
+    hostname String,
+    sendId Nullable(String),
+    userId Nullable(String),
+    messageId Nullable(String),
+    status LowCardinality(String),
+    method String,
+    occurredAt DateTime64(3, 'UTC'),
+    receivedAt DateTime64(3, 'UTC'),
+    rawExpiresAt DateTime64(3, 'UTC'),
+    ip Nullable(String) TTL toDateTime(rawExpiresAt),
+    userAgent Nullable(String) TTL toDateTime(rawExpiresAt),
+    tokenHash Nullable(String) TTL toDateTime(rawExpiresAt),
+    requestHash String,
+    encryptedEvidence Nullable(String) TTL toDateTime(rawExpiresAt)
+  )
+  ENGINE = ReplacingMergeTree()
+  PARTITION BY toYYYYMM(occurredAt)
+  ORDER BY (workspaceId, occurredAt, eventId)
+  TTL toDateTime(rawExpiresAt) + INTERVAL 1 DAY;
+`;
 
 export const CREATE_INTERNAL_EVENTS_TABLE_QUERY = `
   CREATE TABLE IF NOT EXISTS internal_events (
@@ -295,6 +354,8 @@ export async function createUserEventsTables() {
 
   const queries = [
     // This is the primary table for user events, which serves as the source of truth for user traits and behaviors.
+    CREATE_TRACKING_EVENT_TABLE_QUERY,
+    CREATE_DEVELOPMENT_OPEN_PIXEL_EVENT_TABLE_QUERY,
     `
         CREATE TABLE IF NOT EXISTS user_events_v2 (
           event_type Enum(
@@ -537,6 +598,14 @@ export async function createUserEventsTables() {
       }),
     ),
   );
+  // Existing local tables need an additive upgrade after CREATE completes.
+  await clickhouseClient().exec({
+    query: `ALTER TABLE trackingEvent
+      ADD COLUMN IF NOT EXISTS rawExpiresAt DateTime64(3, 'UTC') DEFAULT occurredAt + INTERVAL 30 DAY,
+      ADD COLUMN IF NOT EXISTS encryptedRequest Nullable(String) TTL toDateTime(rawExpiresAt),
+      ADD COLUMN IF NOT EXISTS requestHash String DEFAULT ''`,
+    clickhouse_settings: { wait_end_of_query: 1 },
+  });
 
   // These materialized views help to move data to "updated_" tables, which
   // track changes in the parent table.

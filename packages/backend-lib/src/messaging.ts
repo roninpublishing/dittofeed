@@ -1,12 +1,9 @@
-import { SESv2ServiceException } from "@aws-sdk/client-sesv2";
-import { MailDataRequired } from "@sendgrid/mail";
 import axios, { AxiosError, AxiosHeaders } from "axios";
 import { randomUUID } from "crypto";
 import { and, eq, SQL } from "drizzle-orm";
 import { toMjml } from "emailo/src/toMjml";
 import { CHANNEL_IDENTIFIERS } from "isomorphic-lib/src/channels";
 import { MESSAGE_ID_HEADER, SecretNames } from "isomorphic-lib/src/constants";
-import { isWorkspaceWideProvider } from "isomorphic-lib/src/email";
 import { messageTemplateDraftToDefinition } from "isomorphic-lib/src/messageTemplates";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import {
@@ -25,34 +22,12 @@ import { submitBatch } from "./apps/batch";
 import { getObject, storage } from "./blobStorage";
 import { db, TxQueryError, txQueryResult } from "./db";
 import {
-  defaultEmailProvider as dbDefaultEmailProvider,
-  emailProvider as dbEmailProvider,
   messageTemplate as dbMessageTemplate,
   secret as dbSecret,
   subscriptionGroup as dbSubscriptionGroup,
   userProperty as dbUserProperty,
-  workspace as dbWorkspace,
 } from "./db/schema";
-import {
-  sendMail as sendMailAmazonSes,
-  SesMailData,
-} from "./destinations/amazonses";
-import {
-  sendMail as sendMailTelnyx,
-  TelnyxMailData,
-} from "./destinations/telnyx";
-import { sendMail as sendMailSendgrid } from "./destinations/sendgrid";
-import {
-  sendMail as sendMailSmtp,
-  SendSmtpMailParams,
-} from "./destinations/smtp";
-import {
-  getAndRefreshGmailAccessToken,
-  sendGmailEmail,
-  SendGmailEmailParams,
-} from "./gmail";
 import config from "./config";
-import { MESSAGE_METADATA_FIELDS } from "./constants";
 import { renderLiquid } from "./liquid";
 import { storeEmailForViewInBrowser } from "./viewInBrowser";
 import logger from "./logger";
@@ -60,7 +35,6 @@ import {
   constructUnsubscribeHeaders,
   UnsubscribeHeaders,
 } from "./messaging/email";
-import { prepareEmailOpenTracking } from "./messaging/openTracking";
 import { getNewsletterEmailContext, NewsletterEmailContext, sendNewsletterEmail } from "./newsletterDelivery";
 import { NewsletterInfrastructureError, resolveNewsletterSelection } from "./newsletterInfrastructure";
 import { withSpan } from "./openTelemetry";
@@ -81,7 +55,6 @@ import {
   BatchMessageUsersResultTypeEnum,
   ChannelType,
   EmailContentsType,
-  EmailProviderSecret,
   EmailProviderType,
   EmailProviderTypeSchema,
   EspSelection,
@@ -102,7 +75,6 @@ import {
   MobilePushProviderType,
   NonRetryableMessageSendFailure,
   ParsedWebhookBody,
-  Secret,
   SubscriptionChange,
   SubscriptionGroupType,
   TrackData,
@@ -115,7 +87,6 @@ import {
 } from "./types";
 import { UserPropertyAssignments } from "./userProperties";
 import { getUsers } from "./users";
-import { isWorkspaceOccupantType } from "./workspaceOccupantSettings";
 import { hasRetiredSmsChannel } from "./smsCutover";
 
 export function enrichMessageTemplate({
@@ -588,223 +559,6 @@ function renderValues<T extends TemplateDictionary<T>>({
   return ok(coercedResult);
 }
 
-function getMessageFileId({
-  messageId,
-  name,
-}: {
-  messageId: string;
-  name: string;
-}): string {
-  return `${messageId}-${name}`;
-}
-
-async function getEmailProviderSecretForWorkspace({
-  providerOverride,
-  workspaceId,
-}: {
-  workspaceId: string;
-  providerOverride?: EmailProviderTypeSchema;
-}): Promise<Result<Secret | null, MessageSendFailure>> {
-  if (providerOverride) {
-    const provider = await db().query.emailProvider.findFirst({
-      where: and(
-        eq(dbEmailProvider.workspaceId, workspaceId),
-        eq(dbEmailProvider.type, providerOverride),
-      ),
-      with: {
-        secret: true,
-      },
-    });
-    return validateSelectedEmailProvider(provider);
-  }
-  const defaultProvider = await db().query.defaultEmailProvider.findFirst({
-    where: eq(dbDefaultEmailProvider.workspaceId, workspaceId),
-    with: {
-      emailProvider: {
-        with: {
-          secret: true,
-        },
-      },
-    },
-  });
-
-  return validateSelectedEmailProvider(defaultProvider?.emailProvider);
-}
-
-function validateSelectedEmailProvider(
-  provider: { type: string; secret: Secret | null } | null | undefined,
-): Result<Secret | null, MessageSendFailure> {
-  if (!provider) {
-    return ok(null);
-  }
-  const providerType = schemaValidateWithErr(
-    provider.type,
-    EmailProviderTypeSchema,
-  );
-  const secretConfig = schemaValidateWithErr(
-    provider.secret?.configValue,
-    EmailProviderSecret,
-  );
-  if (
-    providerType.isErr() ||
-    !isWorkspaceWideProvider(providerType.value) ||
-    secretConfig.isErr() ||
-    secretConfig.value.type !== providerType.value
-  ) {
-    return err({
-      type: InternalEventType.BadWorkspaceConfiguration,
-      variant: {
-        type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-        message: "Application error: message service provider config malformed.",
-      },
-    });
-  }
-  return ok(provider.secret);
-}
-
-const PROVIDER_NOT_FOUND_ERROR = {
-  type: InternalEventType.BadWorkspaceConfiguration,
-  variant: {
-    type: BadWorkspaceConfigurationType.MessageServiceProviderNotFound,
-  },
-} as const;
-
-async function getEmailProviderSecretForWorkspaceHierarchical({
-  workspaceId,
-  providerOverride,
-}: {
-  workspaceId: string;
-  providerOverride?: EmailProviderTypeSchema;
-}): Promise<Result<Secret | null, MessageSendFailure>> {
-  const secret = await getEmailProviderSecretForWorkspace({
-    workspaceId,
-    providerOverride,
-  });
-  if (secret.isErr() || secret.value) {
-    return secret;
-  }
-  const workspace = await db().query.workspace.findFirst({
-    where: eq(dbWorkspace.id, workspaceId),
-  });
-  const parentWorkspaceId = workspace?.parentWorkspaceId;
-  if (!parentWorkspaceId) {
-    return ok(null);
-  }
-  return getEmailProviderSecretForWorkspace({
-    workspaceId: parentWorkspaceId,
-    providerOverride,
-  });
-}
-
-async function getEmailProvider({
-  providerOverride,
-  workspaceId,
-  workspaceOccupantId,
-  workspaceOccupantType,
-}: {
-  workspaceId: string;
-  providerOverride?: EmailProviderTypeSchema;
-  workspaceOccupantId?: string;
-  workspaceOccupantType?: string;
-}): Promise<
-  Result<
-    { secret: EmailProviderSecret; credentialWorkspaceId: string },
-    MessageSendFailure
-  >
-> {
-  if (
-    providerOverride !== undefined &&
-    schemaValidateWithErr(providerOverride, EmailProviderTypeSchema).isErr()
-  ) {
-    return err(PROVIDER_NOT_FOUND_ERROR);
-  }
-  let emailProviderSecret: EmailProviderSecret | null = null;
-  let credentialWorkspaceId = workspaceId;
-  if (providerOverride && !isWorkspaceWideProvider(providerOverride)) {
-    if (
-      !workspaceOccupantId ||
-      !isWorkspaceOccupantType(workspaceOccupantType)
-    ) {
-      logger().error(
-        {
-          workspaceId,
-          workspaceOccupantId,
-          workspaceOccupantType,
-        },
-        "email provider not found for non-workspace-wide provider. workspaceOccupantId and workspaceOccupantType must be provided.",
-      );
-      return err(PROVIDER_NOT_FOUND_ERROR);
-    }
-    switch (providerOverride) {
-      case EmailProviderType.Gmail: {
-        const gmailCredentials = await getAndRefreshGmailAccessToken({
-          workspaceId,
-          workspaceOccupantId,
-          workspaceOccupantType,
-        });
-        if (!gmailCredentials) {
-          logger().info(
-            {
-              workspaceId,
-              workspaceOccupantId,
-              workspaceOccupantType,
-            },
-            "gmail credentials not found",
-          );
-          return err(PROVIDER_NOT_FOUND_ERROR);
-        }
-        emailProviderSecret = {
-          type: EmailProviderType.Gmail,
-          email: gmailCredentials.email,
-          accessToken: gmailCredentials.accessToken,
-          refreshToken: gmailCredentials.refreshToken,
-          expiresAt: gmailCredentials.expiresAt,
-        };
-        break;
-      }
-      default:
-        assertUnreachable(providerOverride);
-    }
-  } else {
-    const secretResult = await getEmailProviderSecretForWorkspaceHierarchical({
-      workspaceId,
-      providerOverride,
-    });
-    if (secretResult.isErr()) {
-      return err(secretResult.error);
-    }
-    const secret = secretResult.value;
-    if (!secret) {
-      logger().info(
-        {
-          workspaceId,
-          providerOverride,
-        },
-        "email provider not found for workspace",
-      );
-      return err(PROVIDER_NOT_FOUND_ERROR);
-    }
-
-    credentialWorkspaceId = secret.workspaceId;
-    const secretConfigResult = schemaValidateWithErr(
-      secret.configValue,
-      EmailProviderSecret,
-    );
-    if (secretConfigResult.isErr()) {
-      return err({
-        type: InternalEventType.BadWorkspaceConfiguration,
-        variant: {
-          type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-          message:
-            "Application error: message service provider config malformed.",
-        },
-      });
-    }
-    emailProviderSecret = secretConfigResult.value;
-  }
-  return ok({ secret: emailProviderSecret, credentialWorkspaceId });
-}
-
 /**
  * Resolve optional newsletter defaults at confirmation, not once per recipient.
  * null records the deliberate absence of an ESP selection for native providers.
@@ -819,7 +573,7 @@ export async function confirmEmailSelection({
   espSelection?: EspSelection | null;
 }): Promise<EspSelection | null> {
   const context = await getNewsletterEmailContext(workspaceId);
-  if (providerOverride && providerOverride !== EmailProviderType.SendGrid) {
+  if (providerOverride !== undefined && providerOverride !== EmailProviderType.SendGrid) {
     if (espSelection) {
       throw new NewsletterInfrastructureError(400, "esp_selection_provider_conflict");
     }
@@ -859,7 +613,7 @@ export async function sendEmail({
   let newsletterContext: NewsletterEmailContext | null;
   try {
     newsletterContext = await getNewsletterEmailContext(workspaceId);
-    if (providerOverride && providerOverride !== EmailProviderType.SendGrid) {
+    if (providerOverride !== undefined && providerOverride !== EmailProviderType.SendGrid) {
       if (espSelection) {
         throw new NewsletterInfrastructureError(400, "esp_selection_provider_conflict");
       }
@@ -878,7 +632,16 @@ export async function sendEmail({
       },
     });
   }
-  if (newsletterContext && !messageTags?.messageId) {
+  if (!newsletterContext) {
+    return err({
+      type: InternalEventType.BadWorkspaceConfiguration,
+      variant: {
+        type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
+        message: "Email sending requires a newsletter and tracked recipient send",
+      },
+    });
+  }
+  if (!messageTags?.messageId) {
     return err({
       type: InternalEventType.BadWorkspaceConfiguration,
       variant: {
@@ -887,7 +650,7 @@ export async function sendEmail({
       },
     });
   }
-  const [getSendModelsResult, emailProviderResult, viewInBrowserSecretRecord] =
+  const [getSendModelsResult, viewInBrowserSecretRecord] =
     await Promise.all([
       getSendMessageModels({
         workspaceId,
@@ -896,14 +659,6 @@ export async function sendEmail({
         useDraft,
         subscriptionGroupDetails,
       }),
-      newsletterContext
-        ? Promise.resolve(null)
-        : getEmailProvider({
-            workspaceId,
-            providerOverride,
-            workspaceOccupantId: messageTags?.workspaceOccupantId,
-            workspaceOccupantType: messageTags?.workspaceOccupantType,
-          }),
       db().query.secret.findFirst({
         where: and(
           eq(dbSecret.workspaceId, workspaceId),
@@ -1193,503 +948,34 @@ export async function sendEmail({
     mimeType,
   }));
 
-  if (emailProviderResult) {
-    if (emailProviderResult.isErr()) return err(emailProviderResult.error);
-  }
-  // Keep stored/native previews untracked; only the actual transport gets a pixel.
-  // A shared CC/BCC copy cannot identify which recipient loaded its image.
-  const transportBody =
-    config().enableOpenTracking &&
-    !isPreview &&
-    messageTags?.messageId &&
-    !cc?.length &&
-    !bcc?.length
-      ? await prepareEmailOpenTracking({
-          workspaceId,
-          userId,
-          messageId: messageTags.messageId,
-          html: body,
-        })
-      : body;
-  if (newsletterContext) {
-    return sendNewsletterEmail({
-      workspaceId,
-      publisherId: newsletterContext.publisherId,
-      // Direct API retries must reach the durable identity lookup before any
-      // current-default/readiness resolution. Confirmed consumers pass snapshots.
-      espSelection,
-      userId,
-      logicalMessageId: messageTags?.messageId ?? randomUUID(),
-      tags: messageTags,
-      subscriptionGroupId: subscriptionGroupDetails?.id,
-      from,
-      recipients: [to, ...(cc ?? []), ...(bcc ?? [])],
-      mailData: {
-        to, from: { email: from, name: emailName }, subject, html: transportBody,
-        replyTo, headers, cc, bcc,
-        attachments: attachments?.map((attachment) => ({
-          content: attachment.data, type: attachment.mimeType, filename: attachment.name,
-        })),
-        customArgs: { ...messageTags, workspaceId, userId, templateId },
+  return sendNewsletterEmail({
+    workspaceId,
+    publisherId: newsletterContext.publisherId,
+    // Retries reach durable identity before resolving current readiness/defaults.
+    espSelection,
+    userId,
+    logicalMessageId: messageTags.messageId,
+    tags: messageTags,
+    subscriptionGroupId: subscriptionGroupDetails?.id,
+    from,
+    recipients: [to, ...(cc ?? []), ...(bcc ?? [])],
+    mailData: {
+      to, from: { email: from, name: emailName }, subject, html: body,
+      replyTo, headers, cc, bcc,
+      attachments: attachments?.map((attachment) => ({
+        content: attachment.data, type: attachment.mimeType, filename: attachment.name,
+      })),
+      customArgs: { ...messageTags, workspaceId, userId, templateId },
+    },
+    success: {
+      type: InternalEventType.MessageSent,
+      variant: {
+        type: ChannelType.Email, from, body, to, subject, headers, replyTo,
+        cc: unsplitCc, bcc: unsplitBcc, name: emailName, attachments: attachmentsSent,
+        provider: { type: EmailProviderType.SendGrid },
       },
-      success: {
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Email, from, body, to, subject, headers, replyTo,
-          cc: unsplitCc, bcc: unsplitBcc, name: emailName, attachments: attachmentsSent,
-          provider: { type: EmailProviderType.SendGrid },
-        },
-      },
-    });
-  }
-  if (!emailProviderResult) return err(PROVIDER_NOT_FOUND_ERROR);
-  const { secret: emailProvider, credentialWorkspaceId } = emailProviderResult.value;
-  switch (emailProvider.type) {
-    case EmailProviderType.Smtp: {
-      const { host, port } = emailProvider;
-      if (!host) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: `missing host in smtp config`,
-          },
-        });
-      }
-      const numPort = port?.length ? parseInt(port, 10) : undefined;
-      if (numPort && Number.isNaN(numPort)) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: `invalid port in smtp config`,
-          },
-        });
-      }
-      const smtpAttachments: SendSmtpMailParams["attachments"] =
-        messageTags &&
-        attachments?.map((attachment) => ({
-          content: attachment.data,
-          filename: attachment.name,
-          contentType: attachment.mimeType,
-        }));
-
-      const result = await sendMailSmtp({
-        ...emailProvider,
-        from,
-        to,
-        subject,
-        replyTo,
-        name: emailName,
-        body: transportBody,
-        host,
-        port: numPort,
-        headers,
-        cc,
-        bcc,
-        attachments: smtpAttachments,
-      });
-      if (result.isErr()) {
-        return err({
-          type: InternalEventType.MessageFailure,
-          variant: {
-            type: ChannelType.Email,
-            provider: result.error,
-          },
-        });
-      }
-      return ok({
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Email,
-          from,
-          body,
-          to,
-          subject,
-          headers,
-          replyTo,
-          cc: unsplitCc,
-          bcc: unsplitBcc,
-          name: emailName,
-          attachments: attachmentsSent,
-          provider: {
-            type: EmailProviderType.Smtp,
-            messageId: result.value.messageId,
-          },
-        },
-      });
-    }
-    case EmailProviderType.SendGrid: {
-      const sendgridAttachments: MailDataRequired["attachments"] =
-        messageTags &&
-        attachments?.map((attachment) => ({
-          content: attachment.data,
-          type: attachment.mimeType,
-          filename: attachment.name,
-          contentId: getMessageFileId({
-            messageId: messageTags.messageId,
-            name: attachment.name,
-          }),
-        }));
-      const mailData: MailDataRequired = {
-        to,
-        from: {
-          email: from,
-          name: emailName,
-        },
-        subject,
-        html: transportBody,
-        replyTo,
-        headers,
-        cc,
-        bcc,
-        attachments: sendgridAttachments,
-        customArgs: {
-          workspaceId,
-          templateId,
-          ...messageTags,
-        },
-      };
-
-      if (!emailProvider.apiKey) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: `missing apiKey in sendgrid secret config`,
-          },
-        });
-      }
-
-      const result = await sendMailSendgrid({
-        mailData,
-        apiKey: emailProvider.apiKey,
-      });
-
-      if (result.isErr()) {
-        return err({
-          type: InternalEventType.MessageFailure,
-          variant: {
-            type: ChannelType.Email,
-            provider: {
-              type: EmailProviderType.SendGrid,
-              // Necessary because the types on sendgrid's lib are wrong
-              body: JSON.stringify(result.error.response.body),
-              status: result.error.code,
-            },
-          },
-        });
-      }
-      return ok({
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Email,
-          from,
-          body,
-          to,
-          subject,
-          headers,
-          replyTo,
-          cc: unsplitCc,
-          bcc: unsplitBcc,
-          name: emailName,
-          attachments: attachmentsSent,
-          provider: {
-            type: EmailProviderType.SendGrid,
-          },
-        },
-      });
-    }
-    case EmailProviderType.AmazonSes: {
-      const sesAttachments = attachments?.map((attachment) => ({
-        filename: attachment.name,
-        content: attachment.data,
-        contentType: attachment.mimeType,
-      }));
-
-      const fromWithName = emailName ? `${emailName} <${from}>` : from;
-      const mailData: SesMailData = {
-        to,
-        from: fromWithName,
-        subject,
-        html: transportBody,
-        replyTo,
-        cc,
-        bcc,
-        headers,
-        attachments: sesAttachments,
-        tags: {
-          workspaceId,
-          templateId,
-          ...messageTags,
-        },
-      };
-
-      if (
-        !emailProvider.accessKeyId ||
-        !emailProvider.secretAccessKey ||
-        !emailProvider.region
-      ) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: "missing accesskey or secret in AmazonSES config",
-          },
-        });
-      }
-
-      const result = await sendMailAmazonSes({
-        mailData,
-        config: {
-          accessKeyId: emailProvider.accessKeyId,
-          secretAccessKey: emailProvider.secretAccessKey,
-          region: emailProvider.region,
-          endpoint: emailProvider.endpoint,
-        },
-      });
-
-      if (result.isErr()) {
-        let message: string | undefined;
-        if (result.error instanceof SESv2ServiceException) {
-          message = result.error.message;
-        } else if (result.error instanceof Error) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          message = result.error.message;
-        } else {
-          logger().error(
-            {
-              err: result.error,
-              workspaceId,
-              messageId: messageTags?.messageId,
-            },
-            "Unknown error sending email",
-          );
-          message = "Unknown error";
-        }
-        return err({
-          type: InternalEventType.MessageFailure,
-          variant: {
-            type: ChannelType.Email,
-            provider: {
-              type: EmailProviderType.AmazonSes,
-              message,
-            },
-          },
-        });
-      }
-      return ok({
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Email,
-          from,
-          body,
-          to,
-          cc: unsplitCc,
-          bcc: unsplitBcc,
-          subject,
-          headers,
-          replyTo,
-          name: emailName,
-          provider: {
-            type: EmailProviderType.AmazonSes,
-          },
-        },
-      });
-    }
-
-    case EmailProviderType.Gmail: {
-      if (!emailProvider.accessToken) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: "Failed to get or refresh Gmail access token",
-          },
-        });
-      }
-
-      const overriddenFrom = emailName
-        ? `${emailName} <${emailProvider.email}>`
-        : emailProvider.email;
-
-      const gmailAttachments: SendGmailEmailParams["attachments"] =
-        attachments?.map((attachment) => ({
-          filename: attachment.name,
-          content: attachment.data,
-          contentType: attachment.mimeType,
-        }));
-
-      const gmailResult = await sendGmailEmail({
-        accessToken: emailProvider.accessToken,
-        params: {
-          to,
-          from: overriddenFrom,
-          subject,
-          bodyHtml: transportBody,
-          replyTo,
-          cc,
-          bcc,
-          headers,
-          attachments: gmailAttachments,
-        },
-      });
-
-      if (gmailResult.isErr()) {
-        return err({
-          type: InternalEventType.MessageFailure,
-          variant: {
-            type: ChannelType.Email,
-            provider: gmailResult.error,
-          },
-        });
-      }
-      return ok({
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Email,
-          from: overriddenFrom,
-          body,
-          to,
-          subject,
-          headers,
-          replyTo,
-          cc: unsplitCc,
-          bcc: unsplitBcc,
-          name: emailName,
-          attachments: attachmentsSent,
-          provider: {
-            type: EmailProviderType.Gmail,
-            messageId: gmailResult.value.messageId,
-            threadId: gmailResult.value.threadId,
-          },
-        },
-      });
-    }
-
-    case EmailProviderType.Telnyx: {
-      if (!emailProvider.apiKey || !emailProvider.publicKey) {
-        return err({
-          type: InternalEventType.BadWorkspaceConfiguration,
-          variant: {
-            type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-            message: "Telnyx requires an API key and webhook public key.",
-          },
-        });
-      }
-      const metadata: Record<string, string> = {};
-      const correlationFields = [
-        ...MESSAGE_METADATA_FIELDS,
-        "channel",
-        "triggeringMessageId",
-        "subscriptionGroupId",
-      ];
-      for (const field of correlationFields) {
-        const value = (messageTags as Record<string, unknown> | undefined)?.[
-          field
-        ];
-        if (typeof value === "string") {
-          metadata[field] = value;
-        }
-      }
-      Object.assign(metadata, {
-        workspaceId,
-        userId,
-        messageId: messageTags?.messageId ?? "",
-        templateId,
-        channel: ChannelType.Email,
-      });
-      if (subscriptionGroupDetails) {
-        metadata.subscriptionGroupId = subscriptionGroupDetails.id;
-      }
-      const mailData: TelnyxMailData = {
-        from: emailName ? { email: from, name: emailName } : from,
-        to: [to],
-        subject,
-        html_body: transportBody,
-        reply_to: replyTo,
-        cc,
-        bcc,
-        headers,
-        metadata,
-        attachments: attachments?.map((attachment) => ({
-          filename: attachment.name,
-          content_type: attachment.mimeType,
-          content: attachment.data,
-        })),
-        sandbox_mode: emailProvider.sandboxMode,
-      };
-      const result = await sendMailTelnyx({
-        apiKey: emailProvider.apiKey,
-        publicKey: emailProvider.publicKey,
-        mailData,
-        workspaceId,
-        credentialWorkspaceId,
-        messageId: messageTags?.messageId ?? "",
-        userId,
-        primaryEmail: to,
-      });
-      if (result.isErr()) {
-        return err({
-          type: InternalEventType.MessageFailure,
-          variant: {
-            type: ChannelType.Email,
-            provider: {
-              type: EmailProviderType.Telnyx,
-              ...result.error,
-            },
-          },
-        });
-      }
-      return ok({
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Email,
-          from,
-          name: emailName,
-          body,
-          to,
-          cc: unsplitCc,
-          bcc: unsplitBcc,
-          headers,
-          subject,
-          replyTo,
-          attachments: attachmentsSent,
-          provider: {
-            type: EmailProviderType.Telnyx,
-            messageId: result.value.messageId,
-          },
-        },
-      });
-    }
-    case EmailProviderType.Test:
-      return ok({
-        type: InternalEventType.MessageSent,
-        variant: {
-          type: ChannelType.Email,
-          from,
-          body,
-          to,
-          subject,
-          replyTo,
-          headers,
-          attachments: attachmentsSent,
-          cc: unsplitCc,
-          bcc: unsplitBcc,
-          provider: {
-            type: EmailProviderType.Test,
-          },
-        },
-      });
-    default: {
-      return err({
-        type: InternalEventType.BadWorkspaceConfiguration,
-        variant: {
-          type: BadWorkspaceConfigurationType.MessageServiceProviderNotFound,
-        },
-      });
-    }
-  }
+    },
+  });
 }
 
 export async function sendWebhook({

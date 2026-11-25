@@ -1,35 +1,35 @@
 import { activeNavigationUrl } from "./navigation";
 
 const publisherLinks = [
-  "/publications",
-  "/publications?view=subscribers",
-  "/publications?view=reports",
-  "/publications?view=settings",
+  "/workspace",
+  "/workspace?view=subscribers",
+  "/workspace?view=reports",
+  "/workspace?view=settings",
 ];
 
 describe("activeNavigationUrl", () => {
   it.each(["subscribers", "reports", "settings"])(
-    "selects the %s publisher view instead of Newsletters",
+    "selects the %s workspace view instead of Newsletters",
     (view) => {
       expect(
-        activeNavigationUrl(`/publications?view=${view}`, publisherLinks),
-      ).toBe(`/publications?view=${view}`);
+        activeNavigationUrl(`/workspace?view=${view}`, publisherLinks),
+      ).toBe(`/workspace?view=${view}`);
     },
   );
 
   it("keeps Newsletters active when no view is selected", () => {
-    expect(activeNavigationUrl("/publications", publisherLinks)).toBe(
-      "/publications",
+    expect(activeNavigationUrl("/workspace", publisherLinks)).toBe(
+      "/workspace",
     );
   });
 
   it("ignores unrelated filters and fragments when matching a view", () => {
     expect(
       activeNavigationUrl(
-        "/publications?search=some%20name&view=reports#activity",
+        "/workspace?search=some%20name&view=reports#activity",
         publisherLinks,
       ),
-    ).toBe("/publications?view=reports");
+    ).toBe("/workspace?view=reports");
   });
 
   it("selects the nearest parent for a nested editor, not a path prefix sibling", () => {

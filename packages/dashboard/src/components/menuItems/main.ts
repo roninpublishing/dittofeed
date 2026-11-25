@@ -35,7 +35,7 @@ const menuItems: { items: MenuItemGroup[] } = {
           id: "publications",
           title: "Newsletters",
           type: "item",
-          url: "/publications",
+          url: "/workspace",
           icon: BookOutlined,
           description: "Manage your newsletters.",
         },

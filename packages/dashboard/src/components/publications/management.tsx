@@ -528,7 +528,7 @@ export default function PublicationManagement({
       }
       // Reload the document so no prior newsletter's client caches survive the switch.
       window.location.assign(
-        `${router.basePath}${targetId === publisherId ? "/publications" : "/home"}`,
+        `${router.basePath}${targetId === publisherId ? "/workspace" : "/home"}`,
       );
     } catch (failure) {
       setOpeningNewsletter(null);
@@ -650,7 +650,7 @@ export default function PublicationManagement({
         ) : (
           <Button
             startIcon={<ArrowBackOutlined />}
-            onClick={() => void router.push("/publications")}
+            onClick={() => void router.push("/workspace")}
             sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
           >
             Newsletters

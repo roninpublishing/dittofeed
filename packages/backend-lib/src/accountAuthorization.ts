@@ -29,7 +29,7 @@ const dashboardReadPaths = new Set([
   "/subscription-groups",
   "/events",
   "/account",
-  "/publications",
+  "/workspace",
 ]);
 
 export function requireGoogleOrigin(

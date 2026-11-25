@@ -6,6 +6,21 @@ title: Ronin multi-newsletter operations
 
 One installation contains workspaces, each with independent newsletters. Internally, a newsletter uses a native child workspace plus newsletter metadata. Subscriber profiles, consent, campaigns and history remain newsletter-local.
 
+The approved next design makes **ESP accounts** a separate workspace collection,
+with multiple instances of each provider type. Newsletters require no ESP/IP/pool
+association to exist. Sending chooses an ESP account and its supported IP/pool or
+explicit automatic option; optional newsletter defaults only prefill that choice.
+IPs and pools stay under ESP accounts, not newsletters. See the
+[approved implementation plan](https://github.com/roninpublishing/dittofeed/blob/main/FORK_PLAN.md#approved-next-esp-accounts-and-send-time-selection).
+This is planned work, not a claim that multi-account sending is implemented.
+
+The workspace UI build is scoped to `/dashboard/workspace`, with left-sidebar
+Overview, Newsletters, ESP accounts, IPs, IP pools, Subscribers, Reports and Settings.
+ESP account details and workspace-wide IP/pool inventories share the same account-
+owned records. These are planned screens; the route rename initially preserves
+the current views under `/dashboard/workspace?view=...`. Backend API names stay
+unchanged. The map navigates/configures resources without assigning IPs to newsletters.
+
 ```mermaid
 flowchart TD
   P[Workspace]
@@ -100,7 +115,7 @@ A deliberately configured matching rule can subscribe a newly created B subscrib
 
 Durable source intent precedes native ingestion. The bounded worker verifies the exact native source exists before acting, records deterministic per-step IDs/progress and checks lineage to prevent cycles. Stable source-event deduplication and default once-per-source-subscriber behavior prevent repeated clicks or retries from creating duplicate subscriptions or restarting welcomes. Native PostgreSQL/ClickHouse projection is not a claim of exactly-once storage.
 
-## SendGrid connections and infrastructure
+## Current SendGrid implementation — migration baseline
 
 Each newsletter derives one subuser username `{slug}-ditto` and administrative email `{slug}@roninpublishing.com`. A separate restricted `mail.send` key is used at runtime. Parent management credentials are never runtime credentials. Secret persistence requires an explicit stable private 32-byte base64 `SECRET_KEY`; protect it and backups. Changing it without re-encrypting stored credentials makes them unreadable.
 
@@ -109,6 +124,12 @@ Provisioning records completed steps and inspects existing provider resources be
 AI Stock News is adopt-first: inspect `aistocknews-ditto`, its restricted key metadata, authenticated domains and administrative group; do not recreate them. Missing expected resources fail explicitly. Subsequent deliberate management changes still require the normal release gates. The existing administrative group is externally owned; the preflight can inspect metadata using optional Directory credentials but never creates it.
 
 Start with one already-owned dedicated IP shared by newsletter subusers. Pool bindings are account-specific; logical pools and physical IPs are independent of newsletter identity. Deterministic single-IP provider pools are required for strict per-IP admission. Omitting a provider pool could allow SendGrid to use any assigned IP; this implementation must reject invalid routing rather than fall back. Shared IPs share reputation; independent contact records do not guarantee publications appear unrelated publicly.
+
+The current single-IP route/admission requirements above must be migrated before
+multi-IP or provider-managed selection is supported. They are not permanent
+newsletter-to-IP assignments in the target product. The new overview must not
+draw those binding edges. Confirmed selections belong to individual scheduled
+sends/attempts; changing a newsletter default must not rewrite their history.
 
 ## Admission, queuing and uncertainty
 

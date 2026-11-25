@@ -108,6 +108,14 @@ describe("Google browser authorization boundaries", () => {
     );
   });
 
+  it.each([
+    "/dashboard/workspace",
+    "/workspace?view=subscribers",
+    "/dashboard/workspace?view=settings",
+  ])("allows Viewers to browse the workspace dashboard: %s", (path) => {
+    expect(requiredGoogleDashboardRole(path)).toBe(RoleEnum.Viewer);
+  });
+
   it("recognizes OAuth secrets even on malformed or unmatched callback URLs", () => {
     expect(
       googleAuthSensitiveUrl(

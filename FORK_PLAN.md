@@ -742,6 +742,154 @@ Cross-publication search and reporting have separate views. Matched mailboxes
 are not verified unique people; publication subscriptions must not be conflated
 with either measure.
 
+### Approved next: ESP accounts and send-time selection
+
+**Planned, not implemented.** This supersedes the earlier newsletter-bound
+connection/routing model and single-account assumptions as the target design.
+Existing runtime restrictions remain in force until the replacement is verified.
+
+#### Independent objects
+
+- A workspace owns independent collections of newsletters and ESP accounts.
+  Creating or managing a newsletter requires no ESP, IP, pool or sending connection.
+- An ESP account is a first-class instance with its own name, credentials,
+  provider identity, configuration and verified capabilities. SendGrid is a provider
+  type/adapter, not the account object. Multiple SendGrid accounts may coexist in
+  one workspace; provider-specific setup forms are reusable across instances.
+- Provider sending identities, subaccounts, webhooks, IPs and pools belong to the
+  relevant ESP account. Pools reference their actual member IPs. No newsletter
+  owns an IP or pool, and no mandatory newsletter-to-account connection object
+  is a prerequisite for sending configuration.
+- Newsletter-owned subscribers, content, campaigns, journeys, history and branded
+  tracking domains remain independent of ESP infrastructure.
+- Extensible provider types do not authorize restoring removed providers or SMS.
+
+#### Sending and defaults
+
+- The send composer selects an ESP account and, where supported, an IP or pool;
+  an explicit provider-managed/automatic IP choice is also allowed.
+- Newsletter defaults are optional prefill preferences, never exclusive bindings
+  or a lock. Every campaign/send can override them without moving its audience or
+  changing newsletter identity. Do not require pre-created routing edges.
+- Present only capabilities the provider supports. If its API selects a pool
+  rather than a raw IP, say Pool; do not pretend a particular IP was selected.
+- A newsletter's messages may use several IPs during one campaign when the chosen
+  provider/configuration supports distribution. Each delivery attempt uses one
+  outbound IP; this does not duplicate a message across every IP.
+- Validate account ownership, permissions, sender/domain readiness and the chosen
+  resources when confirming a send. Saved credentials alone do not prove readiness.
+- Persist the confirmed selection on the scheduled campaign/send, and snapshot
+  account/credential revision, sender, IP/pool selection and rendered payload on
+  each durable attempt. Record the provider-reported actual IP separately when
+  available; unknown stays unknown. Later default edits do not retarget queued
+  attempts. Retries retain their attempt identity and selection; unknown acceptance
+  never triggers blind resubmission or automatic ESP failover.
+- Replace the current single-IP admission assumptions deliberately. For provider-
+  managed or multi-IP distribution, enforce conservative account/pool limits where
+  exact pre-send IP selection is unavailable; never claim a hard per-IP guarantee
+  or add capacity by duplicating a shared physical IP in multiple records.
+
+#### Workspace dashboard UI build
+
+- All organization-wide UI lives in the selected workspace's dashboard, not inside
+  a newsletter or behind a single Workspace settings tab. Newsletter-native
+  audience/content/campaign screens remain separate.
+- The canonical frontend entry is `/dashboard/workspace`, replacing
+  `/dashboard/publications`. Migrate navigation, home/return redirects, role
+  authorization and client links together; do not retain a duplicate old page.
+  This frontend rename does not rename the `/api/publications` or
+  `/api/admin/publications` contracts or historical database identifiers.
+- Use the existing left sidebar for workspace sections, not a horizontal stack
+  of every account or a collection of operator forms:
+
+| Left sidebar | Target URL | Main surface |
+| --- | --- | --- |
+| Overview | `/dashboard/workspace` | Organizational map with Map/List toggle and selected-object panel |
+| Newsletters | `/dashboard/workspace/newsletters` | Independent newsletter list, creation and Open |
+| ESP accounts | `/dashboard/workspace/esp-accounts` | All account instances, provider/status, connected date, volume and observed health |
+| IPs | `/dashboard/workspace/ips` | Workspace-wide inventory across accounts, with owning account, status, limits, warm-up and usage |
+| IP pools | `/dashboard/workspace/ip-pools` | Workspace-wide pool inventory with account and member IPs |
+| Subscribers | `/dashboard/workspace/subscribers` | Existing scoped cross-newsletter search |
+| Reports | `/dashboard/workspace/reports` | Existing workspace reporting plus account/IP filters where data exists |
+| Settings | `/dashboard/workspace/settings` | Workspace configuration, access and existing administration |
+
+- Separate sidebar entries are views over workspace-owned resources, not new
+  ownership rules: IPs/pools still belong to their verified ESP account. The
+  workspace inventory and account detail use the same records and edit flows.
+- Account detail uses `/dashboard/workspace/esp-accounts/:accountId` with focused
+  Overview, Configuration, Domains, IPs, IP pools and Activity sections. Provider-
+  unsupported sections are omitted. Configuration holds credentials and signed
+  webhook setup; account activity shows observed sends and delivery outcomes.
+- IP and pool details support direct links under their workspace sections, account
+  breadcrumbs and the same configuration panel opened from the map. Do not require
+  going through newsletter settings to find or edit infrastructure.
+- Existing tracking, automations, suppressions, activity and advanced repair tools
+  remain reachable during the navigation migration; this does not silently remove
+  existing features or change newsletter tracking-domain ownership.
+- Top-right workspace selection scopes every page, graph, query and mutation.
+  Opening a newsletter enters its existing native environment; returning restores
+  the workspace dashboard. Preserve newsletter-only membership restrictions.
+- Replace the current `?view=` navigation with the target nested pages during the
+  UI build. The immediate route rename retains existing view functionality under
+  `/dashboard/workspace?view=...` until those real screens are implemented.
+- Overview provides a lazy-loaded, Mermaid-like organizational map and a List
+  alternative. Its ownership structure is:
+
+```mermaid
+flowchart TD
+  W[Workspace] --> N[Newsletters]
+  W --> E[ESP accounts]
+  N --> N1[Newsletter A]
+  N --> N2[Newsletter B]
+  E --> A[SendGrid account A]
+  E --> B[SendGrid account B]
+  A --> P[IP pools]
+  A --> I[IP addresses]
+  P -. membership .-> I
+```
+
+- Do not draw newsletter-to-IP/pool assignment lines or permanent newsletter-to-
+  ESP binding edges. Optional defaults belong in the newsletter configuration,
+  not in the graph as ownership. Dragging changes layout only.
+- Selecting a workspace, newsletter, ESP account, pool or IP opens configuration
+  for that object. Preserve the compact styling and minimal-copy rules.
+- ESP accounts lists name, provider, verified connection state, connected date,
+  observed send history and delivery health. Provider lifetime age/history is
+  shown only if actually available. Account details contain credentials, sending
+  domains/webhooks and IP/pool management; IPs are not managed under newsletters.
+- Keep backend authorization and consequential-action confirmation without a
+  standing release-gate checkbox panel. Do not auto-provision or send from the map.
+
+#### Implementation sequence and acceptance
+
+- [x] Rename the current frontend entry and all callers/authorization to
+  `/dashboard/workspace`; retain the current working views during the larger build.
+- [ ] Establish workspace-scoped nested routes and left navigation without blank
+  tabs, placeholder pages or moving infrastructure inside a newsletter.
+- [ ] Add multi-instance ESP accounts/provider adapters and migrate existing
+  configuration into an account instance without recreating provider resources,
+  rotating keys or changing newsletter IDs, memberships, history or contact data.
+- [ ] Build ESP account list/details, then the workspace IP and pool inventories,
+  reusing account-owned resource records and configuration flows. Include provider-
+  specific forms, truthful status, history and health.
+- [ ] Add optional newsletter defaults and overridable send-time selection across
+  supported broadcast, journey and API sending paths; remove mandatory legacy
+  newsletter bindings and migrate every caller without compatibility shims.
+- [ ] Preserve immutable attempt history, credential-owner attribution, signature
+  verification, deduplication and conservative admission for multi-IP/automatic
+  selection. Prove default changes cannot cause rerouting or duplicate submissions.
+- [ ] Build the overview map/list from actual stored objects and relationships;
+  allow independent newsletters/accounts with no sending setup and no binding edges.
+- [ ] Verify multiple accounts from the same provider, a newsletter using different
+  accounts/IP choices on different sends, default overrides, isolation and supported
+  provider capability differences using isolated fixtures, not live email.
+- [ ] Verify direct links, workspace switching, newsletter return, sidebar selection,
+  viewer/manager authorization and responsive layouts through real local controls.
+- [ ] Obtain separate authorization for deployment, provider mutations, IP
+  reassignment, resource purchases and any controlled real send.
+
+### Existing implementation and operating safeguards
+
 Explicit cross-publication rules may match source events/links/conditions, map
 fields, find/create an independent destination subscriber, subscribe and enter
 its native welcome journey. This is audited coordination, not synchronization.
@@ -749,14 +897,14 @@ Stable event/per-subscriber action identity, persisted progress and native
 workflow IDs prevent duplicate subscriptions/restarts. Existing destination
 opt-outs and publisher blocks remain effective.
 
-Sending connections contain a newsletter's `{slug}-ditto` subuser,
-`{slug}@roninpublishing.com` administrative email, restricted sending key,
-authenticated sender/domain and signed callback settings. Management credentials
-are separate, encrypted and never returned by ordinary registry responses.
-Physical IPs, pools and route assignments remain separate resources; multiple
-newsletters can share one dedicated IP and move routes without rebuilding
-campaigns. All actual send paths use a durable shared-IP admission budget;
-external traffic outside Ditto precludes a hard aggregate-limit claim.
+The current runtime derives a newsletter's `{slug}-ditto` subuser and
+`{slug}@roninpublishing.com` administrative email under the existing SendGrid
+management configuration. It uses restricted sending credentials, authenticated
+sender/domain and signed callback settings, plus separate physical IPs, pools,
+routes and durable shared-IP admission. This is the legacy implementation to
+migrate, not the target ESP-account ownership model above. Preserve its credential
+separation, verified provider ownership and send history; do not recreate adopted
+resources or silently relax admission while migrating.
 
 Ordinary unsubscribes are newsletter-specific. Spam complaints block marketing
 publisher-wide; explicit publisher opt-outs/manual blocks and genuinely permanent
@@ -767,7 +915,7 @@ Queued mail is not sent; unknown acceptance never authorizes blind retries.
 Current explicit Liquid contact/hash URL tokens and observed engagement semantics
 remain unchanged.
 
-Implementation acceptance (local verification complete; live cutover gated):
+Legacy implementation acceptance (locally verified; not acceptance of the new ESP-account design):
 
 - [x] Prove independent contact updates/imports and newsletter-only unsubscribes.
 - [x] Prove A-to-B automation, mapped-field isolation and once-only native welcome entry.
@@ -1209,3 +1357,22 @@ as the production connection source.
 - Current development preview output is `dist/workspace-terminology-preview`.
   Development resources and disabled workers/bootstrap/tracking are retained;
   no production deployment or provider/send operation was initiated.
+
+## Workspace dashboard route and UI plan
+
+- Renamed the current frontend page to `/dashboard/workspace`, including sidebar
+  links, the workspace home redirect, newsletter return links and Viewer browsing
+  authorization. The retired frontend route returns 404; backend publication APIs
+  and stored identities are unchanged.
+- The approved UI build above now specifies workspace-level Overview, Newsletters,
+  ESP accounts, IPs, IP pools, Subscribers, Reports and Settings in the left sidebar,
+  plus account detail sections and shared workspace/account infrastructure views.
+  Those new screens and the map remain planned, not implemented.
+- Lite compilation and the optimized dashboard build passed. All 29 isolated
+  navigation/Google-authorization tests passed without database setup or teardown.
+  The real authenticated local browser verified the renamed page, all four existing
+  sidebar views, home redirection and the retired route's 404.
+- Current guarded local preview is `dist/workspace-dashboard-preview`, served by
+  combined Lite on localhost:3000. Dev Neon/ClickHouse/Temporal are verified;
+  workers/bootstrap/tracking remain off. No production deployment, provider
+  mutation or email send occurred.

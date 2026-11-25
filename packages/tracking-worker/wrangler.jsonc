@@ -6,20 +6,18 @@
   "compatibility_date": "2025-11-09",
   "workers_dev": false,
   "preview_urls": false,
-  // No routes/custom domains are provisioned here. Configure Cloudflare for SaaS
-  // explicitly; never attach a zone-wide catch-all over the application.
+  // Local/default configuration remains off and has no routes. Only production
+  // attaches the dedicated tracking-only dittotrx.com SaaS zone, never the app.
   "vars": {
     "ENABLED": "false",
     "ENABLE_OPEN_TRACKING_DEV_LAKE": "false"
   },
-  // Wrangler resolves this binding name locally without an ID. Before deploying,
-  // the operator must supply the existing RONIN KV namespace ID here; do not use
-  // a placeholder ID or create a namespace as part of local verification.
+  // Local verification needs no public KV namespace. The production environment
+  // below pins its separately provisioned RONIN namespace.
   "kv_namespaces": [
     { "binding": "NETWORK_SETS" }
   ],
-  // These are operator-required resource names, not IDs. Provisioning the queue
-  // and its DLQ requires separate authorization; this file never provisions them.
+  // Resources are provisioned separately; deployment only binds these names.
   "queues": {
     "producers": [
       { "binding": "TRACKING_QUEUE", "queue": "newsletter-tracking" }
@@ -36,6 +34,41 @@
   },
   "triggers": {
     "crons": ["0 3 * * 1"]
+  },
+  "env": {
+    "production": {
+      "name": "newsletter-tracking",
+      // Staged disabled. Enable both flags only after backend readiness approval.
+      "vars": {
+        "ENABLED": "false",
+        "ENABLE_OPEN_TRACKING_DEV_LAKE": "false",
+        "TRACKING_ORIGIN": "https://email.roninpublishing.com",
+        "CLOUDFLARE_TRACKING_CNAME_TARGET": "dt.dittotrx.com"
+      },
+      "kv_namespaces": [
+        { "binding": "NETWORK_SETS", "id": "d5abe2270b984ab69e5e5029797cc37b" }
+      ],
+      "queues": {
+        "producers": [
+          { "binding": "TRACKING_QUEUE", "queue": "newsletter-tracking" }
+        ],
+        "consumers": [
+          {
+            "queue": "newsletter-tracking",
+            "max_batch_size": 50,
+            "max_batch_timeout": 5,
+            "max_retries": 10,
+            "dead_letter_queue": "newsletter-tracking-dlq"
+          }
+        ]
+      },
+      // Cloudflare-for-SaaS Worker-as-origin requires a catch-all in this zone.
+      // The explicit friendly target also covers orange-to-orange CNAME routing.
+      "routes": [
+        { "pattern": "*/*", "zone_id": "a8a65a84a6701e6d9dcc8b617e7b4659" },
+        { "pattern": "dt.dittotrx.com/*", "zone_id": "a8a65a84a6701e6d9dcc8b617e7b4659" }
+      ]
+    }
   },
   // TRACKING_ORIGIN must be an operator-configured HTTPS origin (no path).
   // Set OPEN_TRACKING_RELAY_SECRET using Wrangler's secret store, never vars.

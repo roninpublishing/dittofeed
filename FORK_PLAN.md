@@ -16,10 +16,10 @@ planned. No existing deployed instance was audited;
 local verification is not a production cutover audit. AI implementation rules
 live in [AGENTS.md](AGENTS.md); `CLAUDE.md` delegates there.
 
-Newsletter-branded Cloudflare tracking infrastructure is implemented locally,
-with one `dt.<newsletter-domain>` hostname per native newsletter. Public
-deployment, DNS/TLS activation, capture, and sending remain disabled; local
-inbound-only verification is not a production cutover.
+Newsletter-branded Cloudflare tracking uses one `dt.<newsletter-domain>` hostname
+per native newsletter. Carson authorized public provisioning and development-only
+deployment using shared target `dt.dittotrx.com` in RONIN and the current server.
+Rollout is in progress; email sends and sender workers remain prohibited.
 
 Versioned open-hit heuristics and respond-first queued capture are implemented
 locally on `feat/tracking-classifier`. Carson approved a clean development
@@ -27,7 +27,7 @@ cutover: every outbound recipient send owns tracking metadata on its existing
 NewsletterSend row; all pixel-hit evidence/classifications live in ClickHouse,
 with no PG mapping row or PG per-hit receipt/outbox. No mail has shipped and no
 old generic-path compatibility is required. `last_opened` remains observed;
-heuristic `human` labels never verify that a person read a message. Gates stay off.
+heuristic `human` labels never verify that a person read a message. Sender gates stay off.
 
 Carson approved a default-off `ENABLE_OPEN_TRACKING_DEV_LAKE` collection-only
 mode, implemented and locally verified on the tracking branch. It records request
@@ -35,8 +35,8 @@ and Cloudflare evidence in the dedicated ClickHouse `developmentOpenPixelEvent`
 table without native opens, counts, classification, computed-property updates or
 automation triggers. Known credentials/cookies and pixel capabilities stay
 redacted; encryption, explicit size/unavailable markers, expiry and erasure still
-apply. Normal capture remains unchanged with the toggle off. This approval is
-for implementation only, not provisioning, deployment or actual email sends.
+apply. Normal capture remains unchanged with the toggle off. Carson subsequently
+authorized live provisioning and development-only capture, never actual sends.
 
 Development-lake verification: 135 targeted Jest tests across six suites and
 40 native workerd tests passed. Shared/backend/API/Worker typechecks and the
@@ -49,6 +49,31 @@ sensitive-scope access, TTL, encrypted correlation, partial-write retries and
 cross-host erasure races. The focused legacy-lint waiver remains; no new clean
 lint claim. All databases were disposable and local; no mail, deployment or
 public resource changes occurred.
+
+Authorized live rollout uses RONIN account `2c0f822ce2342b56b3998e7981c03332`,
+zone `dittotrx.com` (`a8a65a84a6701e6d9dcc8b617e7b4659`), shared CNAME target
+`dt.dittotrx.com`, and existing app origin `https://email.roninpublishing.com`.
+Scoped account-owned tokens are stored privately outside the repository. No
+ADVERTISE resources, separate hosting or paid upgrade is authorized. Cloudflare
+resources are staged disabled pending schema/app readiness; sender workers and
+bootstrap remain off. Existing Google/session keys, contacts, database endpoints,
+Temporal and logging must be preserved.
+
+Mainline integration preserves historical `0019_newsletter_sender_domain`; the
+unshipped tracking migrations are now `0020_send_open_tracking` and
+`0021_development_pixel_erasure`, with unchanged SQL bytes/hashes. Fresh/restartable
+journal and empty-only teardown proofs passed. Production's three obsolete
+tracking tables and all send/infrastructure inventories were verified empty;
+private PostgreSQL/runtime backups and a read-only ClickHouse history archive
+were verified before schema execution was authorized.
+
+Live source inspection found Mimecast DoH requires exact `application/dns-json`
+and Apple's current official CSV is 12,052,078 bytes. The refresh now sends that
+Accept value and permits a bounded 16 MiB Apple source (other sources retain
+5 MiB); native regressions prove negotiation, large-source acceptance and
+oversize preservation of the previous set. The shared CNAME service host is
+excluded from capture, preventing unowned root requests from poisoning batches
+of real newsletter observations.
 
 Google OIDC and application-owned accounts, explicit workspace memberships,
 roles, private invitations, and revocable sessions are implemented. The local
@@ -78,7 +103,7 @@ gates. The integration checkpoints migrations `0000`–`0017`. See
 | HubSpot | Keep the integration; hide it from the UI. | Low likelihood of future use, roughly 5–10%; preserve backend/workflows. |
 | Other inherited features/providers | No removal decision yet. | Do not expand the teardown beyond the decisions above. |
 | Sending operations | Not authorized during infrastructure preparation. | No email deliveries, test sends, campaigns, or provider-account changes; validate tracking with inbound HTTP fixtures. |
-| Public tracking infrastructure | Separate `dt.<newsletter-domain>` per native newsletter, behind a shared Cloudflare Worker and Cloudflare for SaaS CNAME/TLS onboarding. Capture runs on the current application server using existing PostgreSQL/ClickHouse databases; no separate backend hosting. | Future Cloudflare resources must use RONIN account `2c0f822ce2342b56b3998e7981c03332`. Provisioning, deployment and sending remain prohibited pending explicit authorization; actual tracking domains and the server HTTPS origin must be finalized. |
+| Public tracking infrastructure | Separate `dt.<newsletter-domain>` per native newsletter behind a shared Cloudflare Worker and SaaS CNAME/TLS. Shared target `dt.dittotrx.com`; backend is the current `https://email.roninpublishing.com` server and existing databases. | Carson authorized provisioning and development-only capture in RONIN account `2c0f822ce2342b56b3998e7981c03332`; no ADVERTISE resources, separate hosting, paid upgrades, sends or sender-worker re-enablement. |
 
 ## Implementation order and acceptance
 

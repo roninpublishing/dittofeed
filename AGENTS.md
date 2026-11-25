@@ -31,8 +31,13 @@ Unchecked items are planned work; checked items must reflect verified changes.
   Keep its origin outside tracking Worker routes to prevent forwarding loops.
   Carson confirmed no mail has shipped in the development tracking cutover.
   Do not preserve old generic direct-send paths or PG tracking receipt/mapping
-  tables for compatibility. Migration 0019 must refuse nonempty legacy tables;
+  tables for compatibility. Migration 0020 must refuse nonempty legacy tables;
   never discard live data or rewrite historical migrations.
+  Carson authorized RONIN Cloudflare SaaS/Worker/Queue/KV provisioning for shared
+  target `dt.dittotrx.com` and development-only capture on the existing
+  `https://email.roninpublishing.com` server. Keep sender workers and bootstrap
+  disabled; this does not authorize email sends, provider-account changes, new
+  hosting or paid plan upgrades. Preserve unrelated account/zone resources.
 
 - SMS runtime is removed. Do not reintroduce SMS, Twilio, or SignalWire sending;
   Hermes owns SMS. Preserve historical data/migrations and run the read-only

@@ -76,7 +76,7 @@ function developmentEvent(padding = "") {
 test("development Worker broadly snapshots requests without changing pixel responses", { timeout: 120_000 }, async (t) => {
   const backend = await backendFixture(t);
   const options = await trackingWorkerOptions({ origin: backend.origin, secret: SECRET, developmentFixture: true,
-    bindings: { ENABLE_OPEN_TRACKING_DEV_LAKE: "true", FIXTURE_METADATA: JSON.stringify({ mutable: "at-fetch", __nested: { useful: [1, true, "ok"], apiKey: "private-nested-key" } }) },
+    bindings: { ENABLE_OPEN_TRACKING_DEV_LAKE: "true", CLOUDFLARE_TRACKING_CNAME_TARGET: "dt.service.test", FIXTURE_METADATA: JSON.stringify({ mutable: "at-fetch", __nested: { useful: [1, true, "ok"], apiKey: "private-nested-key" } }) },
     cf: { city: "Fixture City", tlsCipher: "AEAD-AES128-GCM-SHA256", tlsClientAuth: { certPresented: "1", certVerified: "SUCCESS", certSubjectDN: "CN=fixture" },
       botManagement: { score: 12, verifiedBot: true, staticResource: false, nested: { unknownFutureField: [1, "retained"] } } },
   });
@@ -156,7 +156,7 @@ test("development Worker broadly snapshots requests without changing pixel respo
 
   await t.test("nonpixel paths and wrong hosts do not enter capture", async () => {
     const before = backend.records.length;
-    for (const url of ["https://dt.newsletter.test/dashboard", "https://dt.newsletter.test/api/public/email/open/batch", "https://dt.newsletter.test/api/public/email/open/development-batch", URL.replace("dt.newsletter.test", "newsletter.test"), `${URL}/extra`]) {
+    for (const url of ["https://dt.newsletter.test/dashboard", "https://dt.newsletter.test/api/public/email/open/batch", "https://dt.newsletter.test/api/public/email/open/development-batch", URL.replace("dt.newsletter.test", "dt.service.test"), URL.replace("dt.newsletter.test", "newsletter.test"), `${URL}/extra`]) {
       assert.equal((await worker.dispatchFetch(url)).status, 404);
     }
     assert.equal(backend.records.length, before);

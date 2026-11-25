@@ -16,6 +16,7 @@ export interface NetworkSet {
 let cachedNamespace: KVNamespace | undefined;
 let cachedSet: NetworkSet | undefined;
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
+const MAX_APPLE_SOURCE_BYTES = 16 * 1024 * 1024;
 const SOURCE_TIMEOUT_MS = 15_000;
 const MAX_SPF_RECORDS = 20;
 const PROOFPOINT_ESSENTIALS = [
@@ -59,12 +60,13 @@ export async function loadActiveNetworkSet(kv: KVNamespace): Promise<NetworkSet 
   return cachedSet;
 }
 
-async function fetchText(url: string, fetcher: typeof fetch): Promise<string> {
+async function fetchText(url: string, fetcher: typeof fetch, options: { accept?: string; maxBytes?: number } = {}): Promise<string> {
+  const maxBytes = options.maxBytes ?? MAX_SOURCE_BYTES;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SOURCE_TIMEOUT_MS);
   try {
     const response = await fetcher(url, {
-      redirect: "manual", signal: controller.signal, headers: { accept: "application/dns-json, application/json, text/plain" },
+      redirect: "manual", signal: controller.signal, headers: { accept: options.accept ?? "application/dns-json, application/json, text/plain" },
     });
     if (!response.ok || !response.body) throw new Error("source unavailable");
     const reader = response.body.getReader();
@@ -77,7 +79,7 @@ async function fetchText(url: string, fetcher: typeof fetch): Promise<string> {
         const { value, done } = await reader.read();
         if (done) break;
         size += value.byteLength;
-        if (size > MAX_SOURCE_BYTES) throw new Error("source too large");
+        if (size > maxBytes) throw new Error("source too large");
         text += decoder.decode(value, { stream: true });
       }
       return text + decoder.decode();
@@ -127,7 +129,7 @@ async function spfCidrs(domain: string, seen: Set<string>, stack: Set<string>, f
   stack.add(domain);
   try {
     const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=TXT`;
-    const data: unknown = JSON.parse(await fetchText(url, fetcher));
+    const data: unknown = JSON.parse(await fetchText(url, fetcher, { accept: "application/dns-json" }));
     if (!record(data) || data.Status !== 0 || !Array.isArray(data.Answer)) throw new Error("SPF lookup failed");
     const answers = data.Answer.filter((answer: unknown) => record(answer) && answer.type === 16);
     if (answers.length === 0) throw new Error("SPF answer missing");
@@ -154,7 +156,7 @@ async function spfCidrs(domain: string, seen: Set<string>, stack: Set<string>, f
 function sourceLoaders(fetcher: typeof fetch): Record<string, () => Promise<IpRange[]> | IpRange[]> {
   return {
     "apple-private-relay": async () => toRanges((await fetchText(
-      "https://mask-api.icloud.com/egress-ip-ranges.csv", fetcher,
+      "https://mask-api.icloud.com/egress-ip-ranges.csv", fetcher, { maxBytes: MAX_APPLE_SOURCE_BYTES },
     )).split("\n").map((line) => line.split(",")[0]?.trim() ?? "").filter(Boolean)),
     "google-services": async () => {
       const [all, cloud] = await Promise.all([

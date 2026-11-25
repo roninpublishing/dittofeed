@@ -20,7 +20,7 @@ test("weekly production scheduled refresh uses real KV and official HTTP/DoH par
   let sources = sourceFixture();
   const fetchMock = createFetchMock();
   fetchMock.disableNetConnect();
-  const register = (origin, path, key) => fetchMock.get(origin).intercept({ path }).reply(() => {
+  const register = (origin, path, key, headers) => fetchMock.get(origin).intercept({ path, headers }).reply(() => {
     const source = sources[key];
     return { statusCode: source.statusCode, data: typeof source.data === "string" ? source.data : JSON.stringify(source.data) };
   }).persist();
@@ -28,8 +28,8 @@ test("weekly production scheduled refresh uses real KV and official HTTP/DoH par
   register("https://www.gstatic.com", "/ipranges/goog.json", "google");
   register("https://www.gstatic.com", "/ipranges/cloud.json", "cloud");
   register("https://endpoints.office.com", /^\/endpoints\/worldwide\?clientrequestid=[0-9a-f-]+$/, "microsoft");
-  register("https://cloudflare-dns.com", "/dns-query?name=_netblocks.mimecast.com&type=TXT", "mimecast");
-  register("https://cloudflare-dns.com", "/dns-query?name=region.mimecast.com&type=TXT", "region");
+  register("https://cloudflare-dns.com", "/dns-query?name=_netblocks.mimecast.com&type=TXT", "mimecast", { accept: "application/dns-json" });
+  register("https://cloudflare-dns.com", "/dns-query?name=region.mimecast.com&type=TXT", "region", { accept: "application/dns-json" });
   const worker = await createTrackingWorker({ origin: "http://127.0.0.1:1", secret: SECRET, consume: false, fetchMock });
   t.after(() => worker.dispose());
   const service = await worker.getWorker();
@@ -62,6 +62,17 @@ test("weekly production scheduled refresh uses real KV and official HTTP/DoH par
     assert.equal((await refresh()).outcome, "ok");
     assert.notEqual(await kv.get("active"), version);
     assert.equal(await kv.get(`sets:${version}`), previous);
+  });
+
+  await t.test("accepts the larger official Apple CSV while preserving its bounded failure policy", async () => {
+    sources.apple.data = APPLE.split("\n").map((line) => `${line}${"x".repeat(1_300_000)}`).join("\n");
+    assert.equal((await refresh()).outcome, "ok");
+    const version = await kv.get("active");
+    assert.equal((await kv.get(`sets:${version}`, "json")).ranges["apple-private-relay"].length, 5);
+    sources.apple.data = `${APPLE}\n${" ".repeat(16 * 1024 * 1024)}`;
+    assert.notEqual((await refresh()).outcome, "ok");
+    assert.equal(await kv.get("active"), version);
+    sources = sourceFixture();
   });
 
   await t.test("source HTTP, parsing, empty and DNS failures retain the entire prior set", async () => {

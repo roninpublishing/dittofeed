@@ -32,6 +32,8 @@ export interface Env {
   ENABLED?: string;
   ENABLE_OPEN_TRACKING_DEV_LAKE?: string;
   TRACKING_ORIGIN?: string;
+  /** DNS-only shared CNAME target; never a newsletter pixel origin. */
+  CLOUDFLARE_TRACKING_CNAME_TARGET?: string;
   OPEN_TRACKING_RELAY_SECRET?: string;
   TRACKING_QUEUE?: Queue<TrackingEvent | DevelopmentPixelEvent>;
   NETWORK_SETS?: KVNamespace;
@@ -192,7 +194,9 @@ function handle(request: Request, env: Env, ctx: ExecutionContext): Response {
   const localHttp = env.LOCAL_DEVELOPMENT === "true" &&
     hostname.endsWith(".localhost") && url.protocol === "http:";
   const token = PIXEL_PATH.exec(url.pathname)?.[1];
-  const validHost = brandedHostname(hostname) && !url.username && !url.password &&
+  const validHost = brandedHostname(hostname) &&
+    hostname !== env.CLOUDFLARE_TRACKING_CNAME_TARGET?.toLowerCase() &&
+    !url.username && !url.password &&
     (localHttp || (url.protocol === "https:" && url.port === ""));
   const development = env.ENABLE_OPEN_TRACKING_DEV_LAKE === "true";
   const pixelRoute = /^\/api\/public\/email\/open\/[^/]*\.gif$/.test(url.pathname);

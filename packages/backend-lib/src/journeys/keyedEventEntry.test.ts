@@ -1727,7 +1727,7 @@ describe("keyedEventEntry journeys", () => {
       ]);
     });
 
-    it("should only send a message when the keyed performed segment property filter is satisfied with numeric keys", async () => {
+    it.each([1, 2, 3])("should only send a message when the keyed performed segment property filter is satisfied with numeric keys (run %i)", async () => {
       const userId1 = 1;
       const userId2 = 2;
       const orderId1 = 100;
@@ -1839,7 +1839,12 @@ describe("keyedEventEntry journeys", () => {
         },
       );
 
-      await Promise.all([handle1.result(), handle2.result()]);
+      // Both workflows run concurrently, but result() unlocks the test server's
+      // global clock. Overlapping result() calls unlock it twice, allowing time
+      // to skip even while an activity is running and expire the workflow.
+      // Give a single result waiter ownership of time skipping at a time.
+      await handle1.result();
+      await handle2.result();
 
       // Check that user 1 (who satisfies the segment) received at least one message
       const user1Messages = senderMock.mock.calls.filter(

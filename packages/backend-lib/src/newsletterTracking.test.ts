@@ -12,6 +12,14 @@ import {
 } from "./newsletterTracking";
 import { NewsletterTrackingCloudflareClient, TrackingCustomHostname } from "./newsletterTrackingCloudflare";
 
+// Node 20 is the CI/runtime baseline; preserve the race barrier without
+// depending on Promise.withResolvers (introduced in Node 22).
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
 describe("per-newsletter tracking hostname ownership", () => {
   let publisherId: string;
   let newsletterId: string;
@@ -184,8 +192,8 @@ describe("per-newsletter tracking hostname ownership", () => {
 
   it("rejects a stale verification even after switching A→B→A", async () => {
     await configureNewsletterTrackingDomain({ ...input(), domain });
-    const { promise: began, resolve: started } = Promise.withResolvers<void>();
-    const { promise: blocked, resolve: release } = Promise.withResolvers<void>();
+    const { promise: began, resolve: started } = deferred();
+    const { promise: blocked, resolve: release } = deferred();
     pauseFind = async () => { started(); await blocked; };
     const verification = verifyNewsletterTrackingDomain(input());
     const rejected = expect(verification).rejects.toMatchObject({ code: "tracking_configuration_changed" });

@@ -1,10 +1,12 @@
 import { randomUUID } from "crypto";
+import { eq } from "drizzle-orm";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 
-import { insert } from "./db";
+import { db, insert } from "./db";
 import {
   computedPropertyPeriod as dbComputedPropertyPeriod,
   segment as dbSegment,
+  userProperty as dbUserProperty,
   workspace as dbWorkspace,
 } from "./db/schema";
 import {
@@ -142,6 +144,13 @@ describe("resiliency", () => {
             .then(unwrap)
             .then((w) => w.id),
         ]);
+
+        // Workspace creation now provisions built-in properties. This scenario
+        // specifically covers a child with NO computed properties, not one
+        // with built-ins; remove only this fixture's properties and verify it.
+        await db().delete(dbUserProperty).where(eq(dbUserProperty.workspaceId, childWorkspace));
+        expect(await db().select().from(dbUserProperty).where(eq(dbUserProperty.workspaceId, childWorkspace))).toHaveLength(0);
+        expect(await db().select().from(dbSegment).where(eq(dbSegment.workspaceId, childWorkspace))).toHaveLength(0);
 
         await insert({
           table: dbComputedPropertyPeriod,

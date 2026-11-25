@@ -23,8 +23,8 @@ interface Branch {
   width: number;
   compactLeaves: boolean;
 }
-const cardWidth = 128;
-const cardHeight = 64;
+const cardWidth = 176;
+const cardHeight = 72;
 const columnGap = 20;
 const siblingGap = 16;
 const rankGap = 28;

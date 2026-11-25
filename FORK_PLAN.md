@@ -910,17 +910,21 @@ Local implementation verification:
   layouts were checked. Temporary development accounts/IPs/pools/defaults were removed;
   newsletter/contact records were untouched and no send records were created.
 - Current combined local preview: `http://localhost:3000/dashboard/workspace`,
-  dashboard build `dist/workspace-compact-diagram-final`. Neon, ClickHouse and Temporal
+  dashboard build `dist/workspace-readable-cards-preview`. Neon, ClickHouse and Temporal
   target development; workers, bootstrap, capture and provisioning remain off.
   No production deployment, provider mutations or real email sends were performed.
 - Overview correction: compact connected boxes and horizontal sibling ranks replace
   the rejected nested columns. Terminal assets branch below their owners;
   resource counts use a single compact strip. On small screens, horizontal
   overflow stays inside the diagram without shrinking its text.
+  Resource cards are 176×72px with 14px labels to reduce repeated name wrapping.
 - Compact-diagram verification: both isolated geometry/ownership tests and the
   optimized dashboard build pass. Actual browser checks show all 25 nodes in a
   1093×560 diagram with no clipped labels; a 390px viewport keeps page overflow
   contained inside the diagram. Development target guards pass.
+- Larger-card verification: all seven demo domain labels fit two lines without
+  clipping in the actual browser. Both isolated layout tests and the optimized
+  dashboard build pass; the hierarchy and configuration links are unchanged.
 - Intentionally retained local demo records: `Demo · Morning Brief`, `Demo · Weekly
   Digest`, `Demo · SendGrid Primary` and `Demo · SendGrid Secondary`; six paused
   documentation-range IPs (`192.0.2.10–12`, `198.51.100.10–12`) and four shared-IP

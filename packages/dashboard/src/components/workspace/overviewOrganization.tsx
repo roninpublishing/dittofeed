@@ -119,7 +119,7 @@ export default function OverviewOrganization({
                 display: "flex",
                 alignItems: "center",
                 gap: 0.75,
-                px: 1,
+                px: 0.75,
                 py: 0.75,
                 boxSizing: "border-box",
                 border: 1,
@@ -141,14 +141,12 @@ export default function OverviewOrganization({
                 }),
               }}
             >
-              <Icon
-                sx={{ fontSize: organizational ? 18 : 16, flexShrink: 0 }}
-              />
+              <Icon sx={{ fontSize: 18, flexShrink: 0 }} />
               <Typography
                 component="span"
-                fontSize={13}
+                fontSize={14}
                 fontWeight={organizational ? 700 : 500}
-                lineHeight={1.25}
+                lineHeight={1.3}
                 sx={{
                   overflowWrap: "anywhere",
                   wordBreak:

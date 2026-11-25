@@ -56,7 +56,7 @@ it("keeps sibling newsletters and accounts on one rank, with every asset readabl
   expect(new Set(siblings.map((node) => node.y))).toEqual(
     new Set([siblings[0]!.y]),
   );
-  expect(diagram.width).toBeLessThan(1200);
+  expect(diagram.width).toBeLessThan(1400);
   expect(diagram.height).toBeLessThan(600);
   for (const [index, node] of diagram.nodes.entries()) {
     expect(node.x).toBeGreaterThanOrEqual(0);

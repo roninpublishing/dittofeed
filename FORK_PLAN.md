@@ -910,14 +910,19 @@ Local implementation verification:
   layouts were checked. Temporary development accounts/IPs/pools/defaults were removed;
   newsletter/contact records were untouched and no send records were created.
 - Current combined local preview: `http://localhost:3000/dashboard/workspace`,
-  dashboard build `dist/workspace-readable-cards-preview`. Neon, ClickHouse and Temporal
+  dashboard build `dist/workspace-card-spacing-preview`. Neon, ClickHouse and Temporal
   target development; workers, bootstrap, capture and provisioning remain off.
   No production deployment, provider mutations or real email sends were performed.
 - Overview correction: compact connected boxes and horizontal sibling ranks replace
   the rejected nested columns. Terminal assets branch below their owners;
   resource counts use a single compact strip. On small screens, horizontal
   overflow stays inside the diagram without shrinking its text.
-  Resource cards are 176×72px with 14px labels to reduce repeated name wrapping.
+  Resource cards use 208×80px bounds, consistent inset icon tiles, 12px side padding
+  and 14px labels; keep long names readable without crowding icons.
+- Card-spacing verification: actual browser checks confirm consistent 12px side
+  padding, 10px icon/label gaps and centered alignment without clipped labels;
+  all seven demo domains still fit two lines. Both layout tests and the optimized
+  dashboard build pass.
 - Compact-diagram verification: both isolated geometry/ownership tests and the
   optimized dashboard build pass. Actual browser checks show all 25 nodes in a
   1093×560 diagram with no clipped labels; a 390px viewport keeps page overflow

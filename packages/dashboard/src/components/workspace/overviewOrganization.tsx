@@ -118,13 +118,13 @@ export default function OverviewOrganization({
                 height: node.height,
                 display: "flex",
                 alignItems: "center",
-                gap: 0.75,
-                px: 0.75,
-                py: 0.75,
+                gap: 1.25,
+                px: 1.5,
+                py: organizational ? 0.5 : 1.25,
                 boxSizing: "border-box",
                 border: 1,
                 borderColor: organizational ? "text.primary" : "divider",
-                borderRadius: 0.75,
+                borderRadius: 1.5,
                 bgcolor: organizational ? "text.primary" : "background.paper",
                 color: organizational ? "background.paper" : "text.primary",
                 textDecoration: "none",
@@ -141,13 +141,30 @@ export default function OverviewOrganization({
                 }),
               }}
             >
-              <Icon sx={{ fontSize: 18, flexShrink: 0 }} />
+              <Box
+                component="span"
+                aria-hidden="true"
+                sx={{
+                  width: organizational ? 24 : 30,
+                  height: organizational ? 24 : 30,
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 1,
+                  bgcolor: organizational ? "transparent" : "action.hover",
+                  color: organizational ? "inherit" : "text.secondary",
+                }}
+              >
+                <Icon sx={{ fontSize: 18 }} />
+              </Box>
               <Typography
                 component="span"
                 fontSize={14}
                 fontWeight={organizational ? 700 : 500}
-                lineHeight={1.3}
+                lineHeight={1.35}
                 sx={{
+                  minWidth: 0,
                   overflowWrap: "anywhere",
                   wordBreak:
                     node.object.kind === "domain" ? "break-all" : "normal",

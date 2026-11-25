@@ -829,9 +829,8 @@ SendGrid is the first managed-account adapter; native non-newsletter providers r
 - Top-right workspace selection scopes every page, graph, query and mutation.
   Opening a newsletter enters its existing native environment; returning restores
   the workspace dashboard. Preserve newsletter-only membership restrictions.
-- Replace the current `?view=` navigation with the target nested pages during the
-  UI build. The immediate route rename retains existing view functionality under
-  `/dashboard/workspace?view=...` until those real screens are implemented.
+- Workspace views use nested routes under `/dashboard/workspace`; the former
+  `?view=` navigation and obsolete combined sending/IP editors are removed.
 - Overview provides a lazy-loaded, Mermaid-like organizational map and a List
   alternative. Its ownership structure is:
 

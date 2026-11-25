@@ -14,8 +14,7 @@ export interface InsertValue {
   messageId: string;
 }
 
-// ReplacingMergeTree is logically idempotent for receipt retries. All tracking
-// readers must use FINAL; physical duplicate rows may exist until a merge.
+// Retries are logically idempotent; all tracking readers must use FINAL.
 export const CREATE_TRACKING_EVENT_TABLE_QUERY = `
   CREATE TABLE IF NOT EXISTS trackingEvent (
     eventId UUID,
@@ -37,7 +36,10 @@ export const CREATE_TRACKING_EVENT_TABLE_QUERY = `
     counted Boolean,
     rulesVersion LowCardinality(String),
     networkId Nullable(String),
-    networkVersion Nullable(String)
+    networkVersion Nullable(String),
+    rawExpiresAt DateTime64(3, 'UTC') DEFAULT occurredAt + INTERVAL 30 DAY,
+    encryptedRequest Nullable(String) TTL toDateTime(rawExpiresAt),
+    requestHash String DEFAULT ''
   )
   ENGINE = ReplacingMergeTree()
   PARTITION BY toYYYYMM(occurredAt)
@@ -568,6 +570,14 @@ export async function createUserEventsTables() {
       }),
     ),
   );
+  // Existing local tables need an additive upgrade after CREATE completes.
+  await clickhouseClient().exec({
+    query: `ALTER TABLE trackingEvent
+      ADD COLUMN IF NOT EXISTS rawExpiresAt DateTime64(3, 'UTC') DEFAULT occurredAt + INTERVAL 30 DAY,
+      ADD COLUMN IF NOT EXISTS encryptedRequest Nullable(String) TTL toDateTime(rawExpiresAt),
+      ADD COLUMN IF NOT EXISTS requestHash String DEFAULT ''`,
+    clickhouse_settings: { wait_end_of_query: 1 },
+  });
 
   // These materialized views help to move data to "updated_" tables, which
   // track changes in the parent table.

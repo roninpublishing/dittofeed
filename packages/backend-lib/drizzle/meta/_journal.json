@@ -134,6 +134,13 @@
       "when": 1795624944545,
       "tag": "0018_esp_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795651200000,
+      "tag": "0019_send_open_tracking",
+      "breakpoints": true
     }
   ]
 }

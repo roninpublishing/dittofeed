@@ -21,10 +21,13 @@ with one `dt.<newsletter-domain>` hostname per native newsletter. Public
 deployment, DNS/TLS activation, capture, and sending remain disabled; local
 inbound-only verification is not a production cutover.
 
-Versioned open-hit heuristics, respond-first queued capture and classified
-ClickHouse storage are implemented locally on `feat/tracking-classifier`.
-`last_opened` remains observed/unqualified; heuristic `human` labels are not
-verification that a person read a message. No rollout gates were enabled.
+Versioned open-hit heuristics and respond-first queued capture are implemented
+locally on `feat/tracking-classifier`. Carson approved a clean development
+cutover: every outbound recipient send owns tracking metadata on its existing
+NewsletterSend row; all pixel-hit evidence/classifications live in ClickHouse,
+with no PG mapping row or PG per-hit receipt/outbox. No mail has shipped and no
+old generic-path compatibility is required. `last_opened` remains observed;
+heuristic `human` labels never verify that a person read a message. Gates stay off.
 
 Google OIDC and application-owned accounts, explicit workspace memberships,
 roles, private invitations, and revocable sessions are implemented. The local
@@ -393,22 +396,23 @@ original HTTP request; an optional owned pixel supplies request-level evidence.
   status. Contact UI, delivery API/CSV, filters, Liquid templates, and Last opened
   segment conditions expose observed semantics. Native/provider event identity
   remains distinct from internal send identity.
-- [x] Capture valid owned-pixel GET/HEAD requests in encrypted PostgreSQL evidence:
-  receipt time, method, redacted route, permitted cache-buster query, bounded
-  allowlisted headers/user-agent, observed socket address/HTTP/TLS, and separately
-  untrusted proxy hints. HEAD remains raw-only. No Cookie/Authorization/Referer,
-  literal token URL, arbitrary query/body dump, or raw IP/header copy in native
-  events/general logs. Verified Telnyx raw callbacks remain separate provider
-  evidence under their existing retention, not browser evidence.
-- [x] Use opaque 256-bit per-send tokens with stable retry mapping; inject only
-  into transport HTML, not previews/native stored HTML/view-in-browser. Skip
-  CC/BCC shared copies. Unknown/deleted tokens do not create observations; a
-  persistence failure returns 503. Token possession never proves a person's identity.
-- [x] Retain owned raw evidence for 30 days by default (1–365 configurable),
-  hide expired evidence immediately, and run bounded cleanup/projection through
-  the worker/global cron. Explicit scoped authenticated raw retrieval is available
-  from per-send History. Contact erasure serializes with capture/native insertion,
-  removes encrypted receipts/mappings, and retains hash-only retry/contact barriers.
+- [x] Capture valid owned-pixel GET/HEAD requests as encrypted bounded ClickHouse
+  evidence: occurrence time, redacted route, allowed query/headers, socket/edge
+  metadata and separately untrusted proxy hints. No Cookie/Authorization/Referer,
+  literal token URL or arbitrary request dump. Every valid hit is retained,
+  including scanners and repeat loads; HEAD never creates a native open.
+- [x] Keep opaque 256-bit token metadata on the canonical NewsletterSend row,
+  committed atomically with tracked transport HTML. No duplicate mapping row.
+  Retried sends reuse their original token/origin/payload. Stored/native previews
+  and view-in-browser remain untracked. Legacy generic sends and shared CC/BCC/
+  multiple-To payloads fail explicitly rather than sending without tracking.
+- [x] Retain encrypted raw evidence for 30 days by default (1–365 configurable),
+  enforce expiry on read and by ClickHouse column TTL; IP/user-agent columns have
+  a separate fixed 30-day cutoff. Preserve classified/native history beyond raw
+  expiry, including late queued hits. No PG tracking cron/outbox remains.
+- [x] Scope raw retrieval to workspace/contact/send/event. Contact erasure clears
+  send-row tokens and synchronously deletes ClickHouse evidence under the same
+  workspace lock; existing newsletter hash barriers prevent queued resurrection.
 - [x] Add versioned open-hit proxy/scanner heuristics with reasons and counting
   flags, preserving observed timestamps independently.
 - [ ] Calibrate qualified human-engagement policy against real evidence. Stored
@@ -425,13 +429,12 @@ subscription group or sending sub-user. Cloudflare for SaaS provisions each
 custom hostname/certificate; DNS-only CNAME and active hostname/TLS states must
 all be verified before a new branded origin becomes eligible.
 
-Preserve old domain ownership and every send's original origin. Historical
-pixels and accepted-send retries must not silently switch to a new hostname.
-Registered newsletters without verified current tracking domains fail closed
-when capture is enabled; legacy non-newsletter workspaces can retain the
-instance-wide `OPEN_TRACKING_BASE_URL`. Backend hosting and actual domains remain
-undecided. No public deployment, DNS/certificate/provider-account changes, or
-email sends are authorized as part of preparation.
+Preserve each canonical send's original verified origin and domain ownership.
+New sends fail closed without an active verified newsletter hostname and enabled
+tracking; no global-origin or legacy direct-send fallback remains. Shared CC/BCC
+payloads cannot identify independent readers and are rejected before queuing.
+Backend hosting and actual domains remain operator choices. No deployment,
+DNS/certificate/provider-account changes or real sends are authorized.
 
 Capture remains explicitly gated by `ENABLE_OPEN_TRACKING`; a stable private
 32-byte base64 `SECRET_KEY` is required. Newsletter-only origins use a separate
@@ -442,21 +445,20 @@ sender workers/capture disabled; inbound-only test fixtures exercise collection.
 Provider profile tracking remains separately configured. See
 [Open tracking](packages/docs/guide/open-tracking.mdx).
 
-Owned request receipts use AES-256-GCM storage; the request's `encrypted`
-field describes socket TLS, not at-rest protection. Evidence retrieval is scoped
-to workspace/contact/internal send/receipt. Existing native event retention is
-separate. PG/native projection remains at-least-once across a crash; per-send
-counts deduplicate event ID + occurrence time, not unique people. Known-correlation
-workspace erasure does not disable all future ingestion/sends. Hash-only erasure
-barriers are pseudonymous and retained indefinitely; erased contact IDs cannot
-silently re-enable owned tracking. Protect the encryption key and external
-ingress/CDN access logs as well as application storage.
+Owned request evidence uses AES-256-GCM inside ClickHouse; the request's
+`encrypted` field describes socket TLS, not at-rest protection. Scoped reads
+enforce raw expiry immediately. Queue retries preserve immutable event identity;
+ClickHouse classifications and native events do not share an atomic commit.
+204 is sent only after both writes complete, and `FINAL`/native event identities
+deduplicate retries. Newsletter erasure barriers contain pseudonymous hashes,
+not anonymized data, and remain independent of raw-event retention. Protect
+the encryption key, database access and external ingress/CDN logs.
 
 Apple privacy proxies can prefetch images and conceal client identity; image
 blocking also hides real reads. A pixel load, user-agent string, click, or ten-
 minute delay alone never verifies a human open. No Apple workaround is claimed.
 
-Verification: affected package typechecks and 306 targeted regressions passed
+Initial verification before the canonical-send storage cutover: package typechecks and 306 targeted regressions passed
 across 18 isolated suites. Real local pixel GET/HEAD, durable native projection,
 late/duplicate events, two-send aggregation, raw redaction/retrieval, contact
 filtering, and Liquid rendering were exercised without external email. Browser
@@ -510,20 +512,21 @@ The opens-only classifier adapts `yuriyward/mail-tracker` at
 `51ea4e7551564f6ddb55b60a34754863400e9133`, with shared deterministic rules,
 IPv4/IPv6 published-network lookup and `isbot`. It preserves the reference timing
 windows and explicit rule reasons. No click redirects, href rewriting, stateless
-tokens, send-path edits, dashboard screens or provider changes are included.
+tokens, dashboard screens or provider-account changes are included.
 See [the design](packages/tracking-worker/DESIGN.md).
 
-The default-off Worker now returns GIFs before queue/backend acknowledgement.
-Bounded edge evidence enters a Queue; timestamped HMAC v2 batches resolve
-hostname/newsletter/token ownership and durably deduplicate receipt UUIDs in
-Postgres. Legacy v1 relay/direct pixels and observed `DFEmailOpened` still work.
-HEAD is classified without becoming an observed native open.
+The default-off Worker returns GIFs before queue/backend acknowledgement.
+Bounded edge evidence enters a Queue; timestamped HMAC v2 batches resolve the
+canonical send's token hash, newsletter and original hostname. Every valid hit
+gets a ClickHouse row, even when its counted flag is false. Transport retries
+reuse an event UUID. No PG tracking event/receipt row is created.
 
-Backend cron inserts classified `trackingEvent` rows in ClickHouse with monthly
-partitions and logical retry deduplication through `FINAL`. Delivery age uses
-actual correlated provider delivery, never acceptance. IP/user-agent columns are
-nulled after 30 days; scoped reads enforce the cutoff before background TTL
-merges. Erasure synchronizes against capture/projection and deletes these rows.
+The backend batches monthly `trackingEvent` inserts and observed GET native
+events before returning 204. HEAD is classified without a native open. Delivery
+age uses correlated delivery, not acceptance. IP/user-agent columns expire after
+30 days; encrypted evidence has scoped read-time/column-TTL expiry. Erasure
+serializes with batches. Old v1 relay/backend pixels and the PG outbox/activity
+are removed, not retained as compatibility paths.
 
 Weekly KV refresh preserves the previous active set on source failure or >20%
 shrink. Proofpoint Essentials retains the reference's pinned published ranges
@@ -534,15 +537,16 @@ use the `human` policy label with explicit proxy reasons, not verified-human
 claims. Explicit staff IPs use `OPEN_TRACKING_SELF_IPS`; seed/test-send signals
 remain a send-path hand-off rather than guessed metadata.
 
-Local native workerd → Queue/KV → signed HTTP batch → encrypted Postgres →
-ClickHouse proof produced the expected human, Apple proxy and scanner rows,
+Initial prototype proof (before the storage cutover) used native workerd →
+Queue/KV → signed HTTP batch → encrypted Postgres → ClickHouse and produced
+the expected human, Apple proxy and scanner rows,
 including delivery-age correlation. All three GIFs returned while backend
 acknowledgement was deliberately blocked. No email was sent, public resource
 created, provider configured or deployment initiated. Production still needs
 RONIN-scoped authentication, a Queue/DLQ, KV ID, cron/alerting, dedicated backend
 origin/secrets and the selected newsletter's verified hostname.
 
-Verification: 247 targeted tests passed (146 classifier/network, 22 native
+Initial prototype verification before the storage cutover: 247 targeted tests passed (146 classifier/network, 22 native
 Worker, 35 capture/storage/erasure, 32 configuration, 11 HTTP API and one signed
 callback fixture). Shared/backend/API/Worker typechecks passed. New standalone
 modules and API/Worker lint passed; full-file lint on legacy capture/config
@@ -552,6 +556,24 @@ cleanup, waiving that full-file gate for this branch and requesting a draft PR.
 The database harness now closes its migration-owned pool before Jest creates
 test VMs, preventing cross-realm Pool identity from disabling Drizzle transaction
 pinning. Tests assert real advisory-lock queues and preserve erase/capture races.
+
+Canonical-send cutover verification: 132 targeted Jest tests across six suites
+passed, plus the empty-only migration guard and fresh/restartable migration
+bootstrap checks. Backend, API, Temporal worker and tracking Worker typechecks
+passed. Coverage includes atomic token issuance/reuse, rejected untracked paths,
+every-load retention, retry/partial-write recovery, TTL materialization, late
+event maxima and real PostgreSQL erasure/capture lock races.
+
+A real local workerd → Queue → signed HTTP backend → ClickHouse proof returned
+five GIF/HEAD responses while backend acknowledgement was blocked. Two existing
+send rows remained unchanged, legacy PostgreSQL tracking tables were absent,
+and ClickHouse retained all five loads (repeat GET, HEAD, scanner and Apple
+proxy): four observed GET opens and one heuristically counted hit. Only disposable
+local databases and inbound fixtures were used; no email, public deployment,
+provider/account change or production data mutation occurred.
+Focused API/backend ESLint attempts exhausted the Node heap at both 4 and 8 GiB;
+this cutover does not claim a clean lint pass. The approved focused-diff waiver
+remains in effect.
 
 ## Telnyx replacement: implemented and locally verified
 

@@ -166,6 +166,9 @@ export const newsletterSend = pgTable("NewsletterSend", {
   encryptedRecipient: encrypted(),
   encryptedPayload: encrypted(),
   encryptedCredential: encrypted(),
+  openTrackingTokenHash: text(),
+  encryptedOpenTrackingToken: encrypted(),
+  openTrackingOrigin: text(),
   payloadHash: text().notNull(),
   state: text().$type<"queued" | "submitting" | "accepted" | "unknown" | "rejected" | "suppressed">().default("queued").notNull(),
   providerMessageId: text(),
@@ -180,7 +183,7 @@ export const newsletterSend = pgTable("NewsletterSend", {
   nextAttemptAt: createdAt(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (t) => [unique().on(t.workspaceId, t.logicalMessageId), index().on(t.state, t.nextAttemptAt), index().on(t.workspaceId, t.userId), index().on(t.connectionId, t.providerMessageId), index().on(t.connectionId, t.providerSmtpId), index().on(t.workspaceId, t.broadcastId, t.state), index().on(t.workspaceId, t.journeyId, t.state)]);
+}, (t) => [unique().on(t.workspaceId, t.logicalMessageId), uniqueIndex("NewsletterSend_openTrackingTokenHash_unique").on(t.openTrackingTokenHash).where(sql`${t.openTrackingTokenHash} is not null`), index().on(t.state, t.nextAttemptAt), index().on(t.workspaceId, t.userId), index().on(t.connectionId, t.providerMessageId), index().on(t.connectionId, t.providerSmtpId), index().on(t.workspaceId, t.broadcastId, t.state), index().on(t.workspaceId, t.journeyId, t.state)]);
 
 export const sendingIpBudget = pgTable("SendingIpBudget", {
   ipId: uuid().notNull().references(() => sendingIp.id, { onDelete: "cascade" }),

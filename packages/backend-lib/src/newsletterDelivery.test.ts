@@ -1,4 +1,5 @@
 import { CommandResult } from "@clickhouse/client";
+import { MailDataRequired } from "@sendgrid/mail";
 import { createSign, generateKeyPairSync, randomUUID } from "crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
@@ -6,6 +7,8 @@ import { err, ok } from "neverthrow";
 
 import * as batch from "./apps/batch";
 import * as clickhouse from "./clickhouse";
+import config from "./config";
+import * as openTracking from "./messaging/openTracking";
 import { db } from "./db";
 import {
   workspace,
@@ -157,6 +160,7 @@ describe("durable newsletter sends and signed inbox", () => {
   let ipIds: string[];
   let poolIds: string[];
   let restoreSecret: () => void;
+  let previousTracking: boolean;
   let poolId: string;
   let ipId: string;
   let provider: jest.SpyInstance;
@@ -164,6 +168,8 @@ describe("durable newsletter sends and signed inbox", () => {
 
   beforeEach(async () => {
     restoreSecret = installNewsletterSecretFixture();
+    previousTracking = config().enableOpenTracking;
+    config().enableOpenTracking = true;
     publisherId = (await createWorkspace({ name: randomUUID() }).then(unwrap))
       .id;
     newsletterIds = await Promise.all(
@@ -183,6 +189,19 @@ describe("durable newsletter sends and signed inbox", () => {
           status: "active" as const,
         })),
       );
+    await db().insert(tables.newsletterTrackingDomain).values(
+      newsletterIds.map((id, i) => ({
+        newsletterId: id,
+        domain: `${id}.example.com`,
+        hostname: `dt.${id}.example.com`,
+        status: "active" as const,
+        cnameVerified: true,
+        cloudflareStatus: "active",
+        sslStatus: "active",
+        verifiedAt: new Date(),
+        customHostnameId: `fixture-${i}`,
+      })),
+    );
     accountIds = newsletterIds.map(() => randomUUID());
     await db()
       .insert(tables.publisherSendgridAccount)
@@ -304,6 +323,7 @@ describe("durable newsletter sends and signed inbox", () => {
   afterEach(async () => {
     jest.restoreAllMocks();
     restoreSecret();
+    config().enableOpenTracking = previousTracking;
     await db()
       .delete(tables.newsletterWebhookReceipt)
       .where(
@@ -333,18 +353,14 @@ describe("durable newsletter sends and signed inbox", () => {
 
   async function enqueue(
     index = 0,
-    copies = 1,
     logicalMessageId: string = randomUUID(),
-    copyType: "cc" | "bcc" = "cc",
     espSelection?: EspSelection | null,
   ) {
     const workspaceId = newsletterIds[index]!;
     const userId = `contact-${index}`;
-    const recipients = Array.from({ length: copies }, (_, i) =>
-      i === 0 ? "subscriber@example.com" : `copy-${i}@example.com`,
-    );
+    const recipients = ["subscriber@example.com"];
     const html =
-      'https://example.com/?subscriber_email=subscriber%40example.com<img src="owned-pixel">';
+      'https://example.com/?subscriber_email=subscriber%40example.com';
     const result = await sendNewsletterEmail({
       workspaceId,
       publisherId,
@@ -358,8 +374,6 @@ describe("durable newsletter sends and signed inbox", () => {
         from: "editor@example.com",
         ipPoolName: "untrusted-caller-pool",
         to: recipients[0]!,
-        cc: copyType === "cc" ? recipients.slice(1) : undefined,
-        bcc: copyType === "bcc" ? recipients.slice(1) : undefined,
         html,
         subject: "Original subject",
         customArgs: { templateId: "original-template" },
@@ -384,6 +398,125 @@ describe("durable newsletter sends and signed inbox", () => {
     if (!status) throw new Error("Missing durable send");
     return { ...status, workspaceId, userId, logicalMessageId };
   }
+
+  it.each(["disabled", "unverified", "missing-key"] as const)(
+    "refuses a new canonical send when open tracking is %s without leaving an orphan row",
+    async (readiness) => {
+      if (readiness === "disabled") config().enableOpenTracking = false;
+      else if (readiness === "missing-key") config().secretKey = undefined;
+      else await db().update(tables.newsletterTrackingDomain).set({ status: "pending" })
+        .where(eq(tables.newsletterTrackingDomain.newsletterId, newsletterIds[0]!));
+      const result = await sendNewsletterEmail({
+        workspaceId: newsletterIds[0]!, publisherId, userId: "contact",
+        logicalMessageId: randomUUID(), recipients: ["subscriber@example.com"],
+        from: "editor@example.com",
+        mailData: {
+          from: "editor@example.com", to: "subscriber@example.com",
+          html: "<p>New send</p>", subject: "No untracked send",
+        },
+        success: {
+          type: InternalEventType.MessageSent,
+          variant: {
+            type: ChannelType.Email, from: "editor@example.com",
+            to: "subscriber@example.com", body: "<p>New send</p>",
+            subject: "No untracked send", provider: { type: EmailProviderType.SendGrid },
+          },
+        },
+      });
+      expect(result.isErr()).toBe(true);
+      expect(provider).not.toHaveBeenCalled();
+      expect(await db().select().from(tables.newsletterSend)
+        .where(eq(tables.newsletterSend.publisherId, publisherId))).toHaveLength(0);
+    },
+  );
+
+  it("persists one canonical pixel identity and reuses its encrypted transport without readiness resolution", async () => {
+    const issuance = jest.spyOn(openTracking, "prepareEmailOpenTracking");
+    const messageId = randomUUID();
+    const [first, concurrent] = await Promise.all([
+      enqueue(0, messageId),
+      enqueue(0, messageId),
+    ]);
+    expect(first.sendId).toBe(concurrent.sendId);
+    expect(issuance).toHaveBeenCalledTimes(1);
+    const [saved] = await db().select().from(tables.newsletterSend)
+      .where(eq(tables.newsletterSend.id, first.sendId));
+    if (!saved?.encryptedOpenTrackingToken || !saved.encryptedPayload)
+      throw new Error("Missing canonical tracked transport");
+    const token = JSON.parse(decrypt(saved.encryptedOpenTrackingToken)!) as { id: string; token: string };
+    expect(token.id).toBe(saved.id);
+    const envelope = JSON.parse(decrypt(saved.encryptedPayload)!) as {
+      mailData: { html: string }; success: { variant: { body: string } };
+    };
+    expect(envelope.mailData.html).toContain(`${saved.openTrackingOrigin}/api/public/email/open/${token.token}.gif`);
+    expect(envelope.mailData.html.match(/data-df-open-tracking=/g)).toHaveLength(1);
+    expect(envelope.success.variant.body).not.toContain("data-df-open-tracking");
+    config().enableOpenTracking = false;
+    await db().update(tables.newsletterTrackingDomain).set({ status: "pending" })
+      .where(eq(tables.newsletterTrackingDomain.newsletterId, first.workspaceId));
+    await db().delete(tables.newsletterDefault)
+      .where(eq(tables.newsletterDefault.newsletterId, first.workspaceId));
+    expect((await enqueue(0, messageId)).sendId).toBe(first.sendId);
+    expect(issuance).toHaveBeenCalledTimes(1);
+    const [retry] = await db().select().from(tables.newsletterSend)
+      .where(eq(tables.newsletterSend.id, first.sendId));
+    expect(retry?.encryptedPayload).toEqual(saved.encryptedPayload);
+    expect(retry?.encryptedOpenTrackingToken).toEqual(saved.encryptedOpenTrackingToken);
+    await drainNewsletterSends();
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it.each<Partial<MailDataRequired>>([
+    { to: "invalid" },
+    { to: "one@example.com,two@example.com" },
+    { to: ["subscriber@example.com", "other@example.com"] },
+    { to: "wrong@example.com" },
+    { cc: "copy@example.com" },
+    { bcc: "copy@example.com" },
+    { personalizations: [{ to: [{ email: "other@example.com" }] }] },
+    { isMultiple: true },
+    { mailSettings: { bcc: { enable: true, email: "copy@example.com" } } },
+    { headers: { Bcc: "copy@example.com" } },
+    { templateId: "untracked-provider-template" },
+  ])("rejects unsupported recipient payloads before issuance or queueing: %p", async (overrides) => {
+    const issuance = jest.spyOn(openTracking, "prepareEmailOpenTracking");
+    const result = await sendNewsletterEmail({
+      workspaceId: newsletterIds[0]!, publisherId, userId: "contact",
+      logicalMessageId: randomUUID(), recipients: ["subscriber@example.com"],
+      from: "editor@example.com",
+      mailData: {
+        from: "editor@example.com", to: "subscriber@example.com",
+        html: "<p>Untracked</p>", subject: "Invalid recipient", ...overrides,
+      },
+      success: {
+        type: InternalEventType.MessageSent,
+        variant: {
+          type: ChannelType.Email, from: "editor@example.com",
+          to: "subscriber@example.com", body: "<p>Untracked</p>",
+          subject: "Invalid recipient", provider: { type: EmailProviderType.SendGrid },
+        },
+      },
+    });
+    expect(result.isErr()).toBe(true);
+    expect(issuance).not.toHaveBeenCalled();
+    expect(provider).not.toHaveBeenCalled();
+    expect(await db().select().from(tables.newsletterSend)
+      .where(eq(tables.newsletterSend.publisherId, publisherId))).toHaveLength(0);
+  });
+
+  it.each(["openTrackingTokenHash", "encryptedOpenTrackingToken", "openTrackingOrigin"] as const)(
+    "blocks provider submission when canonical %s is missing",
+    async (column) => {
+      const queued = await enqueue();
+      await db().update(tables.newsletterSend).set({ [column]: null })
+        .where(eq(tables.newsletterSend.id, queued.sendId));
+      await drainNewsletterSends();
+      expect(provider).not.toHaveBeenCalled();
+      const [row] = await db().select().from(tables.newsletterSend)
+        .where(eq(tables.newsletterSend.id, queued.sendId));
+      expect(row).toMatchObject({ state: "queued", error: "Open tracking unavailable", attempts: 0 });
+    },
+  );
 
   async function callback(connectionIndex: number, events: unknown[]) {
     await receiveNewsletterWebhook({
@@ -450,7 +583,6 @@ describe("durable newsletter sends and signed inbox", () => {
           from: "{{user.sender}}",
           subject: "For {{user.edition}}",
           body: '<a href="https://example.com/?subscriber_email={{subscriber_email}}&edition={{user.edition | url_encode}}">Read</a>',
-          cc: "copy@example.com",
         },
       });
     const messageId = randomUUID();
@@ -490,7 +622,7 @@ describe("durable newsletter sends and signed inbox", () => {
     const destination = new URL(href);
     expect(destination.searchParams.get("subscriber_email")).toBe("real+reader@example.com");
     expect(destination.searchParams.get("edition")).toBe("one two");
-    expect(send?.recipientCount).toBe(2);
+    expect(send?.recipientCount).toBe(1);
     await db()
       .delete(tables.newsletterDefault)
       .where(eq(tables.newsletterDefault.newsletterId, workspaceId));
@@ -511,7 +643,7 @@ describe("durable newsletter sends and signed inbox", () => {
     expect(provider).not.toHaveBeenCalled();
   });
 
-  it("blocks publisher sending and preserves legacy non-opted-in workspaces", async () => {
+  it("blocks publisher sending and resolves registered newsletters", async () => {
     await expect(getNewsletterEmailContext(publisherId)).rejects.toThrow(
       "Publisher workspaces cannot send email",
     );
@@ -521,9 +653,11 @@ describe("durable newsletter sends and signed inbox", () => {
     expect(provider).not.toHaveBeenCalled();
   });
 
-  it("serializes shared physical-IP budgets across concurrent subusers and counts every recipient copy", async () => {
-    const first = await enqueue(0, 2);
-    const second = await enqueue(1, 2);
+  it("serializes shared physical-IP budgets across concurrent single-recipient sends", async () => {
+    await db().update(tables.sendingIp).set({ hourlyLimit: 1, dailyLimit: 1 })
+      .where(inArray(tables.sendingIp.id, ipIds));
+    const first = await enqueue(0);
+    const second = await enqueue(1);
     expect(provider).not.toHaveBeenCalled();
     expect(projection).not.toHaveBeenCalled();
     await Promise.all([drainNewsletterSends(), drainNewsletterSends()]);
@@ -538,7 +672,7 @@ describe("durable newsletter sends and signed inbox", () => {
       .select()
       .from(tables.sendingIpBudget)
       .where(eq(tables.sendingIpBudget.ipId, ipId));
-    expect(budgets.map((row) => row.reserved)).toEqual([2, 2]);
+    expect(budgets.map((row) => row.reserved)).toEqual([1, 1]);
     expect(new Set(rows.map((row) => row.id))).toEqual(
       new Set([first.sendId, second.sendId]),
     );
@@ -609,8 +743,8 @@ describe("durable newsletter sends and signed inbox", () => {
     const selection: EspSelection = {
       accountId: accountIds[1]!, mode: "ip", ipId: ipIds[1]!,
     };
-    const first = await enqueue(0, 1, messageId, "cc", selection);
-    const retry = await enqueue(0, 1, messageId, "cc", {
+    const first = await enqueue(0, messageId, selection);
+    const retry = await enqueue(0, messageId, {
       accountId: accountIds[0]!, mode: "ip", ipId,
     });
     expect(retry.sendId).toBe(first.sendId);
@@ -660,8 +794,10 @@ describe("durable newsletter sends and signed inbox", () => {
   });
 
   it.each(["pool", "automatic"] as const)(
-    "reserves full recipient copies against every possible %s IP, not summed capacity",
+    "reserves each recipient against every possible %s IP, not summed capacity",
     async (mode) => {
+      await db().update(tables.sendingIp).set({ hourlyLimit: 1, dailyLimit: 1 })
+        .where(inArray(tables.sendingIp.id, ipIds));
       const secondIp = randomUUID();
       await db().insert(tables.sendingIp).values({
         id: secondIp, canonicalIpId: secondIp, accountId: accountIds[0]!,
@@ -673,8 +809,8 @@ describe("durable newsletter sends and signed inbox", () => {
       const selection: EspSelection = mode === "pool"
         ? { accountId: accountIds[0]!, mode, poolId }
         : { accountId: accountIds[0]!, mode };
-      const first = await enqueue(0, 2, randomUUID(), "cc", selection);
-      const second = await enqueue(0, 2, randomUUID(), "bcc", selection);
+      const first = await enqueue(0, randomUUID(), selection);
+      const second = await enqueue(0, randomUUID(), selection);
       await Promise.all([drainNewsletterSends(), drainNewsletterSends()]);
       expect(provider).toHaveBeenCalledTimes(1);
       const rows = await db().select().from(tables.newsletterSend)
@@ -688,7 +824,7 @@ describe("durable newsletter sends and signed inbox", () => {
       const budgets = await db().select().from(tables.sendingIpBudget)
         .where(inArray(tables.sendingIpBudget.ipId, [ipId, secondIp]));
       expect(budgets).toHaveLength(4);
-      expect(budgets.every((budget) => budget.reserved === 2)).toBe(true);
+      expect(budgets.every((budget) => budget.reserved === 1)).toBe(true);
       const mail = provider.mock.calls[0]![0].mailData as Record<string, unknown>;
       if (mode === "automatic") expect(mail).not.toHaveProperty("ipPoolName");
       else expect(mail.ipPoolName).toBe("physical-ip-one");
@@ -701,10 +837,10 @@ describe("durable newsletter sends and signed inbox", () => {
       id: constrained, canonicalIpId: constrained, accountId: accountIds[0]!,
       publisherId, address: "192.0.2.12", status: "active",
       providerVerifiedAt: new Date(), verifiedAccountRevision: 1,
-      hourlyLimit: 1, dailyLimit: 1,
+      hourlyLimit: 0, dailyLimit: 0,
     });
     await db().insert(tables.sendingPoolIp).values({ poolId, ipId: constrained });
-    await enqueue(0, 2, randomUUID(), "cc", {
+    await enqueue(0, randomUUID(), {
       accountId: accountIds[0]!, mode: "pool", poolId,
     });
     await drainNewsletterSends();
@@ -714,9 +850,9 @@ describe("durable newsletter sends and signed inbox", () => {
   });
 
   it("uses the strictest physical alias limits and pause across different accounts", async () => {
-    await db().update(tables.sendingIp).set({ hourlyLimit: 1 })
+    await db().update(tables.sendingIp).set({ hourlyLimit: 0 })
       .where(eq(tables.sendingIp.id, ipIds[1]!));
-    const queued = await enqueue(0, 2);
+    const queued = await enqueue(0);
     await drainNewsletterSends();
     expect(provider).not.toHaveBeenCalled();
     await db().update(tables.sendingIp).set({ hourlyLimit: 3, status: "paused" })
@@ -769,7 +905,7 @@ describe("durable newsletter sends and signed inbox", () => {
   it("uses the selected account's release gate, not another account in the publisher", async () => {
     await db().update(tables.publisherSendgridAccount).set({ allowRealSends: false })
       .where(eq(tables.publisherSendgridAccount.id, accountIds[1]!));
-    const queued = await enqueue(0, 1, randomUUID(), "cc", {
+    const queued = await enqueue(0, randomUUID(), {
       accountId: accountIds[1]!, mode: "ip", ipId: ipIds[1]!,
     });
     await drainNewsletterSends();
@@ -798,7 +934,7 @@ describe("durable newsletter sends and signed inbox", () => {
 
   it("never broadens or resubmits a reserved singleton retry after pool membership changes", async () => {
     provider.mockResolvedValueOnce(err({ code: 429 }));
-    const queued = await enqueue(0, 1, randomUUID(), "cc", {
+    const queued = await enqueue(0, randomUUID(), {
       accountId: accountIds[0]!, mode: "pool", poolId,
     });
     await drainNewsletterSends();
@@ -828,7 +964,7 @@ describe("durable newsletter sends and signed inbox", () => {
   });
 
   it("records only provider-observed actual IP without changing the selected candidates", async () => {
-    const queued = await enqueue(0, 1, randomUUID(), "cc", {
+    const queued = await enqueue(0, randomUUID(), {
       accountId: accountIds[1]!, mode: "automatic",
     });
     await drainNewsletterSends();
@@ -869,7 +1005,7 @@ describe("durable newsletter sends and signed inbox", () => {
       hourlyLimit: 3, dailyLimit: 3,
     });
     provider.mockResolvedValueOnce(err({ code: 429 }));
-    const queued = await enqueue(0, 2, randomUUID(), "cc", {
+    const queued = await enqueue(0, randomUUID(), {
       accountId: accountIds[0]!, mode: "automatic",
     });
     await drainNewsletterSends();
@@ -880,7 +1016,7 @@ describe("durable newsletter sends and signed inbox", () => {
     const budgets = await db().select().from(tables.sendingIpBudget)
       .where(inArray(tables.sendingIpBudget.ipId, [ipId, secondIp]));
     expect(budgets).toHaveLength(4);
-    expect(budgets.every((budget) => budget.reserved === 2)).toBe(true);
+    expect(budgets.every((budget) => budget.reserved === 1)).toBe(true);
     const [row] = await db().select().from(tables.newsletterSend)
       .where(eq(tables.newsletterSend.id, queued.sendId));
     expect(row).toMatchObject({ state: "accepted", attempts: 2 });
@@ -954,7 +1090,7 @@ describe("durable newsletter sends and signed inbox", () => {
 
   it("erases one newsletter without discarding sibling receipts on the same account connection", async () => {
     const first = await enqueue(0);
-    const sibling = await enqueue(1, 1, randomUUID(), "cc", {
+    const sibling = await enqueue(1, randomUUID(), {
       accountId: accountIds[0]!, mode: "ip", ipId,
     });
     await drainNewsletterSends();
@@ -1013,7 +1149,7 @@ describe("durable newsletter sends and signed inbox", () => {
     ).toMatchObject({ state: "unknown" });
   });
 
-  it("publisher suppressions block all newsletter copies before submission without promoting policy failures", async () => {
+  it("publisher suppressions block newsletter sends before submission without promoting policy failures", async () => {
     await enqueue(0);
     await enqueue(1);
     await upsertPublisherSuppression({
@@ -1129,6 +1265,9 @@ describe("durable newsletter sends and signed inbox", () => {
       encryptedPayload: null,
       encryptedRecipient: null,
       encryptedCredential: null,
+      openTrackingTokenHash: null,
+      encryptedOpenTrackingToken: null,
+      openTrackingOrigin: null,
     });
     expect(erased?.userId).not.toBe(queued.userId);
     const receipts = await db()
@@ -1168,10 +1307,10 @@ describe("durable newsletter sends and signed inbox", () => {
     expect(retry.isErr()).toBe(true);
   });
 
-  it.each(["cc", "bcc"] as const)(
-    "discards late signed %s receipts for erased immutable sends without assigning callback metadata",
-    async (copyType) => {
-      const queued = await enqueue(0, 2, randomUUID(), copyType);
+  it(
+    "discards late signed receipts for erased immutable sends without assigning callback metadata",
+    async () => {
+      const queued = await enqueue();
       await drainNewsletterSends();
       const [sent] = await db()
         .select()
@@ -1190,7 +1329,7 @@ describe("durable newsletter sends and signed inbox", () => {
       ].map((identity, index) => ({
         ...identity,
         event: "open",
-        email: "copy-1@example.com",
+        email: "subscriber@example.com",
         timestamp: Math.floor(Date.now() / 1000),
         sg_event_id: `late-copy-${index}`,
         workspaceId: newsletterIds[1],

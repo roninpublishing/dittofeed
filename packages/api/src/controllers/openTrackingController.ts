@@ -2,22 +2,18 @@ import { Static, Type } from "@sinclair/typebox";
 import config from "backend-lib/src/config";
 import logger from "backend-lib/src/logger";
 import {
-  captureEmailOpenRequest,
-  OPEN_TRACKING_PIXEL_PATH,
+  captureEmailOpenRequests,
+  CaptureEmailOpenRequestInput,
 } from "backend-lib/src/messaging/openTracking";
 import { verifyOpenTrackingRelay } from "backend-lib/src/messaging/openTrackingRelay";
 import { getTrackingHostnameNewsletter } from "backend-lib/src/newsletterTracking";
 import { FastifyInstance } from "fastify";
 import { fastifyRawBody } from "fastify-raw-body";
 
-const PIXEL = Buffer.from(
-  "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
-  "base64",
-);
-
-const RelayBody = Type.Object(
+const BatchEvent = Type.Object(
   {
-    v: Type.Literal(1),
+    v: Type.Literal(2),
+    eventId: Type.String({ format: "uuid" }),
     hostname: Type.String({
       minLength: 6,
       maxLength: 253,
@@ -44,21 +40,6 @@ const RelayBody = Type.Object(
         remoteAddress: Type.Optional(Type.String({ maxLength: 64 })),
         httpVersion: Type.Optional(Type.String({ maxLength: 32 })),
         tlsVersion: Type.Optional(Type.String({ maxLength: 32 })),
-      },
-      { additionalProperties: false },
-    ),
-  },
-  { additionalProperties: false },
-);
-
-const BatchEvent = Type.Object(
-  {
-    ...RelayBody.properties,
-    v: Type.Literal(2),
-    eventId: Type.String({ format: "uuid" }),
-    edge: Type.Object(
-      {
-        ...RelayBody.properties.edge.properties,
         asOrganization: Type.Optional(Type.String({ maxLength: 256 })),
         asn: Type.Optional(
           Type.Integer({ minimum: 0, maximum: 4_294_967_295 }),
@@ -111,65 +92,6 @@ export default async function openTrackingController(fastify: FastifyInstance) {
       .header("X-Content-Type-Options", "nosniff");
     done();
   });
-  fastify.post<{ Body: Static<typeof RelayBody> }>(
-    "/email/open/relay",
-    {
-      config: { rawBody: true },
-      logLevel: "silent",
-      bodyLimit: 16_384,
-      schema: { hide: true, body: RelayBody },
-      errorHandler(error, _request, reply) {
-        // This callback completes the response synchronously, without returning its thenable.
-        void reply.status(error.statusCode === 413 ? 413 : 400).send();
-      },
-    },
-    async (request, reply) => {
-      const settings = config();
-      if (!settings.enableOpenTracking || !settings.openTrackingRelaySecret)
-        return reply.status(503).send();
-      if (
-        !Buffer.isBuffer(request.rawBody) ||
-        !verifyOpenTrackingRelay({
-          rawBody: request.rawBody,
-          timestamp: request.headers["x-df-tracking-timestamp"],
-          signature: request.headers["x-df-tracking-signature"],
-          secret: settings.openTrackingRelaySecret,
-        })
-      )
-        return reply.status(403).send();
-      try {
-        const workspaceId = await getTrackingHostnameNewsletter(
-          request.body.hostname,
-        );
-        if (!workspaceId) return reply.status(403).send();
-        await captureEmailOpenRequest({
-          token: request.body.token,
-          expectedHostname: request.body.hostname,
-          expectedWorkspaceId: workspaceId,
-          request: {
-            receivedAt: new Date().toISOString(),
-            method: request.body.method,
-            headers: request.body.headers,
-            query: request.body.query,
-            remoteAddress: request.raw.socket.remoteAddress,
-            httpVersion: request.raw.httpVersion,
-            encrypted:
-              "encrypted" in request.raw.socket &&
-              request.raw.socket.encrypted === true,
-            edgeObserved: {
-              ...request.body.edge,
-              source: "cloudflare_worker",
-              hostname: request.body.hostname,
-            },
-          },
-        });
-        return reply.status(204).send();
-      } catch {
-        logger().error("Unable to persist relayed open request evidence");
-        return reply.status(503).send();
-      }
-    },
-  );
   fastify.post<{ Body: Static<typeof BatchBody> }>(
     "/email/open/batch",
     {
@@ -200,22 +122,21 @@ export default async function openTrackingController(fastify: FastifyInstance) {
         // Resolve all hosts before writing. A signed batch cannot cross the
         // hostname -> newsletter -> original token-origin ownership boundary.
         const hosts = new Map<string, string>();
+        const observations: CaptureEmailOpenRequestInput[] = [];
         for (const event of request.body.events) {
-          if (hosts.has(event.hostname)) continue;
-          // eslint-disable-next-line no-await-in-loop -- Bound lookups and reject all hosts before writing.
-          const workspaceId = await getTrackingHostnameNewsletter(
-            event.hostname,
-          );
-          if (!workspaceId) return reply.status(403).send();
-          hosts.set(event.hostname, workspaceId);
-        }
-        for (const event of request.body.events) {
-          // eslint-disable-next-line no-await-in-loop -- Preserve bounded partial-retry persistence without flooding the pool.
-          await captureEmailOpenRequest({
+          let workspaceId = hosts.get(event.hostname);
+          if (!workspaceId) {
+            // eslint-disable-next-line no-await-in-loop -- Bound lookups and verify all hosts before writing.
+            const verified = await getTrackingHostnameNewsletter(event.hostname);
+            if (!verified) return reply.status(403).send();
+            workspaceId = verified;
+            hosts.set(event.hostname, workspaceId);
+          }
+          observations.push({
             token: event.token,
             eventId: event.eventId,
             expectedHostname: event.hostname,
-            expectedWorkspaceId: hosts.get(event.hostname),
+            expectedWorkspaceId: workspaceId,
             request: {
               receivedAt: event.edge.receivedAt,
               method: event.method,
@@ -234,6 +155,7 @@ export default async function openTrackingController(fastify: FastifyInstance) {
             },
           });
         }
+        await captureEmailOpenRequests(observations);
         return reply.status(204).send();
       } catch {
         // Partially stored batches may retry; stable receipt IDs deduplicate.
@@ -242,45 +164,4 @@ export default async function openTrackingController(fastify: FastifyInstance) {
       }
     },
   );
-  fastify.route<{
-    Params: { token: string };
-    Querystring: Record<string, unknown>;
-  }>({
-    method: ["GET", "HEAD"],
-    url: OPEN_TRACKING_PIXEL_PATH.slice("/api/public".length),
-    // The URL is an opaque capability; never send it to ordinary request logs.
-    logLevel: "silent",
-    exposeHeadRoute: false,
-    bodyLimit: 1024,
-    schema: {
-      hide: true,
-      params: Type.Object({ token: Type.String({ maxLength: 256 }) }),
-    },
-    async handler(request, reply) {
-      try {
-        await captureEmailOpenRequest({
-          token: request.params.token,
-          request: {
-            receivedAt: new Date().toISOString(),
-            method: request.method,
-            headers: request.headers,
-            query: request.query,
-            remoteAddress: request.raw.socket.remoteAddress,
-            httpVersion: request.raw.httpVersion,
-            encrypted:
-              "encrypted" in request.raw.socket &&
-              request.raw.socket.encrypted === true,
-          },
-        });
-      } catch {
-        // Neither the URL/token nor exception/request data belongs in logs.
-        logger().error("Unable to persist open request evidence");
-        return reply.status(503).send();
-      }
-      const imageReply = reply.type("image/gif");
-      return request.method === "HEAD"
-        ? imageReply.header("Content-Length", PIXEL.length).send()
-        : imageReply.send(PIXEL);
-    },
-  });
 }

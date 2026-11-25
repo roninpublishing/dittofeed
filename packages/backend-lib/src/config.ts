@@ -44,7 +44,6 @@ const BaseRawConfigProps = {
     Type.String({ format: "naturalNumber", pattern: "^[1-9][0-9]*$" }),
   ),
   enableOpenTracking: Type.Optional(BoolStr),
-  openTrackingBaseUrl: Type.Optional(Type.String()),
   openTrackingRelaySecret: Type.Optional(Type.String()),
   openTrackingSelfIps: Type.Optional(Type.String()),
   cloudflareTrackingApiToken: Type.Optional(Type.String()),
@@ -322,7 +321,6 @@ export type Config = Overwrite<
     enableMobilePush: boolean;
     enableSourceControl: boolean;
     enableOpenTracking: boolean;
-    openTrackingBaseUrl?: string;
     openTrackingRetentionDays: number;
     openTrackingSelfIps: readonly string[];
     cloudflareTrackingAllowProvisioning: boolean;
@@ -551,7 +549,6 @@ function buildDashboardUrl({
 
 function parseOpenTrackingConfig(rawConfig: RawConfig): {
   enableOpenTracking: boolean;
-  openTrackingBaseUrl?: string;
   openTrackingRetentionDays: number;
   openTrackingSelfIps: readonly string[];
   cloudflareTrackingAllowProvisioning: boolean;
@@ -588,31 +585,14 @@ function parseOpenTrackingConfig(rawConfig: RawConfig): {
        !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9](?:[a-z0-9-]{0,57}[a-z0-9])?)$/i.test(rawConfig.cloudflareTrackingCnameTarget))) {
     throw new Error("CLOUDFLARE_TRACKING_CNAME_TARGET must be a DNS hostname.");
   }
-  let openTrackingBaseUrl: string | undefined;
-  if (rawConfig.openTrackingBaseUrl) {
-    try {
-      const url = new URL(rawConfig.openTrackingBaseUrl);
-      const loopback = url.hostname === "localhost" ||
-        url.hostname === "[::1]" || /^127(?:\.\d{1,3}){3}$/.test(url.hostname);
-      if ((url.protocol !== "https:" && !(loopback && url.protocol === "http:")) ||
-          !url.hostname || url.username || url.password || url.search ||
-          url.hash || url.pathname !== "/") {
-        throw new Error();
-      }
-      openTrackingBaseUrl = url.origin;
-    } catch {
-      // Configuration can contain credentials; never echo the supplied URL.
-      throw new Error("OPEN_TRACKING_BASE_URL must be an HTTPS origin (HTTP is allowed only on loopback).");
-    }
-  }
-  if (enableOpenTracking && !openTrackingBaseUrl && !rawConfig.openTrackingRelaySecret) {
-    throw new Error("Enabling open tracking requires OPEN_TRACKING_BASE_URL or OPEN_TRACKING_RELAY_SECRET.");
+  if (enableOpenTracking && !rawConfig.openTrackingRelaySecret) {
+    throw new Error("Enabling open tracking requires OPEN_TRACKING_RELAY_SECRET.");
   }
   if (enableOpenTracking &&
       (!rawConfig.secretKey || Buffer.from(rawConfig.secretKey, "base64").length !== 32)) {
     throw new Error("Enabling open tracking requires an explicit 32-byte base64 SECRET_KEY.");
   }
-  return { enableOpenTracking, openTrackingBaseUrl, openTrackingRetentionDays, openTrackingSelfIps,
+  return { enableOpenTracking, openTrackingRetentionDays, openTrackingSelfIps,
     cloudflareTrackingAllowProvisioning: rawConfig.cloudflareTrackingAllowProvisioning === "true" };
 }
 

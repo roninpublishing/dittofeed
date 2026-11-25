@@ -1,11 +1,20 @@
-import config from "backend-lib/src/config";
+import * as batch from "backend-lib/src/apps/batch";
+import config, { Config } from "backend-lib/src/config";
 import { db } from "backend-lib/src/db";
-import { workspace } from "backend-lib/src/db/schema";
+import { newsletterSend } from "backend-lib/src/db/publisherSchema";
 import { getDeliveryOpens } from "backend-lib/src/deliveries";
 import * as tracking from "backend-lib/src/messaging/openTracking";
+import * as events from "backend-lib/src/messaging/openTrackingEvents";
 import * as domains from "backend-lib/src/newsletterTracking";
 import { DittofeedFastifyInstance } from "backend-lib/src/types";
+import {
+  createTrackedSendFixture,
+  createTrackingNewsletterFixture,
+  TrackedSendFixture,
+  TrackingNewsletterFixture,
+} from "backend-lib/test/openTrackingFixture";
 import { createHmac, randomUUID } from "crypto";
+import { eq } from "drizzle-orm";
 import Fastify from "fastify";
 
 import {
@@ -16,53 +25,33 @@ import openTrackingController, {
   QueuedOpenEvent,
 } from "./openTrackingController";
 
-let app: DittofeedFastifyInstance;
-let logs: string[];
-let originalEnabled: boolean;
-let originalBase: string | undefined;
-let originalRelaySecret: string | undefined;
-let workspaceId: string;
-let messageId: string;
-const userId = "pixel-test-contact";
+const batchPath = "/api/public/email/open/batch";
+const relaySecret = Buffer.alloc(32, 19).toString("base64");
+const browser = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36";
 
-async function pixelPath() {
-  const html = await tracking.prepareEmailOpenTracking({
-    workspaceId,
-    userId,
-    messageId,
-    html: "<html><body>Email</body></html>",
-  });
-  const match = html.match(
-    /http:\/\/localhost:3000(\/api\/public\/email\/open\/[A-Za-z0-9_-]{43}\.gif)/,
-  );
-  if (!match?.[1])
-    throw new Error("Tracking image missing from transport HTML");
-  return match[1];
-}
+describe("queued open HTTP capture into ClickHouse", () => {
+  let app: DittofeedFastifyInstance | undefined;
+  let logs: string[];
+  let fixture: TrackingNewsletterFixture;
+  let send: TrackedSendFixture;
+  let original: Pick<Config, "enableOpenTracking" | "openTrackingRelaySecret" | "openTrackingRetentionDays">;
 
-describe("owned open HTTP evidence", () => {
   beforeEach(async () => {
-    originalEnabled = config().enableOpenTracking;
-    originalBase = config().openTrackingBaseUrl;
-    config().enableOpenTracking = true;
-    originalRelaySecret = config().openTrackingRelaySecret;
-    config().openTrackingBaseUrl = "http://localhost:3000";
-    workspaceId = randomUUID();
-    messageId = randomUUID();
-    await db()
-      .insert(workspace)
-      .values({ id: workspaceId, name: `Pixel HTTP tests ${workspaceId}` });
+    original = {
+      enableOpenTracking: config().enableOpenTracking,
+      openTrackingRelaySecret: config().openTrackingRelaySecret,
+      openTrackingRetentionDays: config().openTrackingRetentionDays,
+    };
+    Object.assign(config(), {
+      enableOpenTracking: true, openTrackingRelaySecret: relaySecret,
+      openTrackingRetentionDays: 30,
+    });
+    fixture = await createTrackingNewsletterFixture();
+    send = await createTrackedSendFixture(fixture);
     logs = [];
     app = Fastify({
       ...buildFastifyAppOpts(),
-      logger: {
-        level: "info",
-        stream: {
-          write(line: string) {
-            logs.push(line);
-          },
-        },
-      },
+      logger: { level: "info", stream: { write(line: string) { logs.push(line); } } },
     });
     configureOpenTrackingRequestLogging(app);
     await app.register(openTrackingController, { prefix: "/api/public" });
@@ -71,483 +60,182 @@ describe("owned open HTTP evidence", () => {
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- beforeEach can fail before constructing the app.
     await app?.close();
-    config().enableOpenTracking = originalEnabled;
-    config().openTrackingBaseUrl = originalBase;
-    config().openTrackingRelaySecret = originalRelaySecret;
+    Object.assign(config(), original);
   });
 
-  it("captures GET but not HEAD as an observed open, without storing request credentials", async () => {
-    const path = await pixelPath();
-    const head = await app.inject({ method: "HEAD", url: path });
-    expect(head.statusCode).toBe(200);
-    expect(head.rawPayload.byteLength).toBe(0);
-    const get = await app.inject({
-      method: "GET",
-      url: `${path}?cb=42&secret=do-not-store`,
-      headers: {
-        "user-agent": "Apple privacy proxy test",
-        "x-forwarded-for": "192.0.2.55",
-        authorization: "Bearer do-not-store",
-        cookie: "session=do-not-store",
+  function event(overrides: Partial<QueuedOpenEvent> = {}): QueuedOpenEvent {
+    return {
+      v: 2, eventId: randomUUID(), hostname: fixture.hostname, token: send.token,
+      method: "GET", query: { cb: "42" },
+      headers: { "user-agent": browser, authorization: "do-not-store", cookie: "do-not-store" },
+      edge: {
+        receivedAt: new Date(Date.now() - 60_000).toISOString(),
+        remoteAddress: "192.0.2.8", asOrganization: "Fixture residential network",
+        asn: 64500, country: "US", httpVersion: "HTTP/2", tlsVersion: "TLSv1.3",
+        networkSetVersion: null,
       },
-    });
-    expect(get.statusCode).toBe(200);
-    expect(get.headers["content-type"]).toContain("image/gif");
-    expect(get.headers["cache-control"]).toContain("no-store");
-    expect(get.rawPayload.subarray(0, 6).toString()).toBe("GIF89a");
-    await tracking.drainEmailOpenEvents();
-    const history = await getDeliveryOpens({ workspaceId, userId, messageId });
-    expect(history.openCount).toBe(1);
-    expect(history.items[0]).toMatchObject({
-      evidenceSource: "owned_pixel",
-      classification: "observed_unqualified",
-    });
-    const evidenceId = history.items[0]?.evidenceId;
-    if (!evidenceId) throw new Error("Durable request evidence missing");
+      ...overrides,
+    };
+  }
+
+  function signature(raw: string, timestamp = String(Math.floor(Date.now() / 1000))) {
+    const key = Buffer.from(relaySecret, "base64");
+    return {
+      "content-type": "application/json",
+      "x-df-tracking-timestamp": timestamp,
+      "x-df-tracking-signature": createHmac("sha256",
+        new Uint8Array(key.buffer, key.byteOffset, key.byteLength))
+        .update(`${timestamp}.${raw}`).digest("hex"),
+    };
+  }
+
+  async function rawPost(raw: string, headers = signature(raw)) {
+    if (!app) throw new Error("Capture test server unavailable");
+    return app.inject({ method: "POST", url: batchPath, headers, payload: raw });
+  }
+
+  async function post(items: QueuedOpenEvent[]) {
+    return rawPost(JSON.stringify({ v: 2, events: items }));
+  }
+
+  async function history() {
+    return getDeliveryOpens({ workspaceId: fixture.workspaceId, userId: send.userId, messageId: send.messageId });
+  }
+
+  async function classified() {
+    return events.findEmailOpenTrackingEvents({ workspaceId: fixture.workspaceId, messageId: send.messageId });
+  }
+
+  it("records every GET/HEAD load in ClickHouse, keeps duplicate loads, and does not change the send row", async () => {
+    const [before] = await db().select().from(newsletterSend).where(eq(newsletterSend.id, send.sendId));
+    const get = event();
+    const head = event({ method: "HEAD", edge: get.edge });
+    const repeat = event({ edge: { ...get.edge, receivedAt: new Date(Date.parse(get.edge.receivedAt) + 1000).toISOString() } });
+    expect((await post([get, head, repeat])).statusCode).toBe(204);
+    expect((await post([get, head, repeat])).statusCode).toBe(204);
+    const rows = await classified();
+    expect(rows.map((row) => row.eventId).sort()).toEqual([get.eventId, head.eventId, repeat.eventId].sort());
+    expect(rows.find((row) => row.eventId === repeat.eventId)).toMatchObject({ class: "human", counted: false });
+    expect(rows.find((row) => row.eventId === head.eventId)).toMatchObject({ method: "HEAD", counted: false });
+    expect((await history()).openCount).toBe(2);
+    expect(await db().select().from(newsletterSend).where(eq(newsletterSend.id, send.sendId))).toEqual([before]);
     const evidence = await tracking.getEmailOpenEvidence({
-      workspaceId,
-      userId,
-      messageId,
-      evidenceId,
+      workspaceId: fixture.workspaceId, userId: send.userId,
+      messageId: send.messageId, evidenceId: get.eventId,
     });
-    const serialized = JSON.stringify(evidence);
-    expect(serialized).toContain("Apple privacy proxy test");
-    expect(serialized).toContain("192.0.2.55");
-    expect(serialized).not.toContain("do-not-store");
-    expect(serialized).not.toContain(path);
-    expect(logs.join("\n")).not.toContain(path);
+    expect(evidence).toMatchObject({ request: {
+      method: "GET", headers: { "user-agent": browser },
+      edgeObserved: { remoteAddress: "192.0.2.8", asn: 64500, country: "US", networkSetVersion: null },
+    } });
+    expect(JSON.stringify(evidence)).not.toContain("do-not-store");
+    expect(JSON.stringify(evidence)).not.toContain(send.token);
+    expect(logs.join("\n")).not.toContain(send.token);
   });
 
-  it("serves the same image for unknown and erased tokens without recreating erased history", async () => {
-    const path = await pixelPath();
-    const unknown = await app.inject({
-      method: "GET",
-      url: path.replace(/[^/]+\.gif$/, `${"a".repeat(43)}.gif`),
-    });
-    await tracking.deleteEmailOpenData({ workspaceId, userIds: [userId] });
-    const erased = await app.inject({ method: "GET", url: path });
-    expect(erased.statusCode).toBe(200);
-    expect(erased.rawPayload).toEqual(unknown.rawPayload);
-    await tracking.drainEmailOpenEvents();
-    expect(
-      (await getDeliveryOpens({ workspaceId, userId, messageId })).openCount,
-    ).toBe(0);
+  it("retains scanner observations even though they do not count as human-like engagement", async () => {
+    const scanner = event({ headers: { "user-agent": "Proofpoint URL Scanner/1.0" } });
+    expect((await post([scanner])).statusCode).toBe(204);
+    expect(await classified()).toEqual([expect.objectContaining({
+      eventId: scanner.eventId, class: "scanner", counted: false, method: "GET",
+    })]);
+    expect((await history()).openCount).toBe(1);
   });
 
-  it("returns retryable failure when durability fails and never logs even unmatched pixel URLs", async () => {
-    const path = await pixelPath();
-    jest
-      .spyOn(tracking, "captureEmailOpenRequest")
-      .mockRejectedValueOnce(new Error("private-capture-context"));
-    expect((await app.inject({ method: "GET", url: path })).statusCode).toBe(
-      503,
-    );
-    expect(
-      (await app.inject({ method: "POST", url: `${path}?secret=do-not-log` }))
-        .statusCode,
-    ).toBe(404);
-    const output = logs.join("\n");
-    expect(output).not.toContain(path);
-    expect(output).not.toContain("do-not-log");
-    expect(output).not.toContain("private-capture-context");
+  it("authenticates batches above the obsolete single-relay body limit", async () => {
+    const first = event();
+    const items = Array.from({ length: 8 }, () => ({
+      ...first, eventId: randomUUID(),
+      headers: { "user-agent": browser, accept: "x".repeat(512),
+        "accept-language": "x".repeat(512), "cache-control": "x".repeat(512), pragma: "x".repeat(512) },
+    }));
+    expect(Buffer.byteLength(JSON.stringify({ v: 2, events: items }))).toBeGreaterThan(16_384);
+    expect((await post(items)).statusCode).toBe(204);
+    expect((await classified()).map((row) => row.eventId).sort()).toEqual(items.map((item) => item.eventId).sort());
+    expect((await history()).openCount).toBe(8);
   });
 
-  describe("Cloudflare edge relay", () => {
-    const relayPath = "/api/public/email/open/relay";
-    const relaySecret = Buffer.alloc(32, 19).toString("base64");
-    const hostname = "dt.newsletter.example";
+  it("rejects missing, stale and body-modified signatures before hostname lookup", async () => {
+    const lookup = jest.spyOn(domains, "getTrackingHostnameNewsletter");
+    const raw = JSON.stringify({ v: 2, events: [event()] });
+    await Promise.all([
+      { "content-type": "application/json" },
+      signature(raw, String(Math.floor(Date.now() / 1000) - 301)),
+      signature(`${raw} `),
+    ].map(async (headers) => {
+      if (!app) throw new Error("Capture test server unavailable");
+      expect((await app.inject({ method: "POST", url: batchPath, headers, payload: raw })).statusCode).toBe(403);
+    }));
+    expect(lookup).not.toHaveBeenCalled();
+    expect(await classified()).toEqual([]);
+  });
 
-    async function relayPayload() {
-      config().openTrackingRelaySecret = relaySecret;
-      config().openTrackingBaseUrl = `https://${hostname}`;
-      const html = await tracking.prepareEmailOpenTracking({
-        workspaceId,
-        userId,
-        messageId,
-        html: "<p>Fixture only, never sent.</p>",
-      });
-      const match = /\/api\/public\/email\/open\/([A-Za-z0-9_-]{43})\.gif/.exec(
-        html,
-      );
-      if (!match?.[1]) throw new Error("Fixture mapping missing");
-      return {
-        v: 1,
-        hostname,
-        token: match[1],
-        method: "GET",
-        query: { cb: "42" },
-        headers: {
-          "user-agent": "Apple privacy proxy fixture café",
-          authorization: "Bearer do-not-store",
-          cookie: "session=do-not-store",
-          referer: "https://example.invalid/?do-not-store",
-        },
-        edge: {
-          receivedAt: new Date().toISOString(),
-          remoteAddress: "198.51.100.9",
-          httpVersion: "HTTP/2",
-          tlsVersion: "TLSv1.3",
-        },
-      };
-    }
+  it("bounds batch shape and refuses unknown hostname ownership", async () => {
+    expect((await post([])).statusCode).toBe(400);
+    expect((await post(Array.from({ length: 51 }, () => event()))).statusCode).toBe(400);
+    expect((await post([event({ hostname: "dt.unowned.example" })])).statusCode).toBe(403);
+    expect(await classified()).toEqual([]);
+  });
 
-    function signature(
-      payload: string,
-      timestamp = String(Math.floor(Date.now() / 1000)),
-    ) {
-      const key = Buffer.from(relaySecret, "base64");
-      return {
-        "content-type": "application/json",
-        "x-df-tracking-timestamp": timestamp,
-        "x-df-tracking-signature": createHmac(
-          "sha256",
-          new Uint8Array(key.buffer, key.byteOffset, key.byteLength),
-        )
-          .update(`${timestamp}.${payload}`)
-          .digest("hex"),
-      };
-    }
+  it("cannot assign a real token to another newsletter or branded host", async () => {
+    const sibling = await createTrackingNewsletterFixture();
+    expect((await post([event({ hostname: sibling.hostname })])).statusCode).toBe(204);
+    jest.spyOn(domains, "getTrackingHostnameNewsletter").mockResolvedValue(sibling.workspaceId);
+    expect((await post([event()])).statusCode).toBe(204);
+    expect(await classified()).toEqual([]);
+    expect((await history()).openCount).toBe(0);
+  });
 
-    it("durably records signed GET/HEAD with edge and origin evidence separated and secrets removed", async () => {
-      const body = await relayPayload();
-      jest
-        .spyOn(domains, "getTrackingHostnameNewsletter")
-        .mockResolvedValue(workspaceId);
-      const raw = JSON.stringify(body, null, 2);
-      expect(
-        (
-          await app.inject({
-            method: "POST",
-            url: relayPath,
-            headers: signature(raw),
-            payload: raw,
-          })
-        ).statusCode,
-      ).toBe(204);
-      const headRaw = JSON.stringify({ ...body, method: "HEAD" });
-      expect(
-        (
-          await app.inject({
-            method: "POST",
-            url: relayPath,
-            headers: signature(headRaw),
-            payload: headRaw,
-          })
-        ).statusCode,
-      ).toBe(204);
-      await tracking.drainEmailOpenEvents();
-      const history = await getDeliveryOpens({
-        workspaceId,
-        userId,
-        messageId,
-      });
-      expect(history.openCount).toBe(1);
-      const evidenceId = history.items[0]?.evidenceId;
-      if (!evidenceId) throw new Error("Relay evidence missing");
-      const evidence = await tracking.getEmailOpenEvidence({
-        workspaceId,
-        userId,
-        messageId,
-        evidenceId,
-      });
-      expect(evidence).toMatchObject({
-        request: {
-          method: "GET",
-          encrypted: false,
-          query: { cb: "42" },
-          headers: { "user-agent": "Apple privacy proxy fixture café" },
-          edgeObserved: {
-            source: "cloudflare_worker",
-            hostname,
-            remoteAddress: "198.51.100.9",
-            httpVersion: "HTTP/2",
-            tlsVersion: "TLSv1.3",
-          },
-        },
-      });
-      const serialized = JSON.stringify(evidence);
-      expect(serialized).not.toContain(body.token);
-      expect(serialized).not.toContain("do-not-store");
-      expect(logs.join("\n")).not.toContain(body.token);
-    });
+  it("drops unknown and erased tokens without recreating event history", async () => {
+    expect((await post([event({ token: "A".repeat(43) })])).statusCode).toBe(204);
+    const hit = event();
+    expect((await post([hit])).statusCode).toBe(204);
+    await tracking.deleteEmailOpenData({ workspaceId: fixture.workspaceId, userIds: [send.userId] });
+    expect((await post([hit, event()])).statusCode).toBe(204);
+    expect(await classified()).toEqual([]);
+    expect(await tracking.getEmailOpenEvidence({
+      workspaceId: fixture.workspaceId, userId: send.userId,
+      messageId: send.messageId, evidenceId: hit.eventId,
+    })).toBeNull();
+  });
 
-    it("rejects unsigned, expired, and body-modified requests before hostname lookup", async () => {
-      const body = await relayPayload();
-      const lookup = jest.spyOn(domains, "getTrackingHostnameNewsletter");
-      const raw = JSON.stringify(body);
-      const variants = [
-        { headers: { "content-type": "application/json" }, payload: raw },
-        {
-          headers: signature(raw, String(Math.floor(Date.now() / 1000) - 301)),
-          payload: raw,
-        },
-        {
-          headers: signature(raw),
-          payload: JSON.stringify({ ...body, hostname: "dt.other.example" }),
-        },
-      ];
-      await Promise.all(
-        variants.map(async (variant) => {
-          expect(
-            (await app.inject({ method: "POST", url: relayPath, ...variant }))
-              .statusCode,
-          ).toBe(403);
-        }),
-      );
-      expect(lookup).not.toHaveBeenCalled();
-      expect(logs.join("\n")).not.toContain(body.token);
-    });
+  it("requires retry when ClickHouse cannot persist and never reflects private failure details", async () => {
+    const hit = event();
+    const storage = jest.spyOn(events, "insertEmailOpenTrackingEvents")
+      .mockRejectedValueOnce(new Error("private-capture-failure"));
+    const failed = await post([hit]);
+    expect(failed.statusCode).toBe(503);
+    expect(failed.payload).toBe("");
+    expect(await classified()).toEqual([]);
+    storage.mockRestore();
+    expect((await post([hit])).statusCode).toBe(204);
+    expect(await classified()).toEqual([expect.objectContaining({ eventId: hit.eventId })]);
+    expect(logs.join("\n")).not.toContain("private-capture-failure");
+  });
 
-    it("cannot replay a token through a different branded hostname or newsletter", async () => {
-      const body = await relayPayload();
-      const lookup = jest
-        .spyOn(domains, "getTrackingHostnameNewsletter")
-        .mockResolvedValue(workspaceId);
-      const wrongHost = JSON.stringify({
-        ...body,
-        hostname: "dt.other.example",
-      });
-      expect(
-        (
-          await app.inject({
-            method: "POST",
-            url: relayPath,
-            headers: signature(wrongHost),
-            payload: wrongHost,
-          })
-        ).statusCode,
-      ).toBe(204);
-      lookup.mockResolvedValue(randomUUID());
-      const raw = JSON.stringify(body);
-      expect(
-        (
-          await app.inject({
-            method: "POST",
-            url: relayPath,
-            headers: signature(raw),
-            payload: raw,
-          })
-        ).statusCode,
-      ).toBe(204);
-      await tracking.drainEmailOpenEvents();
-      expect(
-        (await getDeliveryOpens({ workspaceId, userId, messageId })).openCount,
-      ).toBe(0);
-    });
+  it("recovers when classification was saved but native projection failed, without duplicating either history", async () => {
+    const hit = event();
+    const projection = jest.spyOn(batch, "submitBatch")
+      .mockRejectedValueOnce(new Error("private-projection-failure"));
+    expect((await post([hit])).statusCode).toBe(503);
+    expect(await classified()).toEqual([expect.objectContaining({ eventId: hit.eventId })]);
+    expect((await history()).openCount).toBe(0);
+    projection.mockRestore();
+    expect((await post([hit])).statusCode).toBe(204);
+    expect((await post([hit])).statusCode).toBe(204);
+    expect(await classified()).toEqual([expect.objectContaining({ eventId: hit.eventId })]);
+    expect((await history()).openCount).toBe(1);
+    expect(logs.join("\n")).not.toContain("private-projection-failure");
+  });
 
-    it("fails closed for unknown hostnames, capture failures, and disabled collection", async () => {
-      const body = await relayPayload();
-      const raw = JSON.stringify(body);
-      const lookup = jest
-        .spyOn(domains, "getTrackingHostnameNewsletter")
-        .mockResolvedValue(null);
-      expect(
-        (
-          await app.inject({
-            method: "POST",
-            url: relayPath,
-            headers: signature(raw),
-            payload: raw,
-          })
-        ).statusCode,
-      ).toBe(403);
-      lookup.mockResolvedValue(workspaceId);
-      jest
-        .spyOn(tracking, "captureEmailOpenRequest")
-        .mockRejectedValueOnce(new Error("do-not-log-private-capture"));
-      expect(
-        (
-          await app.inject({
-            method: "POST",
-            url: relayPath,
-            headers: signature(raw),
-            payload: raw,
-          })
-        ).statusCode,
-      ).toBe(503);
-      config().enableOpenTracking = false;
-      expect(
-        (
-          await app.inject({
-            method: "POST",
-            url: relayPath,
-            headers: signature(raw),
-            payload: raw,
-          })
-        ).statusCode,
-      ).toBe(503);
-      expect(logs.join("\n")).not.toContain("do-not-log-private-capture");
-    });
-
-    describe("queued v2 batches", () => {
-      const batchPath = "/api/public/email/open/batch";
-
-      async function event(): Promise<QueuedOpenEvent> {
-        const body = await relayPayload();
-        return {
-          ...body,
-          method: "GET",
-          v: 2,
-          eventId: randomUUID(),
-          edge: {
-            ...body.edge,
-            asOrganization: "Fixture residential network",
-            asn: 64500,
-            country: "US",
-            networkSetVersion: null,
-          },
-        };
-      }
-
-      async function post(events: QueuedOpenEvent[]) {
-        const raw = JSON.stringify({ v: 2, events });
-        return app.inject({
-          method: "POST",
-          url: batchPath,
-          headers: signature(raw),
-          payload: raw,
-        });
-      }
-
-      it("deduplicates queue retries, preserves edge occurrence and keeps HEAD out of observed opens", async () => {
-        const get = await event();
-        get.edge.receivedAt = new Date(Date.now() - 60_000).toISOString();
-        const head: QueuedOpenEvent = {
-          ...get,
-          eventId: randomUUID(),
-          method: "HEAD",
-        };
-        jest
-          .spyOn(domains, "getTrackingHostnameNewsletter")
-          .mockResolvedValue(workspaceId);
-        expect((await post([get, head])).statusCode).toBe(204);
-        expect((await post([get, head])).statusCode).toBe(204);
-        await tracking.drainEmailOpenEvents();
-        const history = await getDeliveryOpens({
-          workspaceId,
-          userId,
-          messageId,
-        });
-        expect(history.openCount).toBe(1);
-        expect(history.items[0]?.evidenceId).toBe(get.eventId);
-        const evidence = await tracking.getEmailOpenEvidence({
-          workspaceId,
-          userId,
-          messageId,
-          evidenceId: get.eventId,
-        });
-        expect(evidence).toMatchObject({
-          receivedAt: get.edge.receivedAt,
-          request: {
-            edgeObserved: {
-              asOrganization: "Fixture residential network",
-              asn: 64500,
-              country: "US",
-              networkSetVersion: null,
-            },
-          },
-        });
-        expect(JSON.stringify(evidence)).not.toContain("do-not-store");
-        expect(logs.join("\n")).not.toContain(get.token);
-      });
-
-      it("authenticates full batches above the legacy relay body limit", async () => {
-        const fixture = await event();
-        const events = Array.from({ length: 8 }, () => ({
-          ...fixture,
-          eventId: randomUUID(),
-          headers: {
-            "user-agent": "Mozilla/5.0 (Fixture)",
-            accept: "x".repeat(512),
-            "accept-language": "x".repeat(512),
-            "cache-control": "x".repeat(512),
-            pragma: "x".repeat(512),
-          },
-        }));
-        jest
-          .spyOn(domains, "getTrackingHostnameNewsletter")
-          .mockResolvedValue(workspaceId);
-        expect(
-          Buffer.byteLength(JSON.stringify({ v: 2, events })),
-        ).toBeGreaterThan(16_384);
-        expect((await post(events)).statusCode).toBe(204);
-        await tracking.drainEmailOpenEvents();
-        expect(
-          (await getDeliveryOpens({ workspaceId, userId, messageId }))
-            .openCount,
-        ).toBe(8);
-      });
-
-      it("rejects tampering, stale signatures, oversized batches and unverified hosts", async () => {
-        const fixture = await event();
-        const lookup = jest
-          .spyOn(domains, "getTrackingHostnameNewsletter")
-          .mockResolvedValue(null);
-        const raw = JSON.stringify({ v: 2, events: [fixture] });
-        await Promise.all(
-          [
-            { "content-type": "application/json" },
-            signature(raw, String(Math.floor(Date.now() / 1000) - 301)),
-            signature(`${raw} `),
-          ].map(async (headers) => {
-            expect(
-              (
-                await app.inject({
-                  method: "POST",
-                  url: batchPath,
-                  headers,
-                  payload: raw,
-                })
-              ).statusCode,
-            ).toBe(403);
-          }),
-        );
-        expect(lookup).not.toHaveBeenCalled();
-        expect(
-          (await post(Array.from({ length: 51 }, () => fixture))).statusCode,
-        ).toBe(400);
-        expect((await post([])).statusCode).toBe(400);
-        expect((await post([fixture])).statusCode).toBe(403);
-        lookup.mockResolvedValue(randomUUID());
-        expect((await post([fixture])).statusCode).toBe(204);
-        lookup.mockResolvedValue(workspaceId);
-        expect(
-          (await post([{ ...fixture, hostname: "dt.other.example" }]))
-            .statusCode,
-        ).toBe(204);
-        await tracking.drainEmailOpenEvents();
-        expect(
-          (await getDeliveryOpens({ workspaceId, userId, messageId }))
-            .openCount,
-        ).toBe(0);
-        expect(logs.join("\n")).not.toContain(fixture.token);
-      });
-
-      it("retries partial persistence without duplicating accepted receipts", async () => {
-        const first = await event();
-        const second = { ...first, eventId: randomUUID() };
-        jest
-          .spyOn(domains, "getTrackingHostnameNewsletter")
-          .mockResolvedValue(workspaceId);
-        const originalCapture = tracking.captureEmailOpenRequest;
-        const capture = jest
-          .spyOn(tracking, "captureEmailOpenRequest")
-          .mockImplementationOnce(originalCapture)
-          .mockRejectedValueOnce(new Error("private-queue-retry-context"));
-        expect((await post([first, second])).statusCode).toBe(503);
-        capture.mockRestore();
-        expect((await post([first, second])).statusCode).toBe(204);
-        await tracking.drainEmailOpenEvents();
-        expect(
-          (await getDeliveryOpens({ workspaceId, userId, messageId }))
-            .openCount,
-        ).toBe(2);
-        expect(logs.join("\n")).not.toContain("private-queue-retry-context");
-        config().enableOpenTracking = false;
-        expect((await post([first])).statusCode).toBe(503);
-      });
-    });
+  it("fails closed when capture is disabled and exposes no unsigned backend pixel or v1 relay bypass", async () => {
+    if (!app) throw new Error("Capture test server unavailable");
+    expect((await app.inject({ method: "GET", url: send.path })).statusCode).toBe(404);
+    expect((await app.inject({ method: "HEAD", url: send.path })).statusCode).toBe(404);
+    expect((await app.inject({ method: "POST", url: "/api/public/email/open/relay", payload: {} })).statusCode).toBe(404);
+    config().enableOpenTracking = false;
+    expect((await post([event()])).statusCode).toBe(503);
+    expect(await classified()).toEqual([]);
+    expect(logs.join("\n")).not.toContain(send.token);
   });
 });

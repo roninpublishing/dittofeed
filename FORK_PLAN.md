@@ -834,11 +834,11 @@ SendGrid is the first managed-account adapter; native non-newsletter providers r
   newsletter-only memberships never gain parent/sibling access.
 - Workspace views use nested routes under `/dashboard/workspace`; the former
   `?view=` navigation and obsolete combined sending/IP editors are removed.
-- Overview is a static, top-down corporate hierarchy, not a ReactFlow editor.
-  Organizational headers contrast with light actual-resource cards. Names wrap at
-  readable sizes and the page scrolls naturally; there are no zoom/pan/drag controls
-  or Map/List toggle. Dedicated IPs and shared-IP pools remain below their owning
-  ESP accounts. Its ownership structure is:
+- Overview is a compact, static top-down diagram, not a ReactFlow editor or nested
+  list. Sibling newsletters and ESP accounts share a horizontal rank; compact
+  asset branches sit below their owners with orthogonal connectors. Dark
+  organizational nodes contrast with light resource cards. No zoom/pan/drag
+  controls or Map/List toggle; overflow stays inside the diagram. Its ownership structure is:
 
 ```mermaid
 flowchart TD
@@ -910,13 +910,17 @@ Local implementation verification:
   layouts were checked. Temporary development accounts/IPs/pools/defaults were removed;
   newsletter/contact records were untouched and no send records were created.
 - Current combined local preview: `http://localhost:3000/dashboard/workspace`,
-  dashboard build `dist/workspace-session-polished-preview`. Neon, ClickHouse and Temporal
+  dashboard build `dist/workspace-compact-diagram-final`. Neon, ClickHouse and Temporal
   target development; workers, bootstrap, capture and provisioning remain off.
   No production deployment, provider mutations or real email sends were performed.
-- Workspace UI refinements: compact top-down columns keep every newsletter, ESP
-  account and owned asset visible without an enormous horizontal leaf row.
-  Selecting an IP/pool reveals its membership edges. Redundant overview buttons
-  are removed; navigation/body text is 14px and page headings are 24px.
+- Overview correction: compact connected boxes and horizontal sibling ranks replace
+  the rejected nested columns. Terminal assets branch below their owners;
+  resource counts use a single compact strip. On small screens, horizontal
+  overflow stays inside the diagram without shrinking its text.
+- Compact-diagram verification: both isolated geometry/ownership tests and the
+  optimized dashboard build pass. Actual browser checks show all 25 nodes in a
+  1093×560 diagram with no clipped labels; a 390px viewport keeps page overflow
+  contained inside the diagram. Development target guards pass.
 - Intentionally retained local demo records: `Demo · Morning Brief`, `Demo · Weekly
   Digest`, `Demo · SendGrid Primary` and `Demo · SendGrid Secondary`; six paused
   documentation-range IPs (`192.0.2.10–12`, `198.51.100.10–12`) and four shared-IP

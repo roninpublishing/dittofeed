@@ -49,12 +49,9 @@ export default function Overview({
       />
       <Box
         sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "repeat(2,minmax(0,1fr))",
-            md: "repeat(5,minmax(0,1fr))",
-          },
-          gap: 1.5,
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 2,
         }}
       >
         {(
@@ -84,15 +81,22 @@ export default function Overview({
             href={href}
             variant="outlined"
             sx={{
-              p: 1.75,
-              borderRadius: 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 0.75,
+              px: 1,
+              py: 0.5,
+              border: 0,
+              bgcolor: "transparent",
               textDecoration: "none",
               color: "inherit",
-              "&:hover": { borderColor: "primary.main" },
+              "&:hover": { bgcolor: "action.hover" },
             }}
           >
-            <Typography color="text.secondary">{label}</Typography>
-            <Typography variant="h2" sx={{ mt: 0.5 }}>
+            <Typography component="span" color="text.secondary" fontSize={13}>
+              {label}
+            </Typography>
+            <Typography component="span" fontSize={13} fontWeight={600}>
               {value}
             </Typography>
           </Paper>

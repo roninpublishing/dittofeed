@@ -104,10 +104,11 @@ the corresponding tooling actually changes.
   IPs, Subscribers, Automations, Tracking, Reports and Settings. Inventories span the workspace
   while preserving ESP-account ownership. Do not put this system inside newsletter
   settings or rename backend `/api/publications` contracts as part of the UI move.
-  The overview is a static corporate hierarchy with readable full-size cards,
-  contrasting organizational headers and resource cards, and natural scrolling.
-  No overview zoom/pan/drag editor or map/list toggle. Keep the interactive native
-  journey/automation editors independent. "Shared IPs" labels account-owned pools,
+  The overview is a compact, static top-down diagram: siblings side by side,
+  connected boxes, dark organizational nodes and light resource nodes. Never
+  replace it with tall nested columns or lists. No zoom/pan/drag editor or map/list
+  toggle; keep the interactive native journey/automation editors independent.
+  "Shared IPs" labels account-owned pools,
   not a provider-shared service; preserve actual pool selection semantics.
   Use the guarded workspace navigation helper for internal workspace links.
   Real workspace/newsletter changes still require server-authorized navigation;

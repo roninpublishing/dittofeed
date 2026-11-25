@@ -243,6 +243,7 @@ export default function WorkspaceDashboard({
       )}
       <Overview
         workspaceId={workspaceId}
+        apiBase={apiBase}
         workspaceName={
           workspace.type === CompletionStatus.Successful
             ? workspace.value.name

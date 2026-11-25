@@ -134,16 +134,36 @@ function Header({
                   flexShrink: 0,
                 }}
               />
-              <Typography
-                variant="subtitle1"
-                sx={{
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
-                }}
+              <Box
+                component="span"
+                sx={{ display: "flex", flexDirection: "column", gap: "2px" }}
               >
-                DITTO Email Client
-              </Typography>
+                <Typography
+                  component="span"
+                  sx={{
+                    fontFamily: '"Avenir Next", Avenir, "Segoe UI", sans-serif',
+                    fontSize: 22,
+                    fontWeight: 800,
+                    letterSpacing: "-0.055em",
+                    lineHeight: 1,
+                  }}
+                >
+                  DITTO
+                </Typography>
+                <Typography
+                  component="span"
+                  sx={{
+                    fontSize: 9,
+                    fontWeight: 600,
+                    letterSpacing: "0.16em",
+                    lineHeight: 1.2,
+                    color: "text.secondary",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  EMAIL CLIENT
+                </Typography>
+              </Box>
             </ButtonBase>
           ) : null}
           <IconButton

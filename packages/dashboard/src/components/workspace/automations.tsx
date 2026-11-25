@@ -495,10 +495,6 @@ export default function WorkspaceAutomations({
           <Typography component="h1" variant="h2">
             Automations
           </Typography>
-          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            Cross-newsletter contact coordination, separate from subscriber
-            journeys.
-          </Typography>
         </Box>
         {editor === undefined && tab === 0 && (
           <Button
@@ -591,6 +587,7 @@ export default function WorkspaceAutomations({
                                 setEditor(rule);
                               }}
                               sx={{
+                                color: "text.primary",
                                 p: 0,
                                 minWidth: 0,
                                 justifyContent: "flex-start",
@@ -634,6 +631,7 @@ export default function WorkspaceAutomations({
                             sx={{ whiteSpace: "nowrap" }}
                           >
                             <Button
+                              color="inherit"
                               disabled={busy}
                               onClick={() =>
                                 rule.enabled
@@ -647,6 +645,7 @@ export default function WorkspaceAutomations({
                               {rule.enabled ? "Pause" : "Enable"}
                             </Button>
                             <Button
+                              color="inherit"
                               disabled={busy}
                               onClick={() => {
                                 setError(null);

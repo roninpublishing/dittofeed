@@ -121,10 +121,18 @@ the corresponding tooling actually changes.
   Workspace Automations are separate from user journeys; their current action
   adapter coordinates newsletter contacts. Tracking is intentionally blank until
   Carson specifies its features; domain management is not hidden there.
+  Reuse the native journey visual flow canvas for automation editing; every
+  selectable trigger, condition and action must execute its saved semantics.
+  Never present placeholder operations or decorative connections as executable.
+  Sending-domain KPIs require immutable actual-From attribution per send; tracking
+  hosts have no delivery rate. Historical unknown attribution stays unknown.
 - The top-left brand returns to the authorized workspace dashboard. Workspace and
   newsletter selectors use the same searchable interaction; actual tenant changes
   use server-authorized switching and a full context load, never shallow routing.
   Do not duplicate the home link in the account menu.
+  Workspace links use neutral text with hover/focus affordances, not browser-blue
+  or permanently underlined text, including breadcrumbs, cards and dialogs.
+  Domains use a globe icon, distinct from shared-IP infrastructure.
 
 - Default to no explanatory copy. Each section/area may have at most one
   extremely concise sentence, only when it adds necessary information.

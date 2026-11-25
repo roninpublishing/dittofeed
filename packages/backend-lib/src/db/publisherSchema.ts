@@ -163,6 +163,7 @@ export const newsletterSend = pgTable("NewsletterSend", {
   journeyId: uuid().references(() => journey.id, { onDelete: "set null" }),
   userId: text().notNull(),
   mailboxHash: text().notNull(),
+  senderDomain: text(),
   encryptedRecipient: encrypted(),
   encryptedPayload: encrypted(),
   encryptedCredential: encrypted(),
@@ -180,7 +181,7 @@ export const newsletterSend = pgTable("NewsletterSend", {
   nextAttemptAt: createdAt(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (t) => [unique().on(t.workspaceId, t.logicalMessageId), index().on(t.state, t.nextAttemptAt), index().on(t.workspaceId, t.userId), index().on(t.connectionId, t.providerMessageId), index().on(t.connectionId, t.providerSmtpId), index().on(t.workspaceId, t.broadcastId, t.state), index().on(t.workspaceId, t.journeyId, t.state)]);
+}, (t) => [unique().on(t.workspaceId, t.logicalMessageId), index().on(t.state, t.nextAttemptAt), index().on(t.workspaceId, t.userId), index().on(t.connectionId, t.providerMessageId), index().on(t.connectionId, t.providerSmtpId), index().on(t.workspaceId, t.broadcastId, t.state), index().on(t.workspaceId, t.journeyId, t.state), index("NewsletterSend_publisher_period_sender_idx").on(t.publisherId, t.createdAt, t.accountId, t.senderDomain)]);
 
 export const sendingIpBudget = pgTable("SendingIpBudget", {
   ipId: uuid().notNull().references(() => sendingIp.id, { onDelete: "cascade" }),

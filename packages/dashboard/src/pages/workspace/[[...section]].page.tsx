@@ -1,4 +1,5 @@
-import { Alert, Button, Stack } from "@mui/material";
+import { Alert, Button, GlobalStyles, Stack } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { getPublisherForWorkspace } from "backend-lib/src/newsletters";
 import { CompletionStatus } from "isomorphic-lib/src/types";
 import { GetServerSideProps } from "next";
@@ -46,6 +47,7 @@ export default function WorkspacePage({
   route: serverRoute,
   workspaceId,
 }: Props) {
+  const theme = useTheme();
   const router = useRouter();
   const { workspace } = useAppStorePick(["workspace"]);
   const route = router.isReady
@@ -67,27 +69,33 @@ export default function WorkspacePage({
 
   return (
     <WorkspaceNavigationContext.Provider value={workspaceId}>
+      <GlobalStyles
+        styles={{
+          "a[data-workspace-link]:not(.MuiButtonBase-root), [data-workspace-dashboard] a:not(.MuiButtonBase-root)":
+            {
+              color: "inherit",
+              fontWeight: 500,
+              textDecoration: "none",
+              borderRadius: 4,
+              transition: "background-color 120ms ease",
+              "&:hover": { backgroundColor: theme.palette.background.default },
+              "&:focus-visible": {
+                outline: `2px solid ${theme.palette.primary.main}`,
+                outlineOffset: 2,
+              },
+            },
+        }}
+      />
       <DashboardContent publisherManagement={isPublisher}>
         <Stack
           spacing={2}
+          data-workspace-dashboard=""
           sx={{
             p: { xs: 2, md: 3 },
             width: "100%",
             minWidth: 0,
             minHeight: 0,
             overflowY: "auto",
-            "& .MuiTableCell-root a:not(.MuiButtonBase-root)": {
-              color: "text.primary",
-              fontWeight: 500,
-              textDecoration: "none",
-              borderRadius: 0.5,
-              transition: "background-color 120ms ease",
-              "&:hover": { bgcolor: "action.hover" },
-              "&:focus-visible": {
-                outline: "2px solid",
-                outlineColor: "primary.main",
-              },
-            },
           }}
         >
           <WorkspaceDashboard

@@ -567,6 +567,7 @@ describe("durable newsletter sends and signed inbox", () => {
     expect(row).toMatchObject({
       accountId: accountIds[0],
       accountRevision: 1,
+      senderDomain: "example.com",
       candidateIpIds: [ipId],
       selection: { accountId: accountIds[0], mode: "ip", ipId },
       connectionRevision: 1,
@@ -588,6 +589,7 @@ describe("durable newsletter sends and signed inbox", () => {
                 messageId: queued.logicalMessageId,
                 templateId: "original-template",
                 sendingIpId: ipId,
+                senderDomain: "example.com",
                 connectionId: connectionIds[0],
                 variant: expect.objectContaining({
                   type: ChannelType.Email,
@@ -602,6 +604,10 @@ describe("durable newsletter sends and signed inbox", () => {
     );
     await drainNewsletterSends();
     expect(projection).toHaveBeenCalledTimes(1);
+    await expect(db().update(tables.newsletterSend)
+      .set({ senderDomain: "other.example.com" })
+      .where(eq(tables.newsletterSend.id, queued.sendId)))
+      .rejects.toThrow("Send sender domain is immutable");
   });
 
   it("uses an explicit account override and deduplicates without retargeting the confirmed attempt", async () => {
@@ -847,6 +853,7 @@ describe("durable newsletter sends and signed inbox", () => {
       newsletterSendId: queued.sendId, sg_event_id: "observed-ip",
       timestamp: Math.floor(Date.now() / 1000), ip: "192.0.2.10",
       workspaceId: newsletterIds[1], userId: "forged",
+      senderDomain: "forged.example.test",
     }]);
     await drainNewsletterWebhookReceipts();
     const [row] = await db().select().from(tables.newsletterSend)
@@ -857,6 +864,15 @@ describe("durable newsletter sends and signed inbox", () => {
     });
     expect(projection).toHaveBeenCalledWith(expect.objectContaining({
       workspaceId: newsletterIds[0],
+      data: expect.objectContaining({
+        batch: [expect.objectContaining({
+          event: InternalEventType.EmailDelivered,
+          properties: expect.objectContaining({
+            senderDomain: "example.com",
+            sendingAccountId: accountIds[1],
+          }),
+        })],
+      }),
     }), expect.anything());
   });
 

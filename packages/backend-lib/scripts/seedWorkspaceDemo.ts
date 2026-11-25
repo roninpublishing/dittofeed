@@ -115,8 +115,10 @@ async function main() {
       const publication = publications[(index - 1) % publications.length]!;
       const ip = ips[(index - 1) % ips.length]!;
       const createdAt = new Date(Date.now() - ((index % 26) + 1) * day);
+      // Explicit synthetic From fixtures, never guessed from configured inventory.
+      const syntheticFrom = `demo@demo-${accountIndex ? "secondary" : "primary"}${index % 2 === 0 ? "-alternate" : ""}.example.test`;
       sends.push({
-        id: id(`send:${account.id}:${index}`),
+        id: id(`attributed-send-v2:${account.id}:${index}`),
         publisherId: workspaceId,
         accountId: account.id,
         accountRevision: account.revision,
@@ -128,9 +130,10 @@ async function main() {
         ipId: ip.id,
         poolId: pool.id,
         actualIp: ip.address,
-        logicalMessageId: `synthetic-demo:${account.id}:${index}`,
+        logicalMessageId: `synthetic-demo-attributed-v2:${account.id}:${index}`,
         userId: userId(index),
         mailboxHash: newsletterMailboxHash(mailbox(index)),
+        senderDomain: syntheticFrom.split("@")[1]!,
         payloadHash: createHash("sha256")
           .update(`synthetic-only:${accountIndex}:${index}`)
           .digest("hex"),
@@ -162,7 +165,10 @@ async function main() {
       id: account.id,
       name: account.name,
       provider: "SendGrid",
-      senderDomains: [`demo-${index ? "secondary" : "primary"}.example.test`],
+      senderDomains: [
+        `demo-${index ? "secondary" : "primary"}.example.test`,
+        `demo-${index ? "secondary" : "primary"}-alternate.example.test`,
+      ],
     });
   }
   const names = [
@@ -263,6 +269,7 @@ async function main() {
         newsletterSendId: send.id,
         messageId: send.logicalMessageId,
         sendingAccountId: send.accountId,
+        senderDomain: send.senderDomain,
         sendingIpId: send.ipId!,
         syntheticDemo: true,
       };
@@ -299,6 +306,15 @@ async function main() {
           userId: send.userId,
           timestamp: new Date(send.createdAt.getTime() + 90_000).toISOString(),
           properties: { ...properties, url: "https://example.test/demo/read" },
+        });
+      if (index === 39)
+        batch.push({
+          type: EventType.Track,
+          event: InternalEventType.EmailMarkedSpam,
+          messageId: id(`complaint:${send.id}`),
+          userId: send.userId,
+          timestamp: new Date(send.createdAt.getTime() + 120_000).toISOString(),
+          properties,
         });
     }
     await submitBatch(

@@ -26,6 +26,7 @@ import {
   workspaceTopology,
 } from "../../lib/workspaceTopology";
 import { RecordValue, rows } from "../publications/settingsShared";
+import { DeliveryMetricCards, useDeliveryHealth } from "./deliveryMetrics";
 import Link from "./navigation";
 
 const OverviewGraph = dynamic(() => import("./overviewGraph"), {
@@ -48,17 +49,20 @@ const kindLabels = {
 
 export default function Overview({
   workspaceId,
+  apiBase,
   workspaceName,
   infrastructure,
   newsletters,
   domains,
 }: {
   workspaceId: string;
+  apiBase: string;
   workspaceName: string;
   infrastructure: RecordValue;
   newsletters: unknown;
   domains?: WorkspaceDomain[];
 }) {
+  const health = useDeliveryHealth(apiBase, workspaceId);
   const [view, setView] = useState<"map" | "list">("map");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const topology = useMemo(
@@ -79,6 +83,16 @@ export default function Overview({
       <Typography component="h1" variant="h2">
         Overview
       </Typography>
+      <DeliveryMetricCards
+        summary={health.data?.summary as RecordValue | undefined}
+        state={
+          health.isError
+            ? "unavailable"
+            : health.isPending
+              ? "loading"
+              : "ready"
+        }
+      />
       <Box
         sx={{
           display: "grid",

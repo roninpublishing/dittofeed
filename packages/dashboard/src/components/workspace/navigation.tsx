@@ -84,6 +84,7 @@ const WorkspaceLink = forwardRef<
     return (
       <a
         {...props}
+        data-workspace-link=""
         ref={ref}
         href={`${router.basePath}${href}`}
         onClick={(event) => {
@@ -110,6 +111,7 @@ const WorkspaceLink = forwardRef<
   return (
     <Link
       {...props}
+      data-workspace-link=""
       as={as}
       replace={replace}
       scroll={scroll}

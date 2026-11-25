@@ -908,7 +908,7 @@ Local implementation verification:
   layouts were checked. Temporary development accounts/IPs/pools/defaults were removed;
   newsletter/contact records were untouched and no send records were created.
 - Current combined local preview: `http://localhost:3000/dashboard/workspace`,
-  dashboard build `dist/workspace-expanded-final-preview`. Neon, ClickHouse and Temporal
+  dashboard build `dist/workspace-flow-verified-preview`. Neon, ClickHouse and Temporal
   target development; workers, bootstrap, capture and provisioning remain off.
   No production deployment, provider mutations or real email sends were performed.
 - Workspace UI refinements: compact top-down columns keep every newsletter, ESP
@@ -951,6 +951,38 @@ Local implementation verification:
   blank Tracking. Six workspace transitions made zero Next server-page requests.
   Dashboard feature-file scoped lint passed; broader backend/API lint still reports
   findings. Production and worker enablement are unchanged.
+- Domain/flow refinement: newsletter-owned tracking domains use distinct globe
+  icons and explicit tracking-domain labels; shared IPs remain ESP-owned pools.
+  Overview and Domains expose shared 30-day volume/outcome KPIs. Tracking-host
+  delivery is N/A, including loading/unavailable states; no reputation score is
+  inferred. Neutral links cover workspace tables, cards, breadcrumbs and marked
+  dialogs. The header uses a stacked DITTO / EMAIL CLIENT wordmark.
+- Migration `0019_newsletter_sender_domain` is applied to development only.
+  All 19 prior migration records were preserved. Nullable immutable actual-From
+  attribution is pinned when queuing and copied from trusted send records into
+  native events. Historical unknown senders remain separate; no payload-decryption
+  backfill or inference from current domain settings was performed.
+- The development fixture set now retains 160 synthetic historical attempts:
+  80 original unknown-sender attempts and 80 new explicitly attributed attempts
+  across four sending domains. Overall observations show 146 delivered, 10 bounced,
+  four dropped and two complaints; deliverability is 91.25% (91.3% displayed).
+  The existing 120 synthetic subscriber records and three pending tracking hosts
+  remain. No credentials, provider changes or real transmissions were created.
+- Automations and native user journeys now consume the same reusable flow canvas,
+  with independent definitions and execution. The workspace palette edits actual
+  event/condition/contact/mapping/subscription/welcome/consent/dedupe behavior;
+  16 typed comparison operators and all/any groups are supported. Native measured
+  node state is preserved during drag, and saved canonical coordinates round-trip
+  through the real API. Unsupported operational actions are not presented as nodes.
+- Verification passed across focused API, durable delivery, automation execution,
+  real ClickHouse reporting, native journey store and UI model suites; this includes
+  114 condition cases and 12 flow/metric cases. Lite and optimized dashboard builds
+  passed; scoped final flow lint has zero errors and four warnings. Actual local
+  browser checks covered all 11 workspace sections' link styles, domain metrics,
+  editing an unchecked domain registration, native journey canvas/inspector,
+  paused visual-flow create/edit/drag/save/reopen, and trigger-type transitions.
+  Owned smoke fixtures and isolated QA databases were removed/retired. Production,
+  workers, provider permissions and existing send-time safeguards are unchanged.
 - Thirty-six focused navigation/topology tests passed; the final compact-layout
   regression rerun passed all five topology cases. Optimized dashboard build and
   scoped lint passed (warnings only). Browser proof covered all 18 graph nodes

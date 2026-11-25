@@ -36,6 +36,12 @@ import {
   strings,
 } from "./infrastructureShared";
 import Link from "./navigation";
+import {
+  DeliveryMetricCards,
+  deliveryMetricValue,
+  domainDeliverySummary,
+  useDeliveryHealth,
+} from "./deliveryMetrics";
 
 const AccountOperations = dynamic(() => import("./accountOperations"));
 
@@ -240,6 +246,19 @@ export default function Domains({
   ...props
 }: InfrastructureProps & { domains: WorkspaceDomain[]; newsletters: unknown }) {
   const [adding, setAdding] = useState<"sending" | "tracking" | null>(null);
+  const health = useDeliveryHealth(props.apiBase, props.workspaceId);
+  const healthState = health.isError
+    ? "unavailable"
+    : health.isPending
+      ? "loading"
+      : "ready";
+  const unknownSenders = rows(health.data?.domains).filter(
+    (cohort) =>
+      !cohort.senderDomain &&
+      [cohort.sends, cohort.resolvedOutcomes, cohort.complaints].some(
+        (metric) => typeof metric === "number" && metric > 0,
+      ),
+  );
   const accounts = rows(props.infrastructure.accounts);
   const newsletterRows = rows(newsletters);
   const owners = new Map([
@@ -291,6 +310,14 @@ export default function Domains({
           </Stack>
         )}
       </Stack>
+      <DeliveryMetricCards
+        summary={
+          selected
+            ? domainDeliverySummary(selected, health.data)
+            : (health.data?.summary as RecordValue | undefined)
+        }
+        state={selected?.kind === "tracking" ? "ready" : healthState}
+      />
       {props.resourceId && !selected && (
         <Alert severity="warning">Domain not found</Alert>
       )}
@@ -353,6 +380,9 @@ export default function Domains({
                   <TableCell>Owner</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Use</TableCell>
+                  <TableCell align="right">Attempts (30d)</TableCell>
+                  <TableCell align="right">Delivered</TableCell>
+                  <TableCell align="right">Deliverability</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -386,11 +416,41 @@ export default function Domains({
                         (item.isCurrent ? "Current" : "Historical")}
                       {item.kind !== "tracking" && "—"}
                     </TableCell>
+                    {["sends", "delivered", "deliverabilityRate"].map(
+                      (metric) => (
+                        <TableCell key={metric} align="right">
+                          {deliveryMetricValue(
+                            domainDeliverySummary(item, health.data),
+                            metric,
+                            item.kind === "tracking" ? "ready" : healthState,
+                          )}
+                        </TableCell>
+                      ),
+                    )}
                   </TableRow>
                 ))}
-                {!domains.length && (
+                {unknownSenders.map((cohort) => (
+                  <TableRow key={`unknown:${text(cohort.accountId)}`}>
+                    <TableCell>Unknown sender</TableCell>
+                    <TableCell>Sending</TableCell>
+                    <TableCell>
+                      {owners.get(`sending:${text(cohort.accountId)}`) ??
+                        "Unknown"}
+                    </TableCell>
+                    <TableCell>Unknown</TableCell>
+                    <TableCell>—</TableCell>
+                    {["sends", "delivered", "deliverabilityRate"].map(
+                      (metric) => (
+                        <TableCell key={metric} align="right">
+                          {deliveryMetricValue(cohort, metric, healthState)}
+                        </TableCell>
+                      ),
+                    )}
+                  </TableRow>
+                ))}
+                {!domains.length && !unknownSenders.length && (
                   <TableRow>
-                    <TableCell colSpan={5}>No domains</TableCell>
+                    <TableCell colSpan={8}>No domains</TableCell>
                   </TableRow>
                 )}
               </TableBody>

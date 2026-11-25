@@ -5,6 +5,7 @@ import {
   DnsOutlined,
   FolderOutlined,
   HubOutlined,
+  LanguageOutlined,
   MailOutline,
   SettingsEthernetOutlined,
 } from "@mui/icons-material";
@@ -35,7 +36,7 @@ const objectIcons = {
   account: HubOutlined,
   ip: SettingsEthernetOutlined,
   pool: DnsOutlined,
-  domain: DnsOutlined,
+  domain: LanguageOutlined,
 };
 const kindLabels = {
   workspace: "Workspace",
@@ -67,6 +68,9 @@ export default function OverviewGraph({
   const layout = useMemo(() => {
     return topology.objects.map((object): Node => {
       const Icon = objectIcons[object.kind];
+      let label = kindLabels[object.kind];
+      if (object.domainKind === "tracking") label = "Tracking domain";
+      if (object.domainKind === "sending") label = "Sending domain";
       return {
         id: object.id,
         position: positions.get(object.id)!,
@@ -76,7 +80,7 @@ export default function OverviewGraph({
         )
           ? Position.Left
           : Position.Top,
-        ariaLabel: `${kindLabels[object.kind]} ${object.name}`,
+        ariaLabel: `${label} ${object.name}`,
         data: {
           label: (
             <Stack direction="row" spacing={1.25} alignItems="center">
@@ -86,7 +90,7 @@ export default function OverviewGraph({
                   fontSize={14}
                   fontWeight={600}
                   noWrap
-                  title={[object.name, object.provider, object.status]
+                  title={[label, object.name, object.provider, object.status]
                     .filter(Boolean)
                     .join(" · ")}
                 >

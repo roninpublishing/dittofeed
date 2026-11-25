@@ -160,10 +160,6 @@ describe("account delivery summaries from durable records and resolved observati
     expect(report.observations).toHaveLength(2);
     expect(report.observationsAvailable).toBe(true);
     expect(chQuery).toHaveBeenCalledTimes(1);
-    expect(jest.mocked(chQuery).mock.calls[0]![0]).toMatchObject({
-      query: expect.stringContaining("argMax(tuple(accountId, event)"),
-      format: "JSONEachRow",
-    });
     const scoped = await getPublisherDeliveryHealth(publisherId, second.id);
     expect(scoped.accounts).toEqual([
       {

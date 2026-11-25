@@ -5,18 +5,87 @@ const Mailbox = Type.String({ format: "email", maxLength: 320 });
 const FieldSource = Type.Union([Type.Literal("traits"), Type.Literal("event")]);
 const FieldPath = Type.String({ minLength: 1, maxLength: 512 });
 
+export const PublicationAutomationConditionOperator = Type.Union([
+  Type.Literal("equals"), Type.Literal("notEquals"),
+  Type.Literal("exists"), Type.Literal("notExists"),
+  Type.Literal("contains"), Type.Literal("notContains"),
+  Type.Literal("startsWith"), Type.Literal("endsWith"),
+  Type.Literal("in"), Type.Literal("notIn"),
+  Type.Literal("greaterThan"), Type.Literal("greaterThanOrEqual"),
+  Type.Literal("lessThan"), Type.Literal("lessThanOrEqual"),
+  Type.Literal("before"), Type.Literal("after"),
+]);
+export type PublicationAutomationConditionOperator = Static<typeof PublicationAutomationConditionOperator>;
+export const PublicationAutomationConditionOperatorLabels: Record<PublicationAutomationConditionOperator, string> = {
+  equals: "Equals", notEquals: "Does not equal",
+  exists: "Exists", notExists: "Does not exist",
+  contains: "Contains", notContains: "Does not contain",
+  startsWith: "Starts with", endsWith: "Ends with",
+  in: "Is one of", notIn: "Is not one of",
+  greaterThan: "Greater than", greaterThanOrEqual: "Greater than or equal",
+  lessThan: "Less than", lessThanOrEqual: "Less than or equal",
+  before: "Before", after: "After",
+};
+
+// Each inline occurrence needs its own recursive $id for HTTP/AJV compilation.
+function automationConditionValue() {
+  return Type.Recursive((Self) => Type.Union([
+    Type.Null(), Type.Boolean(), Type.Number(), Type.String(),
+    Type.Array(Self), Type.Record(Type.String(), Self),
+  ]));
+}
+export const PublicationAutomationConditionValue = automationConditionValue();
+const ConditionField = { source: FieldSource, path: FieldPath };
+// No coercion: string containment is literal/case-sensitive; array containment and
+// membership use structural JSON equality (object key order ignored, array order significant).
+export const PublicationAutomationCondition = Type.Union([
+  Type.Object({
+    ...ConditionField,
+    operator: Type.Union([Type.Literal("equals"), Type.Literal("notEquals")]),
+    value: automationConditionValue(),
+  }, { additionalProperties: false }),
+  Type.Object({
+    ...ConditionField,
+    operator: Type.Union([Type.Literal("exists"), Type.Literal("notExists")]),
+    // Historical exists definitions may carry an ignored JSON value.
+    value: Type.Optional(automationConditionValue()),
+  }, { additionalProperties: false }),
+  Type.Object({
+    ...ConditionField,
+    operator: Type.Union([Type.Literal("contains"), Type.Literal("notContains")]),
+    value: automationConditionValue(),
+  }, { additionalProperties: false }),
+  Type.Object({
+    ...ConditionField,
+    operator: Type.Union([Type.Literal("startsWith"), Type.Literal("endsWith")]),
+    value: Type.String(),
+  }, { additionalProperties: false }),
+  Type.Object({
+    ...ConditionField,
+    operator: Type.Union([Type.Literal("in"), Type.Literal("notIn")]),
+    value: Type.Array(automationConditionValue(), { minItems: 1, maxItems: 100 }),
+  }, { additionalProperties: false }),
+  Type.Object({
+    ...ConditionField,
+    operator: Type.Union([Type.Literal("greaterThan"), Type.Literal("greaterThanOrEqual"), Type.Literal("lessThan"), Type.Literal("lessThanOrEqual")]),
+    value: Type.Number(),
+  }, { additionalProperties: false }),
+  Type.Object({
+    ...ConditionField,
+    operator: Type.Union([Type.Literal("before"), Type.Literal("after")]),
+    value: Type.String({ maxLength: 128, pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$" }),
+  }, { additionalProperties: false }),
+]);
+export type PublicationAutomationCondition = Static<typeof PublicationAutomationCondition>;
+
 /** Deliberate cross-publication coordination, never implicit profile synchronization. */
 export const PublicationAutomationDefinition = Type.Object({
   source: Type.Object({
     eventType: Type.Union(["identify", "track", "page", "screen", "group"].map((value) => Type.Literal(value))),
     event: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
     link: Type.Optional(Type.Object({ path: FieldPath, equals: Type.String({ minLength: 1, maxLength: 8192 }) }, { additionalProperties: false })),
-    conditions: Type.Optional(Type.Array(Type.Object({
-      source: FieldSource,
-      path: FieldPath,
-      operator: Type.Union([Type.Literal("equals"), Type.Literal("exists")]),
-      value: Type.Optional(Type.Unknown()),
-    }, { additionalProperties: false }), { maxItems: 32 })),
+    conditionMatch: Type.Optional(Type.Union([Type.Literal("all"), Type.Literal("any")])),
+    conditions: Type.Optional(Type.Array(PublicationAutomationCondition, { maxItems: 32 })),
   }, { additionalProperties: false }),
   destination: Type.Object({
     match: Type.Object({ field: Type.Literal("email"), source: FieldSource, path: FieldPath }, { additionalProperties: false }),
@@ -28,7 +97,10 @@ export const PublicationAutomationDefinition = Type.Object({
       overwrite: Type.Optional(Type.Boolean()),
     }, { additionalProperties: false }), { maxItems: 64 })),
     subscribe: Type.Boolean(),
-    welcomeJourneyId: Type.Optional(Id),
+    // Equivalent to uuid.validate; works in HTTP and TypeBox without global formats.
+    welcomeJourneyId: Type.Optional(Type.String({
+      pattern: "^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+    })),
   }, { additionalProperties: false }),
   oncePerSubscriber: Type.Optional(Type.Boolean({ default: true })),
   consent: Type.Optional(Type.Object({
@@ -38,6 +110,13 @@ export const PublicationAutomationDefinition = Type.Object({
     equals: Type.Literal(true),
     authorization: Type.String({ minLength: 1, maxLength: 2048 }),
     allowResubscribe: Type.Boolean(),
+  }, { additionalProperties: false })),
+  editorLayout: Type.Optional(Type.Object({
+    nodePositions: Type.Record(
+      Type.String({ pattern: "^(?!(?:constructor|prototype)$)[a-zA-Z][a-zA-Z0-9_-]{0,63}$" }),
+      Type.Object({ x: Type.Number(), y: Type.Number() }, { additionalProperties: false }),
+      { maxProperties: 100, additionalProperties: false },
+    ),
   }, { additionalProperties: false })),
 }, { additionalProperties: false });
 export type PublicationAutomationDefinition = Static<typeof PublicationAutomationDefinition>;

@@ -35,6 +35,7 @@ import {
   automationValue,
   PublicationAutomationDefinition,
   PublicationAutomationError,
+  validatePublicationAutomationDefinition,
 } from "./publicationAutomationDefinition";
 import { decrypt, encrypt } from "./secrets";
 import { insertSegmentAssignments } from "./segments";
@@ -75,12 +76,7 @@ function serializable<T>(value: T): T {
 }
 
 function definitionOf(value: unknown): PublicationAutomationDefinition {
-  const result = schemaValidate(value, PublicationAutomationDefinition);
-  if (result.isErr())
-    throw new PublicationAutomationError(
-      "Invalid publication automation definition",
-    );
-  const definition = result.value;
+  const definition = validatePublicationAutomationDefinition(value);
   if (
     !definition.destination.subscribe &&
     !definition.destination.welcomeJourneyId &&
@@ -89,16 +85,6 @@ function definitionOf(value: unknown): PublicationAutomationDefinition {
   )
     throw new PublicationAutomationError(
       "Configure at least one explicit destination action",
-    );
-  if (
-    definition.source.conditions?.some(
-      (condition) =>
-        condition.operator === "equals" &&
-        !Object.prototype.hasOwnProperty.call(condition, "value"),
-    )
-  )
-    throw new PublicationAutomationError(
-      "Equality conditions require an explicit value",
     );
   const destinations = new Set<string>();
   for (const mapping of definition.destination.fieldMappings ?? []) {

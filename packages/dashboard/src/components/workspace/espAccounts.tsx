@@ -6,10 +6,8 @@ import {
   Stack,
   Tab,
   Tabs,
-  Tooltip,
   Typography,
 } from "@mui/material";
-import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import dynamic from "next/dynamic";
 import { useState } from "react";
@@ -22,6 +20,7 @@ import {
   text,
 } from "../publications/settingsShared";
 import type { AccountOperation } from "./accountOperations";
+import { deliveryMetricValue, useDeliveryHealth } from "./deliveryMetrics";
 import {
   DataTable,
   date,
@@ -42,8 +41,13 @@ type Section = "overview" | "configuration" | "ips" | "pools" | "activity";
 function AccountDetails({
   account,
   summary,
+  summaryState,
   ...props
-}: InfrastructureProps & { account: RecordValue; summary?: RecordValue }) {
+}: InfrastructureProps & {
+  account: RecordValue;
+  summary?: RecordValue;
+  summaryState: "loading" | "unavailable" | "ready";
+}) {
   const { workspaceId, apiBase, onComplete } = props;
   const [section, setSection] = useState<Section>("overview");
   const [editing, setEditing] = useState(false);
@@ -249,31 +253,32 @@ function AccountDetails({
               columns={[
                 {
                   label: "Attempts (30d)",
-                  render: (item) => value(item.sends),
+                  render: (item) =>
+                    deliveryMetricValue(item, "sends", summaryState),
                 },
                 {
                   label: "Delivered (30d)",
-                  render: (item) => value(item.delivered),
+                  render: (item) =>
+                    deliveryMetricValue(item, "delivered", summaryState),
                 },
                 {
                   label: "Deliverability (30d)",
-                  render: (item) => (
-                    <Tooltip title="Delivered ÷ resolved delivery outcomes over 30 days.">
-                      <span>
-                        {typeof item.deliverabilityRate === "number"
-                          ? `${item.deliverabilityRate.toFixed(1)}%`
-                          : "—"}
-                      </span>
-                    </Tooltip>
-                  ),
+                  render: (item) =>
+                    deliveryMetricValue(
+                      item,
+                      "deliverabilityRate",
+                      summaryState,
+                    ),
                 },
                 {
                   label: "Bounced (30d)",
-                  render: (item) => value(item.bounced),
+                  render: (item) =>
+                    deliveryMetricValue(item, "bounced", summaryState),
                 },
                 {
                   label: "Complaints (30d)",
-                  render: (item) => value(item.complaints),
+                  render: (item) =>
+                    deliveryMetricValue(item, "complaints", summaryState),
                 },
               ]}
             />
@@ -422,20 +427,12 @@ function EspAccountsContent(props: InfrastructureProps) {
   const [creating, setCreating] = useState(false);
   const accounts = rows(infrastructure.accounts);
   const selected = accounts.find((account) => account.id === accountId);
-  const health = useQuery({
-    queryKey: ["publication-management", apiBase, workspaceId, "health", ""],
-    staleTime: 15_000,
-    queryFn: async () =>
-      record(
-        record(
-          (
-            await axios.get(`${apiBase}/api/publications/delivery-health`, {
-              params: { workspaceId },
-            })
-          ).data,
-        ).data,
-      ),
-  });
+  const health = useDeliveryHealth(apiBase, workspaceId);
+  const healthState = health.isError
+    ? "unavailable"
+    : health.isPending
+      ? "loading"
+      : "ready";
   const summaries = new Map(
     rows(health.data?.accounts).map((summary) => [
       text(summary.accountId),
@@ -457,6 +454,7 @@ function EspAccountsContent(props: InfrastructureProps) {
           {...props}
           account={selected}
           summary={summaries.get(accountId)}
+          summaryState={healthState}
         />
       </Stack>
     );
@@ -496,35 +494,48 @@ function EspAccountsContent(props: InfrastructureProps) {
           { label: "Added", render: (account) => date(account.createdAt) },
           {
             label: "Attempts (30d)",
-            render: (account) => value(summaries.get(text(account.id))?.sends),
+            render: (account) =>
+              deliveryMetricValue(
+                summaries.get(text(account.id)),
+                "sends",
+                healthState,
+              ),
           },
           {
             label: "Delivered (30d)",
             render: (account) =>
-              value(summaries.get(text(account.id))?.delivered),
+              deliveryMetricValue(
+                summaries.get(text(account.id)),
+                "delivered",
+                healthState,
+              ),
           },
           {
             label: "Deliverability (30d)",
-            render: (account) => {
-              const rate = summaries.get(text(account.id))?.deliverabilityRate;
-              return (
-                <Tooltip title="Delivered ÷ resolved delivery outcomes over 30 days.">
-                  <span>
-                    {typeof rate === "number" ? `${rate.toFixed(1)}%` : "—"}
-                  </span>
-                </Tooltip>
-              );
-            },
+            render: (account) =>
+              deliveryMetricValue(
+                summaries.get(text(account.id)),
+                "deliverabilityRate",
+                healthState,
+              ),
           },
           {
             label: "Bounced (30d)",
             render: (account) =>
-              value(summaries.get(text(account.id))?.bounced),
+              deliveryMetricValue(
+                summaries.get(text(account.id)),
+                "bounced",
+                healthState,
+              ),
           },
           {
             label: "Complaints (30d)",
             render: (account) =>
-              value(summaries.get(text(account.id))?.complaints),
+              deliveryMetricValue(
+                summaries.get(text(account.id)),
+                "complaints",
+                healthState,
+              ),
           },
         ]}
       />

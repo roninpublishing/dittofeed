@@ -583,7 +583,10 @@ export async function sendNewsletterEmail(input: {
       const { account, connection, selection, ips, pool, providerPoolName } = resolved;
       if (!connection.encryptedApiKey)
         throw new NewsletterDeliveryError("ESP credential unavailable");
-      const from = input.from.trim().toLowerCase();
+      const from = (typeof input.mailData.from === "string"
+        ? input.mailData.from
+        : input.mailData.from.email).trim().toLowerCase();
+      const senderDomain = from.slice(from.lastIndexOf("@") + 1).replace(/\.$/, "");
       if (
         !connection.senderEmails.some((e) => e.toLowerCase() === from) &&
         !connection.senderDomains.some(
@@ -640,6 +643,7 @@ export async function sendNewsletterEmail(input: {
           broadcastId: input.tags?.broadcastId,
           journeyId: input.tags?.journeyId,
           mailboxHash: newsletterMailboxHash(input.recipients[0] ?? ""),
+          senderDomain,
           encryptedRecipient: encrypt(JSON.stringify(input.recipients)),
           encryptedPayload: encrypt(payload),
           encryptedCredential: connection.encryptedApiKey,
@@ -1204,6 +1208,7 @@ async function projectNewsletterAcceptedSends(): Promise<void> {
                   newsletterSendId: row.id,
                   sendingIpId: row.ipId,
                   sendingAccountId: row.accountId,
+                  senderDomain: row.senderDomain,
                   candidateIpIds: row.candidateIpIds,
                   actualIp: row.actualIp,
                   connectionId: row.connectionId,
@@ -1710,6 +1715,7 @@ export async function drainNewsletterWebhookReceipts(): Promise<void> {
                           actualIp: actualIp ?? row.actualIp,
                           accountId: row.accountId,
                           sendingAccountId: row.accountId,
+                          senderDomain: row.senderDomain,
                           candidateIpIds: row.candidateIpIds,
                           connectionId: row.connectionId,
                         },

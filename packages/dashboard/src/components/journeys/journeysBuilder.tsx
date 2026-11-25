@@ -1,17 +1,9 @@
-import "@xyflow/react/dist/style.css";
-
-import { Box } from "@mui/material";
 import {
-  Background,
-  Controls,
   EdgeChange,
-  MarkerType,
   NodeChange,
   OnEdgesChange,
   OnNodesChange,
   Panel,
-  ProOptions,
-  ReactFlow,
   ReactFlowProvider,
 } from "@xyflow/react";
 import {
@@ -31,16 +23,12 @@ import { useJourneyStats } from "../../lib/useJourneyStats";
 import { useSubscriptionGroupsQuery } from "../../lib/useSubscriptionGroupsQuery";
 import edgeTypes from "./edgeTypes";
 import { useJourneyStorePick } from "./editorStore";
+import FlowCanvas from "./flowCanvas";
 import NodeEditor from "./nodeEditor";
 import nodeTypes from "./nodeTypes";
 import { defaultBodyNodeTypeProps } from "./nodeTypes/defaultNodeTypeProps";
 import Sidebar from "./sidebar";
 import { createConnections } from "./store";
-
-export const proOptions: ProOptions = {
-  account: "paid-pro",
-  hideAttribution: true,
-};
 
 export const handleDragOver: DragEventHandler<HTMLDivElement> = (e) => {
   e.preventDefault();
@@ -147,57 +135,24 @@ function JourneysBuilderInner({ journeyId }: { journeyId: string }) {
   };
 
   return (
-    <Box
-      sx={{
-        width: "100%",
-        height: "100%",
-        margin: 0,
-        padding: 0,
-        display: "flex",
-      }}
+    <FlowCanvas<JourneyUiNode, JourneyUiEdge>
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onDrop={onDrop}
       onDragOver={handleDragOver}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      // TODO get fitview playing nice with nodeOrigin
+      defaultViewport={{ x: 500, y: 0, zoom: 1 }}
+      nodesDraggable={false}
     >
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onDrop={onDrop}
-        proOptions={proOptions}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        noDragClassName="nodrag"
-        defaultEdgeOptions={{
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-          },
-          style: {
-            strokeWidth: 2,
-          },
-        }}
-        nodeOrigin={[0.5, 0.5]}
-        // TODO get fitview playing nice with nodeOrigin
-        defaultViewport={{ x: 500, y: 0, zoom: 1 }}
-        minZoom={0.2}
-        panOnScroll
-        deleteKeyCode={null}
-        zoomOnPinch
-        nodesDraggable={false}
-        nodesConnectable={false}
-        zoomOnDoubleClick={false}
-      >
-        <NodeEditor disabled={!viewDraft} />
-        <Panel position="top-left">
-          <Sidebar />
-        </Panel>
-        <Controls position="top-right" />
-        <Background
-          color="#C7C7D4"
-          style={{ backgroundColor: "#F7F8FA" }}
-          size={2}
-        />
-      </ReactFlow>
-    </Box>
+      <NodeEditor disabled={!viewDraft} />
+      <Panel position="top-left">
+        <Sidebar />
+      </Panel>
+    </FlowCanvas>
   );
 }
 

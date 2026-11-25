@@ -116,7 +116,20 @@ An enabled rule can match A's `DFEmailClicked` at a specified URL, find or creat
 }
 ```
 
-Use the exact observed link URL; authored attribution tokens/query parameters may change it. Conditions support `equals`/`exists` against source traits or event paths. The destination welcome journey must be Running, event-entry, and compatible with the generated native entry event; custom-key journeys are rejected rather than silently restarted.
+Workspace Automations uses the same visual flow canvas as user journeys, with an
+independent definition and execution engine. Select nodes to configure native/custom
+event triggers, all/any conditions, contact matching, creation, field mappings,
+subscriptions, existing welcome journeys, explicit consent and deduplication. Node
+positions are saved; connections show the supported execution order, not arbitrary
+unimplemented branches.
+
+Use the exact observed link URL; authored attribution tokens/query parameters may
+change it. Conditions support equality, existence, literal string matching,
+structural JSON membership/array containment, numeric comparisons and strict ISO
+datetime comparisons. Comparisons never coerce scalars; missing fields fail closed
+except `notExists`. Strings are case-sensitive. The destination welcome journey
+must be Running, event-entry, and compatible with the generated native entry
+event; custom-key journeys are rejected rather than silently restarted.
 
 A deliberately configured matching rule can subscribe a newly created B subscriber and records the rule's authorization/provenance. It does not override an existing B unsubscribe. An explicit, evidenced consent rule is required to authorize resubscription; workspace suppression is never overridden. A click alone does not establish human engagement or universally valid legal consent: operators remain responsible for the offered opt-in and applicable requirements.
 
@@ -175,6 +188,15 @@ show no percentage. Native send identity is required; missing historical ownersh
 is never inferred from today's configuration. Complaints remain independently
 deduplicated observations.
 
+Workspace Overview and Domains share the ESP reporting query. Sending domains are
+attributed by the immutable actual transport From domain pinned on each durable
+attempt, scoped to its ESP account. Native events copy that stored value; callback
+metadata and today's account/newsletter configuration never assign it. Historical
+unknown senders remain a separate cohort. Overall rates use total resolved
+outcomes, not an average of percentages. Newsletter-owned `dt.*` hosts are tracking
+domains, not shared IPs or sending domains; delivery metrics are N/A for them.
+No reputation or inbox-placement score is inferred from delivery observations.
+
 ## AI Stock News release preflight
 
 Run the read-only preflight with deployment configuration injected privately:
@@ -188,7 +210,7 @@ It accepts `DATABASE_URL`, `NEWSLETTER_PUBLISHER_ID` when ambiguous, encrypted r
 Before releasing:
 
 1. Inventory existing contacts/consent/suppression, provider resources/defaults, callbacks, campaigns, and running Temporal workflows read-only. Preserve all history and historical migrations.
-2. Apply journal migrations through `0018_esp_accounts` using the normal release process. Historical file hashes remain unchanged; the runner strips historical file-edge transaction wrappers only during execution so fresh bootstrap and account cutover remain inside the migration transaction. Do not generate cleanup from retired provider schema differences.
+2. Apply journal migrations through `0019_newsletter_sender_domain` using the normal release process. Historical file hashes remain unchanged; the runner strips historical file-edge transaction wrappers only during execution so fresh bootstrap and account cutover remain inside the migration transaction. The nullable sender-domain addition never infers a historical sender. Do not generate cleanup from retired provider schema differences.
 3. Authorize the management/newsletter mapping and AI Stock News live-contact migration separately. Adopt existing resources; do not infer consent or merge profiles.
 4. Configure public TLS/DNS/callbacks and secure management/runtime credentials. Verify the actual subuser/pool/IP association before routing traffic.
 5. Keep `allowProviderWrites`, `allowIpReassignment` and `allowRealSends` closed until their respective releases are approved. An explicit API flag is an authorization control, not proof that an operational review happened. No automatic IP purchases are implemented.

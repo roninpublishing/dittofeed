@@ -22,6 +22,7 @@ export interface WorkspaceObject {
   status?: string;
   accountName?: string;
   provider?: string;
+  domainKind?: WorkspaceDomain["kind"];
   configurations?: { accountName: string; path: string }[];
 }
 export interface WorkspaceLink {
@@ -220,6 +221,7 @@ export function workspaceTopology(
         id: `domain:${domain.viewId}`,
         resourceId: domain.viewId,
         kind: "domain",
+        domainKind: domain.kind,
         name: domain.hostname,
         status: domain.status,
         accountName: owner.name,

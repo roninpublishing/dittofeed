@@ -10,14 +10,14 @@ _The system architecture diagram (see, decide, act), the Open tracking tab and t
 
 ## Codebase alignment (read first)
 
-This spec was checked against the fork on Nov 25, 2026. Build on what exists; don't duplicate it.
+This spec was checked against `main` on Nov 25, 2026. It is a standalone scope; build on the code that exists on `main` and don't duplicate it.
 
 - **Neither provider has sent a real email yet.** SendGrid newsletter sending is built and tested locally with mocks. Telnyx email works only through the basic workspace email-provider path (`destinations/telnyx.ts`, `messaging.ts`). It has no accounts, IPs, pools, gates or capacity budgets.
-- **Real sends can't be switched on.** Every newsletter send requires `allowRealSends` and `allTrafficControlled` on its `PublisherSendgridAccount`. Both default to false, and no API, screen or command sets them; the admin API rejects `allowRealSends: true`. An approved enable path is a prerequisite, not part of this spec.
-- **Routing is a per-send ESP choice, not `NewsletterRoute`.** In-progress work replaces `NewsletterRoute` with `NewsletterDefault` plus a per-send `EspSelection` (account, pool or IP). The choice and its candidate IPs are saved on each `NewsletterSend` and checked again before submission (`verifyPinnedNewsletterSelection`). The router in this spec produces `EspSelection`s; it doesn't add a route table.
-- **One account model.** Multi-instance ESP accounts are being built on `PublisherSendgridAccount` + `SendingConnection`. Generalize that model to cover Telnyx; don't add a parallel `providerAccount` table. Coordinate with that work before changing these tables.
-- **Caps and warm-up already exist.** `SendingIp` has `hourlyLimit`, `dailyLimit`, `warmupStartedAt` and `warmupSchedule`. `newsletterCapacityLimits` and `reserveCapacity` (with `SendingIpBudget`) enforce them per physical IP (`canonicalIpId`). The warm-up planner and volume governor extend these.
-- **Delivery data already exists.** Signed SendGrid webhook receipts (`NewsletterWebhookReceipt`, `receiveNewsletterWebhook`), suppressions (`PublisherSuppression`, `NewsletterSuppression`) and `getPublisherDeliveryHealth` / `getNewsletterDeliveryHealth`. The send-events adapter reads from these.
+- **Real sends can't be switched on.** Every newsletter send requires `allowRealSends` and `allTrafficControlled` on its `PublisherSendgridAccount`. Both default to false, and no API, screen or command sets them. That is outside this spec, but nothing in Act can run live until it exists.
+- **Provider accounts.** `PublisherSendgridAccount` + `SendingConnection` are SendGrid-only. Extend them with a `provider` field to cover Telnyx rather than adding a parallel account table.
+- **Routing.** `NewsletterRoute` maps a newsletter to one connection and one pool. Routing in this spec extends it.
+- **Caps and warm-up already exist.** `SendingIp` has `status`, `hourlyLimit`, `dailyLimit`, `warmupStartedAt` and `warmupSchedule`. `newsletterCapacityLimits` and `reserveCapacity` (with `SendingIpBudget`) enforce them per IP. The warm-up planner and volume governor extend these.
+- **Delivery data already exists.** Signed SendGrid webhook receipts (`NewsletterWebhookReceipt`, `receiveNewsletterWebhook`), suppressions (`PublisherSuppression`, `NewsletterSuppression`) and `getNewsletterDeliveryHealth`. The send-events adapter reads from these.
 - **Open tracking already exists.** Owned pixel (`messaging/openTracking.ts`, `/api/public/email/open/<token>.gif`), the relay Worker (`packages/tracking-worker`), per-newsletter tracking domains (`NewsletterTrackingDomain`, `newsletterTracking*.ts`), and the protected `last_opened` / `last_clicked` contact properties. The tracker in this spec extends these (see Open and click tracking).
 - **Events live in ClickHouse.** Contact events, opens and clicks are stored in ClickHouse (`userEvents/clickhouse.ts`). High-volume tables (`trackingEvent`, `eventRollupHourly`, `signalObservation`) go in ClickHouse; registry, states, rules, incidents and approvals go in Postgres (Neon).
 - **Naming.** The UI is now Workspace → Newsletters. "Publisher" below means the workspace; database columns keep `publisherId`. Contacts are Dittofeed users: use `userId` wherever this spec says subscriber.
@@ -37,7 +37,7 @@ The registry and health engine come first. Every later piece (warm-up, routing, 
 
 ## Asset registry
 
-The registry is the single list of everything we send from. Every signal, health state and routing decision attaches to a registry row. It builds on the existing `PublisherSendgridAccount`, `SendingConnection`, `SendingIp`, `SendingPool`, `SendingPoolIp`, `NewsletterDefault` and `NewsletterTrackingDomain` tables. It extends them and doesn't replace them.
+The registry is the single list of everything we send from. Every signal, health state and routing decision attaches to a registry row. It builds on the existing `PublisherSendgridAccount`, `SendingConnection`, `SendingIp`, `SendingPool`, `SendingPoolIp`, `NewsletterRoute` and `NewsletterTrackingDomain` tables. It extends them and doesn't replace them.
 
 | Asset | Key fields | Source of truth |
 | --- | --- | --- |
@@ -46,7 +46,7 @@ The registry is the single list of everything we send from. Every signal, health
 | Pool | provider, purpose (warm-up, engaged, bulk, cold, transactional), member IPs | Ours, mirrored to the provider |
 | Domain | root domain, **role** (from, return-path, DKIM `d=`, tracking, link), parent domain, provider verification, Postmaster verification, DMARC policy, lifecycle state | Ours + DNS + Postmaster |
 | Sending identity | from-domain + return-path + DKIM domain + tracking domain, bound to a provider connection | Ours |
-| Route | newsletter default (`NewsletterDefault.selection`) + per-send `EspSelection` (account, pool or IP), with optional weights | Existing default/selection model, extended |
+| Route | newsletter → sending identity → pool(s), with weights | Existing `NewsletterRoute`, extended |
 
 **Shared IPs** are stored as one row per provider pool, not per address. We can't list or register a provider's shared addresses, so their health comes only from our own rates and blocklist hits on addresses we actually observe in the logs.
 
@@ -63,7 +63,7 @@ The registry is the single list of everything we send from. Every signal, health
 | Quarantined | Pulled after a Critical state; sends only recovery traffic | Recovery only |
 | Retired | Released or parked | No |
 
-State changes are logged with who or what made them (person, rule, provider sync). Lifecycle extends the existing `SendingIp.status` (`active` / `paused`); `paused` maps to Provisioning or Retired. The newsletter view filters on the route graph: newsletter → default and per-send selections → accounts → pools → IPs and domains, plus the IPs actually used (`NewsletterSend.ipId`, `actualIp`).
+State changes are logged with who or what made them (person, rule, provider sync). Lifecycle extends the existing `SendingIp.status` (`active` / `paused`); `paused` maps to Provisioning or Retired. The newsletter view filters on the route graph: newsletter → identities → pools → IPs and domains, plus the IPs actually used (`NewsletterSend.ipId`).
 
 ## Signal ingestion
 
@@ -185,7 +185,7 @@ Signup source is kept on every subscriber. A source with high bounce or complain
 
 The governor sets hourly and daily caps per **IP × mailbox provider** and **subdomain × mailbox provider**. It also limits day-over-day growth (default +20%) on Active assets. Caps come from the asset's warm-up step, or from the last 30 days' steady volume for Active assets, lowered by its health state: Throttled is 50% of normal, Quarantined is recovery traffic only. Mail over the cap waits for the next window. It never spills onto another asset without a routing decision.
 
-The governor extends the existing admission path: `reserveCapacity` charges each message to every candidate IP's physical budget (`SendingIpBudget`, keyed by `canonicalIpId`) and defers with "Capacity deferred" when full. Health multipliers, per-mailbox-provider windows and growth limits are added there.
+The governor extends the existing admission path: `reserveCapacity` charges each message to its IP's budget (`SendingIpBudget`) and defers with "Capacity deferred" when full. Health multipliers, per-mailbox-provider windows and growth limits are added there.
 
 ### Routing and load balancing
 
@@ -199,7 +199,7 @@ For each batch the router:
 
 Routing across providers (SendGrid vs Telnyx) works the same way, because each provider's pools are just more eligible assets. Weights per newsletter can be pinned by hand.
 
-**Output is an `EspSelection`.** The router's result for each slice is the existing per-send selection (account, pool or IP) and its candidate IP list. These are saved on the `NewsletterSend` and verified again before submission, so a queued retry never re-routes. Routing never changes the selection of a send that's already queued. Cross-provider routing needs Telnyx on the newsletter path first (see Codebase alignment).
+The IP chosen for each send is saved on the `NewsletterSend` (`ipId`). Routing never changes the IP of a send that's already queued, so a retry never re-routes. Cross-provider routing needs Telnyx on the newsletter path first (see Codebase alignment).
 
 ### Automatic actions and approval gates
 
@@ -230,7 +230,7 @@ Routing rules per publisher decide who gets what. Alerts also go out as signed w
 
 ## UI
 
-Add **Deliverability** as an item in the workspace left sidebar (`/dashboard/workspace`), alongside the planned Overview, Newsletters, ESP accounts, IPs, IP pools, Subscribers, Reports and Settings. Each newsletter gets a **Deliverability** tab showing the same screens, filtered. The workspace IPs and IP pools screens being built for multi-account ESP show the deliverability state columns, rather than this spec adding a second IP list. Setup (warm-up templates, thresholds, alert routing) lives under workspace Settings. Infrastructure stays at workspace level, never inside a newsletter.
+Add **Deliverability** as a top-level item in workspace navigation (`/dashboard/workspace`). Each newsletter gets a **Deliverability** tab showing the same screens, filtered. Setup (providers, pools, warm-up templates, thresholds, alert routing) lives under workspace settings.
 
 | Screen | What's on it | Answers |
 | --- | --- | --- |
@@ -252,10 +252,10 @@ Postgres tables sit beside `publisherSchema.ts` (Drizzle migrations). High-volum
 | Table | Purpose | Key columns |
 | --- | --- | --- |
 | `SendingIp` (extend) | IPs | + `ipType` (dedicated, shared\_pool), `lifecycleState`, `ptr`, `sndsRegistered`, `warmupPlanId`. Provider and account come from the existing `accountId`. |
-| `PublisherSendgridAccount` / `SendingConnection` (extend, shared with the multi-ESP work) | Provider accounts and subusers | + `provider` (sendgrid, telnyx); existing gate flags stay |
+| `PublisherSendgridAccount` / `SendingConnection` (extend) | Provider accounts and subusers | + `provider` (sendgrid, telnyx); existing gate flags stay |
 | `sendingDomain` | Every domain and subdomain | `name`, `parentId`, `role[]`, `lifecycleState`, `postmasterStatus`, `dmarcPolicy`; links existing `NewsletterTrackingDomain` rows |
 | `sendingIdentity` | from + return-path + DKIM + tracking bundle | domain ids per role, `accountId` |
-| `NewsletterDefault` / `EspSelection` (extend) | Newsletter default and per-send choice | + optional `weight`, `pinned` |
+| `NewsletterRoute` (extend) | Newsletter → identities → pools | + `weight`, `pinned` |
 | `mailboxProviderMap` | Recipient domain → mailbox provider | `recipientDomain`, `mxHost`, `mailboxProvider`, `checkedAt` |
 | `contactEngagement` | Tier per contact | `userId`, `tier`, `lastEngagedAt`, `signupSource`, `stickyIpId`, `stickyDomainId` |
 | `signalObservation` (CH) | Normalized readings from every adapter | `assetType`, `assetId`, `mailboxProvider`, `metric`, `value`, `periodStart`, `periodEnd`, `source` |
@@ -290,7 +290,6 @@ Postgres tables sit beside `publisherSchema.ts` (Drizzle migrations). High-volum
 There are three phases. Each one is usable on its own, and each needs the one before it. Phase 1 only watches. Nothing in it changes how mail is sent.
 
 0. **Prerequisites (outside this spec).**
-   - The multi-account ESP and per-send selection work lands on `main`, so this builds on the final account and selection model.
    - An approved, audited way to enable real sends on an account.
    - Telnyx on the newsletter send path (account, IPs, gates, capacity) before any Telnyx-specific item below. Until then, Telnyx items are limited to inventory sync and webhook signals.
    - The source doc's architecture diagram, Open tracking tab and KPI framework tab added to this repository.

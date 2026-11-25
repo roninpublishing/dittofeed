@@ -57,7 +57,7 @@ gates. The integration checkpoints migrations `0000`–`0017`. See
 | HubSpot | Keep the integration; hide it from the UI. | Low likelihood of future use, roughly 5–10%; preserve backend/workflows. |
 | Other inherited features/providers | No removal decision yet. | Do not expand the teardown beyond the decisions above. |
 | Sending operations | Not authorized during infrastructure preparation. | No email deliveries, test sends, campaigns, or provider-account changes; validate tracking with inbound HTTP fixtures. |
-| Public tracking infrastructure | Separate `dt.<newsletter-domain>` per native newsletter, behind a shared Cloudflare Worker and Cloudflare for SaaS CNAME/TLS onboarding. | Public tracking deployment is authorized only in RONIN Cloudflare account `2c0f822ce2342b56b3998e7981c03332`, with a dedicated capture backend. Sending remains prohibited; the first newsletter domain and concrete hosting destination must be selected. |
+| Public tracking infrastructure | Separate `dt.<newsletter-domain>` per native newsletter, behind a shared Cloudflare Worker and Cloudflare for SaaS CNAME/TLS onboarding. Capture runs on the current application server using existing PostgreSQL/ClickHouse databases; no separate backend hosting. | Future Cloudflare resources must use RONIN account `2c0f822ce2342b56b3998e7981c03332`. Provisioning, deployment and sending remain prohibited pending explicit authorization; actual tracking domains and the server HTTPS origin must be finalized. |
 
 ## Implementation order and acceptance
 
@@ -503,8 +503,10 @@ The current legacy CLI login belongs to ADVERTISE and cannot access RONIN.
 The separate macOS profile has an expired, unrefreshable login, and a fresh
 isolated OAuth attempt timed out before authorization. Live rollout therefore
 still requires fresh RONIN authentication, the first newsletter's actual base
-domain, and dedicated hosting access/budget. No public resources were created
-and neither existing shared server was changed.
+domain, the shared CNAME target and the current application server's HTTPS origin
+and relay secret. Carson subsequently selected that current server and existing
+PostgreSQL/ClickHouse databases, superseding separate capture-hosting access/budget.
+No public resources were created and neither existing shared server was changed.
 
 #### Queued open classification: local implementation
 
@@ -543,8 +545,8 @@ the expected human, Apple proxy and scanner rows,
 including delivery-age correlation. All three GIFs returned while backend
 acknowledgement was deliberately blocked. No email was sent, public resource
 created, provider configured or deployment initiated. Production still needs
-RONIN-scoped authentication, a Queue/DLQ, KV ID, cron/alerting, dedicated backend
-origin/secrets and the selected newsletter's verified hostname.
+RONIN-scoped authentication, a Queue/DLQ, KV ID, cron/alerting, the current
+application server's HTTPS origin/relay secret and verified newsletter hostnames.
 
 Initial prototype verification before the storage cutover: 247 targeted tests passed (146 classifier/network, 22 native
 Worker, 35 capture/storage/erasure, 32 configuration, 11 HTTP API and one signed

@@ -61,7 +61,9 @@ The Worker is pinned to RONIN account
 `2c0f822ce2342b56b3998e7981c03332`. Authenticate specifically to that account;
 do not use ADVERTISE credentials or remove the account pin to bypass an access
 failure. Keep RONIN authentication separate from other projects' CLI sessions.
-The capture backend must have dedicated hosting, not share the existing servers.
+Capture uses the current application server and existing PostgreSQL/ClickHouse
+databases, not separate backend hosting. The Queue consumer posts signed batches
+to that server's `/api/public/email/open/batch` endpoint.
 
 - Select the SaaS zone and configure its proxied, originless fallback and friendly
   CNAME target using Cloudflare's

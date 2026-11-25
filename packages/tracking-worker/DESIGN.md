@@ -118,8 +118,11 @@ reclassification or verified-human denominator is invented.
 
 No credentials or public resources are needed locally. Before separately
 authorized deployment: isolated RONIN authentication, Queue/DLQ, KV/weekly cron,
-dedicated backend HTTPS origin, matching private 32-byte base64 relay key, private
-SECRET_KEY, verified newsletter `dt.` hostname, migrations and ClickHouse setup.
+current application server's HTTPS origin, matching private 32-byte base64 relay
+key, private SECRET_KEY, verified newsletter `dt.` hostname, migrations and
+ClickHouse setup. Capture shares the existing PostgreSQL/ClickHouse databases;
+no separate backend hosting is required. This supersedes the earlier isolation
+plan, without authorizing provisioning or deployment.
 The existing computed-property worker still materializes `last_opened`.
 Enable capture only after consumer readiness and failure/backlog alerting.
 Failed network refresh must alert and preserve the active set.

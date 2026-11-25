@@ -20,12 +20,15 @@ Unchecked items are planned work; checked items must reflect verified changes.
   A CNAME alone is not certificate/ownership verification. Keep capture and
   Cloudflare provisioning default-off, preserve old send origins/domain ownership,
   and never fall back to another newsletter/global host for an unverified newsletter.
-  Backend hosting and actual domains remain operator choices. Do not provision
-  public resources or change provider accounts without explicit authorization.
+  Actual domains remain operator choices. Do not provision public resources,
+  deploy, or change provider accounts without explicit authorization.
   Cloudflare deployments must target RONIN account
   `2c0f822ce2342b56b3998e7981c03332`, never ADVERTISE. Use isolated RONIN
   authentication; do not overwrite another project's Cloudflare login. Carson
-  selected a dedicated capture backend, not either existing shared server.
+  selected the current application server and existing PostgreSQL/ClickHouse
+  databases for capture; this supersedes the earlier dedicated-hosting plan.
+  The shared Worker queues signed batches to that server's capture API.
+  Keep its origin outside tracking Worker routes to prevent forwarding loops.
   Carson confirmed no mail has shipped in the development tracking cutover.
   Do not preserve old generic direct-send paths or PG tracking receipt/mapping
   tables for compatibility. Migration 0019 must refuse nonempty legacy tables;

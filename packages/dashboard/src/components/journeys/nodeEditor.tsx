@@ -30,6 +30,7 @@ import { assertUnreachable } from "isomorphic-lib/src/typeAssertions";
 import {
   AllowedDayIndices,
   ChannelType,
+  CompletionStatus,
   CursorDirectionEnum,
   DelayVariantType,
   EntryNode,
@@ -43,6 +44,7 @@ import {
 } from "isomorphic-lib/src/types";
 import { ReactNode, useCallback, useMemo } from "react";
 
+import { useAppStorePick } from "../../lib/appStore";
 import { isChannelVisible } from "../../lib/channelVisibility";
 import {
   AdditionalJourneyNodeType,
@@ -67,6 +69,7 @@ import { SubtleHeader } from "../headers";
 import InfoTooltip from "../infoTooltip";
 import ResourceSelect, { ResourceOption } from "../resourceSelect";
 import { TimezoneAutocomplete } from "../timezoneAutocomplete";
+import { NativeSendSelection } from "../workspace/sendSelection";
 import { useJourneyStorePick } from "./editorStore";
 import findJourneyNode from "./findJourneyNode";
 import journeyNodeLabel from "./journeyNodeLabel";
@@ -400,6 +403,10 @@ function MessageNodeFields({
   nodeProps: MessageUiNodeProps;
   disabled?: boolean;
 }) {
+  const { workspace } = useAppStorePick(["workspace"]);
+  const isNewsletter =
+    workspace.type === CompletionStatus.Successful &&
+    Boolean(workspace.value.parentWorkspaceId);
   const { updateJourneyNodeData, journeyName } = useJourneyStorePick([
     "updateJourneyNodeData",
     "journeyName",
@@ -477,7 +484,24 @@ function MessageNodeFields({
   };
   let providerOverrideEl: React.ReactNode;
   if (nodeProps.channel === ChannelType.Email) {
-    providerOverrideEl = (
+    providerOverrideEl = isNewsletter ? (
+      <NativeSendSelection
+        selection={nodeProps.espSelection}
+        disabled={disabled}
+        onChange={(selection) => {
+          updateJourneyNodeData(nodeId, (node) => {
+            const props = node.data.nodeTypeProps;
+            if (
+              props.type === JourneyNodeType.MessageNode &&
+              props.channel === ChannelType.Email
+            ) {
+              props.espSelection = selection;
+              props.providerOverride = undefined;
+            }
+          });
+        }}
+      />
+    ) : (
       <ChannelProviderAutocomplete
         providerOverride={nodeProps.providerOverride}
         channel={nodeProps.channel}

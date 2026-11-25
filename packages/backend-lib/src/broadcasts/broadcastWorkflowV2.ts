@@ -10,7 +10,7 @@ import {
 
 // Only import the activity types
 import type * as activities from "../temporal/activities";
-import { BroadcastV2Status, DBWorkspaceOccupantType } from "../types";
+import { BroadcastV2Config, BroadcastV2Status, DBWorkspaceOccupantType } from "../types";
 import type { SendMessagesResponse } from "./activities";
 
 const { defaultWorkerLogger: logger } = proxySinks<LoggerSinks>();
@@ -48,6 +48,7 @@ export interface BroadcastWorkflowV2Params {
   broadcastId: string;
   workspaceOccupantId?: string;
   workspaceOccupantType?: DBWorkspaceOccupantType;
+  confirmedMessage?: BroadcastV2Config["message"];
 }
 
 export async function broadcastWorkflowV2({
@@ -55,6 +56,7 @@ export async function broadcastWorkflowV2({
   broadcastId,
   workspaceOccupantId,
   workspaceOccupantType,
+  confirmedMessage,
 }: BroadcastWorkflowV2Params): Promise<void> {
   const broadcast = await getBroadcast({ workspaceId, broadcastId });
   if (!broadcast) {
@@ -204,6 +206,7 @@ export async function broadcastWorkflowV2({
           now: activityStartTime,
           workspaceOccupantId,
           workspaceOccupantType,
+          confirmedMessage: confirmedMessage ?? broadcast.config.message,
         });
 
         const activityEndTime = Date.now();

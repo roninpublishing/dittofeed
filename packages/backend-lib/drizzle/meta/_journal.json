@@ -127,6 +127,13 @@
       "when": 1795251000000,
       "tag": "0017_newsletter_tracking_domains",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795624944545,
+      "tag": "0018_esp_accounts",
+      "breakpoints": true
     }
   ]
 }

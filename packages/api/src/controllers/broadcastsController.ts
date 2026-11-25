@@ -150,10 +150,11 @@ export default async function broadcastsController(
       },
     },
     async (request, reply) => {
-      const { workspaceId, id: broadcastId } = request.body;
+      const { workspaceId, id: broadcastId, espSelection } = request.body;
       const broadcast = await triggerBroadcast({
         broadcastId,
         workspaceId,
+        espSelection,
       });
       return reply.status(200).send(broadcast);
     },
@@ -195,11 +196,12 @@ export default async function broadcastsController(
       },
     },
     async (request, reply) => {
-      const { workspaceId, broadcastId } = request.body;
+      const { workspaceId, broadcastId, espSelection } = request.body;
       const occupant = getOccupantFromRequest(request);
       await startBroadcastWorkflow({
         workspaceId,
         broadcastId,
+        espSelection,
         workspaceOccupantId: occupant?.workspaceOccupantId,
         workspaceOccupantType: occupant?.workspaceOccupantType,
       });
@@ -331,6 +333,7 @@ export default async function broadcastsController(
       await triggerBroadcast({
         broadcastId,
         workspaceId: request.body.workspaceId,
+        espSelection: request.body.espSelection,
       });
 
       return reply.status(200).send({

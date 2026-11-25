@@ -148,6 +148,7 @@ interface SendMessagesParams {
   timezones?: string[];
   cursor?: string;
   limit: number;
+  confirmedMessage?: BroadcastV2Config["message"];
 }
 
 function getMessageId({
@@ -234,6 +235,9 @@ export function sendMessagesFactory(sender: Sender) {
         throw new Error("Broadcast config is invalid");
       }
       const config = configResult.value;
+      if (params.confirmedMessage) {
+        config.message = params.confirmedMessage;
+      }
 
       span.setAttributes({
         segmentId: broadcast.segmentId,

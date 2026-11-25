@@ -1,35 +1,40 @@
 import { activeNavigationUrl } from "./navigation";
 
-const publisherLinks = [
+const workspaceLinks = [
   "/workspace",
-  "/workspace?view=subscribers",
-  "/workspace?view=reports",
-  "/workspace?view=settings",
+  "/workspace/newsletters",
+  "/workspace/esp-accounts",
+  "/workspace/ips",
+  "/workspace/ip-pools",
+  "/workspace/subscribers",
+  "/workspace/reports",
+  "/workspace/settings",
 ];
 
 describe("activeNavigationUrl", () => {
-  it.each(["subscribers", "reports", "settings"])(
-    "selects the %s workspace view instead of Newsletters",
-    (view) => {
-      expect(
-        activeNavigationUrl(`/workspace?view=${view}`, publisherLinks),
-      ).toBe(`/workspace?view=${view}`);
-    },
-  );
+  it.each(workspaceLinks)("selects the workspace section %s", (href) => {
+    expect(activeNavigationUrl(href, workspaceLinks)).toBe(href);
+  });
 
-  it("keeps Newsletters active when no view is selected", () => {
-    expect(activeNavigationUrl("/workspace", publisherLinks)).toBe(
+  it("keeps Overview active at the workspace root", () => {
+    expect(activeNavigationUrl("/workspace", workspaceLinks)).toBe(
       "/workspace",
     );
   });
 
-  it("ignores unrelated filters and fragments when matching a view", () => {
+  it("ignores filters and fragments when matching a section", () => {
     expect(
       activeNavigationUrl(
-        "/workspace?search=some%20name&view=reports#activity",
-        publisherLinks,
+        "/workspace/reports?accountId=example#activity",
+        workspaceLinks,
       ),
-    ).toBe("/workspace?view=reports");
+    ).toBe("/workspace/reports");
+  });
+
+  it("keeps ESP accounts active inside an account detail", () => {
+    expect(
+      activeNavigationUrl("/workspace/esp-accounts/account-id", workspaceLinks),
+    ).toBe("/workspace/esp-accounts");
   });
 
   it("selects the nearest parent for a nested editor, not a path prefix sibling", () => {

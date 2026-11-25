@@ -1,11 +1,12 @@
-import { randomBytes } from "crypto";
+import { randomUUID } from "crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { isIP } from "net";
+import { EspSelection } from "isomorphic-lib/src/publications";
 
 import { db } from "./db";
 import {
   newsletter,
-  newsletterRoute,
+  newsletterDefault,
   publisher,
   publisherSendgridAccount,
   sendingConnection,
@@ -17,13 +18,12 @@ import {
 import {
   decryptNewsletterSecret,
   encryptNewsletterSecret,
-  requireNewsletterSecretKey,
 } from "./newsletterSecrets";
 import {
-  assertSingleIpRouting,
   NewsletterInfrastructureError,
   NewsletterSendgridClient,
   NEWSLETTER_WEBHOOK_EVENTS,
+  SENDGRID_SELECTION_CAPABILITIES,
   SendgridApiKey,
   SendgridDomain,
   SendgridIp,
@@ -37,6 +37,14 @@ export { NewsletterInfrastructureError } from "./newsletterSendgrid";
 const PROTECTED_SUBUSER = "aistocknews-ditto";
 type Connection = typeof sendingConnection.$inferSelect;
 type Account = typeof publisherSendgridAccount.$inferSelect;
+export interface ResolvedNewsletterSelection {
+  selection: EspSelection;
+  account: Account;
+  connection: Connection;
+  pool?: typeof sendingPool.$inferSelect;
+  ips: (typeof sendingIp.$inferSelect)[];
+  providerPoolName?: string;
+}
 export interface ConnectionInput {
   publisherId: string;
   connectionId: string;
@@ -46,32 +54,23 @@ export interface DomainInput extends ConnectionInput {
   subdomain?: string;
   validate?: boolean;
 }
-export interface ProvisionConnectionInput extends ConnectionInput {
-  domain?: string;
-  subdomain?: string;
-  configureWebhook?: boolean;
-}
 export interface ConfigureSendgridAccountInput {
   publisherId: string;
+  id?: string;
+  name: string;
+  provider: "SendGrid";
   managementApiKey?: string;
+  apiKey?: string;
+  username?: string;
   region?: "global" | "eu";
   callbackBaseUrl?: string;
-  allowProviderWrites?: boolean;
-  allowIpReassignment?: boolean;
-  allowRealSends?: boolean;
-  allTrafficControlled?: boolean;
-}
-export interface CreateSendingConnectionInput {
-  publisherId: string;
-  newsletterId: string;
-  apiKey?: string;
-  apiKeyId?: string;
   senderDomains?: string[];
   senderEmails?: string[];
 }
 export interface SendingIpInput {
   publisherId: string;
   id?: string;
+  accountId?: string;
   address: string;
   status: "active" | "paused";
   hourlyLimit: number;
@@ -87,22 +86,13 @@ export interface SendingPoolInput {
   publisherId: string;
   id?: string;
   name: string;
+  accountId?: string;
+  providerPoolName?: string;
   ipIds: string[];
 }
 export interface PoolBindingInput extends ConnectionInput {
   poolId: string;
   providerPoolName: string;
-}
-export interface NewsletterRouteInput {
-  publisherId: string;
-  newsletterId: string;
-  connectionId: string;
-  poolId: string;
-}
-export interface PinnedNewsletterRoutingInput extends NewsletterRouteInput {
-  ipId: string;
-  providerPoolName: string;
-  connectionRevision: number;
 }
 export interface SenderIdentityInput extends ConnectionInput {
   nickname: string;
@@ -181,16 +171,15 @@ async function requireConnection(input: ConnectionInput) {
       ),
     );
   if (!row) fail("sending_connection_not_found", 404);
-  await requireNewsletter(input.publisherId, row.newsletterId);
+  await requireAccount(input.publisherId, row.accountId);
   return row;
 }
-async function requireAccount(publisherId: string) {
+export async function requireAccount(publisherId: string, accountId: string) {
   await requirePublisher(publisherId);
-  const [account] = await db()
-    .select()
-    .from(publisherSendgridAccount)
-    .where(eq(publisherSendgridAccount.publisherId, publisherId));
-  if (!account?.encryptedManagementKey) fail("management_credentials_required");
+  const [account] = await db().select().from(publisherSendgridAccount).where(
+    and(eq(publisherSendgridAccount.publisherId, publisherId), eq(publisherSendgridAccount.id, accountId)),
+  );
+  if (!account) fail("esp_account_not_found", 404);
   return account;
 }
 function clientFor(account: Account) {
@@ -202,17 +191,20 @@ function clientFor(account: Account) {
     allowIpReassignment: account.allowIpReassignment,
   });
 }
-function publicAccount(account: Account) {
+function publicAccount(account: Account, connection?: Connection) {
+  const resource = connection ? publicSendingConnection(connection) : undefined;
   return {
-    publisherId: account.publisherId,
-    hasManagementKey: !!account.encryptedManagementKey,
-    region: account.region,
-    callbackBaseUrl: account.callbackBaseUrl,
-    allowProviderWrites: account.allowProviderWrites,
-    allowIpReassignment: account.allowIpReassignment,
-    allowRealSends: account.allowRealSends,
-    allTrafficControlled: account.allTrafficControlled,
-    updatedAt: account.updatedAt,
+    id: account.id, publisherId: account.publisherId, name: account.name, provider: account.provider,
+    hasManagementKey: !!account.encryptedManagementKey, hasApiKey: !!connection?.encryptedApiKey,
+    region: account.region, callbackBaseUrl: account.callbackBaseUrl,
+    allowProviderWrites: account.allowProviderWrites, allowIpReassignment: account.allowIpReassignment,
+    allowRealSends: account.allowRealSends, allTrafficControlled: account.allTrafficControlled,
+    status: connection?.status ?? "draft", connectionId: connection?.id,
+    username: connection?.username || undefined, revision: account.revision,
+    senderDomains: connection?.senderDomains ?? [], senderEmails: connection?.senderEmails ?? [],
+    provisioning: resource?.provisioning ?? { inspectedAt: undefined, ready: false, findings: [], domains: [], key: undefined, webhook: undefined },
+    capabilities: SENDGRID_SELECTION_CAPABILITIES,
+    createdAt: account.createdAt, updatedAt: account.updatedAt,
   };
 }
 export function publicSendingConnection(connection: Connection) {
@@ -220,6 +212,7 @@ export function publicSendingConnection(connection: Connection) {
     id: connection.id,
     publisherId: connection.publisherId,
     newsletterId: connection.newsletterId,
+    accountId: connection.accountId,
     username: connection.username,
     administrativeEmail: connection.administrativeEmail,
     hasApiKey: !!connection.encryptedApiKey,
@@ -243,6 +236,26 @@ export function publicSendingConnection(connection: Connection) {
               typeof value === "string" && /^[a-z_]+$/.test(value),
           )
         : [],
+      domains: Array.isArray(connection.provisioning.domains) ? connection.provisioning.domains.flatMap((value: unknown) => {
+        if (!value || typeof value !== "object" || !("domain" in value) || typeof value.domain !== "string" ||
+          !("subdomain" in value) || typeof value.subdomain !== "string") return [];
+        const dns = "dns" in value && Array.isArray(value.dns) ? value.dns.flatMap((item: unknown) => {
+          if (!item || typeof item !== "object" || !("type" in item) || typeof item.type !== "string" ||
+            !("host" in item) || typeof item.host !== "string" || !("data" in item) || typeof item.data !== "string") return [];
+          return [{ type: item.type, host: item.host, data: item.data, valid: "valid" in item && item.valid === true }];
+        }) : [];
+        return [{ domain: value.domain, subdomain: value.subdomain, valid: "valid" in value && value.valid === true, dns }];
+      }) : [],
+      key: connection.provisioning.key && typeof connection.provisioning.key === "object" ? {
+        present: "present" in connection.provisioning.key && connection.provisioning.key.present === true,
+        restricted: "restricted" in connection.provisioning.key && connection.provisioning.key.restricted === true,
+        credentialStored: !!connection.encryptedApiKey,
+      } : undefined,
+      webhook: connection.provisioning.webhook && typeof connection.provisioning.webhook === "object" ? {
+        enabled: "enabled" in connection.provisioning.webhook && connection.provisioning.webhook.enabled === true,
+        signed: "signed" in connection.provisioning.webhook && connection.provisioning.webhook.signed === true,
+        ready: "ready" in connection.provisioning.webhook && connection.provisioning.webhook.ready === true,
+      } : undefined,
     },
     createdAt: connection.createdAt,
     updatedAt: connection.updatedAt,
@@ -251,7 +264,7 @@ export function publicSendingConnection(connection: Connection) {
 
 export async function getSendingInfrastructure(publisherId: string) {
   await requirePublisher(publisherId);
-  const [accounts, connections, ips, pools, memberships, bindings, routes] =
+  const [accounts, connections, ips, pools, memberships, bindings, defaults] =
     await Promise.all([
       db()
         .select()
@@ -288,195 +301,78 @@ export async function getSendingInfrastructure(publisherId: string) {
         )
         .where(eq(sendingConnection.publisherId, publisherId)),
       db()
-        .select({
-          newsletterId: newsletterRoute.newsletterId,
-          connectionId: newsletterRoute.connectionId,
-          poolId: newsletterRoute.poolId,
-          version: newsletterRoute.version,
-          updatedAt: newsletterRoute.updatedAt,
-        })
-        .from(newsletterRoute)
-        .innerJoin(
-          newsletter,
-          eq(newsletter.workspaceId, newsletterRoute.newsletterId),
-        )
+        .select({ newsletterId: newsletter.workspaceId, selection: newsletterDefault.selection })
+        .from(newsletter)
+        .leftJoin(newsletterDefault, eq(newsletter.workspaceId, newsletterDefault.newsletterId))
         .where(eq(newsletter.publisherId, publisherId)),
     ]);
   return {
-    account: accounts[0] ? publicAccount(accounts[0]) : null,
+    accounts: accounts.map((account) => publicAccount(account, connections.find((connection) => connection.accountId === account.id))),
     connections: connections.map(publicSendingConnection),
-    ips,
-    pools,
-    memberships,
-    bindings,
-    routes,
+    ips, pools, memberships, bindings, defaults,
   };
 }
 
-export async function configureSendgridAccount(
-  input: ConfigureSendgridAccountInput,
-) {
+export async function configureSendgridAccount(input: ConfigureSendgridAccountInput) {
   await requirePublisher(input.publisherId);
-  if (
-    input.region !== undefined &&
-    input.region !== "global" &&
-    input.region !== "eu"
-  )
-    fail("invalid_sendgrid_region", 400);
+  if (input.provider !== "SendGrid") fail("unsupported_esp_provider", 400);
+  if (!input.name.trim() || input.name.length > 256) fail("invalid_account_name", 400);
+  if (input.username !== undefined && !/^[a-zA-Z0-9_-]{0,64}$/.test(input.username)) fail("invalid_subuser_username", 400);
+  if (input.region !== undefined && !["global", "eu"].includes(input.region)) fail("invalid_sendgrid_region", 400);
   let baseUrl: string | undefined;
   if (input.callbackBaseUrl !== undefined) {
     try {
       const url = new URL(input.callbackBaseUrl);
-      if (
-        url.protocol !== "https:" ||
-        url.username ||
-        url.password ||
-        url.search ||
-        url.hash ||
-        url.pathname !== "/"
-      )
-        fail("invalid_callback_origin", 400);
+      if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname !== "/") fail("invalid_callback_origin", 400);
       baseUrl = url.origin;
-    } catch {
-      fail("invalid_callback_origin", 400);
-    }
+    } catch { fail("invalid_callback_origin", 400); }
   }
-  if (input.managementApiKey !== undefined)
-    runtimeKeyId(input.managementApiKey);
-  const values = {
-    ...(input.managementApiKey !== undefined
-      ? {
-          encryptedManagementKey: encryptNewsletterSecret(
-            input.managementApiKey,
-          ),
-        }
-      : {}),
-    ...(input.region !== undefined ? { region: input.region } : {}),
-    ...(baseUrl !== undefined ? { callbackBaseUrl: baseUrl } : {}),
-    ...(input.allowProviderWrites !== undefined
-      ? { allowProviderWrites: input.allowProviderWrites }
-      : {}),
-    ...(input.allowIpReassignment !== undefined
-      ? { allowIpReassignment: input.allowIpReassignment }
-      : {}),
-    ...(input.allowRealSends !== undefined
-      ? { allowRealSends: input.allowRealSends }
-      : {}),
-    ...(input.allTrafficControlled !== undefined
-      ? { allTrafficControlled: input.allTrafficControlled }
-      : {}),
-    updatedAt: new Date(),
-  };
-  if (input.managementApiKey) {
-    const connections = await db()
-      .select()
-      .from(sendingConnection)
-      .where(eq(sendingConnection.publisherId, input.publisherId));
-    for (const connection of connections) {
-      if (
-        connection.encryptedApiKey &&
-        decryptNewsletterSecret(connection.encryptedApiKey) ===
-          input.managementApiKey
-      )
-        fail("management_and_runtime_keys_must_differ", 400);
-    }
-  }
-  const [account] = await db()
-    .insert(publisherSendgridAccount)
-    .values({ publisherId: input.publisherId, ...values })
-    .onConflictDoUpdate({
-      target: publisherSendgridAccount.publisherId,
-      set: values,
-    })
-    .returning();
-  return publicAccount(account!);
-}
-
-export async function createSendingConnection(
-  input: CreateSendingConnectionInput,
-) {
-  const publication = await requireNewsletter(
-    input.publisherId,
-    input.newsletterId,
-  );
-  if (
-    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(publication.slug) ||
-    publication.slug.length > 50
-  )
-    fail("invalid_newsletter_slug", 400);
+  if (input.managementApiKey !== undefined) runtimeKeyId(input.managementApiKey);
+  const apiKeyId = input.apiKey !== undefined ? runtimeKeyId(input.apiKey) : undefined;
   const senderDomains = input.senderDomains?.map(domainName);
   const senderEmails = input.senderEmails?.map(mailbox);
-  const apiKeyId = input.apiKey ? runtimeKeyId(input.apiKey) : input.apiKeyId;
-  if (input.apiKeyId && apiKeyId !== input.apiKeyId)
-    fail("api_key_id_mismatch", 400);
-  if (input.apiKey) {
-    const [account] = await db()
-      .select()
-      .from(publisherSendgridAccount)
-      .where(eq(publisherSendgridAccount.publisherId, input.publisherId));
-    if (
-      account?.encryptedManagementKey &&
-      decryptNewsletterSecret(account.encryptedManagementKey) === input.apiKey
-    )
-      fail("management_and_runtime_keys_must_differ", 400);
-  }
   return db().transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${`newsletter-connection:${input.newsletterId}`}, 0))`,
-    );
-    const [existing] = await tx
-      .select()
-      .from(sendingConnection)
-      .where(eq(sendingConnection.newsletterId, input.newsletterId));
-    if (existing && existing.publisherId !== input.publisherId)
-      fail("sending_connection_not_found", 404);
-    if (
-      existing &&
-      input.apiKeyId &&
-      !input.apiKey &&
-      existing.apiKeyId !== input.apiKeyId
-    )
-      fail("runtime_credential_required", 400);
-    const values = {
-      ...(input.apiKey
-        ? {
-            encryptedApiKey: encryptNewsletterSecret(input.apiKey),
-            apiKeyId: apiKeyId!,
-          }
-        : {}),
-      ...(senderDomains ? { senderDomains } : {}),
-      ...(senderEmails ? { senderEmails } : {}),
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`esp-account:${input.publisherId}:${input.id ?? "new"}`}, 0))`);
+    const existing = input.id ? await requireAccount(input.publisherId, input.id) : undefined;
+    const [connection] = existing ? await tx.select().from(sendingConnection).where(eq(sendingConnection.accountId, existing.id)) : [];
+    if (existing && !connection) fail("account_connection_required");
+    if (connection?.encryptedApiKey && input.username !== undefined && input.username !== connection.username) fail("credential_owner_is_immutable", 400);
+    const managementKey = input.managementApiKey ?? (existing?.encryptedManagementKey ? decryptNewsletterSecret(existing.encryptedManagementKey) : undefined);
+    const runtimeKey = input.apiKey ?? (connection?.encryptedApiKey ? decryptNewsletterSecret(connection.encryptedApiKey) : undefined);
+    if (managementKey && managementKey === runtimeKey) fail("management_and_runtime_keys_must_differ", 400);
+    const configurationChanged = !existing ||
+      (input.managementApiKey !== undefined && (!existing?.encryptedManagementKey || input.managementApiKey !== decryptNewsletterSecret(existing.encryptedManagementKey))) ||
+      (input.apiKey !== undefined && (!connection?.encryptedApiKey || decryptNewsletterSecret(connection.encryptedApiKey) !== input.apiKey)) ||
+      (input.region !== undefined && input.region !== existing.region) ||
+      (baseUrl !== undefined && baseUrl !== existing.callbackBaseUrl) ||
+      (input.username !== undefined && input.username !== connection?.username) ||
+      (senderDomains !== undefined && JSON.stringify(senderDomains) !== JSON.stringify(connection?.senderDomains)) ||
+      (senderEmails !== undefined && JSON.stringify(senderEmails) !== JSON.stringify(connection?.senderEmails));
+    const id = existing?.id ?? randomUUID();
+    const accountValues = {
+      name: input.name.trim(), provider: input.provider,
+      ...(input.managementApiKey !== undefined ? { encryptedManagementKey: encryptNewsletterSecret(input.managementApiKey) } : {}),
+      ...(input.region !== undefined ? { region: input.region } : {}),
+      ...(baseUrl !== undefined ? { callbackBaseUrl: baseUrl } : {}),
+      revision: existing ? existing.revision + (configurationChanged ? 1 : 0) : 1, updatedAt: new Date(),
     };
-    if (existing) {
-      const changed =
-        input.apiKey &&
-        (!existing.encryptedApiKey ||
-          decryptNewsletterSecret(existing.encryptedApiKey) !== input.apiKey);
-      const [updated] = await tx
-        .update(sendingConnection)
-        .set({
-          ...values,
-          revision: changed ? existing.revision + 1 : existing.revision,
-          status: "draft",
-          provisioning: {},
-          updatedAt: new Date(),
-        })
-        .where(eq(sendingConnection.id, existing.id))
-        .returning();
-      return publicSendingConnection(updated!);
-    }
-    const [created] = await tx
-      .insert(sendingConnection)
-      .values({
-        publisherId: input.publisherId,
-        newsletterId: input.newsletterId,
-        username: `${publication.slug}-ditto`,
-        administrativeEmail: `${publication.slug}@roninpublishing.com`,
-        ...(apiKeyId ? { apiKeyId } : {}),
-        ...values,
-      })
-      .returning();
-    return publicSendingConnection(created!);
+    const [account] = existing
+      ? await tx.update(publisherSendgridAccount).set(accountValues).where(eq(publisherSendgridAccount.id, id)).returning()
+      : await tx.insert(publisherSendgridAccount).values({ id, publisherId: input.publisherId, ...accountValues }).returning();
+    const connectionValues = {
+      ...(input.apiKey !== undefined ? { encryptedApiKey: encryptNewsletterSecret(input.apiKey), apiKeyId } : {}),
+      ...(input.username !== undefined ? { username: input.username } : {}),
+      ...(senderDomains !== undefined ? { senderDomains } : {}),
+      ...(senderEmails !== undefined ? { senderEmails } : {}),
+      ...(configurationChanged ? { status: "draft" as const, provisioning: {} } : {}),
+      revision: connection ? connection.revision + (configurationChanged ? 1 : 0) : 1, updatedAt: new Date(),
+    };
+    const [resource] = connection
+      ? await tx.update(sendingConnection).set(connectionValues).where(eq(sendingConnection.id, connection.id)).returning()
+      : await tx.insert(sendingConnection).values({
+          publisherId: input.publisherId, accountId: id, username: input.username ?? "", administrativeEmail: "", ...connectionValues,
+        }).returning();
+    return publicAccount(account!, resource!);
   });
 }
 
@@ -527,22 +423,15 @@ async function inspectResources(
   client: NewsletterSendgridClient,
   username: string,
 ) {
-  const subuser = await client.subuser(username);
-  if (!subuser)
-    return {
-      subuser: null,
-      keys: [],
-      domains: [],
-      senders: [],
-      webhooks: [],
-      ips: [],
-      pools: [],
-    };
+  const subuser = username ? await client.subuser(username) : null;
+  if (username && !subuser)
+    return { subuser: null, keys: [], domains: [], senders: [], webhooks: [], ips: [], pools: [] };
+  const ownerUsername = await client.identityUsername(username);
   const [keys, domains, senderResult, webhookResult, ips, pools] =
     await Promise.all([
       client.apiKeys(username),
       client.list<SendgridDomain>(
-        `/whitelabel/domains?username=${encodeURIComponent(username)}`,
+        `/whitelabel/domains?username=${encodeURIComponent(ownerUsername)}`,
       ),
       client.senders(username),
       client.request<{ webhooks: SendgridWebhook[] }>(
@@ -551,7 +440,9 @@ async function inspectResources(
         undefined,
         username,
       ),
-      client.list<SendgridIp>(`/ips?subuser=${encodeURIComponent(username)}`),
+      username
+        ? client.list<SendgridIp>(`/ips?subuser=${encodeURIComponent(username)}`)
+        : client.list<SendgridIp>("/ips/assigned"),
       client.request<{ name: string }[]>(
         "GET",
         "/ips/pools",
@@ -564,8 +455,8 @@ async function inspectResources(
     keys,
     domains: domains.filter(
       (domain) =>
-        domain.username === username ||
-        domain.subusers?.some((user) => user.username === username),
+        domain.username === ownerUsername ||
+        domain.subusers?.some((user) => user.username === ownerUsername),
     ),
     senders: senderResult,
     webhooks: webhookResult.webhooks ?? [],
@@ -574,70 +465,51 @@ async function inspectResources(
   };
 }
 
-/** Inspection never changes provider or registry state. Public keys/credentials stay internal. */
-export async function inspectPublisherSendgrid({
-  publisherId,
-  username = PROTECTED_SUBUSER,
-}: {
-  publisherId: string;
-  username?: string;
-}) {
-  const account = await requireAccount(publisherId);
-  if (!/^[a-z0-9-]+$/.test(username)) fail("invalid_subuser_username", 400);
-  const client = clientFor(account);
-  const resources = await inspectResources(client, username);
-  const keyScopes = await Promise.all(
-    resources.keys.map(async (key) => ({
-      id: key.api_key_id,
-      restricted: restrictedKey(
-        await keyMetadata(client, username, key.api_key_id),
-      ),
-    })),
-  );
-  return {
-    subuser: resources.subuser
-      ? {
-          username: resources.subuser.username,
-          disabled: resources.subuser.disabled,
-          region: resources.subuser.region,
-        }
-      : null,
-    keys: keyScopes,
-    domains: resources.domains.map(domainSummary),
-    senders: resources.senders.map((sender) => ({
-      id: sender.id,
-      verified: sender.verified,
-    })),
-    webhooks: resources.webhooks.map((webhook) => ({
-      id: webhook.id,
-      enabled: webhook.enabled,
-      signed: !!webhook.public_key,
-      configuredEvents: NEWSLETTER_WEBHOOK_EVENTS.filter(
-        (event) => webhook[event] === true,
-      ),
-    })),
-    ips: resources.ips.map((ip) => ({
-      address: ip.ip,
-      pools: ip.pools,
-      reverseDnsVerified: ip.whitelabeled,
-    })),
-    pools: resources.pools.map((pool) => ({ name: pool.name })),
-    administrativeGroup: {
-      status: "external_metadata_unavailable",
-      managed: false,
-    },
-  };
+/** Account inspection changes no provider resources and stores verified readiness. */
+export async function inspectSendgridAccount(input: { publisherId: string; accountId: string }) {
+  await requireAccount(input.publisherId, input.accountId);
+  const [connection] = await db().select().from(sendingConnection).where(eq(sendingConnection.accountId, input.accountId));
+  if (!connection) fail("account_connection_required");
+  try {
+    return { accountId: input.accountId, ...await recordInspection({ publisherId: input.publisherId, connectionId: connection.id }) };
+  } catch (error) {
+    const report = {
+      accountId: input.accountId, connectionId: connection.id, username: connection.username,
+      inspectedAt: new Date().toISOString(), ready: false,
+      findings: [error instanceof NewsletterInfrastructureError ? error.code : "inspection_failed"],
+      domains: [], bindings: [], ips: [],
+      key: { present: false, restricted: false, credentialStored: !!connection.encryptedApiKey },
+      webhook: { id: null, enabled: false, signed: false, ready: false },
+    };
+    await db().update(sendingConnection).set({ provisioning: report, status: "error", updatedAt: new Date() }).where(eq(sendingConnection.id, connection.id));
+    return report;
+  }
 }
 
 async function inspectConnectionState(input: ConnectionInput) {
   const connection = await requireConnection(input);
-  const account = await requireAccount(input.publisherId);
+  const account = await requireAccount(input.publisherId, connection.accountId);
   const client = clientFor(account);
   const resources = await inspectResources(client, connection.username);
+  const localIps = await db().select().from(sendingIp).where(eq(sendingIp.accountId, account.id));
+  if (localIps.length) {
+    await db().transaction(async (tx) => {
+      const roots = [...new Set(localIps.map((ip) => ip.canonicalIpId))].sort();
+      await tx.select({ id: sendingIp.id }).from(sendingIp).where(inArray(sendingIp.id, roots)).orderBy(sendingIp.id).for("update");
+      const verifiedAt = new Date();
+      for (const ip of localIps) {
+        const verified = resources.ips.some((remote) => remote.ip === ip.address && remote.whitelabeled);
+        await tx.update(sendingIp).set({
+          providerVerifiedAt: verified ? verifiedAt : null,
+          verifiedAccountRevision: verified ? account.revision : null,
+        }).where(eq(sendingIp.id, ip.id));
+      }
+    });
+  }
   const expectedUrl = callbackUrl(account, connection.id);
   const webhook = resources.webhooks.find((row) => row.url === expectedUrl);
   const key =
-    connection.apiKeyId && resources.subuser
+    connection.apiKeyId && (!connection.username || resources.subuser)
       ? await keyMetadata(client, connection.username, connection.apiKeyId)
       : undefined;
   const domains = resources.domains.map(domainSummary);
@@ -658,10 +530,10 @@ async function inspectConnectionState(input: ConnectionInput) {
     ) &&
     connection.senderDomains.length + connection.senderEmails.length > 0;
   const findings: string[] = [];
-  if (!resources.subuser) findings.push("subuser_missing");
+  if (connection.username && !resources.subuser) findings.push("subuser_missing");
   if (resources.subuser?.disabled) findings.push("subuser_disabled");
   if (
-    resources.subuser?.email !== connection.administrativeEmail &&
+    connection.administrativeEmail && resources.subuser?.email !== connection.administrativeEmail &&
     resources.subuser
   )
     findings.push("administrative_identity_mismatch");
@@ -686,12 +558,10 @@ async function inspectConnectionState(input: ConnectionInput) {
         connection.username,
       );
       const valid =
-        local.ips.length === 1 &&
-        remote?.ips.length === 1 &&
-        remote.ips[0] === local.ips[0]?.address &&
-        resources.ips.length === 1 &&
-        resources.ips[0]?.ip === local.ips[0]?.address &&
-        resources.ips[0]?.whitelabeled === true;
+        local.pool.accountId === connection.accountId &&
+        local.pool.providerPoolName === binding.providerPoolName &&
+        sameAddresses(local.ips.map((ip) => ip.address), remote?.ips ?? []) &&
+        local.ips.every((ip) => resources.ips.some((remoteIp) => remoteIp.ip === ip.address && remoteIp.whitelabeled));
       return {
         poolId: binding.poolId,
         providerPoolName: binding.providerPoolName,
@@ -732,7 +602,7 @@ async function inspectConnectionState(input: ConnectionInput) {
   };
 }
 export async function inspectSendgridConnection(input: ConnectionInput) {
-  return (await inspectConnectionState(input)).report;
+  return recordInspection(input);
 }
 async function recordInspection(input: ConnectionInput) {
   const result = await inspectConnectionState(input);
@@ -808,95 +678,24 @@ function requireProviderMutation(account: Account, ipAssignment = false) {
     fail("ip_reassignment_disabled");
 }
 
-export async function provisionSendgridConnection(
-  input: ProvisionConnectionInput,
-) {
-  return connectionLock(input, async () => {
-    const connection = await requireConnection(input);
-    const account = await requireAccount(input.publisherId);
-    const client = clientFor(account);
-    const existing = await client.subuser(connection.username);
-    if (!existing) {
-      if (connection.username === PROTECTED_SUBUSER)
-        fail("existing_subuser_required");
-      requireProviderMutation(account);
-      requireNewsletterSecretKey();
-      // Empty IP assignment deliberately avoids the separate IP reassignment gate.
-      await client.request("POST", "/subusers", {
-        username: connection.username,
-        email: connection.administrativeEmail,
-        password: `${randomBytes(32).toString("base64url")}Aa1!`,
-        ips: [],
-        region: account.region,
-        include_region: true,
-      });
-    } else if (
-      existing.email !== connection.administrativeEmail ||
-      (existing.region && existing.region !== account.region)
-    ) {
-      fail("subuser_identity_conflict");
-    }
-    if (!connection.encryptedApiKey) {
-      const keys = await client.apiKeys(connection.username);
-      // The provider never reveals an existing key again. Never rotate or create
-      // another key to hide a missing runtime credential, including a crash gap.
-      if (
-        keys.length ||
-        connection.apiKeyId ||
-        connection.username === PROTECTED_SUBUSER
-      )
-        fail("existing_runtime_key_must_be_adopted");
-      requireProviderMutation(account);
-      requireNewsletterSecretKey();
-      const key = await client.request<SendgridApiKey>(
-        "POST",
-        "/api_keys",
-        {
-          name: `ronin-${connection.id}`,
-          scopes: ["mail.send"],
-        },
-        connection.username,
-      );
-      if (
-        !key.api_key ||
-        !key.api_key_id ||
-        !restrictedKey(key) ||
-        runtimeKeyId(key.api_key) !== key.api_key_id
-      )
-        fail("invalid_provider_key_response", 502);
-      await db()
-        .update(sendingConnection)
-        .set({
-          encryptedApiKey: encryptNewsletterSecret(key.api_key),
-          apiKeyId: key.api_key_id,
-          status: "provisioning",
-          updatedAt: new Date(),
-        })
-        .where(eq(sendingConnection.id, connection.id));
-    }
-    if (input.domain)
-      await reconcileDomainUnlocked({ ...input, domain: input.domain });
-    if (input.configureWebhook) await reconcileWebhookUnlocked(input);
-    return recordInspection(input);
-  });
-}
 
 async function reconcileDomainUnlocked(input: DomainInput) {
   const connection = await requireConnection(input);
-  const account = await requireAccount(input.publisherId);
+  const account = await requireAccount(input.publisherId, connection.accountId);
   const client = clientFor(account);
   const domain = domainName(input.domain);
+  const ownerUsername = await client.identityUsername(connection.username);
   if (input.subdomain && !/^[a-z0-9][a-z0-9-]{0,62}$/.test(input.subdomain))
     fail("invalid_return_path_subdomain", 400);
   let domains = await client.list<SendgridDomain>(
-    `/whitelabel/domains?username=${encodeURIComponent(connection.username)}&domain=${encodeURIComponent(domain)}`,
+    `/whitelabel/domains?username=${encodeURIComponent(ownerUsername)}&domain=${encodeURIComponent(domain)}`,
   );
   let match = domains.find(
     (row) =>
       row.domain === domain &&
       (!input.subdomain || row.subdomain === input.subdomain) &&
-      (row.username === connection.username ||
-        row.subusers?.some((user) => user.username === connection.username)),
+      (row.username === ownerUsername ||
+        row.subusers?.some((user) => user.username === ownerUsername)),
   );
   if (!match) {
     if (connection.username === PROTECTED_SUBUSER)
@@ -908,7 +707,7 @@ async function reconcileDomainUnlocked(input: DomainInput) {
       {
         domain,
         ...(input.subdomain ? { subdomain: input.subdomain } : {}),
-        username: connection.username,
+        ...(connection.username ? { username: connection.username } : {}),
         automatic_security: true,
         default: false,
         region: account.region,
@@ -924,7 +723,7 @@ async function reconcileDomainUnlocked(input: DomainInput) {
       connection.username,
     );
     domains = await client.list<SendgridDomain>(
-      `/whitelabel/domains?username=${encodeURIComponent(connection.username)}&domain=${encodeURIComponent(domain)}`,
+      `/whitelabel/domains?username=${encodeURIComponent(ownerUsername)}&domain=${encodeURIComponent(domain)}`,
     );
     match = domains.find((row) => row.id === match!.id) ?? match;
   }
@@ -948,7 +747,7 @@ export async function reconcileSendgridDomain(input: DomainInput) {
 }
 async function reconcileWebhookUnlocked(input: ConnectionInput) {
   const connection = await requireConnection(input);
-  const account = await requireAccount(input.publisherId);
+  const account = await requireAccount(input.publisherId, connection.accountId);
   const client = clientFor(account);
   const url = callbackUrl(account, connection.id);
   if (!url) fail("callback_origin_required");
@@ -1008,7 +807,7 @@ export async function reconcileSendgridWebhook(input: ConnectionInput) {
 export async function createSendgridSenderIdentity(input: SenderIdentityInput) {
   return connectionLock(input, async () => {
     const connection = await requireConnection(input);
-    const account = await requireAccount(input.publisherId);
+    const account = await requireAccount(input.publisherId, connection.accountId);
     const client = clientFor(account);
     const email = mailbox(input.fromEmail);
     const replyTo = mailbox(input.replyTo);
@@ -1049,344 +848,229 @@ export async function createSendgridSenderIdentity(input: SenderIdentityInput) {
   });
 }
 
-async function localPool(publisherId: string, poolId: string) {
-  const [pool] = await db()
-    .select()
-    .from(sendingPool)
-    .where(
-      and(eq(sendingPool.id, poolId), eq(sendingPool.publisherId, publisherId)),
-    );
+function sameAddresses(left: string[], right: string[]) {
+  return left.length > 0 && left.length === right.length &&
+    new Set(left).size === left.length && new Set(right).size === right.length &&
+    left.every((address) => right.includes(address));
+}
+async function localPool(publisherId: string, poolId: string, accountId?: string) {
+  const [pool] = await db().select().from(sendingPool).where(and(
+    eq(sendingPool.id, poolId), eq(sendingPool.publisherId, publisherId),
+  ));
   if (!pool) fail("sending_pool_not_found", 404);
-  const rows = await db()
-    .select({ ip: sendingIp })
-    .from(sendingPoolIp)
-    .innerJoin(sendingIp, eq(sendingIp.id, sendingPoolIp.ipId))
-    .where(eq(sendingPoolIp.poolId, poolId));
-  if (rows.some((row) => row.ip.publisherId !== publisherId))
-    fail("foreign_pool_ip", 409);
-  return { pool, ips: rows.map((row) => row.ip) };
+  if (accountId && pool.accountId !== accountId) fail("pool_account_mismatch", 400);
+  const rows = await db().select({ ip: sendingIp }).from(sendingPoolIp)
+    .innerJoin(sendingIp, eq(sendingIp.id, sendingPoolIp.ipId)).where(eq(sendingPoolIp.poolId, poolId));
+  if (rows.some(({ ip }) => ip.publisherId !== publisherId || ip.accountId !== pool.accountId)) fail("foreign_pool_ip");
+  return { pool, ips: rows.map(({ ip }) => ip) };
 }
 export async function upsertSendingIp(input: SendingIpInput) {
   await requirePublisher(input.publisherId);
   if (isIP(input.address) !== 4) fail("invalid_dedicated_ip", 400);
-  const validLimit = (value: number) =>
-    Number.isSafeInteger(value) && value >= 0 && value <= 2_147_483_647;
-  if (
-    !["active", "paused"].includes(input.status) ||
-    !validLimit(input.hourlyLimit) ||
-    !validLimit(input.dailyLimit)
-  )
-    fail("invalid_ip_capacity", 400);
-  const warmupSchedule = input.warmupSchedule ?? [];
-  if (
-    warmupSchedule.some(
-      (step, index) =>
-        !Number.isInteger(step.afterDays) ||
-        step.afterDays < 0 ||
-        !validLimit(step.hourlyLimit) ||
-        !validLimit(step.dailyLimit) ||
-        (index > 0 && step.afterDays <= warmupSchedule[index - 1]!.afterDays),
-    )
-  )
-    fail("invalid_warmup_schedule", 400);
-  const warmupStartedAt = input.warmupStartedAt
-    ? new Date(input.warmupStartedAt)
-    : null;
-  if (warmupStartedAt && !Number.isFinite(warmupStartedAt.getTime()))
-    fail("invalid_warmup_start", 400);
+  const [existing] = input.id ? await db().select().from(sendingIp).where(and(
+    eq(sendingIp.id, input.id), eq(sendingIp.publisherId, input.publisherId),
+  )) : [];
+  if (input.id && !existing) fail("sending_ip_not_found", 404);
+  const accountId = existing?.accountId ?? input.accountId;
+  if (!accountId) fail("account_id_required", 400);
+  if (existing && input.accountId && input.accountId !== existing.accountId) fail("ip_account_is_immutable", 400);
+  await requireAccount(input.publisherId, accountId);
+  if (existing && existing.address !== input.address) fail("sending_ip_address_is_immutable", 400);
+  const validLimit = (value: number) => Number.isSafeInteger(value) && value >= 0 && value <= 2_147_483_647;
+  if (!["active", "paused"].includes(input.status) || !validLimit(input.hourlyLimit) || !validLimit(input.dailyLimit)) fail("invalid_ip_capacity", 400);
+  const warmupSchedule = input.warmupSchedule ?? existing?.warmupSchedule ?? [];
+  if (warmupSchedule.some((step, index) => !Number.isInteger(step.afterDays) || step.afterDays < 0 ||
+    !validLimit(step.hourlyLimit) || !validLimit(step.dailyLimit) ||
+    (index > 0 && step.afterDays <= warmupSchedule[index - 1]!.afterDays))) fail("invalid_warmup_schedule", 400);
+  const warmupStartedAt = input.warmupStartedAt === undefined ? existing?.warmupStartedAt ?? null :
+    input.warmupStartedAt === null ? null : new Date(input.warmupStartedAt);
+  if (warmupStartedAt && !Number.isFinite(warmupStartedAt.getTime())) fail("invalid_warmup_start", 400);
   const values = {
-    address: input.address,
-    status: input.status,
-    hourlyLimit: input.hourlyLimit,
-    dailyLimit: input.dailyLimit,
-    warmupStartedAt,
-    warmupSchedule,
-    updatedAt: new Date(),
+    address: input.address, status: input.status, hourlyLimit: input.hourlyLimit,
+    dailyLimit: input.dailyLimit, warmupStartedAt, warmupSchedule, updatedAt: new Date(),
   };
-  if (input.id) {
-    const [existing] = await db()
-      .select({ address: sendingIp.address })
-      .from(sendingIp)
-      .where(
-        and(
-          eq(sendingIp.id, input.id),
-          eq(sendingIp.publisherId, input.publisherId),
-        ),
-      );
-    if (!existing) fail("sending_ip_not_found", 404);
-    // A physical-IP budget/queued reservation must never acquire a new address.
-    if (existing.address !== input.address)
-      fail("sending_ip_address_is_immutable", 400);
-    const [row] = await db()
-      .update(sendingIp)
-      .set(values)
-      .where(
-        and(
-          eq(sendingIp.id, input.id),
-          eq(sendingIp.publisherId, input.publisherId),
-        ),
-      )
-      .returning();
-    if (!row) fail("sending_ip_not_found", 404);
-    return row;
-  }
-  const [row] = await db()
-    .insert(sendingIp)
-    .values({ publisherId: input.publisherId, ...values })
-    .onConflictDoUpdate({
-      target: [sendingIp.publisherId, sendingIp.address],
-      set: values,
-    })
-    .returning();
-  return row!;
+  return db().transaction(async (tx) => {
+    if (existing?.canonicalIpId) await tx.select({ id: sendingIp.id }).from(sendingIp).where(eq(sendingIp.id, existing.canonicalIpId)).for("update");
+    const id = existing?.id ?? randomUUID();
+    const [row] = existing
+      ? await tx.update(sendingIp).set(values).where(eq(sendingIp.id, existing.id)).returning()
+      : await tx.insert(sendingIp).values({ id, canonicalIpId: id, publisherId: input.publisherId, accountId, ...values })
+        .onConflictDoUpdate({ target: [sendingIp.accountId, sendingIp.address], set: values }).returning();
+    return row!;
+  });
 }
 export async function upsertSendingPool(input: SendingPoolInput) {
   await requirePublisher(input.publisherId);
   poolName(input.name);
+  const [existing] = input.id ? await db().select().from(sendingPool).where(and(
+    eq(sendingPool.id, input.id), eq(sendingPool.publisherId, input.publisherId),
+  )) : [];
+  if (input.id && !existing) fail("sending_pool_not_found", 404);
+  const accountId = existing?.accountId ?? input.accountId;
+  if (!accountId) fail("account_id_required", 400);
+  if (existing && input.accountId && input.accountId !== accountId) fail("pool_account_is_immutable", 400);
+  await requireAccount(input.publisherId, accountId);
+  const providerPoolName = poolName(input.providerPoolName ?? existing?.providerPoolName ?? input.name);
   const ipIds = [...new Set(input.ipIds)];
   if (ipIds.length !== input.ipIds.length) fail("duplicate_pool_ip", 400);
-  const ips = ipIds.length
-    ? await db()
-        .select()
-        .from(sendingIp)
-        .where(
-          and(
-            eq(sendingIp.publisherId, input.publisherId),
-            inArray(sendingIp.id, ipIds),
-          ),
-        )
-    : [];
-  if (ips.length !== ipIds.length) fail("sending_ip_not_found", 404);
+  const ips = ipIds.length ? await db().select().from(sendingIp).where(and(
+    eq(sendingIp.publisherId, input.publisherId), eq(sendingIp.accountId, accountId), inArray(sendingIp.id, ipIds),
+  )) : [];
+  if (ips.length !== ipIds.length) fail("pool_ip_account_mismatch", 400);
   return db().transaction(async (tx) => {
-    let id = input.id;
-    if (id) {
-      const [row] = await tx
-        .update(sendingPool)
-        .set({ name: input.name, updatedAt: new Date() })
-        .where(
-          and(
-            eq(sendingPool.id, id),
-            eq(sendingPool.publisherId, input.publisherId),
-          ),
-        )
-        .returning();
-      if (!row) fail("sending_pool_not_found", 404);
-    } else {
-      const [row] = await tx
-        .insert(sendingPool)
-        .values({ publisherId: input.publisherId, name: input.name })
-        .onConflictDoUpdate({
-          target: [sendingPool.publisherId, sendingPool.name],
-          set: { updatedAt: new Date() },
-        })
-        .returning();
-      id = row!.id;
-    }
-    await tx.delete(sendingPoolIp).where(eq(sendingPoolIp.poolId, id));
-    if (ipIds.length)
-      await tx
-        .insert(sendingPoolIp)
-        .values(ipIds.map((ipId) => ({ poolId: id!, ipId })));
-    return { id, publisherId: input.publisherId, name: input.name, ipIds };
+    const values = { name: input.name, providerPoolName, updatedAt: new Date() };
+    const [row] = existing
+      ? await tx.update(sendingPool).set(values).where(eq(sendingPool.id, existing.id)).returning()
+      : await tx.insert(sendingPool).values({ publisherId: input.publisherId, accountId, ...values })
+        .onConflictDoUpdate({ target: [sendingPool.accountId, sendingPool.name], set: values }).returning();
+    if (existing && existing.providerPoolName !== providerPoolName)
+      await tx.delete(sendingPoolBinding).where(eq(sendingPoolBinding.poolId, existing.id));
+    await tx.delete(sendingPoolIp).where(eq(sendingPoolIp.poolId, row!.id));
+    if (ipIds.length) await tx.insert(sendingPoolIp).values(ipIds.map((ipId) => ({ poolId: row!.id, ipId })));
+    return { ...row!, ipIds };
   });
 }
 export async function upsertPoolBinding(input: PoolBindingInput) {
-  await requireConnection(input);
-  await localPool(input.publisherId, input.poolId);
-  poolName(input.providerPoolName);
-  const [binding] = await db()
-    .insert(sendingPoolBinding)
-    .values({
-      connectionId: input.connectionId,
-      poolId: input.poolId,
-      providerPoolName: input.providerPoolName,
-    })
-    .onConflictDoUpdate({
-      target: [sendingPoolBinding.connectionId, sendingPoolBinding.poolId],
-      set: { providerPoolName: input.providerPoolName },
-    })
-    .returning();
+  const connection = await requireConnection(input);
+  const local = await localPool(input.publisherId, input.poolId, connection.accountId);
+  if (local.pool.providerPoolName !== poolName(input.providerPoolName)) fail("provider_pool_name_mismatch", 400);
+  const [binding] = await db().insert(sendingPoolBinding).values({
+    connectionId: connection.id, poolId: local.pool.id, providerPoolName: input.providerPoolName,
+  }).onConflictDoUpdate({
+    target: [sendingPoolBinding.connectionId, sendingPoolBinding.poolId], set: { providerPoolName: input.providerPoolName },
+  }).returning();
   return binding!;
 }
-export async function assignNewsletterRoute(input: NewsletterRouteInput) {
-  const connection = await requireConnection(input);
-  if (connection.newsletterId !== input.newsletterId)
-    fail("connection_newsletter_mismatch", 400);
-  const local = await localPool(input.publisherId, input.poolId);
-  if (local.ips.length !== 1) fail("route_requires_single_ip", 400);
-  const [binding] = await db()
-    .select()
-    .from(sendingPoolBinding)
-    .where(
-      and(
-        eq(sendingPoolBinding.connectionId, input.connectionId),
-        eq(sendingPoolBinding.poolId, input.poolId),
-      ),
-    );
-  if (!binding) fail("provider_pool_binding_required");
-  const [route] = await db()
-    .insert(newsletterRoute)
-    .values({
-      newsletterId: input.newsletterId,
-      connectionId: input.connectionId,
-      poolId: input.poolId,
-    })
-    .onConflictDoUpdate({
-      target: newsletterRoute.newsletterId,
-      set: {
-        connectionId: input.connectionId,
-        poolId: input.poolId,
-        version: sql`${newsletterRoute.version} + 1`,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
-  return route!;
+async function selectionResources(publisherId: string, selection: EspSelection): Promise<ResolvedNewsletterSelection> {
+  const account = await requireAccount(publisherId, selection.accountId);
+  const [connection] = await db().select().from(sendingConnection).where(and(
+    eq(sendingConnection.accountId, account.id), eq(sendingConnection.publisherId, publisherId),
+  ));
+  if (!connection) fail("account_connection_required");
+  if (selection.mode === "pool") {
+    const local = await localPool(publisherId, selection.poolId, account.id);
+    if (!local.ips.length) fail("pool_has_no_ips");
+    return { selection, account, connection, ...local, providerPoolName: local.pool.providerPoolName };
+  }
+  const ips = await db().select().from(sendingIp).where(and(
+    eq(sendingIp.publisherId, publisherId), eq(sendingIp.accountId, account.id),
+  ));
+  if (selection.mode === "automatic") return { selection, account, connection, ips, pool: undefined, providerPoolName: undefined };
+  if (selection.mode !== "ip") fail("unsupported_esp_selection", 400);
+  const ip = ips.find((row) => row.id === selection.ipId);
+  if (!ip) fail("ip_account_mismatch", 400);
+  const memberships = await db().select({ pool: sendingPool, ipId: sendingPoolIp.ipId }).from(sendingPool)
+    .innerJoin(sendingPoolIp, eq(sendingPoolIp.poolId, sendingPool.id)).where(eq(sendingPool.accountId, account.id)).orderBy(sendingPool.id);
+  const pool = memberships.find((row) => row.ipId === ip.id &&
+    memberships.filter((member) => member.pool.id === row.pool.id).length === 1)?.pool;
+  if (!pool) fail("ip_requires_singleton_provider_pool");
+  return { selection, account, connection, pool, ips: [ip], providerPoolName: pool.providerPoolName };
 }
-export async function verifyPinnedNewsletterRouting(
-  input: PinnedNewsletterRoutingInput,
-): Promise<void> {
-  const connection = await requireConnection(input);
-  if (connection.newsletterId !== input.newsletterId)
-    fail("connection_newsletter_mismatch");
-  const local = await localPool(input.publisherId, input.poolId);
-  if (local.ips.length !== 1 || local.ips[0]!.id !== input.ipId)
-    fail("route_requires_single_ip");
-  const account = await requireAccount(input.publisherId);
-  const client = clientFor(account);
-  const subuser = await client.subuser(connection.username);
-  if (!subuser || subuser.disabled) fail("subuser_not_available");
-  const [providerPool, assignedIps] = await Promise.all([
-    client.pool(input.providerPoolName, connection.username),
-    client.list<SendgridIp>(
-      `/ips?subuser=${encodeURIComponent(connection.username)}`,
-    ),
-  ]);
-  assertSingleIpRouting(
-    local.ips[0]!.address,
-    providerPool?.ips ?? [],
-    assignedIps.map((ip) => ip.ip),
-  );
-  if (!assignedIps[0]?.whitelabeled) fail("ip_reverse_dns_not_verified");
-}
-export async function verifyNewsletterRouting(input: {
-  publisherId: string;
-  newsletterId: string;
-}) {
+export async function getNewsletterDefaultSelection(input: { publisherId: string; newsletterId: string }): Promise<EspSelection | null> {
   await requireNewsletter(input.publisherId, input.newsletterId);
-  const [route] = await db()
-    .select()
-    .from(newsletterRoute)
-    .where(eq(newsletterRoute.newsletterId, input.newsletterId));
-  if (!route) fail("newsletter_route_required");
-  const connection = await requireConnection({
-    publisherId: input.publisherId,
-    connectionId: route.connectionId,
-  });
-  const local = await localPool(input.publisherId, route.poolId);
-  if (local.ips.length !== 1) fail("route_requires_single_ip");
-  const [binding] = await db()
-    .select()
-    .from(sendingPoolBinding)
-    .where(
-      and(
-        eq(sendingPoolBinding.connectionId, route.connectionId),
-        eq(sendingPoolBinding.poolId, route.poolId),
-      ),
-    );
-  if (!binding) fail("provider_pool_binding_required");
-  await verifyPinnedNewsletterRouting({
-    ...input,
-    connectionId: route.connectionId,
-    poolId: route.poolId,
-    ipId: local.ips[0]!.id,
-    providerPoolName: binding.providerPoolName,
-    connectionRevision: connection.revision,
-  });
+  const [row] = await db().select().from(newsletterDefault).where(eq(newsletterDefault.newsletterId, input.newsletterId));
+  return row?.selection ?? null;
+}
+export async function upsertNewsletterDefault(input: { publisherId: string; newsletterId: string; selection: EspSelection | null }) {
+  await requireNewsletter(input.publisherId, input.newsletterId);
+  if (input.selection) await selectionResources(input.publisherId, input.selection);
+  const [row] = await db().insert(newsletterDefault).values({ newsletterId: input.newsletterId, selection: input.selection })
+    .onConflictDoUpdate({ target: newsletterDefault.newsletterId, set: { selection: input.selection, updatedAt: new Date() } }).returning();
+  return { newsletterId: row!.newsletterId, selection: row!.selection };
+}
+export async function getNewsletterSendingOptions(newsletterId: string) {
+  const [publication] = await db().select().from(newsletter).where(eq(newsletter.workspaceId, newsletterId));
+  if (!publication) fail("newsletter_not_found", 404);
+  const inventory = await getSendingInfrastructure(publication.publisherId);
   return {
-    connectionId: route.connectionId,
-    poolId: route.poolId,
-    ipId: local.ips[0]!.id,
-    address: local.ips[0]!.address,
-    providerPoolName: binding.providerPoolName,
-    routeVersion: route.version,
+    accounts: inventory.accounts.map(({ id, name, provider, status, senderDomains, senderEmails, capabilities }) =>
+      ({ id, name, provider, status, senderDomains, senderEmails, capabilities })),
+    ips: inventory.ips.map(({ id, accountId, address, status }) => ({
+      id, accountId, address, status,
+      eligibleSingletonPool: inventory.memberships.some((member) => member.ipId === id &&
+        inventory.memberships.filter((other) => other.poolId === member.poolId).length === 1),
+    })),
+    pools: inventory.pools.map(({ id, accountId, name, providerPoolName }) => ({ id, accountId, name, providerPoolName })),
+    memberships: inventory.memberships,
+    selection: await getNewsletterDefaultSelection({ publisherId: publication.publisherId, newsletterId }),
   };
+}
+export async function resolveNewsletterSelection(input: { publisherId: string; newsletterId: string; selection?: EspSelection | null }) {
+  await requireNewsletter(input.publisherId, input.newsletterId);
+  const selection = input.selection === undefined ? await getNewsletterDefaultSelection(input) : input.selection;
+  if (!selection) fail("esp_selection_required", 400);
+  const resolved = await selectionResources(input.publisherId, selection);
+  if (resolved.connection.status !== "ready" || !resolved.connection.encryptedApiKey) fail("esp_account_not_ready");
+  await verifyResolvedSelection(resolved);
+  return resolved;
+}
+async function verifyResolvedSelection(resolved: ResolvedNewsletterSelection) {
+  const { account, connection, selection, ips, providerPoolName } = resolved;
+  if (!ips.length) fail("provider_capacity_inventory_required");
+  if (ips.some((ip) => ip.status !== "active")) fail("selected_ip_paused");
+  const inspected = await inspectConnectionState({ publisherId: account.publisherId, connectionId: connection.id });
+  if (!inspected.report.ready) fail("esp_account_not_ready");
+  const assigned = inspected.resources.ips;
+  if (selection.mode === "automatic" && !sameAddresses(ips.map((ip) => ip.address), assigned.map((ip) => ip.ip))) fail("automatic_capacity_inventory_incomplete");
+  if (ips.some((ip) => !assigned.some((remote) => remote.ip === ip.address && remote.whitelabeled))) fail("provider_ip_not_ready");
+  if (providerPoolName) {
+    const remote = await clientFor(account).pool(providerPoolName, connection.username);
+    if (!sameAddresses(ips.map((ip) => ip.address), remote?.ips ?? [])) fail("provider_routing_drift");
+  }
+}
+export async function verifyPinnedNewsletterSelection(input: {
+  publisherId: string; accountId: string; connectionId: string; connectionRevision: number; accountRevision?: number;
+  selection: EspSelection; candidateIpIds: string[]; providerPoolName?: string;
+}) {
+  if (input.accountId !== input.selection.accountId) fail("pinned_account_mismatch");
+  const resolved = await selectionResources(input.publisherId, input.selection);
+  if (resolved.connection.id !== input.connectionId || resolved.connection.revision !== input.connectionRevision ||
+    (input.accountRevision !== undefined && resolved.account.revision !== input.accountRevision)) fail("pinned_credential_revision_changed");
+  if (resolved.providerPoolName !== input.providerPoolName ||
+    !sameAddresses(resolved.ips.map((ip) => ip.id), input.candidateIpIds)) fail("pinned_selection_changed");
+  await verifyResolvedSelection(resolved);
 }
 export async function reconcileSendgridPool(input: PoolBindingInput) {
   return connectionLock(input, async () => {
     const connection = await requireConnection(input);
-    const account = await requireAccount(input.publisherId);
+    const account = await requireAccount(input.publisherId, connection.accountId);
     const client = clientFor(account);
-    const local = await localPool(input.publisherId, input.poolId);
-    poolName(input.providerPoolName);
-    if (local.ips.length !== 1) fail("route_requires_single_ip", 400);
+    const local = await localPool(input.publisherId, input.poolId, account.id);
+    if (local.pool.providerPoolName !== poolName(input.providerPoolName)) fail("provider_pool_name_mismatch", 400);
+    if (!local.ips.length) fail("pool_has_no_ips");
     let remote = await client.pool(input.providerPoolName, connection.username);
     if (!remote) {
       requireProviderMutation(account);
-      await client.request(
-        "POST",
-        "/ips/pools",
-        { name: input.providerPoolName },
-        connection.username,
-      );
+      await client.request("POST", "/ips/pools", { name: input.providerPoolName }, connection.username);
       remote = { pool_name: input.providerPoolName, ips: [] };
     }
-    if (
-      remote.ips.some((ip) => ip !== local.ips[0]!.address) ||
-      remote.ips.length > 1
-    )
-      fail("provider_routing_drift");
-    if (!remote.ips.length) {
+    if (remote.ips.some((address) => !local.ips.some((ip) => ip.address === address))) fail("provider_routing_drift");
+    for (const ip of local.ips) {
+      if (remote.ips.includes(ip.address)) continue;
       requireProviderMutation(account, true);
-      await client.request(
-        "POST",
-        `/ips/pools/${encodeURIComponent(input.providerPoolName)}/ips`,
-        { ip: local.ips[0]!.address },
-        connection.username,
-        true,
-      );
+      await client.request("POST", `/ips/pools/${encodeURIComponent(input.providerPoolName)}/ips`, { ip: ip.address }, connection.username, true);
     }
     await upsertPoolBinding(input);
     return recordInspection(input);
   });
 }
-export async function reassignSendgridIps(
-  input: ConnectionInput & { ipIds: string[]; confirm: true },
-) {
+export async function reassignSendgridIps(input: ConnectionInput & { ipIds: string[]; confirm: true }) {
   return connectionLock(input, async () => {
     const connection = await requireConnection(input);
-    const account = await requireAccount(input.publisherId);
+    const account = await requireAccount(input.publisherId, connection.accountId);
     requireProviderMutation(account, true);
-    if (input.confirm !== true || input.ipIds.length !== 1)
-      fail("explicit_single_ip_assignment_required", 400);
-    const ips = await db()
-      .select()
-      .from(sendingIp)
-      .where(
-        and(
-          eq(sendingIp.publisherId, input.publisherId),
-          inArray(sendingIp.id, input.ipIds),
-        ),
-      );
-    if (ips.length !== 1) fail("sending_ip_not_found", 404);
+    if (input.confirm !== true || !input.ipIds.length || new Set(input.ipIds).size !== input.ipIds.length) fail("explicit_ip_assignment_required", 400);
+    if (!connection.username) fail("parent_ip_reassignment_unsupported", 400);
+    const ips = await db().select().from(sendingIp).where(and(
+      eq(sendingIp.publisherId, input.publisherId), eq(sendingIp.accountId, account.id), inArray(sendingIp.id, input.ipIds),
+    ));
+    if (ips.length !== input.ipIds.length) fail("ip_account_mismatch", 400);
     const client = clientFor(account);
-    const owned = await client.list<SendgridIp>(
-      `/ips?ip=${encodeURIComponent(ips[0]!.address)}`,
-    );
-    if (!owned.some((row) => row.ip === ips[0]!.address))
-      fail("ip_not_owned_by_provider_account");
-    const current = await client.list<SendgridIp>(
-      `/ips?subuser=${encodeURIComponent(connection.username)}`,
-    );
-    if (current.length !== 1 || current[0]!.ip !== ips[0]!.address) {
-      await client.request(
-        "PUT",
-        `/subusers/${encodeURIComponent(connection.username)}/ips`,
-        [ips[0]!.address],
-        undefined,
-        true,
-      );
-    }
+    const owned = await client.list<SendgridIp>("/ips");
+    if (ips.some((ip) => !owned.some((remote) => remote.ip === ip.address))) fail("ip_not_owned_by_provider_account");
+    const current = await client.list<SendgridIp>(`/ips?subuser=${encodeURIComponent(connection.username)}`);
+    if (!sameAddresses(ips.map((ip) => ip.address), current.map((ip) => ip.ip)))
+      await client.request("PUT", `/subusers/${encodeURIComponent(connection.username)}/ips`, ips.map((ip) => ip.address), undefined, true);
     return recordInspection(input);
   });
 }

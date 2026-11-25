@@ -22,7 +22,7 @@ export function isApiCredentialAdministration(path: string): boolean {
   const normalized = normalizeApiPath(path);
   return /^\/api\/(admin-keys|secrets|settings|integrations|permissions|oauth)(?:\/|$)/.test(normalized) ||
     /^\/api\/publications\/(?:publisher|adopt)$/.test(normalized) ||
-    /^\/api\/publications\/infrastructure\/(?:account|connections(?:\/provision)?|domains|senders|webhooks|pool-bindings\/reconcile|ip-reassignment)$/.test(normalized);
+    /^\/api\/publications\/infrastructure\/(?:accounts|domains|senders|webhooks|pool-bindings\/reconcile|ip-reassignment)$/.test(normalized);
 }
 
 function isTrackingDomainAdministration(method: string, path: string): boolean {
@@ -39,7 +39,7 @@ const readPostPaths: Record<string, true | undefined> = {
   "/api/content/templates/render": true,
   "/api/publications/contacts/search": true,
   "/api/publications/suppressions/search": true,
-  "/api/publications/infrastructure/inspect": true,
+  "/api/publications/infrastructure/accounts/inspect": true,
   "/api/publications/infrastructure/connections/inspect": true,
 };
 

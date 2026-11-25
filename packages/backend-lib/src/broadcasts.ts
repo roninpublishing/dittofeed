@@ -14,6 +14,7 @@ import {
   BroadcastV2Status,
   ChannelType,
   EmailContentsType,
+  EspSelection,
   GetBroadcastsResponse,
   GetBroadcastsV2Request,
   JourneyDefinition,
@@ -45,7 +46,7 @@ import {
   segment as dbSegment,
   subscriptionGroup as dbSubscriptionGroup,
 } from "./db/schema";
-import { toJourneyResource } from "./journeys";
+import { confirmJourneyEmailSelections, toJourneyResource } from "./journeys";
 import logger from "./logger";
 import { enrichMessageTemplate } from "./messaging";
 import { defaultEmailDefinition } from "./messaging/email";
@@ -329,9 +330,11 @@ export async function getOrCreateBroadcast(params: {
 export async function triggerBroadcast({
   broadcastId,
   workspaceId,
+  espSelection,
 }: {
   broadcastId: string;
   workspaceId: string;
+  espSelection?: EspSelection;
 }): Promise<BroadcastResource> {
   const temporalClient = await connectWorkflowClient();
   const broadcast = await db().query.broadcast.findFirst({
@@ -361,6 +364,38 @@ export async function triggerBroadcast({
     );
     return toBroadcastResource(broadcast);
   }
+
+  // Pin the native journey before starting audience computation. Existing
+  // confirmed variants win over repeat trigger requests and changed defaults.
+  await db().transaction(async (tx) => {
+    await tx.select().from(dbBroadcast).where(and(
+      eq(dbBroadcast.id, broadcastId),
+      eq(dbBroadcast.workspaceId, workspaceId),
+    )).for("update");
+    const journey = await tx.query.journey.findFirst({
+      where: and(
+        eq(dbJourney.workspaceId, workspaceId),
+        eq(dbJourney.name, getBroadcastJourneyName({ broadcastId })),
+      ),
+    });
+    if (!journey?.definition) throw new Error("Broadcast journey not found");
+    const definition = unwrap(schemaValidateWithErr(journey.definition, JourneyDefinition));
+    for (const node of definition.nodes) {
+      if (
+        node.type === JourneyNodeType.MessageNode &&
+        node.variant.type === ChannelType.Email &&
+        node.variant.espSelection === undefined
+      ) {
+        node.variant.espSelection = espSelection;
+      }
+    }
+    await tx.update(dbJourney).set({
+      definition: await confirmJourneyEmailSelections(workspaceId, definition),
+    }).where(and(
+      eq(dbJourney.id, journey.id),
+      eq(dbJourney.workspaceId, workspaceId),
+    ));
+  });
 
   try {
     await temporalClient.start(broadcastWorkflow, {
@@ -463,24 +498,32 @@ export async function upsertBroadcastV2({
     await db().transaction(async (tx) => {
       let existingModel: Broadcast | undefined;
       if (id) {
-        existingModel = await tx.query.broadcast.findFirst({
-          where: and(
-            eq(dbBroadcast.id, id),
-            eq(dbBroadcast.workspaceId, workspaceId),
-          ),
-        });
+        [existingModel] = await tx.select().from(dbBroadcast).where(and(
+          eq(dbBroadcast.id, id),
+          eq(dbBroadcast.workspaceId, workspaceId),
+        )).for("update");
       } else if (name) {
-        existingModel = await tx.query.broadcast.findFirst({
-          where: and(
-            eq(dbBroadcast.name, name),
-            eq(dbBroadcast.workspaceId, workspaceId),
-          ),
-        });
+        [existingModel] = await tx.select().from(dbBroadcast).where(and(
+          eq(dbBroadcast.name, name),
+          eq(dbBroadcast.workspaceId, workspaceId),
+        )).for("update");
       }
       const existing: BroadcastResourceV2 | undefined = existingModel
         ? broadcastV2ToResource(existingModel)
         : undefined;
 
+      if (existingModel?.triggeredAt && (
+        config !== undefined ||
+        scheduledAt !== undefined ||
+        segmentId !== undefined ||
+        messageTemplateId !== undefined ||
+        subscriptionGroupId !== undefined
+      )) {
+        return err({
+          type: UpsertBroadcastV2ErrorTypeEnum.ConstraintViolation,
+          message: "Confirmed broadcast delivery settings cannot be changed",
+        });
+      }
       const [messageTemplate, subscriptionGroup] = await Promise.all([
         messageTemplateId
           ? tx.query.messageTemplate.findFirst({

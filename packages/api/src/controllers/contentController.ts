@@ -11,6 +11,7 @@ import {
   testTemplate,
   upsertMessageTemplate,
 } from "backend-lib/src/messaging";
+import { NewsletterInfrastructureError } from "backend-lib/src/newsletterInfrastructure";
 import { Secret } from "backend-lib/src/types";
 import { randomUUID } from "crypto";
 import { and, eq, inArray, SQL } from "drizzle-orm";
@@ -559,6 +560,7 @@ export default async function contentController(fastify: FastifyInstance) {
         body: BatchMessageUsersRequest,
         response: {
           200: BatchMessageUsersResponse,
+          "4xx": BaseMessageResponse,
           500: BaseMessageResponse,
         },
       },
@@ -568,6 +570,13 @@ export default async function contentController(fastify: FastifyInstance) {
         const result = await batchMessageUsers(request.body);
         return reply.status(200).send(result);
       } catch (error) {
+        if (
+          error instanceof NewsletterInfrastructureError &&
+          error.statusCode >= 400 &&
+          error.statusCode < 500
+        ) {
+          return reply.status(error.statusCode).send({ message: error.message });
+        }
         logger().error(
           {
             err: error,

@@ -7,14 +7,6 @@ export interface Option {
   label: string;
 }
 
-export interface PublisherSettingsProps {
-  workspaceId: string;
-  apiBase: string;
-  infrastructure: RecordValue;
-  newsletters: Option[];
-  onComplete: () => Promise<void>;
-}
-
 export function record(value: unknown): RecordValue {
   return isObject(value) ? value : {};
 }
@@ -33,9 +25,9 @@ export function errorText(error: unknown): string {
     const data = record(error.response?.data);
     return typeof data.message === "string"
       ? data.message
-      : "Publication operation failed";
+      : "Workspace operation failed";
   }
   return error instanceof SyntaxError
     ? "Invalid JSON in an advanced field"
-    : "Publication operation failed";
+    : "Workspace operation failed";
 }

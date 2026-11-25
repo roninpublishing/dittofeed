@@ -1,5 +1,6 @@
 import { MailDataRequired } from "@sendgrid/mail";
 import { createHash, randomUUID } from "crypto";
+import { isIP } from "net";
 import {
   and,
   count,
@@ -23,9 +24,6 @@ import {
   publisherSendgridAccount,
   sendingConnection,
   sendingIp,
-  sendingPoolBinding,
-  sendingPoolIp,
-  newsletterRoute,
   publisherSuppression,
   newsletterSend,
   sendingIpBudget,
@@ -35,7 +33,12 @@ import {
 } from "./db/publisherSchema";
 import { verifyTimestampedSignature } from "./crypto";
 import { sendMail, sendgridEventToDF } from "./destinations/sendgrid";
-import { verifyPinnedNewsletterRouting } from "./newsletterInfrastructure";
+import {
+  NewsletterInfrastructureError,
+  resolveNewsletterSelection,
+  requireAccount,
+  verifyPinnedNewsletterSelection,
+} from "./newsletterInfrastructure";
 import { decrypt, encrypt } from "./secrets";
 import {
   newsletterContactHash,
@@ -51,6 +54,7 @@ import {
   BackendMessageSendResult,
   BadWorkspaceConfigurationType,
   ChannelType,
+  EspSelection,
   EmailProviderType,
   EventType,
   InternalEventType,
@@ -72,7 +76,7 @@ type Envelope = {
   tags: Record<string, string>;
   recipients: string[];
   subscriptionGroupId?: string;
-  providerPoolName: string;
+  providerPoolName?: string;
   region: "global" | "eu";
 };
 type SuppressionReason =
@@ -283,54 +287,93 @@ function windowStart(now: Date, seconds: number) {
   );
 }
 
-/** The physical IP row is the common lock across every subuser and connection. */
+/**
+ * A provider may choose any candidate. Charge the entire message to every
+ * physical budget, never a divided/summed approximation of pool capacity.
+ */
 async function reserveCapacity(tx: Tx, row: Send, now: Date): Promise<boolean> {
-  const [ip] = await tx
+  if (!row.candidateIpIds.length || row.recipientCount <= 0) return false;
+  const candidates = await tx
     .select()
     .from(sendingIp)
-    .where(eq(sendingIp.id, row.ipId))
-    .for("update");
-  if (!ip || ip.status !== "active") return false;
-  const limits = newsletterCapacityLimits(ip, now);
-  const windows = [
-    { seconds: 3600, limit: limits.hourly },
-    { seconds: 86400, limit: limits.daily },
-  ];
-  for (const w of windows) {
-    const start = windowStart(now, w.seconds);
-    // A retry in the same window already owns this reservation. A retry in a
-    // later hour still owns its daily reservation, but needs a fresh hour slot.
-    if (
-      row.reservedAt &&
-      windowStart(row.reservedAt, w.seconds).getTime() === start.getTime()
-    )
-      continue;
-    const [budget] = await tx
+    .where(
+      and(
+        inArray(sendingIp.id, row.candidateIpIds),
+        eq(sendingIp.accountId, row.accountId),
+        eq(sendingIp.publisherId, row.publisherId),
+      ),
+    );
+  if (candidates.length !== new Set(row.candidateIpIds).size) return false;
+  const canonicalIds = [...new Set(candidates.map((ip) => ip.canonicalIpId))].sort();
+  // All accounts/publishers lock the same roots in the same order.
+  for (const id of canonicalIds) {
+    const [root] = await tx
       .select()
-      .from(sendingIpBudget)
-      .where(
-        and(
-          eq(sendingIpBudget.ipId, ip.id),
-          eq(sendingIpBudget.windowStart, start),
-          eq(sendingIpBudget.windowSeconds, w.seconds),
-        ),
-      )
-      .limit(1);
-    if ((budget?.reserved ?? 0) + row.recipientCount > w.limit) return false;
+      .from(sendingIp)
+      .where(eq(sendingIp.id, id))
+      .for("update");
+    if (!root || root.canonicalIpId !== id) return false;
   }
-  for (const w of windows) {
-    const start = windowStart(now, w.seconds);
-    if (
-      row.reservedAt &&
-      windowStart(row.reservedAt, w.seconds).getTime() === start.getTime()
+  const verified = await tx
+    .select({ ip: sendingIp })
+    .from(sendingIp)
+    .innerJoin(
+      publisherSendgridAccount,
+      and(
+        eq(publisherSendgridAccount.id, sendingIp.accountId),
+        eq(publisherSendgridAccount.publisherId, sendingIp.publisherId),
+        eq(publisherSendgridAccount.revision, sendingIp.verifiedAccountRevision),
+      ),
     )
-      continue;
+    .where(and(
+      inArray(sendingIp.canonicalIpId, canonicalIds),
+      isNotNull(sendingIp.providerVerifiedAt),
+    ));
+  const peers = verified.map(({ ip }) => ip);
+  // A local claim of an address is not evidence of provider ownership. Draft
+  // aliases cannot constrain other accounts, nor authorize their own sends.
+  if (candidates.some((ip) => !peers.some((peer) => peer.id === ip.id))) return false;
+  const reservations: { ipId: string; start: Date; seconds: number }[] = [];
+  for (const ipId of canonicalIds) {
+    const physical = peers.filter((ip) => ip.canonicalIpId === ipId);
+    if (!physical.length || physical.some((ip) => ip.status !== "active"))
+      return false;
+    const limits = physical.map((ip) => newsletterCapacityLimits(ip, now));
+    const windows = [
+      { seconds: 3600, limit: Math.min(...limits.map((limit) => limit.hourly)) },
+      { seconds: 86400, limit: Math.min(...limits.map((limit) => limit.daily)) },
+    ];
+    for (const w of windows) {
+      const start = windowStart(now, w.seconds);
+      // A non-accepting retry retains every existing same-window reservation.
+      if (
+        row.reservedAt &&
+        windowStart(row.reservedAt, w.seconds).getTime() === start.getTime()
+      )
+        continue;
+      const [budget] = await tx
+        .select()
+        .from(sendingIpBudget)
+        .where(
+          and(
+            eq(sendingIpBudget.ipId, ipId),
+            eq(sendingIpBudget.windowStart, start),
+            eq(sendingIpBudget.windowSeconds, w.seconds),
+          ),
+        )
+        .limit(1);
+      if ((budget?.reserved ?? 0) + row.recipientCount > w.limit) return false;
+      reservations.push({ ipId, start, seconds: w.seconds });
+    }
+  }
+  // Write only after ALL candidates/windows pass: deferral consumes nothing.
+  for (const reservation of reservations)
     await tx
       .insert(sendingIpBudget)
       .values({
-        ipId: ip.id,
-        windowStart: start,
-        windowSeconds: w.seconds,
+        ipId: reservation.ipId,
+        windowStart: reservation.start,
+        windowSeconds: reservation.seconds,
         reserved: row.recipientCount,
       })
       .onConflictDoUpdate({
@@ -343,7 +386,6 @@ async function reserveCapacity(tx: Tx, row: Send, now: Date): Promise<boolean> {
           reserved: sql`${sendingIpBudget.reserved} + ${row.recipientCount}`,
         },
       });
-  }
   return true;
 }
 
@@ -481,6 +523,7 @@ export async function sendNewsletterEmail(input: {
   success: AcceptedMessage;
   tags?: MessageTags;
   subscriptionGroupId?: string;
+  espSelection?: EspSelection | null;
 }): Promise<BackendMessageSendResult> {
   try {
     const id = await db().transaction(async (tx) => {
@@ -511,6 +554,7 @@ export async function sendNewsletterEmail(input: {
         .limit(1);
       if (prior) {
         if (
+          prior.publisherId !== input.publisherId ||
           prior.userId !== input.userId ||
           prior.mailboxHash !== newsletterMailboxHash(input.recipients[0] ?? "")
         )
@@ -529,67 +573,20 @@ export async function sendNewsletterEmail(input: {
         .limit(1);
       if (!publication)
         throw new NewsletterDeliveryError("Newsletter not found", 404);
-      const [account] = await tx
-        .select()
-        .from(publisherSendgridAccount)
-        .where(eq(publisherSendgridAccount.publisherId, input.publisherId))
-        .limit(1);
-      if (!account)
-        throw new NewsletterDeliveryError(
-          "Publisher sending account is not configured",
-        );
-      const [route] = await tx
-        .select({
-          route: newsletterRoute,
-          connection: sendingConnection,
-          binding: sendingPoolBinding,
-        })
-        .from(newsletterRoute)
-        .innerJoin(
-          sendingConnection,
-          eq(sendingConnection.id, newsletterRoute.connectionId),
-        )
-        .innerJoin(
-          sendingPoolBinding,
-          and(
-            eq(sendingPoolBinding.connectionId, newsletterRoute.connectionId),
-            eq(sendingPoolBinding.poolId, newsletterRoute.poolId),
-          ),
-        )
-        .where(
-          and(
-            eq(newsletterRoute.newsletterId, input.workspaceId),
-            eq(sendingConnection.newsletterId, input.workspaceId),
-            eq(sendingConnection.publisherId, input.publisherId),
-          ),
-        )
-        .limit(1);
-      if (
-        !route ||
-        route.connection.status !== "ready" ||
-        !route.connection.encryptedApiKey
-      )
-        throw new NewsletterDeliveryError(
-          "Newsletter has no ready sending connection",
-        );
-      const ips = await tx
-        .select({ ip: sendingIp })
-        .from(sendingPoolIp)
-        .innerJoin(sendingIp, eq(sendingIp.id, sendingPoolIp.ipId))
-        .where(
-          and(
-            eq(sendingPoolIp.poolId, route.route.poolId),
-            eq(sendingIp.publisherId, input.publisherId),
-          ),
-        );
-      if (ips.length !== 1 || !ips[0])
-        throw new NewsletterDeliveryError(
-          "A concrete single-IP route is required",
-        );
+      if (input.espSelection === null)
+        throw new NewsletterDeliveryError("esp_selection_required");
+      const resolved = await resolveNewsletterSelection({
+        publisherId: input.publisherId,
+        newsletterId: input.workspaceId,
+        selection: input.espSelection,
+      });
+      const { account, connection, selection, ips, pool, providerPoolName } = resolved;
+      if (!connection.encryptedApiKey)
+        throw new NewsletterDeliveryError("ESP credential unavailable");
       const from = input.from.trim().toLowerCase();
       if (
-        !route.connection.senderEmails.some((e) => e.toLowerCase() === from) &&
-        !route.connection.senderDomains.some(
+        !connection.senderEmails.some((e) => e.toLowerCase() === from) &&
+        !connection.senderDomains.some(
           (d) => d.toLowerCase() === from.split("@")[1],
         )
       )
@@ -597,9 +594,11 @@ export async function sendNewsletterEmail(input: {
           "Sender is not authorized for this connection",
         );
       const sendId = randomUUID();
+      // The caller cannot smuggle an IP pool into automatic selection.
+      const { ipPoolName: _callerPool, ...renderedMailData } = input.mailData;
       const mailData: MailDataRequired = {
-        ...input.mailData,
-        ipPoolName: route.binding.providerPoolName,
+        ...renderedMailData,
+        ...(providerPoolName ? { ipPoolName: providerPoolName } : {}),
         customArgs: { ...input.mailData.customArgs, newsletterSendId: sendId },
         headers: { ...input.mailData.headers, "X-Message-ID": sendId },
       };
@@ -618,7 +617,7 @@ export async function sendNewsletterEmail(input: {
           input.subscriptionGroupId ??
           publication.subscriptionGroupId ??
           undefined,
-        providerPoolName: route.binding.providerPoolName,
+        providerPoolName,
         region: account.region,
       };
       const payload = JSON.stringify(envelope);
@@ -628,11 +627,14 @@ export async function sendNewsletterEmail(input: {
           id: sendId,
           publisherId: input.publisherId,
           workspaceId: input.workspaceId,
-          connectionId: route.connection.id,
-          connectionRevision: route.connection.revision,
-          ipId: ips[0].ip.id,
-          poolId: route.route.poolId,
-          routeVersion: route.route.version,
+          accountId: account.id,
+          accountRevision: account.revision,
+          selection,
+          connectionId: connection.id,
+          connectionRevision: connection.revision,
+          candidateIpIds: ips.map((ip) => ip.id).sort(),
+          ipId: selection.mode === "ip" ? selection.ipId : null,
+          poolId: pool?.id ?? null,
           logicalMessageId: input.logicalMessageId,
           userId: input.userId,
           broadcastId: input.tags?.broadcastId,
@@ -640,7 +642,7 @@ export async function sendNewsletterEmail(input: {
           mailboxHash: newsletterMailboxHash(input.recipients[0] ?? ""),
           encryptedRecipient: encrypt(JSON.stringify(input.recipients)),
           encryptedPayload: encrypt(payload),
-          encryptedCredential: route.connection.encryptedApiKey,
+          encryptedCredential: connection.encryptedApiKey,
           payloadHash: createHash("sha256").update(payload).digest("hex"),
           state: "queued",
           recipientCount: input.recipients.length,
@@ -663,6 +665,7 @@ export async function sendNewsletterEmail(input: {
         .limit(1);
       if (
         !winner ||
+        winner.publisherId !== input.publisherId ||
         winner.userId !== input.userId ||
         winner.mailboxHash !== newsletterMailboxHash(input.recipients[0] ?? "")
       )
@@ -693,13 +696,15 @@ export async function sendNewsletterEmail(input: {
         },
       },
     });
-  } catch {
+  } catch (cause) {
     return err({
       type: InternalEventType.BadWorkspaceConfiguration,
       variant: {
         type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-        message:
-          "Newsletter delivery unavailable; check routing, credentials and sender authorization",
+        message: cause instanceof NewsletterDeliveryError ||
+          cause instanceof NewsletterInfrastructureError
+          ? cause.message
+          : "Newsletter delivery unavailable; check ESP selection, credentials and sender authorization",
       },
     });
   }
@@ -752,7 +757,10 @@ async function attemptNewsletterSend(id: string): Promise<void> {
     const [account] = await tx
       .select()
       .from(publisherSendgridAccount)
-      .where(eq(publisherSendgridAccount.publisherId, row.publisherId))
+      .where(and(
+        eq(publisherSendgridAccount.id, row.accountId),
+        eq(publisherSendgridAccount.publisherId, row.publisherId),
+      ))
       .limit(1);
     const [connection] = await tx
       .select()
@@ -763,7 +771,9 @@ async function attemptNewsletterSend(id: string): Promise<void> {
       status !== "ready" ||
       !account?.allowRealSends ||
       !account.allTrafficControlled ||
-      connection?.status !== "ready"
+      connection?.status !== "ready" ||
+      connection.accountId !== row.accountId ||
+      connection.publisherId !== row.publisherId
     ) {
       await tx
         .update(newsletterSend)
@@ -776,13 +786,14 @@ async function attemptNewsletterSend(id: string): Promise<void> {
       return false;
     }
     try {
-      await verifyPinnedNewsletterRouting({
+      await verifyPinnedNewsletterSelection({
         publisherId: row.publisherId,
-        newsletterId: row.workspaceId,
+        accountId: row.accountId,
+        accountRevision: row.accountRevision,
         connectionId: row.connectionId,
         connectionRevision: row.connectionRevision,
-        poolId: row.poolId,
-        ipId: row.ipId,
+        selection: row.selection,
+        candidateIpIds: row.candidateIpIds,
         providerPoolName: envelope.providerPoolName,
       });
     } catch {
@@ -790,7 +801,7 @@ async function attemptNewsletterSend(id: string): Promise<void> {
         .update(newsletterSend)
         .set({
           nextAttemptAt: new Date(now.getTime() + 60_000),
-          error: "Pinned route not verified",
+          error: "Pinned ESP selection not verified",
           updatedAt: now,
         })
         .where(eq(newsletterSend.id, id));
@@ -838,7 +849,10 @@ async function attemptNewsletterSend(id: string): Promise<void> {
     const [account] = await tx
       .select()
       .from(publisherSendgridAccount)
-      .where(eq(publisherSendgridAccount.publisherId, row.publisherId))
+      .where(and(
+        eq(publisherSendgridAccount.id, row.accountId),
+        eq(publisherSendgridAccount.publisherId, row.publisherId),
+      ))
       .limit(1);
     const [connection] = await tx
       .select()
@@ -848,7 +862,9 @@ async function attemptNewsletterSend(id: string): Promise<void> {
     if (
       !account?.allowRealSends ||
       !account.allTrafficControlled ||
-      connection?.status !== "ready"
+      connection?.status !== "ready" ||
+      connection.accountId !== row.accountId ||
+      connection.publisherId !== row.publisherId
     ) {
       await tx
         .update(newsletterSend)
@@ -870,6 +886,31 @@ async function attemptNewsletterSend(id: string): Promise<void> {
         .set({
           state: "suppressed",
           error: "Ineligible or suppressed",
+          updatedAt: new Date(),
+        })
+        .where(eq(newsletterSend.id, id));
+      return;
+    }
+    // Recheck at the actual submission boundary; a queued retry never resolves
+    // defaults or substitutes a changed provider inventory.
+    try {
+      await verifyPinnedNewsletterSelection({
+        publisherId: row.publisherId,
+        accountId: row.accountId,
+        accountRevision: row.accountRevision,
+        connectionId: row.connectionId,
+        connectionRevision: row.connectionRevision,
+        selection: row.selection,
+        candidateIpIds: row.candidateIpIds,
+        providerPoolName: envelope.providerPoolName,
+      });
+    } catch {
+      await tx
+        .update(newsletterSend)
+        .set({
+          state: "queued",
+          error: "Pinned ESP selection not verified",
+          nextAttemptAt: new Date(Date.now() + 60_000),
           updatedAt: new Date(),
         })
         .where(eq(newsletterSend.id, id));
@@ -1004,21 +1045,27 @@ export async function getNewsletterBroadcastQueueStatus(input: {
 export async function listNewsletterSends(input: {
   publisherId: string;
   newsletterId?: string;
+  accountId?: string;
   state?: Send["state"];
   limit?: number;
   offset?: number;
 }) {
+  if (input.accountId) await requireAccount(input.publisherId, input.accountId);
   return db()
     .select({
       id: newsletterSend.id,
       logicalMessageId: newsletterSend.logicalMessageId,
       publisherId: newsletterSend.publisherId,
       workspaceId: newsletterSend.workspaceId,
+      accountId: newsletterSend.accountId,
+      accountRevision: newsletterSend.accountRevision,
+      selection: newsletterSend.selection,
+      candidateIpIds: newsletterSend.candidateIpIds,
+      actualIp: newsletterSend.actualIp,
       connectionId: newsletterSend.connectionId,
       connectionRevision: newsletterSend.connectionRevision,
       ipId: newsletterSend.ipId,
       poolId: newsletterSend.poolId,
-      routeVersion: newsletterSend.routeVersion,
       state: newsletterSend.state,
       error: newsletterSend.error,
       attempts: newsletterSend.attempts,
@@ -1032,6 +1079,7 @@ export async function listNewsletterSends(input: {
     .where(
       and(
         eq(newsletterSend.publisherId, input.publisherId),
+        input.accountId ? eq(newsletterSend.accountId, input.accountId) : undefined,
         input.newsletterId
           ? eq(newsletterSend.workspaceId, input.newsletterId)
           : undefined,
@@ -1042,11 +1090,24 @@ export async function listNewsletterSends(input: {
     .limit(Math.min(input.limit ?? 100, 500))
     .offset(input.offset ?? 0);
 }
-export async function getNewsletterDeliveryHealth(publisherId: string) {
+export async function getNewsletterDeliveryHealth(publisherId: string, accountId?: string) {
+  if (accountId) {
+    const [account] = await db().select({ id: publisherSendgridAccount.id })
+      .from(publisherSendgridAccount)
+      .where(and(
+        eq(publisherSendgridAccount.id, accountId),
+        eq(publisherSendgridAccount.publisherId, publisherId),
+      ))
+      .limit(1);
+    if (!account) throw new NewsletterDeliveryError("ESP account not found", 404);
+  }
   const states = await db()
     .select({ state: newsletterSend.state, count: count() })
     .from(newsletterSend)
-    .where(eq(newsletterSend.publisherId, publisherId))
+    .where(and(
+      eq(newsletterSend.publisherId, publisherId),
+      accountId ? eq(newsletterSend.accountId, accountId) : undefined,
+    ))
     .groupBy(newsletterSend.state);
   const receipts = await db()
     .select({ count: count() })
@@ -1058,6 +1119,7 @@ export async function getNewsletterDeliveryHealth(publisherId: string) {
     .where(
       and(
         eq(sendingConnection.publisherId, publisherId),
+        accountId ? eq(sendingConnection.accountId, accountId) : undefined,
         isNull(newsletterWebhookReceipt.processedAt),
       ),
     );
@@ -1141,6 +1203,9 @@ async function projectNewsletterAcceptedSends(): Promise<void> {
                   variant: envelope.success.variant,
                   newsletterSendId: row.id,
                   sendingIpId: row.ipId,
+                  sendingAccountId: row.accountId,
+                  candidateIpIds: row.candidateIpIds,
+                  actualIp: row.actualIp,
                   connectionId: row.connectionId,
                   providerMessageId: row.providerMessageId,
                 },
@@ -1218,6 +1283,13 @@ function eventIdentity(event: CallbackEvent): string {
       .digest("hex")
   );
 }
+function observedSendingIp(event: CallbackEvent): string | undefined {
+  // Engagement events carry the reader/proxy IP, not the outbound mail IP.
+  return ["processed", "delivered", "deferred", "bounce", "dropped"].includes(event.event) &&
+    typeof event.ip === "string" && isIP(event.ip)
+    ? event.ip
+    : undefined;
+}
 function providerIdentity(value: string): string {
   return value.split(".")[0] ?? value;
 }
@@ -1253,19 +1325,25 @@ function callbackSendIdentity(event: CallbackEvent) {
 }
 
 async function correlate(
-  tx: Tx,
+  tx: Pick<Tx, "select">,
   connectionId: string,
   event: CallbackEvent,
 ): Promise<Send | undefined> {
   const identity = callbackSendIdentity(event);
   if (!identity) return undefined;
-  const [row] = await tx
-    .select()
+  const [match] = await tx
+    .select({ send: newsletterSend })
     .from(newsletterSend)
+    .innerJoin(sendingConnection, and(
+      eq(sendingConnection.id, newsletterSend.connectionId),
+      eq(sendingConnection.accountId, newsletterSend.accountId),
+      eq(sendingConnection.publisherId, newsletterSend.publisherId),
+    ))
     .where(
       and(eq(newsletterSend.connectionId, connectionId), identity),
     )
     .limit(1);
+  const row = match?.send;
   if (!row || row.erasedAt || !row.encryptedRecipient || row.attempts === 0)
     return undefined;
   if (
@@ -1339,12 +1417,17 @@ export async function receiveNewsletterWebhook(input: {
         throw new NewsletterDeliveryError("Invalid callback", 400);
     }
   }
-  await db().transaction(async (tx) => {
-    await barrier(tx, connection.newsletterId);
-    for (const event of parsed as CallbackEvent[]) {
-      const row = await correlate(tx, connection.id, event);
+  for (const event of parsed as CallbackEvent[]) {
+    const hint = await correlate(db(), connection.id, event);
+    await db().transaction(async (tx) => {
+      if (hint) await barrier(tx, hint.workspaceId);
+      const matched = await correlate(tx, connection.id, event);
+      // Newly correlated evidence is rechecked under its erasure lock by the
+      // drainer. Callback metadata never assigns a tenant or contact.
+      const row = matched?.workspaceId === hint?.workspaceId ? matched : undefined;
       const mailboxHash = newsletterMailboxHash(event.email);
-      const [erased] = row
+      const identity = callbackSendIdentity(event);
+      const [erased] = row || !identity
         ? []
         : await tx
             .select({ id: newsletterSend.id })
@@ -1355,10 +1438,7 @@ export async function receiveNewsletterWebhook(input: {
                 isNotNull(newsletterSend.erasedAt),
                 // Identity matches only discard evidence; they never assign
                 // callback metadata to an erased contact, including CC/BCC.
-                or(
-                  eq(newsletterSend.mailboxHash, mailboxHash),
-                  callbackSendIdentity(event),
-                ),
+                identity,
               ),
             )
             .limit(1);
@@ -1380,8 +1460,8 @@ export async function receiveNewsletterWebhook(input: {
             newsletterWebhookReceipt.eventId,
           ],
         });
-    }
-  });
+    });
+  }
 }
 
 export function newsletterSuppressionReason(event: {
@@ -1391,8 +1471,7 @@ export function newsletterSuppressionReason(event: {
   bounce_classification?: unknown;
 }): SuppressionReason | null {
   if (event.event === "spamreport") return "complaint";
-  // Each subuser belongs to one newsletter. Provider unsubscribe (including
-  // its account-level unsubscribe) is local, never publisher-wide consent.
+  // Provider unsubscribe is local to the newsletter of the immutable send.
   // Explicit publisher opt-outs enter through the authenticated suppression API.
   if (
     event.event === "bounce" &&
@@ -1406,7 +1485,8 @@ export async function drainNewsletterWebhookReceipts(): Promise<void> {
   const candidates = await db()
     .select({
       id: newsletterWebhookReceipt.id,
-      workspaceId: sendingConnection.newsletterId,
+      connectionId: newsletterWebhookReceipt.connectionId,
+      encryptedPayload: newsletterWebhookReceipt.encryptedPayload,
       publisherId: sendingConnection.publisherId,
     })
     .from(newsletterWebhookReceipt)
@@ -1423,8 +1503,15 @@ export async function drainNewsletterWebhookReceipts(): Promise<void> {
     .orderBy(newsletterWebhookReceipt.nextAttemptAt)
     .limit(100);
   for (const candidate of candidates) {
+    const hint = candidate.encryptedPayload
+      ? await correlate(
+          db(),
+          candidate.connectionId,
+          unpack<CallbackEvent>(candidate.encryptedPayload),
+        )
+      : undefined;
     await db().transaction(async (tx) => {
-      await barrier(tx, candidate.workspaceId);
+      if (hint) await barrier(tx, hint.workspaceId);
       await publisherBarrier(tx, candidate.publisherId);
       const [receipt] = await tx
         .select()
@@ -1438,24 +1525,26 @@ export async function drainNewsletterWebhookReceipts(): Promise<void> {
         .for("update", { skipLocked: true });
       if (!receipt?.encryptedPayload) return;
       const event = unpack<CallbackEvent>(receipt.encryptedPayload);
-      const correlation = receipt.sendId
-        ? { id: receipt.sendId }
-        : await correlate(tx, receipt.connectionId, event);
+      const correlation = await correlate(tx, receipt.connectionId, event);
+      if (correlation && correlation.workspaceId !== hint?.workspaceId) {
+        // Correlation appeared since the hint query. Reacquire locks in
+        // workspace -> publisher order on the next drain.
+        await tx
+          .update(newsletterWebhookReceipt)
+          .set({ sendId: correlation.id })
+          .where(eq(newsletterWebhookReceipt.id, receipt.id));
+        return;
+      }
       if (!correlation) {
-        const [erased] = await tx
+        const identity = callbackSendIdentity(event);
+        const [erased] = !identity ? [] : await tx
           .select({ id: newsletterSend.id })
           .from(newsletterSend)
           .where(
             and(
               eq(newsletterSend.connectionId, receipt.connectionId),
               isNotNull(newsletterSend.erasedAt),
-              or(
-                eq(
-                  newsletterSend.mailboxHash,
-                  newsletterMailboxHash(event.email),
-                ),
-                callbackSendIdentity(event),
-              ),
+              identity,
             ),
           )
           .limit(1);
@@ -1480,6 +1569,8 @@ export async function drainNewsletterWebhookReceipts(): Promise<void> {
         .where(
           and(
             eq(newsletterSend.id, correlation.id),
+            eq(newsletterSend.connectionId, receipt.connectionId),
+            eq(newsletterSend.publisherId, candidate.publisherId),
             isNull(newsletterSend.erasedAt),
           ),
         )
@@ -1515,6 +1606,13 @@ export async function drainNewsletterWebhookReceipts(): Promise<void> {
           await tx
             .update(newsletterSend)
             .set({ providerSmtpId: event["smtp-id"].replace(/[<>]/g, "") })
+            .where(eq(newsletterSend.id, row.id));
+        }
+        const actualIp = observedSendingIp(event);
+        if (actualIp) {
+          await tx
+            .update(newsletterSend)
+            .set({ actualIp })
             .where(eq(newsletterSend.id, row.id));
         }
         const envelope = unpack<Envelope>(row.encryptedPayload);
@@ -1609,6 +1707,10 @@ export async function drainNewsletterWebhookReceipts(): Promise<void> {
                           ...normalized.value.properties,
                           newsletterSendId: row.id,
                           sendingIpId: row.ipId,
+                          actualIp: actualIp ?? row.actualIp,
+                          accountId: row.accountId,
+                          sendingAccountId: row.accountId,
+                          candidateIpIds: row.candidateIpIds,
                           connectionId: row.connectionId,
                         },
                       },
@@ -1748,18 +1850,40 @@ export async function deleteNewsletterDeliveryData(input: {
       ];
       const connectionIds = [...new Set(rows.map((row) => row.connectionId))];
       for (let offset = 0; offset < mailboxHashes.length; offset += 500) {
-        await tx
-          .update(newsletterWebhookReceipt)
-          .set({ encryptedPayload: null, processedAt: new Date() })
+        const pending = await tx
+          .select()
+          .from(newsletterWebhookReceipt)
           .where(
             and(
               inArray(newsletterWebhookReceipt.connectionId, connectionIds),
+              isNull(newsletterWebhookReceipt.sendId),
+              isNotNull(newsletterWebhookReceipt.encryptedPayload),
               inArray(
                 newsletterWebhookReceipt.mailboxHash,
                 mailboxHashes.slice(offset, offset + 500),
               ),
             ),
           );
+        for (const receipt of pending) {
+          if (!receipt.encryptedPayload) continue;
+          const identity = callbackSendIdentity(
+            unpack<CallbackEvent>(receipt.encryptedPayload),
+          );
+          if (!identity) continue;
+          const [owned] = await tx
+            .select({ id: newsletterSend.id })
+            .from(newsletterSend)
+            .where(and(
+              inArray(newsletterSend.id, ids),
+              eq(newsletterSend.connectionId, receipt.connectionId),
+              identity,
+            ))
+            .limit(1);
+          if (owned)
+            await tx.update(newsletterWebhookReceipt)
+              .set({ encryptedPayload: null, processedAt: new Date() })
+              .where(eq(newsletterWebhookReceipt.id, receipt.id));
+        }
       }
       for (const row of rows)
         await tx

@@ -12,7 +12,7 @@ const readPostPaths = new Set([
   "/api/deliveries/opens",
   "/api/publications/contacts/search",
   "/api/publications/suppressions/search",
-  "/api/publications/infrastructure/inspect",
+  "/api/publications/infrastructure/accounts/inspect",
   "/api/publications/infrastructure/connections/inspect",
 ]);
 const dashboardReadPaths = new Set([
@@ -85,7 +85,11 @@ export function requiredGoogleDashboardRole(url: string): Role {
     path.startsWith("/oauth")
   )
     return RoleEnum.WorkspaceManager;
-  if (dashboardReadPaths.has(path) || /^\/users\/[^/]+$/.test(path))
+  if (
+    dashboardReadPaths.has(path) ||
+    /^\/workspace\/(?:newsletters|esp-accounts|ips|ip-pools|subscribers|reports|settings)(?:\/[^/]+)?$/.test(path) ||
+    /^\/users\/[^/]+$/.test(path)
+  )
     return RoleEnum.Viewer;
   // Editor GET loaders can persist drafts; a Viewer must not enter them.
   return RoleEnum.Author;

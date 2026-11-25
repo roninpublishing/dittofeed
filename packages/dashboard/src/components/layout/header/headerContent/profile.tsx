@@ -83,18 +83,21 @@ function Profile() {
     () => workspaceSelection(memberRoles, workspace),
     [memberRoles, workspace],
   );
-  const changeWorkspace = async (workspaceId: string) => {
+  const changeWorkspace = async (
+    workspaceId: string,
+    destination = "/home",
+  ) => {
     if (switchingWorkspace) return;
     setSwitchingWorkspace(true);
     try {
       if (authMode === "google") {
         await axios.post(`${apiBase}/api/account/workspace`, { workspaceId });
-        window.location.assign(`${path.basePath}/home`);
+        window.location.assign(`${path.basePath}${destination}`);
       } else if (authMode === "single-tenant" || authMode === "anonymous") {
         await axios.post(`${apiBase}/api/public/single-tenant/workspace`, {
           workspaceId,
         });
-        window.location.assign(`${path.basePath}/home`);
+        window.location.assign(`${path.basePath}${destination}`);
       } else {
         await path.push(`/select-workspace?workspaceId=${workspaceId}`);
       }
@@ -289,6 +292,7 @@ function Profile() {
                                 if (selection.currentWorkspace)
                                   void changeWorkspace(
                                     selection.currentWorkspace.id,
+                                    "/workspace/newsletters",
                                   );
                               }}
                               sx={{ alignSelf: "flex-start" }}

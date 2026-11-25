@@ -6,38 +6,33 @@ title: Ronin multi-newsletter operations
 
 One installation contains workspaces, each with independent newsletters. Internally, a newsletter uses a native child workspace plus newsletter metadata. Subscriber profiles, consent, campaigns and history remain newsletter-local.
 
-The approved next design makes **ESP accounts** a separate workspace collection,
-with multiple instances of each provider type. Newsletters require no ESP/IP/pool
-association to exist. Sending chooses an ESP account and its supported IP/pool or
-explicit automatic option; optional newsletter defaults only prefill that choice.
-IPs and pools stay under ESP accounts, not newsletters. See the
-[approved implementation plan](https://github.com/roninpublishing/dittofeed/blob/main/FORK_PLAN.md#approved-next-esp-accounts-and-send-time-selection).
-This is planned work, not a claim that multi-account sending is implemented.
+**ESP accounts** are independent workspace resources. Multiple SendGrid account
+instances can coexist; newsletters require no account, IP or pool to exist.
+IPs/pools belong to the relevant provider account, not a newsletter. Optional
+newsletter defaults prefill sending choices and can be overridden for each send.
 
-The workspace UI build is scoped to `/dashboard/workspace`, with left-sidebar
+The workspace dashboard is `/dashboard/workspace`. Its left sidebar contains
 Overview, Newsletters, ESP accounts, IPs, IP pools, Subscribers, Reports and Settings.
-ESP account details and workspace-wide IP/pool inventories share the same account-
-owned records. These are planned screens; the route rename initially preserves
-the current views under `/dashboard/workspace?view=...`. Backend API names stay
-unchanged. The map navigates/configures resources without assigning IPs to newsletters.
+The map and workspace/account inventories configure the same stored resources.
+Dragging only changes layout; the map never assigns IPs to newsletters.
 
 ```mermaid
 flowchart TD
-  P[Workspace]
-  P --> C[Shared connections, suppression, IPs and pools]
-  P --> A[Newsletter A]
-  P --> B[Newsletter B]
-  A --> DA[Independent subscribers, consent, fields, segments, campaigns, journeys and history]
-  B --> DB[Independent subscribers, consent, fields, segments, campaigns, journeys and history]
+  W[Workspace] --> A[Newsletter A]
+  W --> B[Newsletter B]
+  W --> E1[SendGrid account A]
+  W --> E2[SendGrid account B]
+  E1 --> P[Account IP pools]
+  E1 --> I[Account IP addresses]
+  P -. membership .-> I
   A -. explicit audited automation .-> B
-  C --> IP[Shared physical-IP admission budget]
 ```
 
 A person's name, email, fields, consent, subscription state and engagement can differ between newsletters. Importing or updating A does not update B. Workspace suppression is a separate, deliberately shared mailbox-level control, not a shared profile.
 
 The dashboard's **Newsletters** entry starts with a simple newsletter list: name, subscriber count, status and **Open**. **New newsletter** asks for a name; its sending ID is generated automatically, with optional customization before creation. Opening a newsletter enters its native audience/campaign/journey environment.
 
-Workspace navigation contains **Newsletters**, **Subscribers**, **Reports** and **Workspace settings**. The top-right Workspace selector lists authorized workspaces, not their newsletters. Inside a newsletter, it retains the containing workspace and provides **All newsletters** to return. Newsletter-only memberships remain separately accessible without granting parent access. Workspace settings uses focused sending, domain and IP workflows; raw administration lives in **Advanced**.
+The top-right Workspace selector scopes every dashboard section and lists authorized workspaces, not their newsletters. Inside a newsletter it retains the containing workspace; **All newsletters** returns to the workspace list. Direct newsletter-only memberships remain accessible without granting parent access. ESP account details contain credentials, sender domains, signed webhooks, IPs/pools and observed activity. Settings retains tracking, automations, suppressions, activity and Advanced tools.
 
 Search/export identities are `(newsletterId, userId)`, never `userId` alone. Contact/subscription counts and matched normalized mailboxes are separate measures; a matched mailbox is not a verified unique person. Every campaign and journey remains owned by its newsletter. Management workspaces cannot create campaigns or send.
 
@@ -115,21 +110,32 @@ A deliberately configured matching rule can subscribe a newly created B subscrib
 
 Durable source intent precedes native ingestion. The bounded worker verifies the exact native source exists before acting, records deterministic per-step IDs/progress and checks lineage to prevent cycles. Stable source-event deduplication and default once-per-source-subscriber behavior prevent repeated clicks or retries from creating duplicate subscriptions or restarting welcomes. Native PostgreSQL/ClickHouse projection is not a claim of exactly-once storage.
 
-## Current SendGrid implementation — migration baseline
+## ESP accounts and SendGrid infrastructure
 
-Each newsletter derives one subuser username `{slug}-ditto` and administrative email `{slug}@roninpublishing.com`. A separate restricted `mail.send` key is used at runtime. Parent management credentials are never runtime credentials. Secret persistence requires an explicit stable private 32-byte base64 `SECRET_KEY`; protect it and backups. Changing it without re-encrypting stored credentials makes them unreadable.
+Add accounts under **ESP accounts**, then configure credentials and use **Check
+connection** for read-only inspection. Registration only writes local configuration:
+it never creates a provider account/subuser, purchases an IP or sends email. Parent
+and existing subuser identities are supported. Each instance owns its sending
+credential and optional separate management credential; management credentials are
+never runtime keys. Secret persistence requires a stable private 32-byte base64
+`SECRET_KEY`. Protect it and backups; changing it requires re-encrypting credentials.
 
-Provisioning records completed steps and inspects existing provider resources before creating missing ones. Domain authentication requires publishing returned DNS records and verifying status. Existing keys cannot be retrieved from SendGrid; supply the existing restricted key securely for adoption rather than automatically rotating or duplicating it. Sender/domain/webhook readiness and pool membership must be verified before sending. The callback origin must be public HTTPS, not the local dashboard.
+Domain authentication, signed-webhook setup, pool synchronization and physical IP
+reassignment remain explicit, separately authorized actions. DNS records must
+actually verify. Existing SendGrid keys cannot be retrieved: supply the restricted
+key securely, without rotating or duplicating adopted resources. AI Stock News's
+existing `aistocknews-ditto` identity must be adopted, never recreated.
 
-AI Stock News is adopt-first: inspect `aistocknews-ditto`, its restricted key metadata, authenticated domains and administrative group; do not recreate them. Missing expected resources fail explicitly. Subsequent deliberate management changes still require the normal release gates. The existing administrative group is externally owned; the preflight can inspect metadata using optional Directory credentials but never creates it.
+The current managed-account adapter is SendGrid. Existing non-newsletter provider
+paths remain supported; an unsupported provider override inside a managed
+newsletter fails explicitly rather than bypassing durable sending controls.
 
-Start with one already-owned dedicated IP shared by newsletter subusers. Pool bindings are account-specific; logical pools and physical IPs are independent of newsletter identity. Deterministic single-IP provider pools are required for strict per-IP admission. Omitting a provider pool could allow SendGrid to use any assigned IP; this implementation must reject invalid routing rather than fall back. Shared IPs share reputation; independent contact records do not guarantee publications appear unrelated publicly.
-
-The current single-IP route/admission requirements above must be migrated before
-multi-IP or provider-managed selection is supported. They are not permanent
-newsletter-to-IP assignments in the target product. The new overview must not
-draw those binding edges. Confirmed selections belong to individual scheduled
-sends/attempts; changing a newsletter default must not rewrite their history.
+Choose an account and **Automatic**, **IP pool**, or an eligible **IP via dedicated
+pool**. SendGrid selects pools, not arbitrary raw IPs; an individual IP is eligible
+only through a verified singleton provider pool. Multi-IP/automatic selection
+conservatively reserves every potential physical IP, not their summed capacity.
+Aliases share a canonical physical budget. Draft/unverified aliases cannot change
+another verified account's admission policy.
 
 ## Admission, queuing and uncertainty
 
@@ -137,7 +143,7 @@ Every opted-in newsletter email path—broadcast, journey, API and actual test e
 
 The initial result is `DFInternalMessageQueued`, not `DFInternalMessageSent`. A registered worker submits eligible mail and emits native MessageSent only after acceptance. Journey nodes wait for acceptance before advancing; broadcasts do not report completion while their queue is unsettled. Unknown provider acceptance requires review and never authorizes a blind resend. Paused/cancelled campaign state, subscription changes, erasure, expiry and workspace blocks are rechecked before submission. Accepted mail cannot be recalled by a local cancellation.
 
-A persisted attempt pins its rendered payload, connection revision/credential, region and intended route. Route changes apply to new attempts, not the existing payload. SendGrid acceptance means neither delivery nor human engagement. Our reservation limits govern API admission, not SendGrid's subsequent SMTP timing. Traffic outside Ditto can bypass them: do not claim a hard aggregate limit unless all traffic through the IP enters these controls. Provider warm-up overflow/deferral behavior is a separate control.
+A persisted attempt pins its rendered payload, account/connection revisions and credential, sender, region, selection and potential IPs. Changing defaults does not retarget confirmed campaigns or queued attempts. A reported actual IP is separate from the selected pool; unknown stays unknown. Unknown acceptance never authorizes automatic provider failover. SendGrid acceptance is neither delivery nor human engagement. Limits govern API admission, not subsequent SMTP timing, and cannot cover traffic sent outside these controls.
 
 ## Suppression, callbacks and engagement
 
@@ -147,7 +153,7 @@ Signed callbacks use `/api/public/webhooks/sendgrid/connections/{connectionId}`.
 
 Native per-send/contact observed opens/clicks, signed subscription links, current explicit RoninConv-compatible Liquid URL tokens/field/hash rendering, and owned open evidence remain intact. Literal URLs are not automatically rewritten. Opens/scanner clicks remain unqualified observations. Contact erasure removes encrypted send/source evidence and retains hash-only/opaque retry barriers; do not silently resurrect erased subscribers through late callbacks or automation replay.
 
-Delivery health distinguishes acceptance, delivery, bounce, complaint and observed engagement. Native event counters deduplicate stable event/time identities. Missing historical IP attribution stays unassigned; today's route is never applied retroactively. The displayed 30-day occurrence window is not a delivery-cohort success rate.
+Delivery health distinguishes acceptance, delivery, bounce, complaint and observed engagement. Account **Attempts (30d)** counts durable sends created in the window; delivery/bounce/complaint counts deduplicate correlated sends with observations occurring in that window, not cohort rates. Unavailable analytics stays unknown, not zero. Missing historical account/IP attribution is never inferred from today's default or ownership. Provider-wide history and provider account age are not fabricated.
 
 ## AI Stock News release preflight
 
@@ -162,7 +168,7 @@ It accepts `DATABASE_URL`, `NEWSLETTER_PUBLISHER_ID` when ambiguous, encrypted r
 Before releasing:
 
 1. Inventory existing contacts/consent/suppression, provider resources/defaults, callbacks, campaigns, and running Temporal workflows read-only. Preserve all history and historical migrations.
-2. Apply additive migration `0016_ronin_newsletters` through the normal release process. Do not generate destructive cleanup from retired provider schema differences.
+2. Apply journal migrations through `0018_esp_accounts` using the normal release process. Historical file hashes remain unchanged; the runner strips historical file-edge transaction wrappers only during execution so fresh bootstrap and account cutover remain inside the migration transaction. Do not generate cleanup from retired provider schema differences.
 3. Authorize the management/newsletter mapping and AI Stock News live-contact migration separately. Adopt existing resources; do not infer consent or merge profiles.
 4. Configure public TLS/DNS/callbacks and secure management/runtime credentials. Verify the actual subuser/pool/IP association before routing traffic.
 5. Keep `allowProviderWrites`, `allowIpReassignment` and `allowRealSends` closed until their respective releases are approved. An explicit API flag is an authorization control, not proof that an operational review happened. No automatic IP purchases are implemented.

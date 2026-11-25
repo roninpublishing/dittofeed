@@ -1,504 +1,258 @@
-import { randomBytes } from "crypto";
-import { eq } from "drizzle-orm";
+import axios from "axios";
+import { generateKeyPairSync, randomUUID } from "crypto";
+import { createServer, Server } from "http";
+import { AddressInfo } from "net";
+import { and, eq } from "drizzle-orm";
 
 import config from "./config";
 import { db } from "./db";
-import { newsletter, publisher, sendingConnection } from "./db/publisherSchema";
+import { newsletter, publisher, publisherSendgridAccount, sendingConnection, sendingIp } from "./db/publisherSchema";
 import { workspace } from "./db/schema";
 import {
-  assignNewsletterRoute,
-  configureSendgridAccount,
-  createSendingConnection,
-  getSendingInfrastructure,
-  inspectSendgridConnection,
-  provisionSendgridConnection,
-  reconcileSendgridDomain,
-  reconcileSendgridPool,
-  reassignSendgridIps,
-  upsertPoolBinding,
-  upsertSendingIp,
-  upsertSendingPool,
-  verifyNewsletterRouting,
-  verifyPinnedNewsletterRouting,
+  configureSendgridAccount, getSendingInfrastructure, getNewsletterSendingOptions,
+  inspectSendgridAccount, reconcileSendgridDomain, reassignSendgridIps,
+  resolveNewsletterSelection, upsertNewsletterDefault, upsertSendingIp, upsertSendingPool,
+  verifyPinnedNewsletterSelection,
 } from "./newsletterInfrastructure";
-import {
-  NewsletterInfrastructureError,
-  NewsletterSendgridClient,
-  NEWSLETTER_WEBHOOK_EVENTS,
-  SendgridApiKey,
-  SendgridDomain,
-  SendgridIp,
-  SendgridWebhook,
-} from "./newsletterSendgrid";
+import { NEWSLETTER_WEBHOOK_EVENTS } from "./newsletterSendgrid";
 
-const managementKey = "SG.management.fixture-secret";
-const runtimeKey = "SG.runtime.fixture-secret";
+interface ProviderFixture {
+  username: string;
+  connectionId: string;
+  keyId: string;
+  ips: string[];
+  pools: Record<string, string[]>;
+  disabled?: boolean;
+  missing?: boolean;
+  validDomain?: boolean;
+  signed?: boolean;
+  scopes?: string[];
+}
 
-describe("newsletter sending registry and resumable SendGrid reconciliation", () => {
+describe("independent ESP registry with read-only HTTP provider inspection", () => {
   let publisherId: string;
   let newsletterId: string;
-  let connectionId: string;
+  let server: Server;
   let originalKey: string | undefined;
   let originalEnvironmentKey: string | undefined;
-  let username: string;
-  let providerSubuser: boolean;
-  let keys: SendgridApiKey[];
-  let domains: SendgridDomain[];
-  let webhooks: SendgridWebhook[];
-  let ips: SendgridIp[];
-  let pools: Record<string, string[]>;
-  let writes: string[];
-  let crashAfterKeyCreation: boolean;
+  const fixtures = new Map<string, ProviderFixture>();
+  const requests: { method: string; path: string; username?: string; credential: string }[] = [];
+  const signingKey = generateKeyPairSync("ec", { namedCurve: "prime256v1" }).publicKey.export({ type: "spki", format: "pem" }).toString();
 
   beforeEach(async () => {
     originalKey = config().secretKey;
     originalEnvironmentKey = process.env.SECRET_KEY;
-    process.env.SECRET_KEY = randomBytes(32).toString("base64");
+    process.env.SECRET_KEY = Buffer.alloc(32, 71).toString("base64");
     config().secretKey = process.env.SECRET_KEY;
-    const [parent] = await db()
-      .insert(workspace)
-      .values({ name: "Infrastructure fixture", type: "Parent" })
-      .returning();
+    fixtures.clear();
+    requests.length = 0;
+    const [parent] = await db().insert(workspace).values({ name: "ESP fixture", type: "Parent" }).returning();
     publisherId = parent!.id;
     await db().insert(publisher).values({ workspaceId: publisherId });
-    const [child] = await db()
-      .insert(workspace)
-      .values({
-        name: "Newsletter fixture",
-        type: "Child",
-        parentWorkspaceId: publisherId,
-      })
-      .returning();
+    const [child] = await db().insert(workspace).values({ name: "Independent newsletter", type: "Child", parentWorkspaceId: publisherId }).returning();
     newsletterId = child!.id;
-    await db()
-      .insert(newsletter)
-      .values({ publisherId, workspaceId: newsletterId, slug: "fixture" });
-    username = "fixture-ditto";
-    providerSubuser = false;
-    keys = [];
-    domains = [];
-    webhooks = [];
-    ips = [
-      {
-        ip: "192.0.2.10",
-        subusers: [username],
-        pools: ["fixture-pool"],
-        whitelabeled: true,
-      },
-    ];
-    pools = {};
-    writes = [];
-    crashAfterKeyCreation = false;
-    jest
-      .spyOn(NewsletterSendgridClient.prototype, "request")
-      .mockImplementation(async function request<T>(
-        method: string,
-        path: string,
-        body?: unknown,
-      ): Promise<T> {
-        const data = body as Record<string, unknown> | undefined;
-        if (method !== "GET") writes.push(`${method} ${path}`);
-        let result: unknown;
-        if (method === "GET" && path.startsWith("/subusers?")) {
-          result = providerSubuser
-            ? [
-                {
-                  username,
-                  email: `${username.replace(/-ditto$/, "")}@roninpublishing.com`,
-                  disabled: false,
-                  region: "global",
-                },
-              ]
-            : [];
-        } else if (method === "POST" && path === "/subusers") {
-          providerSubuser = true;
-          result = {};
-        } else if (method === "GET" && path === "/api_keys")
-          result = { result: keys };
-        else if (method === "GET" && path.startsWith("/api_keys/"))
-          result = keys.find(
-            (key) => key.api_key_id === path.slice("/api_keys/".length),
-          );
-        else if (method === "POST" && path === "/api_keys") {
-          const key = {
-            api_key_id: "runtime",
-            api_key: runtimeKey,
-            name: "fixture",
-            scopes: ["mail.send"],
-          };
-          keys.push(key);
-          if (crashAfterKeyCreation)
-            throw new NewsletterInfrastructureError(
-              502,
-              "fixture_response_lost",
-            );
-          result = key;
-        } else if (method === "GET" && path.startsWith("/whitelabel/domains?"))
-          result = domains;
-        else if (method === "POST" && path === "/whitelabel/domains") {
-          const domain = {
-            id: 1,
-            domain: data!.domain as string,
-            subdomain: "mail",
-            username,
-            valid: false,
-            dns: {
-              dkim: {
-                type: "cname",
-                host: "s1._domainkey.example.com",
-                data: "provider.example",
-                valid: false,
-              },
-            },
-          };
-          domains.push(domain);
-          result = domain;
-        } else if (method === "GET" && path.startsWith("/verified_senders?"))
-          result = { results: [] };
-        else if (
-          method === "GET" &&
-          path === "/user/webhooks/event/settings/all"
-        )
-          result = { webhooks };
-        else if (
-          method === "POST" &&
-          path === "/user/webhooks/event/settings"
-        ) {
-          const webhook = { ...data, id: "webhook-1" } as SendgridWebhook;
-          webhooks.push(webhook);
-          result = webhook;
-        } else if (method === "PATCH" && path.includes("/settings/signed/")) {
-          webhooks[0]!.public_key = "fixture-verification-public-key";
-          result = { public_key: webhooks[0]!.public_key };
-        } else if (
-          method === "PATCH" &&
-          path.startsWith("/user/webhooks/event/settings/")
-        ) {
-          Object.assign(webhooks[0]!, data);
-          result = webhooks[0];
-        } else if (method === "GET" && path.startsWith("/ips?")) result = ips;
-        else if (method === "GET" && path === "/ips/pools")
-          result = Object.keys(pools).map((name) => ({ name }));
-        else if (method === "GET" && path.startsWith("/ips/pools/")) {
-          const name = decodeURIComponent(path.slice("/ips/pools/".length));
-          if (!pools[name])
-            throw new NewsletterInfrastructureError(
-              404,
-              "provider_resource_not_found",
-            );
-          result = { pool_name: name, ips: pools[name] };
-        } else if (method === "POST" && path === "/ips/pools") {
-          pools[data!.name as string] = [];
-          result = {};
-        } else if (method === "POST" && path.endsWith("/ips")) {
-          const name = decodeURIComponent(path.split("/")[3]!);
-          pools[name]!.push(data!.ip as string);
-          result = {};
-        } else if (method === "PUT" && path.startsWith("/subusers/"))
-          result = {};
-        else throw new Error("Unexpected fixture endpoint");
-        return result as T;
-      });
-    await configureSendgridAccount({
-      publisherId,
-      managementApiKey: managementKey,
-      callbackBaseUrl: "https://callbacks.example.com",
+    await db().insert(newsletter).values({ publisherId, workspaceId: newsletterId, slug: "independent" });
+    server = createServer((request, response) => {
+      const credential = request.headers.authorization?.replace(/^Bearer /, "") ?? "";
+      const fixture = fixtures.get(credential);
+      const path = new URL(request.url!, "http://fixture");
+      const username = request.headers["on-behalf-of"] as string | undefined;
+      requests.push({ method: request.method!, path: path.pathname, username, credential });
+      response.setHeader("content-type", "application/json");
+      if (request.method !== "GET") { response.writeHead(405).end("{}"); return; }
+      if (!fixture || (username && username !== fixture.username)) { response.writeHead(403).end("{}"); return; }
+      let body: unknown;
+      if (path.pathname === "/subusers") body = fixture.missing ? [] : [{ username: fixture.username, email: "adopted@example.com", disabled: fixture.disabled ?? false, region: "global" }];
+      else if (path.pathname === "/user/username") body = { username: fixture.username || "parent-provider" };
+      else if (path.pathname === "/api_keys") body = { result: [{ api_key_id: fixture.keyId, name: "existing" }] };
+      else if (path.pathname.startsWith("/api_keys/")) body = { api_key_id: fixture.keyId, name: "existing", scopes: fixture.scopes ?? ["mail.send"] };
+      else if (path.pathname === "/whitelabel/domains") body = [{ id: 1, domain: "example.com", subdomain: "mail", username: fixture.username || "parent-provider", valid: fixture.validDomain !== false, dns: { dkim: { type: "cname", host: "s1._domainkey.example.com", data: "provider.example", valid: fixture.validDomain !== false } } }];
+      else if (path.pathname === "/verified_senders") body = { results: [] };
+      else if (path.pathname === "/user/webhooks/event/settings/all") body = { webhooks: [{ id: "existing", url: `https://callbacks.example.com/api/public/webhooks/sendgrid/connections/${fixture.connectionId}`, enabled: true, ...(fixture.signed !== false ? { public_key: signingKey } : {}), ...Object.fromEntries(NEWSLETTER_WEBHOOK_EVENTS.map((event) => [event, true])) }] };
+      else if (path.pathname === "/ips" || path.pathname === "/ips/assigned") body = fixture.ips.map((ip) => ({ ip, subusers: [fixture.username], pools: Object.keys(fixture.pools), whitelabeled: true }));
+      else if (path.pathname === "/ips/pools") body = Object.keys(fixture.pools).map((name) => ({ name }));
+      else if (path.pathname.startsWith("/ips/pools/")) {
+        const name = decodeURIComponent(path.pathname.slice("/ips/pools/".length));
+        if (!fixture.pools[name]) { response.writeHead(404).end("{}"); return; }
+        body = { pool_name: name, ips: fixture.pools[name] };
+      } else { response.writeHead(404).end("{}"); return; }
+      response.end(JSON.stringify(body));
     });
-    const connection = await createSendingConnection({
-      publisherId,
-      newsletterId,
-    });
-    connectionId = connection.id;
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const request = axios.request.bind(axios);
+    jest.spyOn(axios, "request").mockImplementation((options) => request({
+      ...options, url: `${origin}${new URL(options.url!).pathname.replace(/^\/v3/, "")}${new URL(options.url!).search}`,
+      proxy: false,
+    }));
   });
-
   afterEach(async () => {
     jest.restoreAllMocks();
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    await db().delete(workspace).where(eq(workspace.id, newsletterId));
+    await db().delete(workspace).where(eq(workspace.id, publisherId));
     config().secretKey = originalKey;
     if (originalEnvironmentKey === undefined) delete process.env.SECRET_KEY;
     else process.env.SECRET_KEY = originalEnvironmentKey;
-    await db().delete(workspace).where(eq(workspace.id, newsletterId));
-    await db().delete(workspace).where(eq(workspace.id, publisherId));
   });
 
-  async function adoptReadyResources(slug = "fixture") {
-    username = `${slug}-ditto`;
-    await db()
-      .update(newsletter)
-      .set({ slug })
-      .where(eq(newsletter.workspaceId, newsletterId));
-    // This fixture changes the slug before adopting, as a real adopted workspace is created with its final slug.
-    await db()
-      .update(sendingConnection)
-      .set({ username, administrativeEmail: `${slug}@roninpublishing.com` })
-      .where(eq(sendingConnection.id, connectionId));
-    providerSubuser = true;
-    keys = [
-      {
-        api_key_id: "runtime",
-        name: "existing restricted key",
-        scopes: ["mail.send"],
-      },
-    ];
-    domains = [
-      {
-        id: 1,
-        domain: "example.com",
-        subdomain: "mail",
-        username,
-        valid: true,
-      },
-    ];
-    webhooks = [
-      {
-        id: "existing-webhook",
-        url: `https://callbacks.example.com/api/public/webhooks/sendgrid/connections/${connectionId}`,
-        enabled: true,
-        public_key: "fixture-verification-public-key",
-        ...Object.fromEntries(
-          NEWSLETTER_WEBHOOK_EVENTS.map((event) => [event, true]),
-        ),
-      },
-    ];
-    await createSendingConnection({
-      publisherId,
-      newsletterId,
-      apiKey: runtimeKey,
-      apiKeyId: "runtime",
-      senderDomains: ["example.com"],
+  async function account(name: string, username = `${name}-existing`) {
+    const managementApiKey = `SG.management_${name}.management_secret`;
+    const apiKey = `SG.runtime_${name}.runtime_secret`;
+    const created = await configureSendgridAccount({
+      publisherId, name, provider: "SendGrid", username, managementApiKey, apiKey,
+      callbackBaseUrl: "https://callbacks.example.com", senderDomains: ["example.com"],
     });
+    const fixture: ProviderFixture = { username, connectionId: created.connectionId!, keyId: `runtime_${name}`, ips: ["192.0.2.10"], pools: {} };
+    fixtures.set(managementApiKey, fixture);
+    return { ...created, managementApiKey, apiKey, fixture };
+  }
+  async function ip(accountId: string, address = "192.0.2.10") {
+    return upsertSendingIp({ publisherId, accountId, address, status: "active", hourlyLimit: 100, dailyLimit: 1000 });
+  }
+  async function ready(value: { id: string }) {
+    expect((await inspectSendgridAccount({ publisherId, accountId: value.id })).ready).toBe(true);
   }
 
-  it("adopts AI Stock News resources without recreating, rotating, or exposing credentials", async () => {
-    await adoptReadyResources("aistocknews");
-    const report = await provisionSendgridConnection({
-      publisherId,
-      connectionId,
-      domain: "example.com",
-      configureWebhook: true,
-    });
-    expect(report.ready).toBe(true);
-    expect(writes).toEqual([]);
-    const registry = JSON.stringify(
-      await getSendingInfrastructure(publisherId),
-    );
-    for (const forbidden of [
-      managementKey,
-      runtimeKey,
-      "fixture-verification-public-key",
-      "encryptedApiKey",
-      "encryptedManagementKey",
-      "webhookKeys",
-    ])
-      expect(registry).not.toContain(forbidden);
-    expect(report.key).toEqual({
-      present: true,
-      restricted: true,
-      credentialStored: true,
-    });
+  it("registers two same-provider accounts without provider provisioning, and preserves omitted secrets and identities on edit", async () => {
+    const first = await account("first", "aistocknews-ditto");
+    const second = await account("second");
+    expect(first.id).not.toBe(second.id);
+    expect(first.connectionId).not.toBe(second.connectionId);
+    expect(requests).toEqual([]);
+    await ready(first);
+    const [before] = await db().select().from(publisherSendgridAccount).where(eq(publisherSendgridAccount.id, first.id));
+    const [credentialBefore] = await db().select().from(sendingConnection).where(eq(sendingConnection.id, first.connectionId!));
+    const edited = await configureSendgridAccount({ publisherId, id: first.id, name: "Renamed", provider: "SendGrid" });
+    const [after] = await db().select().from(publisherSendgridAccount).where(eq(publisherSendgridAccount.id, first.id));
+    const [credentialAfter] = await db().select().from(sendingConnection).where(eq(sendingConnection.id, first.connectionId!));
+    expect(after!.encryptedManagementKey).toEqual(before!.encryptedManagementKey);
+    expect(credentialAfter!.encryptedApiKey).toEqual(credentialBefore!.encryptedApiKey);
+    expect(credentialAfter!.username).toBe("aistocknews-ditto");
+    expect(edited.status).toBe("ready");
+    const registry = await getSendingInfrastructure(publisherId);
+    expect(registry.accounts).toHaveLength(2);
+    expect(registry.defaults).toEqual([{ newsletterId, selection: null }]);
+    expect(registry.accounts.every((row) => !row.allowProviderWrites && !row.allowIpReassignment && !row.allowRealSends)).toBe(true);
+    const serialized = JSON.stringify(registry);
+    for (const secret of [first.managementApiKey, first.apiKey, signingKey, "encryptedApiKey", "encryptedManagementKey", "webhookKeys"]) expect(serialized).not.toContain(secret);
+    expect(registry.accounts.find((row) => row.id === first.id)!.provisioning.domains).toHaveLength(1);
+    expect(requests.every((entry) => entry.method === "GET")).toBe(true);
   });
 
-  it("resumes partial provisioning and adopts existing domain/webhook without duplicate POSTs", async () => {
-    await configureSendgridAccount({ publisherId, allowProviderWrites: true });
-    const first = await provisionSendgridConnection({
-      publisherId,
-      connectionId,
-      domain: "example.com",
-      configureWebhook: true,
-    });
-    expect(first.findings).toContain("sender_identity_not_verified");
-    expect(first.domains[0]!.dns).toHaveLength(1);
-    domains[0]!.valid = true;
-    const second = await provisionSendgridConnection({
-      publisherId,
-      connectionId,
-      domain: "example.com",
-      configureWebhook: true,
-    });
-    expect(second.ready).toBe(true);
-    for (const endpoint of [
-      "POST /subusers",
-      "POST /api_keys",
-      "POST /whitelabel/domains",
-      "POST /user/webhooks/event/settings",
-    ])
-      expect(writes.filter((entry) => entry === endpoint)).toHaveLength(1);
-    expect(
-      writes.filter((entry) => entry.includes("/settings/signed/")),
-    ).toHaveLength(1);
+  it("supports newsletters with no default and explicit independent overrides without singleton fallback", async () => {
+    const first = await account("first");
+    const second = await account("second");
+    await ip(first.id); await ip(second.id);
+    await ready(first); await ready(second);
+    await expect(resolveNewsletterSelection({ publisherId, newsletterId })).rejects.toThrow("esp_selection_required");
+    await upsertNewsletterDefault({ publisherId, newsletterId, selection: { accountId: first.id, mode: "automatic" } });
+    expect((await resolveNewsletterSelection({ publisherId, newsletterId })).account.id).toBe(first.id);
+    expect((await resolveNewsletterSelection({ publisherId, newsletterId, selection: { accountId: second.id, mode: "automatic" } })).account.id).toBe(second.id);
+    await upsertNewsletterDefault({ publisherId, newsletterId, selection: null });
+    await expect(resolveNewsletterSelection({ publisherId, newsletterId })).rejects.toThrow("esp_selection_required");
+    await expect(resolveNewsletterSelection({ publisherId, newsletterId, selection: null })).rejects.toThrow("esp_selection_required");
+    const options = await getNewsletterSendingOptions(newsletterId);
+    expect(options.selection).toBeNull();
+    expect(options.accounts).toHaveLength(2);
+    expect(JSON.stringify(options)).not.toMatch(/allowRealSends|hasManagementKey|callbackBaseUrl|encrypted/);
   });
 
-  it("never creates another key after an ambiguous provider key-creation result", async () => {
-    await configureSendgridAccount({ publisherId, allowProviderWrites: true });
-    crashAfterKeyCreation = true;
-    await expect(
-      provisionSendgridConnection({ publisherId, connectionId }),
-    ).rejects.toThrow("fixture_response_lost");
-    crashAfterKeyCreation = false;
-    await expect(
-      provisionSendgridConnection({ publisherId, connectionId }),
-    ).rejects.toThrow("existing_runtime_key_must_be_adopted");
-    expect(writes.filter((entry) => entry === "POST /api_keys")).toHaveLength(
-      1,
-    );
+  it("keeps physical budgets canonical and rejects cross-account IP/pool borrowing", async () => {
+    const first = await account("first");
+    const second = await account("second");
+    const firstIp = await ip(first.id);
+    const secondIp = await ip(second.id);
+    expect(firstIp.id).not.toBe(secondIp.id);
+    expect(firstIp.canonicalIpId).toBe(secondIp.canonicalIpId);
+    await expect(upsertSendingPool({ publisherId, accountId: second.id, name: "foreign", ipIds: [firstIp.id] })).rejects.toThrow("pool_ip_account_mismatch");
+    const pool = await upsertSendingPool({ publisherId, accountId: first.id, name: "owned", ipIds: [firstIp.id] });
+    await expect(upsertNewsletterDefault({ publisherId, newsletterId, selection: { accountId: second.id, mode: "pool", poolId: pool.id } })).rejects.toThrow("pool_account_mismatch");
+    await expect(upsertSendingIp({ publisherId, id: firstIp.id, accountId: second.id, address: firstIp.address, status: "active", hourlyLimit: 10, dailyLimit: 100 })).rejects.toThrow("ip_account_is_immutable");
+    await expect(configureSendgridAccount({ publisherId: newsletterId, id: first.id, name: "foreign", provider: "SendGrid" })).rejects.toThrow("publisher_not_found");
+    await expect(resolveNewsletterSelection({ publisherId, newsletterId, selection: { accountId: randomUUID(), mode: "automatic" } })).rejects.toThrow("esp_account_not_found");
   });
 
-  it("keeps writes and assignment gates independently closed", async () => {
-    await expect(
-      provisionSendgridConnection({ publisherId, connectionId }),
-    ).rejects.toThrow("provider_writes_disabled");
-    expect(writes).toEqual([]);
-    await configureSendgridAccount({ publisherId, allowProviderWrites: true });
-    await expect(
-      reassignSendgridIps({
-        publisherId,
-        connectionId,
-        ipIds: [],
-        confirm: true,
-      }),
-    ).rejects.toThrow("ip_reassignment_disabled");
-    expect(writes).toEqual([]);
+  it("verifies complete automatic and multi-IP pool inventories and pins resource choices", async () => {
+    const value = await account("multi");
+    const firstIp = await ip(value.id);
+    const secondIp = await ip(value.id, "192.0.2.11");
+    value.fixture.ips.push(secondIp.address);
+    const pool = await upsertSendingPool({ publisherId, accountId: value.id, name: "Distributed", providerPoolName: "provider-distributed", ipIds: [firstIp.id, secondIp.id] });
+    value.fixture.pools[pool.providerPoolName] = [firstIp.address, secondIp.address];
+    await ready(value);
+    const automatic = await resolveNewsletterSelection({ publisherId, newsletterId, selection: { accountId: value.id, mode: "automatic" } });
+    expect(automatic.ips).toHaveLength(2);
+    expect(automatic.providerPoolName).toBeUndefined();
+    const selected = await resolveNewsletterSelection({ publisherId, newsletterId, selection: { accountId: value.id, mode: "pool", poolId: pool.id } });
+    const pinned = { publisherId, accountId: value.id, connectionId: selected.connection.id, connectionRevision: selected.connection.revision, accountRevision: selected.account.revision, selection: selected.selection, candidateIpIds: selected.ips.map((row) => row.id), providerPoolName: selected.providerPoolName };
+    await upsertNewsletterDefault({ publisherId, newsletterId, selection: null });
+    await expect(verifyPinnedNewsletterSelection(pinned)).resolves.toBeUndefined();
+    value.fixture.pools[pool.providerPoolName]!.push("192.0.2.12");
+    await expect(verifyPinnedNewsletterSelection(pinned)).rejects.toThrow("provider_routing_drift");
+    value.fixture.ips.push("192.0.2.12");
+    await expect(resolveNewsletterSelection({ publisherId, newsletterId, selection: { accountId: value.id, mode: "automatic" } })).rejects.toThrow("automatic_capacity_inventory_incomplete");
+    await expect(resolveNewsletterSelection({ publisherId, newsletterId, selection: { accountId: value.id, mode: "ip", ipId: firstIp.id } })).rejects.toThrow("ip_requires_singleton_provider_pool");
   });
 
-  it("rejects missing AI Stock News resources instead of recreating them", async () => {
-    await adoptReadyResources("aistocknews");
-    await configureSendgridAccount({ publisherId, allowProviderWrites: true });
-    providerSubuser = false;
-    await expect(
-      provisionSendgridConnection({ publisherId, connectionId }),
-    ).rejects.toThrow("existing_subuser_required");
-    providerSubuser = true;
-    domains = [];
-    await expect(
-      reconcileSendgridDomain({
-        publisherId,
-        connectionId,
-        domain: "example.com",
-      }),
-    ).rejects.toThrow("existing_domain_required");
-    expect(writes).toEqual([]);
+  it("rejects a legacy singleton snapshot when the current local pool has broadened", async () => {
+    const value = await account("legacy");
+    const originalIp = await ip(value.id);
+    const addedIp = await ip(value.id, "192.0.2.15");
+    value.fixture.ips.push(addedIp.address);
+    const pool = await upsertSendingPool({ publisherId, accountId: value.id, name: "Legacy", ipIds: [originalIp.id, addedIp.id] });
+    value.fixture.pools[pool.providerPoolName] = [originalIp.address, addedIp.address];
+    await ready(value);
+    await expect(verifyPinnedNewsletterSelection({
+      publisherId, accountId: value.id, connectionId: value.connectionId!,
+      connectionRevision: value.revision, accountRevision: value.revision,
+      selection: { accountId: value.id, mode: "pool", poolId: pool.id },
+      candidateIpIds: [originalIp.id], providerPoolName: pool.providerPoolName,
+    })).rejects.toThrow("pinned_selection_changed");
+    expect(requests.every((entry) => entry.method === "GET")).toBe(true);
   });
 
-  it("requires verified sender identity, mail.send-only key and signed complete callbacks", async () => {
-    await adoptReadyResources();
-    keys[0]!.scopes = ["mail.send", "api_keys.create"];
-    domains[0]!.valid = false;
-    delete webhooks[0]!.public_key;
-    const report = await inspectSendgridConnection({
-      publisherId,
-      connectionId,
-    });
+  it("labels an IP choice truthfully as a verified singleton pool, never a raw-IP instruction", async () => {
+    const value = await account("single");
+    const selectedIp = await ip(value.id);
+    const pool = await upsertSendingPool({ publisherId, accountId: value.id, name: "Single", ipIds: [selectedIp.id] });
+    value.fixture.pools[pool.providerPoolName] = [selectedIp.address];
+    await ready(value);
+    const selected = await resolveNewsletterSelection({ publisherId, newsletterId, selection: { accountId: value.id, mode: "ip", ipId: selectedIp.id } });
+    expect(selected.providerPoolName).toBe(pool.providerPoolName);
+    expect(value.capabilities).toMatchObject({ ip: true, rawIp: false, multiIp: true });
+    expect((await getNewsletterSendingOptions(newsletterId)).ips[0]!.eligibleSingletonPool).toBe(true);
+  });
+
+  it("persists truthful failures, never provisions missing adopted subusers and resolves provider operations to the actual account", async () => {
+    const first = await account("first");
+    const second = await account("second");
+    second.fixture.missing = true;
+    const report = await inspectSendgridAccount({ publisherId, accountId: second.id });
     expect(report.ready).toBe(false);
-    expect(report.findings).toEqual(
-      expect.arrayContaining([
-        "restricted_key_required",
-        "sender_identity_not_verified",
-        "signed_webhook_not_ready",
-      ]),
-    );
-    expect(JSON.stringify(report)).not.toContain(
-      "fixture-verification-public-key",
-    );
-    expect(writes).toEqual([]);
+    expect(report.findings).toContain("subuser_missing");
+    second.fixture.missing = false;
+    second.fixture.scopes = ["mail.send", "api_keys.create"];
+    second.fixture.validDomain = false;
+    second.fixture.signed = false;
+    expect((await inspectSendgridAccount({ publisherId, accountId: second.id })).findings).toEqual(expect.arrayContaining(["restricted_key_required", "sender_identity_not_verified", "signed_webhook_not_ready"]));
+    await expect(reconcileSendgridDomain({ publisherId, connectionId: second.connectionId!, domain: "other.example.com" })).rejects.toThrow("provider_writes_disabled");
+    await expect(reassignSendgridIps({ publisherId, connectionId: first.connectionId!, ipIds: [], confirm: true })).rejects.toThrow("provider_writes_disabled");
+    expect(requests.filter((entry) => entry.username === second.fixture.username).every((entry) => entry.credential === second.managementApiKey)).toBe(true);
+    expect(requests.every((entry) => entry.method === "GET")).toBe(true);
   });
 
-  it("validates singleton routing, refuses provider drift and foreign ownership", async () => {
-    await adoptReadyResources();
-    const ip = await upsertSendingIp({
-      publisherId,
-      address: "192.0.2.10",
-      status: "active",
-      hourlyLimit: 100,
-      dailyLimit: 1000,
-    });
-    await expect(
-      upsertSendingIp({
-        publisherId,
-        id: ip.id,
-        address: "192.0.2.99",
-        status: "active",
-        hourlyLimit: 100,
-        dailyLimit: 1000,
-      }),
-    ).rejects.toThrow("sending_ip_address_is_immutable");
-    const pool = await upsertSendingPool({
-      publisherId,
-      name: "fixture-pool",
-      ipIds: [ip.id],
-    });
-    pools["fixture-pool"] = [ip.address];
-    await upsertPoolBinding({
-      publisherId,
-      connectionId,
-      poolId: pool.id!,
-      providerPoolName: "fixture-pool",
-    });
-    await assignNewsletterRoute({
-      publisherId,
-      newsletterId,
-      connectionId,
-      poolId: pool.id!,
-    });
-    await expect(
-      verifyNewsletterRouting({ publisherId, newsletterId }),
-    ).resolves.toMatchObject({ ipId: ip.id, address: ip.address });
-    const nextPool = await upsertSendingPool({
-      publisherId,
-      name: "next-pool",
-      ipIds: [ip.id],
-    });
-    await upsertPoolBinding({
-      publisherId,
-      connectionId,
-      poolId: nextPool.id!,
-      providerPoolName: "next-pool",
-    });
-    await assignNewsletterRoute({
-      publisherId,
-      newsletterId,
-      connectionId,
-      poolId: nextPool.id!,
-    });
-    await expect(
-      verifyPinnedNewsletterRouting({
-        publisherId,
-        newsletterId,
-        connectionId,
-        poolId: pool.id!,
-        ipId: ip.id,
-        providerPoolName: "fixture-pool",
-        connectionRevision: 1,
-      }),
-    ).resolves.toBeUndefined();
-    await assignNewsletterRoute({
-      publisherId,
-      newsletterId,
-      connectionId,
-      poolId: pool.id!,
-    });
-    pools["fixture-pool"]!.push("192.0.2.11");
-    await expect(
-      verifyNewsletterRouting({ publisherId, newsletterId }),
-    ).rejects.toThrow("provider_routing_drift");
-    await expect(
-      reconcileSendgridPool({
-        publisherId: newsletterId,
-        connectionId,
-        poolId: pool.id!,
-        providerPoolName: "fixture-pool",
-      }),
-    ).rejects.toThrow("sending_connection_not_found");
-    const empty = await upsertSendingPool({
-      publisherId,
-      name: "empty-pool",
-      ipIds: [],
-    });
-    await expect(
-      assignNewsletterRoute({
-        publisherId,
-        newsletterId,
-        connectionId,
-        poolId: empty.id!,
-      }),
-    ).rejects.toThrow("route_requires_single_ip");
+  it("supports a parent credential identity without inventing a subuser and intentionally clears warmup dates", async () => {
+    const value = await account("parent", "");
+    const selectedIp = await ip(value.id);
+    await ready(value);
+    expect(requests.some((entry) => entry.path === "/subusers")).toBe(false);
+    expect(requests.some((entry) => entry.path === "/ips/assigned")).toBe(true);
+    await upsertSendingIp({ publisherId, id: selectedIp.id, address: selectedIp.address, status: "active", hourlyLimit: 100, dailyLimit: 1000, warmupStartedAt: "2026-01-01T00:00:00.000Z" });
+    await upsertSendingIp({ publisherId, id: selectedIp.id, address: selectedIp.address, status: "active", hourlyLimit: 100, dailyLimit: 1000 });
+    const [kept] = await db().select().from(sendingIp).where(and(eq(sendingIp.accountId, value.id), eq(sendingIp.id, selectedIp.id)));
+    expect(kept!.warmupStartedAt).not.toBeNull();
+    const cleared = await upsertSendingIp({ publisherId, id: selectedIp.id, address: selectedIp.address, status: "active", hourlyLimit: 100, dailyLimit: 1000, warmupStartedAt: null });
+    expect(cleared.warmupStartedAt).toBeNull();
   });
 });

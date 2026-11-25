@@ -53,6 +53,10 @@ export interface SendgridIp {
   pools: string[];
   whitelabeled: boolean;
 }
+/** SendGrid selects named pools, not raw IP addresses. IP mode uses a verified singleton pool. */
+export const SENDGRID_SELECTION_CAPABILITIES = {
+  automatic: true, pool: true, ip: true, multiIp: true, rawIp: false,
+} as const;
 export const NEWSLETTER_WEBHOOK_EVENTS = [
   "delivered",
   "bounce",
@@ -144,6 +148,13 @@ export class NewsletterSendgridClient {
     );
     return rows.find((row) => row.username === username) ?? null;
   }
+  async identityUsername(username: string) {
+    if (username) return username;
+    const identity = await this.request<{ username: string }>("GET", "/user/username");
+    if (typeof identity.username !== "string" || !/^[a-zA-Z0-9_-]{1,64}$/.test(identity.username))
+      throw new NewsletterInfrastructureError(502, "invalid_provider_identity");
+    return identity.username;
+  }
 
   async apiKeys(username: string) {
     const result = await this.request<{ result: SendgridApiKey[] }>(
@@ -203,20 +214,6 @@ export class NewsletterSendgridClient {
   }
 }
 
-export function assertSingleIpRouting(
-  expectedIp: string,
-  poolIps: string[],
-  assignedIps: string[],
-) {
-  if (
-    poolIps.length !== 1 ||
-    poolIps[0] !== expectedIp ||
-    assignedIps.length !== 1 ||
-    assignedIps[0] !== expectedIp
-  ) {
-    throw new NewsletterInfrastructureError(409, "provider_routing_drift");
-  }
-}
 
 export function webhookIsReady(
   webhook: SendgridWebhook | undefined,

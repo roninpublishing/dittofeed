@@ -4,6 +4,7 @@ import {
   ArrowForwardOutlined,
   ExpandMoreOutlined,
   MailOutline,
+  SettingsOutlined,
 } from "@mui/icons-material";
 import {
   Accordion,
@@ -38,12 +39,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAppStorePick } from "../../lib/appStore";
 import CreateNewsletterDialog from "./createNewsletterDialog";
-import IpPoolSettings from "./ipPoolSettings";
-import SendingSettings from "./sendingSettings";
 import {
   errorText,
   Option,
-  PublisherSettingsProps,
   record,
   RecordValue,
   rows,
@@ -365,8 +363,10 @@ function HistoryPages({
 
 export default function PublicationManagement({
   publisherId,
+  section = "newsletters",
 }: {
   publisherId: string | null;
+  section?: "newsletters" | "subscribers" | "reports" | "settings";
 }) {
   const { workspace, apiBase, authMode } = useAppStorePick([
     "workspace",
@@ -378,14 +378,8 @@ export default function PublicationManagement({
   const workspaceId =
     workspace.type === CompletionStatus.Successful ? workspace.value.id : "";
   const [tab, setTab] = useState(0);
-  let section = "newsletters";
-  if (router.query.view === "subscribers") {
-    section = "subscribers";
-  } else if (router.query.view === "reports") {
-    section = "reports";
-  } else if (router.query.view === "settings") {
-    section = "settings";
-  }
+  const [reportAccountId, setReportAccountId] = useState("");
+  const [reportIpId, setReportIpId] = useState("");
   const [creating, setCreating] = useState(false);
   const [openingNewsletter, setOpeningNewsletter] = useState<string | null>(
     null,
@@ -411,24 +405,32 @@ export default function PublicationManagement({
       required.overview = "/overview";
     }
     if (section === "settings") {
-      if ([0, 1, 2, 7].includes(tab))
-        required.infrastructure = "/infrastructure";
-      if (tab === 4) {
+      if (tab === 4) required.infrastructure = "/infrastructure";
+      if (tab === 1) {
         required.automations = "/automations";
         required.actions = "/automations/actions";
       }
-      if (tab === 5) required.suppressions = "/suppressions";
-      if (tab === 6) {
+      if (tab === 2) required.suppressions = "/suppressions";
+      if (tab === 3) {
         required.health = "/delivery-health";
         required.sends = "/sends";
       }
     }
-    if (section === "reports") required.health = "/delivery-health";
+    if (section === "reports") {
+      required.health = "/delivery-health";
+      required.infrastructure = "/infrastructure";
+    }
     return Object.entries(required);
   }, [section, tab]);
   const publicationQueries = useQueries({
     queries: paths.map(([key, path]) => ({
-      queryKey: ["publication-management", apiBase, workspaceId, key],
+      queryKey: [
+        "publication-management",
+        apiBase,
+        workspaceId,
+        key,
+        key === "health" ? reportAccountId : "",
+      ],
       enabled: Boolean(publisherId) && isPublisher,
       staleTime: 15_000,
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
@@ -438,6 +440,9 @@ export default function PublicationManagement({
             signal,
             params: {
               workspaceId,
+              ...(key === "health" && reportAccountId
+                ? { accountId: reportAccountId }
+                : {}),
               ...(["actions", "suppressions", "sends"].includes(key)
                 ? { limit: 25 }
                 : {}),
@@ -528,7 +533,7 @@ export default function PublicationManagement({
       }
       // Reload the document so no prior newsletter's client caches survive the switch.
       window.location.assign(
-        `${router.basePath}${targetId === publisherId ? "/workspace" : "/home"}`,
+        `${router.basePath}${targetId === publisherId ? "/workspace/newsletters" : "/home"}`,
       );
     } catch (failure) {
       setOpeningNewsletter(null);
@@ -536,7 +541,6 @@ export default function PublicationManagement({
     }
   };
   const common = { workspaceId, apiBase, onComplete: refresh };
-  const infrastructure = record(data.infrastructure);
   const newsletters = optionList(data.newsletters, "workspaceId", "name");
   const publicationStats = rows(record(data.overview).newsletters);
   const statsById = new Map(
@@ -549,13 +553,9 @@ export default function PublicationManagement({
     options: newsletters,
     required: true,
   };
-  const settingsProps: PublisherSettingsProps = {
-    workspaceId,
-    apiBase,
-    infrastructure,
-    newsletters,
-    onComplete: refresh,
-  };
+  const reportObservations = rows(record(data.health).observations).filter(
+    (item) => !reportIpId || item.ipId === reportIpId,
+  );
 
   if (!publisherId)
     return (
@@ -650,7 +650,7 @@ export default function PublicationManagement({
         ) : (
           <Button
             startIcon={<ArrowBackOutlined />}
-            onClick={() => void router.push("/workspace")}
+            onClick={() => void router.push("/workspace/newsletters")}
             sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
           >
             Newsletters
@@ -778,6 +778,17 @@ export default function PublicationManagement({
                         </TableCell>
                         <TableCell align="right">
                           <Button
+                            aria-label={`Configure ${text(newsletter.name)}`}
+                            onClick={() =>
+                              void router.push(
+                                `/workspace/newsletters/${text(newsletter.workspaceId)}`,
+                              )
+                            }
+                            sx={{ minWidth: 36 }}
+                          >
+                            <SettingsOutlined fontSize="small" />
+                          </Button>
+                          <Button
                             endIcon={<ArrowForwardOutlined />}
                             aria-label={`Open ${text(newsletter.name)}`}
                             disabled={openingNewsletter !== null}
@@ -864,9 +875,53 @@ export default function PublicationManagement({
             <Typography variant="h4" sx={{ mb: 2 }}>
               Email activity · last 30 days
             </Typography>
-            {rows(record(data.health).observations).length ? (
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1.5}
+              sx={{ mb: 2 }}
+            >
+              <TextField
+                select
+                size="small"
+                label="ESP account"
+                value={reportAccountId}
+                onChange={(event) => {
+                  setReportAccountId(event.target.value);
+                  setReportIpId("");
+                }}
+                sx={{ minWidth: 220 }}
+              >
+                <MenuItem value="">All accounts</MenuItem>
+                {rows(record(data.infrastructure).accounts).map((account) => (
+                  <MenuItem key={text(account.id)} value={text(account.id)}>
+                    {text(account.name)}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                size="small"
+                label="IP address"
+                value={reportIpId}
+                onChange={(event) => setReportIpId(event.target.value)}
+                sx={{ minWidth: 220 }}
+              >
+                <MenuItem value="">All IPs</MenuItem>
+                {rows(record(data.infrastructure).ips)
+                  .filter(
+                    (ip) =>
+                      !reportAccountId || ip.accountId === reportAccountId,
+                  )
+                  .map((ip) => (
+                    <MenuItem key={text(ip.id)} value={text(ip.id)}>
+                      {text(ip.address)}
+                    </MenuItem>
+                  ))}
+              </TextField>
+            </Stack>
+            {reportObservations.length ? (
               <DataTable
-                data={rows(record(data.health).observations).map((item) => ({
+                data={reportObservations.map((item) => ({
                   ...item,
                   newsletter:
                     newsletters.find(
@@ -1026,9 +1081,6 @@ export default function PublicationManagement({
             variant="scrollable"
             scrollButtons="auto"
           >
-            <Tab label="Sending" />
-            <Tab label="Domains" />
-            <Tab label="IP pools" />
             <Tab label="Tracking" />
             <Tab label="Automations" />
             <Tab label="Suppressions" />
@@ -1036,7 +1088,7 @@ export default function PublicationManagement({
             <Tab label="Advanced" />
           </Tabs>
           {loading && <CircularProgress size={20} />}
-          {tab === 7 && (
+          {tab === 4 && (
             <Stack spacing={2}>
               <ActionForm
                 {...common}
@@ -1078,14 +1130,20 @@ export default function PublicationManagement({
               />
               <ActionForm
                 {...common}
-                title="SendGrid inventory"
-                path="/infrastructure/inspect"
+                title="Account inspection"
+                path="/infrastructure/accounts/inspect"
                 buttonLabel="Check account"
                 showDetails
                 fields={[
                   {
-                    key: "username",
-                    label: "SendGrid subuser",
+                    key: "accountId",
+                    label: "ESP account",
+                    kind: "select",
+                    options: optionList(
+                      record(data.infrastructure).accounts,
+                      "id",
+                      "name",
+                    ),
                     required: true,
                   },
                 ]}
@@ -1121,21 +1179,11 @@ export default function PublicationManagement({
               />
             </Stack>
           )}
-          {(tab === 0 || tab === 1) && data.infrastructure !== undefined && (
-            <SendingSettings
-              key={workspaceId}
-              {...settingsProps}
-              view={tab === 0 ? "connections" : "domains"}
-            />
-          )}
-          {tab === 2 && data.infrastructure !== undefined && (
-            <IpPoolSettings key={workspaceId} {...settingsProps} />
-          )}
-          {tab === 4 && (
+          {tab === 1 && (
             <Stack spacing={3}>
               <Button
                 sx={{ alignSelf: "flex-start" }}
-                onClick={() => setTab(7)}
+                onClick={() => setTab(4)}
               >
                 Advanced editor
               </Button>
@@ -1197,7 +1245,7 @@ export default function PublicationManagement({
               />
             </Stack>
           )}
-          {tab === 5 && (
+          {tab === 2 && (
             <Stack spacing={3}>
               <ActionForm
                 {...common}
@@ -1288,7 +1336,7 @@ export default function PublicationManagement({
               />
             </Stack>
           )}
-          {tab === 6 && (
+          {tab === 3 && (
             <Stack spacing={3}>
               <Typography color="text.secondary">
                 {text(record(data.health).periodStart)} —{" "}
@@ -1349,7 +1397,7 @@ export default function PublicationManagement({
               />
             </Stack>
           )}
-          {tab === 3 && (
+          {tab === 0 && (
             <TrackingDomains
               workspaceId={workspaceId}
               apiBase={apiBase}

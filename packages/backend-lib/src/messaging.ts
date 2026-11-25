@@ -62,6 +62,7 @@ import {
 } from "./messaging/email";
 import { prepareEmailOpenTracking } from "./messaging/openTracking";
 import { getNewsletterEmailContext, NewsletterEmailContext, sendNewsletterEmail } from "./newsletterDelivery";
+import { NewsletterInfrastructureError, resolveNewsletterSelection } from "./newsletterInfrastructure";
 import { withSpan } from "./openTelemetry";
 import {
   getSubscriptionGroupDetails,
@@ -83,6 +84,7 @@ import {
   EmailProviderSecret,
   EmailProviderType,
   EmailProviderTypeSchema,
+  EspSelection,
   EventType,
   InternalEventType,
   KnownBatchTrackData,
@@ -517,6 +519,7 @@ export interface SendMessageParametersBase {
 export interface SendMessageParametersEmail extends SendMessageParametersBase {
   channel: (typeof ChannelType)["Email"];
   providerOverride?: EmailProviderTypeSchema;
+  espSelection?: EspSelection | null;
 }
 
 export interface SendMessageParametersMobilePush
@@ -802,6 +805,42 @@ async function getEmailProvider({
   return ok({ secret: emailProviderSecret, credentialWorkspaceId });
 }
 
+/**
+ * Resolve optional newsletter defaults at confirmation, not once per recipient.
+ * null records the deliberate absence of an ESP selection for native providers.
+ */
+export async function confirmEmailSelection({
+  workspaceId,
+  providerOverride,
+  espSelection,
+}: {
+  workspaceId: string;
+  providerOverride?: EmailProviderTypeSchema;
+  espSelection?: EspSelection | null;
+}): Promise<EspSelection | null> {
+  const context = await getNewsletterEmailContext(workspaceId);
+  if (providerOverride && providerOverride !== EmailProviderType.SendGrid) {
+    if (espSelection) {
+      throw new NewsletterInfrastructureError(400, "esp_selection_provider_conflict");
+    }
+    if (context) {
+      throw new NewsletterInfrastructureError(400, "unsupported_newsletter_provider");
+    }
+    return null;
+  }
+  if (!context) {
+    if (espSelection) {
+      throw new NewsletterInfrastructureError(400, "esp_selection_requires_newsletter");
+    }
+    return null;
+  }
+  return (await resolveNewsletterSelection({
+    publisherId: context.publisherId,
+    newsletterId: workspaceId,
+    selection: espSelection,
+  })).selection;
+}
+
 export async function sendEmail({
   workspaceId,
   templateId,
@@ -812,6 +851,7 @@ export async function sendEmail({
   providerOverride,
   useDraft,
   isPreview,
+  espSelection,
 }: Omit<
   SendMessageParametersEmail,
   "channel"
@@ -819,12 +859,22 @@ export async function sendEmail({
   let newsletterContext: NewsletterEmailContext | null;
   try {
     newsletterContext = await getNewsletterEmailContext(workspaceId);
-  } catch {
+    if (providerOverride && providerOverride !== EmailProviderType.SendGrid) {
+      if (espSelection) {
+        throw new NewsletterInfrastructureError(400, "esp_selection_provider_conflict");
+      }
+      if (newsletterContext) {
+        throw new NewsletterInfrastructureError(400, "unsupported_newsletter_provider");
+      }
+    } else if (espSelection && !newsletterContext) {
+      throw new NewsletterInfrastructureError(400, "esp_selection_requires_newsletter");
+    }
+  } catch (error) {
     return err({
       type: InternalEventType.BadWorkspaceConfiguration,
       variant: {
         type: BadWorkspaceConfigurationType.MessageServiceProviderMisconfigured,
-        message: "Publisher workspaces cannot send email",
+        message: error instanceof Error ? error.message : "Invalid ESP selection",
       },
     });
   }
@@ -1165,6 +1215,9 @@ export async function sendEmail({
     return sendNewsletterEmail({
       workspaceId,
       publisherId: newsletterContext.publisherId,
+      // Direct API retries must reach the durable identity lookup before any
+      // current-default/readiness resolution. Confirmed consumers pass snapshots.
+      espSelection,
       userId,
       logicalMessageId: messageTags?.messageId ?? randomUUID(),
       tags: messageTags,
@@ -1976,6 +2029,7 @@ export async function testTemplate(
         ...baseSendMessageParams,
         channel: request.channel,
         providerOverride: request.provider,
+        espSelection: request.espSelection,
       };
       break;
     }
@@ -2024,6 +2078,13 @@ export async function batchMessageUsers(
   params: BatchMessageUsersRequest,
 ): Promise<BatchMessageUsersResponse> {
   const { workspaceId, templateId, subscriptionGroupId, users } = params;
+  const espSelection = params.channel === ChannelType.Email
+    ? await confirmEmailSelection({
+        workspaceId,
+        providerOverride: params.provider,
+        espSelection: params.espSelection,
+      })
+    : null;
 
   // Collect all user IDs for bulk operations
   const userIds = users.map((user) => user.id);
@@ -2130,6 +2191,7 @@ export async function batchMessageUsers(
               useDraft: false,
               channel: params.channel,
               providerOverride: params.provider,
+              espSelection,
             };
             break;
           }

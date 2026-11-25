@@ -110,10 +110,22 @@ describe("Google browser authorization boundaries", () => {
 
   it.each([
     "/dashboard/workspace",
-    "/workspace?view=subscribers",
-    "/dashboard/workspace?view=settings",
+    "/workspace/subscribers",
+    "/dashboard/workspace/settings",
+    "/dashboard/workspace/newsletters",
+    "/dashboard/workspace/esp-accounts",
+    "/dashboard/workspace/esp-accounts/account-id",
+    "/dashboard/workspace/ips/ip-id",
+    "/dashboard/workspace/ip-pools/pool-id",
+    "/dashboard/workspace/reports",
   ])("allows Viewers to browse the workspace dashboard: %s", (path) => {
     expect(requiredGoogleDashboardRole(path)).toBe(RoleEnum.Viewer);
+  });
+
+  it("keeps account mutations privileged while allowing read-only inspection", () => {
+    expect(requiredGoogleApiRole("POST", "/api/publications/infrastructure/accounts/inspect")).toBe(RoleEnum.Viewer);
+    expect(requiredGoogleApiRole("PUT", "/api/publications/infrastructure/accounts")).toBe(RoleEnum.WorkspaceManager);
+    expect(requiredGoogleApiRole("PUT", "/api/publications/infrastructure/defaults")).toBe(RoleEnum.WorkspaceManager);
   });
 
   it("recognizes OAuth secrets even on malformed or unmatched callback URLs", () => {

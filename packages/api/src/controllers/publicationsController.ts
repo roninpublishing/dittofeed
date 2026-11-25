@@ -7,14 +7,11 @@ import {
   upsertPublisherSuppression,
 } from "backend-lib/src/newsletterDelivery";
 import {
-  assignNewsletterRoute,
   configureSendgridAccount,
   createSendgridSenderIdentity,
-  createSendingConnection,
   getSendingInfrastructure,
-  inspectPublisherSendgrid,
+  inspectSendgridAccount,
   inspectSendgridConnection,
-  provisionSendgridConnection,
   reassignSendgridIps,
   reconcileSendgridDomain,
   reconcileSendgridPool,
@@ -22,6 +19,8 @@ import {
   upsertPoolBinding,
   upsertSendingIp,
   upsertSendingPool,
+  getNewsletterSendingOptions,
+  upsertNewsletterDefault,
 } from "backend-lib/src/newsletterInfrastructure";
 import { getPublisherDeliveryHealth } from "backend-lib/src/newsletterReporting";
 import {
@@ -391,13 +390,17 @@ export default async function publicationsController(fastify: FastifyInstance) {
         });
       }),
   );
+  f.get("/sending-options", {
+    schema: { ...base, querystring: contracts.SendingOptionsQuery,
+      description: "Read redacted send-time ESP choices and optional defaults for the authorized newsletter." },
+  }, async (request, reply) => respond(reply, () => getNewsletterSendingOptions(request.query.workspaceId)));
   f.get(
     "/infrastructure",
     {
       schema: {
         ...base,
         description:
-          "Read redacted sending connections, provisioning status, physical IPs, pools, routes, and release gates. Never returns stored keys.",
+          "Read independent ESP accounts, their resources and optional newsletter defaults. Never returns stored keys.",
         querystring: contracts.PublisherQuery,
       },
     },
@@ -407,12 +410,12 @@ export default async function publicationsController(fastify: FastifyInstance) {
       ),
   );
   f.put(
-    "/infrastructure/account",
+    "/infrastructure/accounts",
     {
       schema: {
         ...base,
         description:
-          "Configure encrypted parent management credentials and explicit release gates. All gates default closed; enabling does not itself provision, reassign IPs, or send.",
+          "Register or edit one independent ESP account locally. Keys are write-only; no subuser or provider resource is provisioned.",
         body: contracts.ConfigureSendgridAccountRequest,
       },
     },
@@ -426,38 +429,19 @@ export default async function publicationsController(fastify: FastifyInstance) {
       }),
   );
   f.post(
-    "/infrastructure/inspect",
+    "/infrastructure/accounts/inspect",
     {
       schema: {
         ...base,
         description:
-          "Read-only SendGrid inventory, including the existing aistocknews-ditto subuser. Does not create, rotate, or reassign anything.",
-        body: contracts.InspectPublisherSendgridRequest,
+          "Read-only account-scoped provider inspection; persist verified sender, credential and signed-webhook readiness.",
+        body: contracts.InspectSendgridAccountRequest,
       },
     },
     async (request, reply) =>
       respond(reply, async () => {
         const { workspaceId, ...body } = request.body;
-        return inspectPublisherSendgrid({
-          ...body,
-          publisherId: await publisher(workspaceId),
-        });
-      }),
-  );
-  f.put(
-    "/infrastructure/connections",
-    {
-      schema: {
-        ...base,
-        description:
-          "Register or adopt the newsletter's sending connection and existing restricted key. API keys are write-only and encrypted. Does not recreate AI Stock News resources.",
-        body: contracts.SendingConnectionRequest,
-      },
-    },
-    async (request, reply) =>
-      respond(reply, async () => {
-        const { workspaceId, ...body } = request.body;
-        return createSendingConnection({
+        return inspectSendgridAccount({
           ...body,
           publisherId: await publisher(workspaceId),
         });
@@ -477,25 +461,6 @@ export default async function publicationsController(fastify: FastifyInstance) {
       respond(reply, async () => {
         const { workspaceId, ...body } = request.body;
         return inspectSendgridConnection({
-          ...body,
-          publisherId: await publisher(workspaceId),
-        });
-      }),
-  );
-  f.post(
-    "/infrastructure/connections/provision",
-    {
-      schema: {
-        ...base,
-        description:
-          "Resume gated SendGrid provisioning and adopt existing resources rather than duplicating them. AI Stock News is adopt-only. Does not purchase IPs or send campaigns.",
-        body: contracts.ProvisionConnectionRequest,
-      },
-    },
-    async (request, reply) =>
-      respond(reply, async () => {
-        const { workspaceId, ...body } = request.body;
-        return provisionSendgridConnection({
           ...body,
           publisherId: await publisher(workspaceId),
         });
@@ -635,19 +600,19 @@ export default async function publicationsController(fastify: FastifyInstance) {
       }),
   );
   f.put(
-    "/infrastructure/routes",
+    "/infrastructure/defaults",
     {
       schema: {
         ...base,
         description:
-          "Change the route used by future newsletter sends without rebuilding campaigns. Existing attempts retain their pinned route.",
-        body: contracts.NewsletterRouteRequest,
+          "Save or clear an optional newsletter send prefill. Explicit per-send choices override it; existing attempts are immutable.",
+        body: contracts.NewsletterDefaultRequest,
       },
     },
     async (request, reply) =>
       respond(reply, async () => {
         const { workspaceId, ...body } = request.body;
-        return assignNewsletterRoute({
+        return upsertNewsletterDefault({
           ...body,
           publisherId: await publisher(workspaceId),
         });
@@ -842,14 +807,13 @@ export default async function publicationsController(fastify: FastifyInstance) {
     {
       schema: {
         ...base,
-        description:
-          "Inspect per-newsletter and historical-IP delivery observations, shared-IP admission budgets, and queue health. Acceptance is not delivery or human engagement; matched mailboxes are not people.",
-        querystring: contracts.PublisherQuery,
+        description: "Inspect scoped historical delivery observations and conservative shared-IP admission budgets.",
+        querystring: contracts.DeliveryHealthQuery,
       },
     },
     async (request, reply) =>
       respond(reply, async () =>
-        getPublisherDeliveryHealth(await publisher(request.query.workspaceId)),
+        getPublisherDeliveryHealth(await publisher(request.query.workspaceId), request.query.accountId),
       ),
   );
 }

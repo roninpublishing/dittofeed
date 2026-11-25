@@ -40,6 +40,7 @@ import {
   StartKeyedUserJourneyProps,
 } from "./journeys/userWorkflow/lifecycle";
 import logger from "./logger";
+import { confirmEmailSelection } from "./messaging";
 import { getMeter } from "./openTelemetry";
 import { restartUserJourneyWorkflow } from "./restartUserJourneyWorkflow/lifecycle";
 import { findManySegmentResourcesSafe, findSegmentResource } from "./segments";
@@ -51,6 +52,7 @@ import {
   ComputedAssignment,
   DeleteJourneyRequest,
   DeleteMessageTemplateRequest,
+  EspSelection,
   EmailStats,
   EnrichedJourney,
   HasStartedJourneyResource,
@@ -943,11 +945,44 @@ function mapUpsertValidationError(
   throw error;
 }
 
+export async function confirmJourneyEmailSelections(
+  workspaceId: string,
+  definition: JourneyDefinition,
+): Promise<JourneyDefinition> {
+  const nodes: JourneyDefinition["nodes"] = [];
+  const defaults = new Map<string, Promise<EspSelection | null>>();
+  for (const node of definition.nodes) {
+    if (
+      node.type === JourneyNodeType.MessageNode &&
+      node.variant.type === ChannelType.Email
+    ) {
+      const input = {
+        workspaceId,
+        providerOverride: node.variant.providerOverride,
+        espSelection: node.variant.espSelection,
+      };
+      let selection: Promise<EspSelection | null>;
+      if (input.espSelection === undefined) {
+        const key = input.providerOverride ?? "SendGrid";
+        selection = defaults.get(key) ?? confirmEmailSelection(input);
+        defaults.set(key, selection);
+      } else {
+        selection = confirmEmailSelection(input);
+      }
+      const espSelection = await selection;
+      nodes.push({ ...node, variant: { ...node.variant, espSelection } });
+    } else {
+      nodes.push(node);
+    }
+  }
+  return { ...definition, nodes };
+}
+
 export async function upsertJourney(
   params: UpsertJourneyResource,
 ): Promise<Result<SavedJourneyResource, JourneyUpsertValidationError>> {
-  const { id, name, definition, workspaceId, status, canRunMultiple, draft } =
-    params;
+  const { id, name, workspaceId, status, canRunMultiple, draft } = params;
+  let { definition } = params;
   await requireNewsletterCampaignWorkspace(workspaceId);
 
   if (id && !validateUuid(id)) {
@@ -997,6 +1032,21 @@ export async function upsertJourney(
     const journey = await tx.query.journey.findFirst({
       where: and(...conditions),
     });
+    if (
+      !definition &&
+      journey?.definition &&
+      (status === JourneyResourceStatusEnum.Running ||
+        status === JourneyResourceStatusEnum.Broadcast)
+    ) {
+      definition = unwrap(schemaValidateWithErr(journey.definition, JourneyDefinition));
+    }
+    if (
+      definition &&
+      ((status ?? journey?.status) === JourneyResourceStatusEnum.Running ||
+        (status ?? journey?.status) === JourneyResourceStatusEnum.Broadcast)
+    ) {
+      definition = await confirmJourneyEmailSelections(workspaceId, definition);
+    }
     if (!journey) {
       if (!name) {
         return err({

@@ -39,6 +39,7 @@ import {
   messageTemplateDefinitionToDraft,
   messageTemplateDraftToDefinition,
 } from "isomorphic-lib/src/messageTemplates";
+import { EspSelection } from "isomorphic-lib/src/publications";
 import {
   jsonParseSafe,
   schemaValidateWithErr,
@@ -105,6 +106,7 @@ import {
 } from "./publisher";
 import { SettingsCommand, SettingsMenu } from "./settingsMenu";
 import TemplatePreview from "./templatePreview";
+import { NativeSendSelection } from "./workspace/sendSelection";
 
 const USER_PROPERTY_WARNING_KEY = "user-property-warning";
 
@@ -198,6 +200,7 @@ export interface BaseTemplateState {
 export interface EmailTemplateState extends BaseTemplateState {
   channel: (typeof ChannelType)["Email"];
   providerOverride: EmailProviderTypeSchema | null;
+  espSelection?: EspSelection | null;
 }
 
 export interface MobilePushTemplateState extends BaseTemplateState {
@@ -909,6 +912,7 @@ export default function TemplateEditor({
         ...submitTestDataBase,
         channel: state.channel,
         provider: state.providerOverride ?? undefined,
+        espSelection: state.espSelection,
       };
       break;
     case ChannelType.MobilePush:
@@ -1045,7 +1049,19 @@ export default function TemplateEditor({
             id: type,
             label: emailProviderLabel(type),
           }));
-          providerAutocomplete = (
+          providerAutocomplete = workspace.parentWorkspaceId ? (
+            <NativeSendSelection
+              selection={state.espSelection}
+              onChange={(selection) => {
+                setState((draft) => {
+                  if (draft.channel === ChannelType.Email) {
+                    draft.espSelection = selection;
+                    draft.providerOverride = null;
+                  }
+                });
+              }}
+            />
+          ) : (
             <ProviderOverrideSelector<EmailProviderTypeSchema>
               value={state.providerOverride}
               options={providerOptions}

@@ -1,7 +1,6 @@
 import axios from "axios";
 
 import {
-  assertSingleIpRouting,
   NewsletterInfrastructureError,
   NewsletterSendgridClient,
   NEWSLETTER_WEBHOOK_EVENTS,
@@ -101,19 +100,16 @@ describe("SendGrid management boundary", () => {
     );
   });
 
-  it("rejects drift, missing membership and multi-IP provider fallbacks", () => {
-    expect(() =>
-      assertSingleIpRouting("192.0.2.10", ["192.0.2.10"], ["192.0.2.10"]),
-    ).not.toThrow();
-    for (const [pool, assigned] of [
-      [[], ["192.0.2.10"]],
-      [["192.0.2.11"], ["192.0.2.10"]],
-      [["192.0.2.10", "192.0.2.11"], ["192.0.2.10"]],
-      [["192.0.2.10"], ["192.0.2.10", "192.0.2.11"]],
-    ])
-      expect(() =>
-        assertSingleIpRouting("192.0.2.10", pool!, assigned!),
-      ).toThrow("provider_routing_drift");
+  it("uses the registered parent account identity without inventing an on-behalf-of username", async () => {
+    const transport = jest.spyOn(axios, "request").mockResolvedValue({ data: { result: [] } });
+    const client = new NewsletterSendgridClient({
+      apiKey: "fixture-parent-management-key", region: "global",
+      allowProviderWrites: false, allowIpReassignment: false,
+    });
+    await client.apiKeys("");
+    expect(transport).toHaveBeenCalledWith(expect.objectContaining({
+      headers: { Authorization: "Bearer fixture-parent-management-key" },
+    }));
   });
 
   it("requires an enabled signed callback at the exact connection URL with all required events", () => {

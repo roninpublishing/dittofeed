@@ -774,6 +774,7 @@ function journeyDefinitionFromStateBranch(
             type: uiNode.channel,
             templateId: uiNode.templateId,
             providerOverride: uiNode.providerOverride,
+            espSelection: uiNode.espSelection,
           };
         } else {
           variant = {
@@ -1637,6 +1638,7 @@ export function journeyBranchToState(
               ...baseMessageNode,
               channel: ChannelType.Email,
               providerOverride: node.variant.providerOverride,
+              espSelection: node.variant.espSelection,
             };
             break;
           }

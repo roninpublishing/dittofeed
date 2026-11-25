@@ -744,9 +744,9 @@ with either measure.
 
 ### Approved next: ESP accounts and send-time selection
 
-**Planned, not implemented.** This supersedes the earlier newsletter-bound
-connection/routing model and single-account assumptions as the target design.
-Existing runtime restrictions remain in force until the replacement is verified.
+**Implemented and verified locally; production release remains gated.** Independent
+ESP accounts replace newsletter-bound connections and singleton credentials.
+SendGrid is the first managed-account adapter; native non-newsletter providers remain.
 
 #### Independent objects
 
@@ -864,29 +864,49 @@ flowchart TD
 
 - [x] Rename the current frontend entry and all callers/authorization to
   `/dashboard/workspace`; retain the current working views during the larger build.
-- [ ] Establish workspace-scoped nested routes and left navigation without blank
+- [x] Establish workspace-scoped nested routes and left navigation without blank
   tabs, placeholder pages or moving infrastructure inside a newsletter.
-- [ ] Add multi-instance ESP accounts/provider adapters and migrate existing
+- [x] Add multi-instance ESP accounts/provider adapters and migrate existing
   configuration into an account instance without recreating provider resources,
   rotating keys or changing newsletter IDs, memberships, history or contact data.
-- [ ] Build ESP account list/details, then the workspace IP and pool inventories,
+- [x] Build ESP account list/details, then the workspace IP and pool inventories,
   reusing account-owned resource records and configuration flows. Include provider-
   specific forms, truthful status, history and health.
-- [ ] Add optional newsletter defaults and overridable send-time selection across
+- [x] Add optional newsletter defaults and overridable send-time selection across
   supported broadcast, journey and API sending paths; remove mandatory legacy
   newsletter bindings and migrate every caller without compatibility shims.
-- [ ] Preserve immutable attempt history, credential-owner attribution, signature
+- [x] Preserve immutable attempt history, credential-owner attribution, signature
   verification, deduplication and conservative admission for multi-IP/automatic
   selection. Prove default changes cannot cause rerouting or duplicate submissions.
-- [ ] Build the overview map/list from actual stored objects and relationships;
+- [x] Build the overview map/list from actual stored objects and relationships;
   allow independent newsletters/accounts with no sending setup and no binding edges.
-- [ ] Verify multiple accounts from the same provider, a newsletter using different
+- [x] Verify multiple accounts from the same provider, a newsletter using different
   accounts/IP choices on different sends, default overrides, isolation and supported
   provider capability differences using isolated fixtures, not live email.
-- [ ] Verify direct links, workspace switching, newsletter return, sidebar selection,
+- [x] Verify direct links, workspace switching, newsletter return, sidebar selection,
   viewer/manager authorization and responsive layouts through real local controls.
 - [ ] Obtain separate authorization for deployment, provider mutations, IP
   reassignment, resource purchases and any controlled real send.
+
+Local implementation verification:
+- Migration `0018_esp_accounts` applied to the guarded Neon development database.
+  All 18 historical migration hashes/timestamps and the existing three workspaces,
+  one newsletter and membership were preserved. Historical edge transaction wrappers
+  are normalized for execution only, so fresh bootstrap retains original hashes.
+- Rolled-back migration/backfill and fresh-bootstrap/restart proofs passed.
+  Fourteen focused source suites were exercised; the three corrected API/confirmation
+  suites passed all 28 cases on the final rerun. Lite compilation and optimized
+  dashboard builds passed.
+- Real browser controls verified multiple SendGrid accounts, independent edits,
+  canceled secret entry, paused IP registration, minute-only warm-up timestamps and
+  explicit clearing, multi-IP pool membership, pool defaults and switching accounts.
+  Map selection/configuration, Map/List, retained workspace views and desktop/mobile
+  layouts were checked. Temporary development accounts/IPs/pools/defaults were removed;
+  newsletter/contact records were untouched and no send records were created.
+- Current combined local preview: `http://localhost:3000/dashboard/workspace`,
+  dashboard build `dist/workspace-ready-preview`. Neon, ClickHouse and Temporal
+  target development; workers, bootstrap, capture and provisioning remain off.
+  No production deployment, provider mutations or real email sends were performed.
 
 ### Existing implementation and operating safeguards
 
@@ -897,14 +917,12 @@ Stable event/per-subscriber action identity, persisted progress and native
 workflow IDs prevent duplicate subscriptions/restarts. Existing destination
 opt-outs and publisher blocks remain effective.
 
-The current runtime derives a newsletter's `{slug}-ditto` subuser and
-`{slug}@roninpublishing.com` administrative email under the existing SendGrid
-management configuration. It uses restricted sending credentials, authenticated
-sender/domain and signed callback settings, plus separate physical IPs, pools,
-routes and durable shared-IP admission. This is the legacy implementation to
-migrate, not the target ESP-account ownership model above. Preserve its credential
-separation, verified provider ownership and send history; do not recreate adopted
-resources or silently relax admission while migrating.
+The prior runtime derived a newsletter's `{slug}-ditto` subuser and
+`{slug}@roninpublishing.com` administrative email under a singleton SendGrid
+management configuration. Migration `0018` adopts those identities into independent
+account instances without recreating provider resources. Restricted sending
+credentials, authenticated sender/domain and signed callback checks remain;
+physical-IP admission and immutable attempt selections survive the ownership change.
 
 Ordinary unsubscribes are newsletter-specific. Spam complaints block marketing
 publisher-wide; explicit publisher opt-outs/manual blocks and genuinely permanent

@@ -865,6 +865,64 @@ describe("journeyDefinitionFromState", () => {
   });
 });
 
+describe("ESP selection round trips", () => {
+  it.each([
+    {
+      accountId: "11111111-1111-4111-8111-111111111111",
+      mode: "automatic" as const,
+    },
+    {
+      accountId: "11111111-1111-4111-8111-111111111111",
+      mode: "pool" as const,
+      poolId: "22222222-2222-4222-8222-222222222222",
+    },
+    {
+      accountId: "11111111-1111-4111-8111-111111111111",
+      mode: "ip" as const,
+      ipId: "33333333-3333-4333-8333-333333333333",
+    },
+    null,
+  ])(
+    "preserves the confirmed email selection %j through editor save/reload",
+    (selection) => {
+      const definition = unwrap(
+        journeyDefinitionFromState({ state: EXAMPLE_JOURNEY_STATE }),
+      );
+      const message = definition.nodes.find(
+        (node) => node.type === JourneyNodeType.MessageNode,
+      );
+      if (
+        !message ||
+        message.type !== JourneyNodeType.MessageNode ||
+        message.variant.type !== ChannelType.Email
+      )
+        throw new Error("Missing email fixture");
+      message.variant.espSelection = selection;
+      const journey: Overwrite<
+        JourneyResource,
+        { definition: JourneyDefinition }
+      > = {
+        id: "44444444-4444-4444-8444-444444444444",
+        workspaceId: "55555555-5555-4555-8555-555555555555",
+        name: "Selection journey",
+        status: "NotStarted",
+        updatedAt: 1,
+        definition: JSON.parse(JSON.stringify(definition)),
+      };
+      const reloaded = journeyToState(journey);
+      const saved = unwrap(journeyDefinitionFromState({ state: reloaded }));
+      const savedMessage = saved.nodes.find((node) => node.id === message.id);
+      if (
+        !savedMessage ||
+        savedMessage.type !== JourneyNodeType.MessageNode ||
+        savedMessage.variant.type !== ChannelType.Email
+      )
+        throw new Error("Missing saved email");
+      expect(savedMessage.variant.espSelection).toEqual(selection);
+    },
+  );
+});
+
 describe("when journey has RandomCohortNode", () => {
   it("should create a RandomCohortNode with correct children", () => {
     const journeyId = uuid();

@@ -2,19 +2,23 @@ import { Stack } from "@mui/material";
 import { getPublisherForWorkspace } from "backend-lib/src/newsletters";
 import { GetServerSideProps } from "next";
 
-import DashboardContent from "../components/dashboardContent";
-import PublicationManagement from "../components/publications/management";
-import { addInitialStateToProps } from "../lib/addInitialStateToProps";
-import { requestContext } from "../lib/requestContext";
-import { PropsWithInitialState } from "../lib/types";
+import DashboardContent from "../../components/dashboardContent";
+import WorkspaceDashboard from "../../components/workspace/dashboard";
+import { addInitialStateToProps } from "../../lib/addInitialStateToProps";
+import { requestContext } from "../../lib/requestContext";
+import { PropsWithInitialState } from "../../lib/types";
+import { parseWorkspaceRoute, WorkspaceRoute } from "../../lib/workspaceRoutes";
 
 type Props = PropsWithInitialState<{
   publisherId: string | null;
   isPublisher: boolean;
+  route: WorkspaceRoute;
 }>;
 
 export const getServerSideProps: GetServerSideProps<Props> = requestContext(
-  async (_context, dfContext) => {
+  async (context, dfContext) => {
+    const route = parseWorkspaceRoute(context.params?.section);
+    if (!route) return { notFound: true };
     const publisherId = await getPublisherForWorkspace(dfContext.workspace.id);
     return {
       props: addInitialStateToProps({
@@ -22,13 +26,18 @@ export const getServerSideProps: GetServerSideProps<Props> = requestContext(
         props: {
           publisherId,
           isPublisher: publisherId === dfContext.workspace.id,
+          route,
         },
       }),
     };
   },
 );
 
-export default function WorkspaceDashboard({ publisherId, isPublisher }: Props) {
+export default function WorkspacePage({
+  publisherId,
+  isPublisher,
+  route,
+}: Props) {
   return (
     <DashboardContent publisherManagement={isPublisher}>
       <Stack
@@ -41,7 +50,7 @@ export default function WorkspaceDashboard({ publisherId, isPublisher }: Props) 
           overflowY: "auto",
         }}
       >
-        <PublicationManagement publisherId={publisherId} />
+        <WorkspaceDashboard publisherId={publisherId} route={route} />
       </Stack>
     </DashboardContent>
   );

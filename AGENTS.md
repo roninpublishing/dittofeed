@@ -92,13 +92,13 @@ the corresponding tooling actually changes.
   top-level selector/settings and "Newsletter" for its children; never call the
   workspace a publisher. Preserve tenant IDs, memberships and internal API/schema
   identifiers unless an explicit migration is requested.
-- Planned sending model: newsletters and ESP accounts are independent workspace
+- Sending model: newsletters and ESP accounts are independent workspace
   objects. Allow multiple accounts per provider; IPs/pools are ESP infrastructure,
   never newsletter assignments. Choose the account and supported IP/pool at send
   time; optional newsletter defaults only prefill and remain overridable. Record
   confirmed choices per send/attempt for history and safe retries, not as a
   permanent newsletter lock. The overview graph must not invent binding edges.
-  See the approved next ESP-account plan in `FORK_PLAN.md` before implementing.
+  SendGrid is the first managed-account adapter. See `FORK_PLAN.md` for acceptance.
 - The organization-wide UI belongs at `/dashboard/workspace`, with left-sidebar
   sections for Overview, Newsletters, ESP accounts, IPs, IP pools, Subscribers,
   Reports and Settings. Infrastructure inventories span the selected workspace

@@ -1,9 +1,11 @@
+import { CommandResult } from "@clickhouse/client";
 import { createSign, generateKeyPairSync, randomUUID } from "crypto";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
-import { ok } from "neverthrow";
+import { err, ok } from "neverthrow";
 
 import * as batch from "./apps/batch";
+import * as clickhouse from "./clickhouse";
 import { db } from "./db";
 import {
   workspace,
@@ -24,6 +26,8 @@ import {
   drainNewsletterWebhookReceipts,
   getNewsletterEmailContext,
   getNewsletterSendStatusByMessageId,
+  getNewsletterDeliveryHealth,
+  listNewsletterSends,
   newsletterCapacityLimits,
   newsletterSuppressionReason,
   receiveNewsletterWebhook,
@@ -33,6 +37,7 @@ import {
 } from "./newsletterDelivery";
 import { decrypt, encrypt } from "./secrets";
 import {
+  EspSelection,
   ChannelType,
   EmailContentsType,
   EmailProviderType,
@@ -41,6 +46,7 @@ import {
 } from "./types";
 import { deleteUsers } from "./users";
 import { createWorkspace } from "./workspaces";
+import { installNewsletterSecretFixture } from "../test/newsletterSecretFixture";
 
 const signingKeys = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
 const callbackKey = signingKeys.publicKey
@@ -147,12 +153,17 @@ describe("durable newsletter sends and signed inbox", () => {
   let publisherId: string;
   let newsletterIds: string[];
   let connectionIds: string[];
+  let accountIds: string[];
+  let ipIds: string[];
+  let poolIds: string[];
+  let restoreSecret: () => void;
   let poolId: string;
   let ipId: string;
   let provider: jest.SpyInstance;
   let projection: jest.SpyInstance;
 
   beforeEach(async () => {
+    restoreSecret = installNewsletterSecretFixture();
     publisherId = (await createWorkspace({ name: randomUUID() }).then(unwrap))
       .id;
     newsletterIds = await Promise.all(
@@ -172,13 +183,16 @@ describe("durable newsletter sends and signed inbox", () => {
           status: "active" as const,
         })),
       );
+    accountIds = newsletterIds.map(() => randomUUID());
     await db()
       .insert(tables.publisherSendgridAccount)
-      .values({
+      .values(accountIds.map((id, i) => ({
+        id,
         publisherId,
+        name: `ESP account ${i}`,
         allowRealSends: true,
         allTrafficControlled: true,
-      });
+      })));
     connectionIds = newsletterIds.map(() => randomUUID());
     await db()
       .insert(tables.sendingConnection)
@@ -186,7 +200,8 @@ describe("durable newsletter sends and signed inbox", () => {
         newsletterIds.map((id, i) => ({
           id: connectionIds[i],
           publisherId,
-          newsletterId: id,
+          accountId: accountIds[i]!,
+          newsletterId: null,
           username: `subuser-${i}`,
           administrativeEmail: `admin-${i}@example.com`,
           encryptedApiKey: encrypt(`restricted-key-${i}`),
@@ -195,42 +210,84 @@ describe("durable newsletter sends and signed inbox", () => {
           status: "ready" as const,
         })),
       );
-    ipId = randomUUID();
-    poolId = randomUUID();
-    await db()
-      .insert(tables.sendingIp)
-      .values({
-        id: ipId,
-        publisherId,
-        address: "192.0.2.10",
-        status: "active",
-        hourlyLimit: 3,
-        dailyLimit: 3,
-      });
-    await db()
-      .insert(tables.sendingPool)
-      .values({ id: poolId, publisherId, name: "shared-single-ip" });
-    await db().insert(tables.sendingPoolIp).values({ poolId, ipId });
-    await db()
-      .insert(tables.sendingPoolBinding)
-      .values(
-        connectionIds.map((connectionId) => ({
-          connectionId,
-          poolId,
+    ipIds = accountIds.map(() => randomUUID());
+    poolIds = accountIds.map(() => randomUUID());
+    ipId = ipIds[0]!;
+    poolId = poolIds[0]!;
+    for (let i = 0; i < accountIds.length; i++) {
+      await db()
+        .insert(tables.sendingIp)
+        .values({
+          id: ipIds[i]!,
+          canonicalIpId: ipId,
+          accountId: accountIds[i]!,
+          publisherId,
+          address: "192.0.2.10",
+          status: "active",
+          providerVerifiedAt: new Date(),
+          verifiedAccountRevision: 1,
+          hourlyLimit: 3,
+          dailyLimit: 3,
+        });
+      await db()
+        .insert(tables.sendingPool)
+        .values({
+          id: poolIds[i]!,
+          accountId: accountIds[i]!,
+          publisherId,
+          name: "shared-single-ip",
           providerPoolName: "physical-ip-one",
-        })),
-      );
-    await db()
-      .insert(tables.newsletterRoute)
-      .values(
-        newsletterIds.map((newsletterId, i) => ({
-          newsletterId,
-          connectionId: connectionIds[i]!,
-          poolId,
-        })),
-      );
+        });
+      await db().insert(tables.sendingPoolIp).values({
+        poolId: poolIds[i]!,
+        ipId: ipIds[i]!,
+      });
+      await db().insert(tables.sendingPoolBinding).values({
+        connectionId: connectionIds[i]!,
+        poolId: poolIds[i]!,
+        providerPoolName: "physical-ip-one",
+      });
+      await db().insert(tables.newsletterDefault).values({
+        newsletterId: newsletterIds[i]!,
+        selection: { accountId: accountIds[i]!, mode: "ip", ipId: ipIds[i]! },
+      });
+    }
+    // Keep provider inspection outside this durable-delivery fixture. The
+    // infrastructure suite exercises that boundary with read-only HTTP fixtures.
+    jest.spyOn(infrastructure, "resolveNewsletterSelection").mockImplementation(
+      async ({ publisherId: ownerId, newsletterId, selection: explicit }) => {
+        const [defaults] = await db().select().from(tables.newsletterDefault)
+          .where(eq(tables.newsletterDefault.newsletterId, newsletterId));
+        const selection = explicit === undefined ? defaults?.selection : explicit;
+        if (!selection) throw new Error("esp_selection_required");
+        const [account] = await db().select().from(tables.publisherSendgridAccount)
+          .where(and(
+            eq(tables.publisherSendgridAccount.id, selection.accountId),
+            eq(tables.publisherSendgridAccount.publisherId, ownerId),
+          ));
+        const [connection] = await db().select().from(tables.sendingConnection)
+          .where(eq(tables.sendingConnection.accountId, selection.accountId));
+        if (!account || !connection) throw new Error("Account unavailable");
+        const inventory = await db().select().from(tables.sendingIp)
+          .where(eq(tables.sendingIp.accountId, account.id));
+        const pools = await db().select().from(tables.sendingPool)
+          .where(eq(tables.sendingPool.accountId, account.id));
+        const pool = selection.mode === "automatic" ? undefined : pools.find(
+          (value) => selection.mode === "pool" ? value.id === selection.poolId : true,
+        );
+        const members = pool ? await db().select().from(tables.sendingPoolIp)
+          .where(eq(tables.sendingPoolIp.poolId, pool.id)) : [];
+        const ips = selection.mode === "automatic" ? inventory : inventory.filter(
+          (ip) => members.some((member) => member.ipId === ip.id) &&
+            (selection.mode !== "ip" || selection.ipId === ip.id),
+        );
+        if (!ips.length) throw new Error("Inventory unavailable");
+        return { selection, account, connection, ips, pool,
+          providerPoolName: pool?.providerPoolName };
+      },
+    );
     jest
-      .spyOn(infrastructure, "verifyPinnedNewsletterRouting")
+      .spyOn(infrastructure, "verifyPinnedNewsletterSelection")
       .mockResolvedValue(undefined);
     provider = jest
       .spyOn(sendgrid, "sendMail")
@@ -246,6 +303,7 @@ describe("durable newsletter sends and signed inbox", () => {
 
   afterEach(async () => {
     jest.restoreAllMocks();
+    restoreSecret();
     await db()
       .delete(tables.newsletterWebhookReceipt)
       .where(
@@ -254,6 +312,20 @@ describe("durable newsletter sends and signed inbox", () => {
     await db()
       .delete(tables.newsletterSend)
       .where(eq(tables.newsletterSend.publisherId, publisherId));
+    await db().delete(tables.sendingPool)
+      .where(inArray(tables.sendingPool.accountId, accountIds));
+    await db().delete(tables.sendingConnection)
+      .where(inArray(tables.sendingConnection.accountId, accountIds));
+    // Remove aliases before their shared root, preserving the global FK.
+    await db().delete(tables.sendingIp)
+      .where(and(
+        inArray(tables.sendingIp.accountId, accountIds),
+        sql`${tables.sendingIp.id} <> ${tables.sendingIp.canonicalIpId}`,
+      ));
+    await db().delete(tables.sendingIp)
+      .where(inArray(tables.sendingIp.accountId, accountIds));
+    await db().delete(tables.publisherSendgridAccount)
+      .where(inArray(tables.publisherSendgridAccount.id, accountIds));
     await db()
       .delete(workspace)
       .where(inArray(workspace.id, [...newsletterIds, publisherId]));
@@ -264,6 +336,7 @@ describe("durable newsletter sends and signed inbox", () => {
     copies = 1,
     logicalMessageId: string = randomUUID(),
     copyType: "cc" | "bcc" = "cc",
+    espSelection?: EspSelection | null,
   ) {
     const workspaceId = newsletterIds[index]!;
     const userId = `contact-${index}`;
@@ -280,8 +353,10 @@ describe("durable newsletter sends and signed inbox", () => {
       recipients,
       from: "editor@example.com",
       tags: { messageId: logicalMessageId, userId },
+      espSelection,
       mailData: {
         from: "editor@example.com",
+        ipPoolName: "untrusted-caller-pool",
         to: recipients[0]!,
         cc: copyType === "cc" ? recipients.slice(1) : undefined,
         bcc: copyType === "bcc" ? recipients.slice(1) : undefined,
@@ -335,6 +410,10 @@ describe("durable newsletter sends and signed inbox", () => {
       })),
     );
 
+    // This assertion concerns native PostgreSQL erasure, not analytics deletion.
+    jest.spyOn(clickhouse, "command").mockImplementation(async (): Promise<Promise<CommandResult>> => ({
+      query_id: "fixture-deletion", response_headers: {},
+    }));
     await deleteUsers({
       workspaceId: publisherId,
       userIds: [deletedUserId],
@@ -355,7 +434,7 @@ describe("durable newsletter sends and signed inbox", () => {
     ).toHaveLength(0);
   });
 
-  it("routes actual tests and personalized sends centrally after rendering, ignoring legacy overrides without fallback", async () => {
+  it("queues selected SendGrid tests and personalized sends after rendering without fallback", async () => {
     const workspaceId = newsletterIds[0]!;
     const templateId = randomUUID();
     await db()
@@ -379,7 +458,7 @@ describe("durable newsletter sends and signed inbox", () => {
       workspaceId,
       templateId,
       channel: ChannelType.Email,
-      provider: EmailProviderType.Test,
+      provider: EmailProviderType.SendGrid,
       tags: { messageId },
       userProperties: {
         id: "actual-test-contact",
@@ -413,8 +492,8 @@ describe("durable newsletter sends and signed inbox", () => {
     expect(destination.searchParams.get("edition")).toBe("one two");
     expect(send?.recipientCount).toBe(2);
     await db()
-      .delete(tables.newsletterRoute)
-      .where(eq(tables.newsletterRoute.newsletterId, workspaceId));
+      .delete(tables.newsletterDefault)
+      .where(eq(tables.newsletterDefault.newsletterId, workspaceId));
     const noFallback = await sendEmail({
       workspaceId,
       templateId,
@@ -426,7 +505,7 @@ describe("durable newsletter sends and signed inbox", () => {
         edition: "one two",
       },
       messageTags: { messageId: randomUUID() },
-      providerOverride: EmailProviderType.Test,
+      providerOverride: EmailProviderType.SendGrid,
     });
     expect(noFallback.isErr()).toBe(true);
     expect(provider).not.toHaveBeenCalled();
@@ -465,16 +544,12 @@ describe("durable newsletter sends and signed inbox", () => {
     );
   });
 
-  it("pins credentials/rendered attribution/pool before attempts and ignores later route/key changes", async () => {
+  it("pins account/credentials/rendered attribution/pool and ignores later default changes", async () => {
     const queued = await enqueue();
     await db()
-      .update(tables.sendingConnection)
-      .set({ encryptedApiKey: encrypt("rotated-key"), revision: 2 })
-      .where(eq(tables.sendingConnection.id, connectionIds[0]!));
-    await db()
-      .update(tables.newsletterRoute)
-      .set({ version: 2 })
-      .where(eq(tables.newsletterRoute.newsletterId, queued.workspaceId));
+      .update(tables.newsletterDefault)
+      .set({ selection: { accountId: accountIds[1]!, mode: "ip", ipId: ipIds[1]! } })
+      .where(eq(tables.newsletterDefault.newsletterId, queued.workspaceId));
     await drainNewsletterSends();
     expect(provider).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -490,7 +565,10 @@ describe("durable newsletter sends and signed inbox", () => {
       .from(tables.newsletterSend)
       .where(eq(tables.newsletterSend.id, queued.sendId));
     expect(row).toMatchObject({
-      routeVersion: 1,
+      accountId: accountIds[0],
+      accountRevision: 1,
+      candidateIpIds: [ipId],
+      selection: { accountId: accountIds[0], mode: "ip", ipId },
       connectionRevision: 1,
       state: "accepted",
     });
@@ -524,6 +602,383 @@ describe("durable newsletter sends and signed inbox", () => {
     );
     await drainNewsletterSends();
     expect(projection).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses an explicit account override and deduplicates without retargeting the confirmed attempt", async () => {
+    const messageId = randomUUID();
+    const selection: EspSelection = {
+      accountId: accountIds[1]!, mode: "ip", ipId: ipIds[1]!,
+    };
+    const first = await enqueue(0, 1, messageId, "cc", selection);
+    const retry = await enqueue(0, 1, messageId, "cc", {
+      accountId: accountIds[0]!, mode: "ip", ipId,
+    });
+    expect(retry.sendId).toBe(first.sendId);
+    await drainNewsletterSends();
+    expect(provider).toHaveBeenCalledTimes(1);
+    expect(provider).toHaveBeenCalledWith(expect.objectContaining({
+      apiKey: "restricted-key-1",
+    }));
+    const [row] = await db().select().from(tables.newsletterSend)
+      .where(eq(tables.newsletterSend.id, first.sendId));
+    expect(row).toMatchObject({
+      workspaceId: newsletterIds[0],
+      accountId: accountIds[1],
+      connectionId: connectionIds[1],
+      selection,
+      candidateIpIds: [ipIds[1]],
+      actualIp: null,
+    });
+  });
+
+  it("does not re-read a later default for a confirmed missing selection", async () => {
+    const result = await sendNewsletterEmail({
+      workspaceId: newsletterIds[0]!,
+      publisherId,
+      userId: "no-selection",
+      logicalMessageId: randomUUID(),
+      espSelection: null,
+      recipients: ["subscriber@example.com"],
+      from: "editor@example.com",
+      mailData: {
+        from: "editor@example.com", to: "subscriber@example.com",
+        subject: "No selection", html: "Must not queue",
+      },
+      success: {
+        type: InternalEventType.MessageSent,
+        variant: {
+          type: ChannelType.Email, from: "editor@example.com",
+          to: "subscriber@example.com", subject: "No selection",
+          body: "Must not queue", provider: { type: EmailProviderType.SendGrid },
+        },
+      },
+    });
+    expect(result.isErr()).toBe(true);
+    expect(infrastructure.resolveNewsletterSelection).not.toHaveBeenCalled();
+    expect(await db().select().from(tables.newsletterSend)
+      .where(eq(tables.newsletterSend.publisherId, publisherId))).toHaveLength(0);
+  });
+
+  it.each(["pool", "automatic"] as const)(
+    "reserves full recipient copies against every possible %s IP, not summed capacity",
+    async (mode) => {
+      const secondIp = randomUUID();
+      await db().insert(tables.sendingIp).values({
+        id: secondIp, canonicalIpId: secondIp, accountId: accountIds[0]!,
+        publisherId, address: "192.0.2.11", status: "active",
+        providerVerifiedAt: new Date(), verifiedAccountRevision: 1,
+        hourlyLimit: 3, dailyLimit: 3,
+      });
+      await db().insert(tables.sendingPoolIp).values({ poolId, ipId: secondIp });
+      const selection: EspSelection = mode === "pool"
+        ? { accountId: accountIds[0]!, mode, poolId }
+        : { accountId: accountIds[0]!, mode };
+      const first = await enqueue(0, 2, randomUUID(), "cc", selection);
+      const second = await enqueue(0, 2, randomUUID(), "bcc", selection);
+      await Promise.all([drainNewsletterSends(), drainNewsletterSends()]);
+      expect(provider).toHaveBeenCalledTimes(1);
+      const rows = await db().select().from(tables.newsletterSend)
+        .where(inArray(tables.newsletterSend.id, [first.sendId, second.sendId]));
+      expect(rows.map((row) => row.state).sort()).toEqual(["accepted", "queued"]);
+      for (const row of rows) {
+        expect(row.candidateIpIds).toEqual([ipId, secondIp].sort());
+        expect(row.ipId).toBeNull();
+        expect(row.actualIp).toBeNull();
+      }
+      const budgets = await db().select().from(tables.sendingIpBudget)
+        .where(inArray(tables.sendingIpBudget.ipId, [ipId, secondIp]));
+      expect(budgets).toHaveLength(4);
+      expect(budgets.every((budget) => budget.reserved === 2)).toBe(true);
+      const mail = provider.mock.calls[0]![0].mailData as Record<string, unknown>;
+      if (mode === "automatic") expect(mail).not.toHaveProperty("ipPoolName");
+      else expect(mail.ipPoolName).toBe("physical-ip-one");
+    },
+  );
+
+  it("defers the entire candidate set without partial reservations when one IP lacks capacity", async () => {
+    const constrained = randomUUID();
+    await db().insert(tables.sendingIp).values({
+      id: constrained, canonicalIpId: constrained, accountId: accountIds[0]!,
+      publisherId, address: "192.0.2.12", status: "active",
+      providerVerifiedAt: new Date(), verifiedAccountRevision: 1,
+      hourlyLimit: 1, dailyLimit: 1,
+    });
+    await db().insert(tables.sendingPoolIp).values({ poolId, ipId: constrained });
+    await enqueue(0, 2, randomUUID(), "cc", {
+      accountId: accountIds[0]!, mode: "pool", poolId,
+    });
+    await drainNewsletterSends();
+    expect(provider).not.toHaveBeenCalled();
+    expect(await db().select().from(tables.sendingIpBudget)
+      .where(inArray(tables.sendingIpBudget.ipId, [ipId, constrained]))).toHaveLength(0);
+  });
+
+  it("uses the strictest physical alias limits and pause across different accounts", async () => {
+    await db().update(tables.sendingIp).set({ hourlyLimit: 1 })
+      .where(eq(tables.sendingIp.id, ipIds[1]!));
+    const queued = await enqueue(0, 2);
+    await drainNewsletterSends();
+    expect(provider).not.toHaveBeenCalled();
+    await db().update(tables.sendingIp).set({ hourlyLimit: 3, status: "paused" })
+      .where(eq(tables.sendingIp.id, ipIds[1]!));
+    await db().update(tables.newsletterSend).set({ nextAttemptAt: new Date(0) })
+      .where(eq(tables.newsletterSend.id, queued.sendId));
+    await drainNewsletterSends();
+    expect(provider).not.toHaveBeenCalled();
+    expect(await db().select().from(tables.sendingIpBudget)
+      .where(eq(tables.sendingIpBudget.ipId, ipId))).toHaveLength(0);
+  });
+
+  it("ignores an unverified paused zero-limit alias until provider ownership is verified", async () => {
+    await db().update(tables.sendingIp).set({
+      status: "paused", hourlyLimit: 0, dailyLimit: 0,
+      providerVerifiedAt: null, verifiedAccountRevision: null,
+    }).where(eq(tables.sendingIp.id, ipIds[1]!));
+    await enqueue(0);
+    await drainNewsletterSends();
+    expect(provider).toHaveBeenCalledTimes(1);
+    await db().update(tables.sendingIp).set({
+      providerVerifiedAt: new Date(), verifiedAccountRevision: 1,
+    }).where(eq(tables.sendingIp.id, ipIds[1]!));
+    const blocked = await enqueue(0);
+    await drainNewsletterSends();
+    expect(provider).toHaveBeenCalledTimes(1);
+    expect(await getNewsletterSendStatusByMessageId({
+      workspaceId: blocked.workspaceId, messageId: blocked.logicalMessageId,
+    })).toMatchObject({ state: "queued", error: "Capacity deferred" });
+  });
+
+  it("does not admit an unverified candidate or stale account ownership verification", async () => {
+    const queued = await enqueue(0);
+    await db().update(tables.sendingIp).set({
+      providerVerifiedAt: null, verifiedAccountRevision: null,
+    }).where(eq(tables.sendingIp.id, ipId));
+    await drainNewsletterSends();
+    expect(provider).not.toHaveBeenCalled();
+    await db().update(tables.sendingIp).set({
+      providerVerifiedAt: new Date(), verifiedAccountRevision: 0,
+    }).where(eq(tables.sendingIp.id, ipId));
+    await db().update(tables.newsletterSend).set({ nextAttemptAt: new Date(0) })
+      .where(eq(tables.newsletterSend.id, queued.sendId));
+    await drainNewsletterSends();
+    expect(provider).not.toHaveBeenCalled();
+    expect(await db().select().from(tables.sendingIpBudget)
+      .where(eq(tables.sendingIpBudget.ipId, ipId))).toHaveLength(0);
+  });
+
+  it("uses the selected account's release gate, not another account in the publisher", async () => {
+    await db().update(tables.publisherSendgridAccount).set({ allowRealSends: false })
+      .where(eq(tables.publisherSendgridAccount.id, accountIds[1]!));
+    const queued = await enqueue(0, 1, randomUUID(), "cc", {
+      accountId: accountIds[1]!, mode: "ip", ipId: ipIds[1]!,
+    });
+    await drainNewsletterSends();
+    expect(provider).not.toHaveBeenCalled();
+    expect(await getNewsletterSendStatusByMessageId({
+      workspaceId: queued.workspaceId, messageId: queued.logicalMessageId,
+    })).toMatchObject({ state: "queued", error: "Release gate closed or paused" });
+  });
+
+  it("rejects inventory drift at submission without fallback or changing the pinned attempt", async () => {
+    const queued = await enqueue();
+    jest.mocked(infrastructure.verifyPinnedNewsletterSelection)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValue(new Error("Provider pool membership changed"));
+    await drainNewsletterSends();
+    expect(provider).not.toHaveBeenCalled();
+    expect(infrastructure.verifyPinnedNewsletterSelection).toHaveBeenCalledTimes(2);
+    const [row] = await db().select().from(tables.newsletterSend)
+      .where(eq(tables.newsletterSend.id, queued.sendId));
+    expect(row).toMatchObject({
+      state: "queued", accountId: accountIds[0], candidateIpIds: [ipId],
+      error: "Pinned ESP selection not verified",
+    });
+    expect(infrastructure.resolveNewsletterSelection).toHaveBeenCalledTimes(1);
+  });
+
+  it("never broadens or resubmits a reserved singleton retry after pool membership changes", async () => {
+    provider.mockResolvedValueOnce(err({ code: 429 }));
+    const queued = await enqueue(0, 1, randomUUID(), "cc", {
+      accountId: accountIds[0]!, mode: "pool", poolId,
+    });
+    await drainNewsletterSends();
+    const [before] = await db().select().from(tables.newsletterSend).where(eq(tables.newsletterSend.id, queued.sendId));
+    expect(before).toMatchObject({ state: "queued", attempts: 1, candidateIpIds: [ipId] });
+    expect(before!.reservedAt).not.toBeNull();
+    const budgets = await db().select().from(tables.sendingIpBudget).where(eq(tables.sendingIpBudget.ipId, ipId));
+    const addedIp = randomUUID();
+    await db().insert(tables.sendingIp).values({
+      id: addedIp, canonicalIpId: addedIp, accountId: accountIds[0]!, publisherId,
+      address: "192.0.2.15", status: "active", providerVerifiedAt: new Date(), verifiedAccountRevision: 1,
+      hourlyLimit: 100, dailyLimit: 1000,
+    });
+    await db().insert(tables.sendingPoolIp).values({ poolId, ipId: addedIp });
+    jest.mocked(infrastructure.verifyPinnedNewsletterSelection).mockRejectedValue(new Error("pinned_selection_changed"));
+    provider.mockClear();
+    await db().update(tables.newsletterSend).set({ nextAttemptAt: new Date(0) }).where(eq(tables.newsletterSend.id, queued.sendId));
+    await drainNewsletterSends();
+    expect(provider).not.toHaveBeenCalled();
+    const [after] = await db().select().from(tables.newsletterSend).where(eq(tables.newsletterSend.id, queued.sendId));
+    expect(after).toMatchObject({
+      state: "queued", attempts: 1, candidateIpIds: [ipId], reservedAt: before!.reservedAt,
+      error: "Pinned ESP selection not verified",
+    });
+    expect(await db().select().from(tables.sendingIpBudget).where(eq(tables.sendingIpBudget.ipId, ipId))).toEqual(budgets);
+    expect(await db().select().from(tables.sendingIpBudget).where(eq(tables.sendingIpBudget.ipId, addedIp))).toEqual([]);
+  });
+
+  it("records only provider-observed actual IP without changing the selected candidates", async () => {
+    const queued = await enqueue(0, 1, randomUUID(), "cc", {
+      accountId: accountIds[1]!, mode: "automatic",
+    });
+    await drainNewsletterSends();
+    projection.mockClear();
+    await callback(1, [{
+      event: "open", email: "subscriber@example.com",
+      newsletterSendId: queued.sendId, sg_event_id: "reader-ip",
+      timestamp: Math.floor(Date.now() / 1000), ip: "198.51.100.55",
+    }]);
+    await drainNewsletterWebhookReceipts();
+    const [opened] = await db().select().from(tables.newsletterSend)
+      .where(eq(tables.newsletterSend.id, queued.sendId));
+    expect(opened?.actualIp).toBeNull();
+    await callback(1, [{
+      event: "delivered", email: "subscriber@example.com",
+      newsletterSendId: queued.sendId, sg_event_id: "observed-ip",
+      timestamp: Math.floor(Date.now() / 1000), ip: "192.0.2.10",
+      workspaceId: newsletterIds[1], userId: "forged",
+    }]);
+    await drainNewsletterWebhookReceipts();
+    const [row] = await db().select().from(tables.newsletterSend)
+      .where(eq(tables.newsletterSend.id, queued.sendId));
+    expect(row).toMatchObject({
+      workspaceId: newsletterIds[0], accountId: accountIds[1],
+      candidateIpIds: [ipIds[1]], actualIp: "192.0.2.10", ipId: null,
+    });
+    expect(projection).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: newsletterIds[0],
+    }), expect.anything());
+  });
+
+  it("reuses every same-window reservation on explicit non-accepting retries", async () => {
+    const secondIp = randomUUID();
+    await db().insert(tables.sendingIp).values({
+      id: secondIp, canonicalIpId: secondIp, accountId: accountIds[0]!,
+      publisherId, address: "192.0.2.13", status: "active",
+      providerVerifiedAt: new Date(), verifiedAccountRevision: 1,
+      hourlyLimit: 3, dailyLimit: 3,
+    });
+    provider.mockResolvedValueOnce(err({ code: 429 }));
+    const queued = await enqueue(0, 2, randomUUID(), "cc", {
+      accountId: accountIds[0]!, mode: "automatic",
+    });
+    await drainNewsletterSends();
+    await db().update(tables.newsletterSend).set({ nextAttemptAt: new Date(0) })
+      .where(eq(tables.newsletterSend.id, queued.sendId));
+    await drainNewsletterSends();
+    expect(provider).toHaveBeenCalledTimes(2);
+    const budgets = await db().select().from(tables.sendingIpBudget)
+      .where(inArray(tables.sendingIpBudget.ipId, [ipId, secondIp]));
+    expect(budgets).toHaveLength(4);
+    expect(budgets.every((budget) => budget.reserved === 2)).toBe(true);
+    const [row] = await db().select().from(tables.newsletterSend)
+      .where(eq(tables.newsletterSend.id, queued.sendId));
+    expect(row).toMatchObject({ state: "accepted", attempts: 2 });
+  });
+
+  it("cannot multiply a physical budget by registering the same IP in another publisher", async () => {
+    const otherPublisher = (await createWorkspace({ name: randomUUID() }).then(unwrap)).id;
+    const otherAccount = randomUUID();
+    const aliasId = randomUUID();
+    try {
+      await db().insert(tables.publisher).values({ workspaceId: otherPublisher });
+      await db().insert(tables.publisherSendgridAccount).values({
+        id: otherAccount, publisherId: otherPublisher, name: "Other publisher ESP",
+      });
+      await db().insert(tables.sendingIp).values({
+        id: aliasId, canonicalIpId: ipId, accountId: otherAccount,
+        publisherId: otherPublisher, address: "192.0.2.10", status: "active",
+        providerVerifiedAt: new Date(), verifiedAccountRevision: 1,
+        hourlyLimit: 0, dailyLimit: 0,
+      });
+      await enqueue();
+      await drainNewsletterSends();
+      expect(provider).not.toHaveBeenCalled();
+      expect(await db().select().from(tables.sendingIpBudget)
+        .where(eq(tables.sendingIpBudget.ipId, ipId))).toHaveLength(0);
+      const [alias] = await db().select().from(tables.sendingIp)
+        .where(eq(tables.sendingIp.id, aliasId));
+      expect(alias?.canonicalIpId).toBe(ipId);
+    } finally {
+      await db().delete(tables.sendingIp).where(eq(tables.sendingIp.id, aliasId));
+      await db().delete(tables.publisherSendgridAccount)
+        .where(eq(tables.publisherSendgridAccount.id, otherAccount));
+      await db().delete(workspace).where(eq(workspace.id, otherPublisher));
+    }
+  });
+
+  it("reports account-scoped history and rejects a foreign account health query", async () => {
+    await enqueue(0);
+    await enqueue(1);
+    const health = await getNewsletterDeliveryHealth(publisherId, accountIds[0]);
+    expect(health.states).toEqual([{ state: "queued", count: 1 }]);
+    const rows = await listNewsletterSends({ publisherId, accountId: accountIds[1] });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      accountId: accountIds[1], candidateIpIds: [ipIds[1]], actualIp: null,
+    });
+    await expect(getNewsletterDeliveryHealth(publisherId, randomUUID()))
+      .rejects.toThrow("ESP account not found");
+  });
+
+  it("defers changed credential revisions without rewriting the immutable credential snapshot", async () => {
+    const queued = await enqueue();
+    await db().update(tables.sendingConnection)
+      .set({ encryptedApiKey: encrypt("rotated-key"), revision: 2 })
+      .where(eq(tables.sendingConnection.id, connectionIds[0]!));
+    jest.mocked(infrastructure.verifyPinnedNewsletterSelection)
+      .mockRejectedValue(new Error("pinned_credential_revision_changed"));
+    await drainNewsletterSends();
+    expect(provider).not.toHaveBeenCalled();
+    expect(infrastructure.verifyPinnedNewsletterSelection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: accountIds[0], accountRevision: 1,
+        connectionId: connectionIds[0], connectionRevision: 1,
+      }),
+    );
+    const [row] = await db().select().from(tables.newsletterSend)
+      .where(eq(tables.newsletterSend.id, queued.sendId));
+    expect(row?.state).toBe("queued");
+    expect(decrypt(row!.encryptedCredential!)).toBe("restricted-key-0");
+  });
+
+  it("erases one newsletter without discarding sibling receipts on the same account connection", async () => {
+    const first = await enqueue(0);
+    const sibling = await enqueue(1, 1, randomUUID(), "cc", {
+      accountId: accountIds[0]!, mode: "ip", ipId,
+    });
+    await drainNewsletterSends();
+    projection.mockClear();
+    const events = [first, sibling].map((send, i) => ({
+      event: "open", email: "subscriber@example.com",
+      timestamp: Math.floor(Date.now() / 1000),
+      newsletterSendId: send.sendId, sg_event_id: `shared-account-open-${i}`,
+    }));
+    await callback(0, events);
+    await deleteNewsletterDeliveryData({
+      workspaceId: first.workspaceId, userIds: [first.userId],
+    });
+    const receipts = await db().select().from(tables.newsletterWebhookReceipt)
+      .where(eq(tables.newsletterWebhookReceipt.connectionId, connectionIds[0]!));
+    expect(receipts.find((receipt) => receipt.sendId === first.sendId)?.encryptedPayload)
+      .toBeNull();
+    expect(receipts.find((receipt) => receipt.sendId === sibling.sendId)?.encryptedPayload)
+      .not.toBeNull();
+    await drainNewsletterWebhookReceipts();
+    expect(projection).toHaveBeenCalledTimes(1);
+    expect(projection).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: sibling.workspaceId,
+    }), expect.anything());
   });
 
   it("never resends after an ambiguous provider response or stale submitting claim", async () => {

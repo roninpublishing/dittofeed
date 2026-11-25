@@ -7,6 +7,9 @@ import {
   WORKSPACE_ID_HEADER,
 } from "./constants/headers";
 
+import { EspSelection } from "./publications";
+export { EspSelection } from "./publications";
+
 export type Present<T> = T extends undefined | null ? never : T;
 
 export type RenameKey<T, K extends keyof T, N extends string> = {
@@ -1070,6 +1073,7 @@ export const EmailMessageVariant = Type.Object({
   type: Type.Literal(ChannelType.Email),
   templateId: Type.String(),
   providerOverride: Type.Optional(WorkspaceWideEmailProviders),
+  espSelection: NullableAndOptional(EspSelection),
 });
 
 export type EmailMessageVariant = Static<typeof EmailMessageVariant>;
@@ -1369,6 +1373,7 @@ export type UpdateBroadcastRequest = Static<typeof UpdateBroadcastRequest>;
 export const TriggerBroadcastRequest = Type.Object({
   workspaceId: Type.String(),
   id: Type.String(),
+  espSelection: Type.Optional(EspSelection),
 });
 
 export type TriggerBroadcastRequest = Static<typeof TriggerBroadcastRequest>;
@@ -2058,6 +2063,7 @@ export type ExitUiNodeProps = Static<typeof ExitUiNodeProps>;
 export const EmailMessageUiNodeProps = Type.Object({
   channel: Type.Literal(ChannelType.Email),
   providerOverride: Type.Optional(WorkspaceWideEmailProviders),
+  espSelection: NullableAndOptional(EspSelection),
 });
 
 export type EmailMessageUiNodeProps = Static<typeof EmailMessageUiNodeProps>;
@@ -4262,6 +4268,7 @@ export const EmailMessageTemplateTestRequest = Type.Object({
   ...BaseMessageTemplateTestRequest,
   channel: Type.Literal(ChannelType.Email),
   provider: Type.Optional(Type.Enum(EmailProviderType)),
+  espSelection: NullableAndOptional(EspSelection),
 });
 
 export type EmailMessageTemplateTestRequest = Static<
@@ -4989,6 +4996,7 @@ export const ExecuteBroadcastRequest = Type.Object({
   segmentDefinition: SegmentDefinition,
   messageTemplateDefinition: MessageTemplateResourceDefinition,
   subscriptionGroupId: Type.Optional(Type.String()),
+  espSelection: Type.Optional(EspSelection),
 });
 
 export type ExecuteBroadcastRequest = Static<typeof ExecuteBroadcastRequest>;
@@ -5689,6 +5697,7 @@ export type BroadcastErrorHandling = Static<typeof BroadcastErrorHandling>;
 export const BroadcastEmailMessageVariant = Type.Object({
   type: Type.Literal(ChannelType.Email),
   providerOverride: Type.Optional(Type.Enum(EmailProviderType)),
+  espSelection: NullableAndOptional(EspSelection),
 });
 
 export type BroadcastEmailMessageVariant = Static<
@@ -5883,6 +5892,7 @@ export type RecomputeBroadcastSegmentRequest = Static<
 export const StartBroadcastRequest = Type.Object({
   workspaceId: Type.String(),
   broadcastId: Type.String(),
+  espSelection: Type.Optional(EspSelection),
 });
 
 export type StartBroadcastRequest = Static<typeof StartBroadcastRequest>;
@@ -6046,6 +6056,7 @@ export const EmailBatchMessageUsersRequest = Type.Object({
   ...BaseBatchMessageUsersRequest,
   channel: Type.Literal(ChannelType.Email),
   provider: Type.Optional(Type.Enum(EmailProviderType)),
+  espSelection: NullableAndOptional(EspSelection),
 });
 
 export type EmailBatchMessageUsersRequest = Static<

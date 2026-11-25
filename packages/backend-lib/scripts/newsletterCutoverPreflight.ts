@@ -19,6 +19,7 @@ import {
 // provider client has every write gate closed. Do not import a provisioner here.
 const username = "aistocknews-ditto";
 interface RegistryRow {
+  accountId: string;
   publisherId: string;
   encryptedManagementKey: NewsletterCiphertext | null;
   region: "global" | "eu";
@@ -51,22 +52,21 @@ async function main() {
         await client.query("BEGIN READ ONLY");
         const result = await client.query<RegistryRow>(
           `
-          SELECT a."publisherId", a."encryptedManagementKey", a.region, a."callbackBaseUrl",
+          SELECT a.id AS "accountId", a."publisherId", a."encryptedManagementKey", a.region, a."callbackBaseUrl",
                  c.id AS "connectionId", c."encryptedApiKey", c."apiKeyId"
           FROM "PublisherSendgridAccount" a
-          LEFT JOIN "SendingConnection" c ON c."publisherId" = a."publisherId" AND c.username = $1
-          ${process.env.NEWSLETTER_PUBLISHER_ID ? 'WHERE a."publisherId" = $2' : ""}
+          INNER JOIN "SendingConnection" c ON c."accountId" = a.id AND c.username = $1
+          WHERE ($2::uuid IS NULL OR a."publisherId" = $2::uuid)
+            AND ($3::uuid IS NULL OR a.id = $3::uuid)
         `,
-          process.env.NEWSLETTER_PUBLISHER_ID
-            ? [username, process.env.NEWSLETTER_PUBLISHER_ID]
-            : [username],
+          [username, process.env.NEWSLETTER_PUBLISHER_ID ?? null, process.env.NEWSLETTER_ESP_ACCOUNT_ID ?? null],
         );
         await client.query("COMMIT");
         if (result.rows.length === 1) [registry] = result.rows;
         else {
           report(
             result.rows.length
-              ? "publisher_selection_required"
+              ? "esp_account_selection_required"
               : "publisher_registry_missing",
           );
           findings += 1;

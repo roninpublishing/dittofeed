@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { AnyPgColumn, boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
+import type { EspSelection } from "isomorphic-lib/src/publications";
 import { broadcast, journey, subscriptionGroup, workspace } from "./schema";
 
 export type NewsletterCiphertext = { iv: string; encryptedData: string; authTag: string };
@@ -48,7 +49,12 @@ export const newsletterTrackingDomain = pgTable("NewsletterTrackingDomain", {
 ]);
 
 export const publisherSendgridAccount = pgTable("PublisherSendgridAccount", {
-  publisherId: uuid().primaryKey().references(() => publisher.workspaceId, { onDelete: "cascade" }),
+  id: uuid().primaryKey().defaultRandom(),
+  publisherId: uuid().notNull().references(() => publisher.workspaceId, { onDelete: "cascade" }),
+  name: text().notNull(),
+  provider: text().$type<"SendGrid">().default("SendGrid").notNull(),
+  revision: integer().default(1).notNull(),
+  createdAt: createdAt(),
   encryptedManagementKey: encrypted(),
   region: text().$type<"global" | "eu">().default("global").notNull(),
   callbackBaseUrl: text(),
@@ -62,7 +68,9 @@ export const publisherSendgridAccount = pgTable("PublisherSendgridAccount", {
 export const sendingConnection = pgTable("SendingConnection", {
   id: uuid().primaryKey().defaultRandom(),
   publisherId: uuid().notNull().references(() => publisher.workspaceId, { onDelete: "cascade" }),
-  newsletterId: uuid().notNull().unique().references(() => newsletter.workspaceId, { onDelete: "cascade" }),
+  accountId: uuid().notNull().unique().references(() => publisherSendgridAccount.id, { onDelete: "restrict" }),
+  // Historical attribution only; deleting a newsletter never deletes credentials.
+  newsletterId: uuid().references(() => newsletter.workspaceId, { onDelete: "set null" }),
   username: text().notNull(),
   administrativeEmail: text().notNull(),
   encryptedApiKey: encrypted(),
@@ -80,23 +88,30 @@ export const sendingConnection = pgTable("SendingConnection", {
 export const sendingIp = pgTable("SendingIp", {
   id: uuid().primaryKey().defaultRandom(),
   publisherId: uuid().notNull().references(() => publisher.workspaceId, { onDelete: "cascade" }),
+  accountId: uuid().notNull().references(() => publisherSendgridAccount.id, { onDelete: "restrict" }),
+  // All account-local rows for one physical address share this budget identity.
+  canonicalIpId: uuid().notNull().references((): AnyPgColumn => sendingIp.id, { onDelete: "restrict" }),
   address: text().notNull(),
   status: text().$type<"active" | "paused">().default("paused").notNull(),
+  providerVerifiedAt: timestamp({ withTimezone: true, mode: "date" }),
+  verifiedAccountRevision: integer(),
   hourlyLimit: integer().notNull(),
   dailyLimit: integer().notNull(),
   warmupStartedAt: timestamp({ withTimezone: true, mode: "date" }),
   warmupSchedule: jsonb().$type<{ afterDays: number; hourlyLimit: number; dailyLimit: number }[]>().default([]).notNull(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (t) => [unique().on(t.publisherId, t.address)]);
+}, (t) => [unique().on(t.accountId, t.address), index().on(t.canonicalIpId)]);
 
 export const sendingPool = pgTable("SendingPool", {
   id: uuid().primaryKey().defaultRandom(),
   publisherId: uuid().notNull().references(() => publisher.workspaceId, { onDelete: "cascade" }),
+  accountId: uuid().notNull().references(() => publisherSendgridAccount.id, { onDelete: "restrict" }),
   name: text().notNull(),
+  providerPoolName: text().notNull(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (t) => [unique().on(t.publisherId, t.name)]);
+}, (t) => [unique().on(t.accountId, t.name)]);
 
 export const sendingPoolIp = pgTable("SendingPoolIp", {
   poolId: uuid().notNull().references(() => sendingPool.id, { onDelete: "cascade" }),
@@ -110,11 +125,9 @@ export const sendingPoolBinding = pgTable("SendingPoolBinding", {
   providerPoolName: text().notNull(),
 }, (t) => [unique().on(t.connectionId, t.poolId)]);
 
-export const newsletterRoute = pgTable("NewsletterRoute", {
+export const newsletterDefault = pgTable("NewsletterDefault", {
   newsletterId: uuid().primaryKey().references(() => newsletter.workspaceId, { onDelete: "cascade" }),
-  connectionId: uuid().notNull().references(() => sendingConnection.id, { onDelete: "restrict" }),
-  poolId: uuid().notNull().references(() => sendingPool.id, { onDelete: "restrict" }),
-  version: integer().default(1).notNull(),
+  selection: jsonb().$type<EspSelection | null>(),
   updatedAt: updatedAt(),
 });
 
@@ -134,12 +147,17 @@ export const publisherSuppression = pgTable("PublisherSuppression", {
 export const newsletterSend = pgTable("NewsletterSend", {
   id: uuid().primaryKey().defaultRandom(),
   publisherId: uuid().notNull().references(() => publisher.workspaceId, { onDelete: "cascade" }),
+  accountId: uuid().notNull().references(() => publisherSendgridAccount.id, { onDelete: "restrict" }),
+  accountRevision: integer().notNull(),
+  selection: jsonb().$type<EspSelection>().notNull(),
+  candidateIpIds: jsonb().$type<string[]>().notNull(),
+  actualIp: text(),
   workspaceId: uuid().notNull().references(() => newsletter.workspaceId, { onDelete: "cascade" }),
   connectionId: uuid().notNull().references(() => sendingConnection.id, { onDelete: "restrict" }),
   connectionRevision: integer().notNull(),
-  ipId: uuid().notNull().references(() => sendingIp.id, { onDelete: "restrict" }),
-  poolId: uuid().notNull().references(() => sendingPool.id, { onDelete: "restrict" }),
-  routeVersion: integer().notNull(),
+  ipId: uuid().references(() => sendingIp.id, { onDelete: "restrict" }),
+  poolId: uuid().references(() => sendingPool.id, { onDelete: "restrict" }),
+  routeVersion: integer(),
   logicalMessageId: text().notNull(),
   broadcastId: uuid().references(() => broadcast.id, { onDelete: "set null" }),
   journeyId: uuid().references(() => journey.id, { onDelete: "set null" }),

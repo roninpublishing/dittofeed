@@ -63,32 +63,31 @@ export const PublicationContactOperationRequest = Type.Object({
   operation: Type.Union([Type.Literal("subscribe"), Type.Literal("unsubscribe")]),
   consent: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
 }, { additionalProperties: false });
+// Runtime Value.Check and HTTP AJV must validate this nested send snapshot alike.
+const SelectionId = Type.String({ pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" });
+export const EspSelection = Type.Union([
+  // Declare every mode's keys so AJV's removeAdditional cannot delete valid IDs
+  // while considering another union branch; wrong-mode keys remain forbidden.
+  Type.Object({ accountId: SelectionId, mode: Type.Literal("automatic"), poolId: Type.Optional(Type.Never()), ipId: Type.Optional(Type.Never()) }, { additionalProperties: false }),
+  Type.Object({ accountId: SelectionId, mode: Type.Literal("pool"), poolId: SelectionId, ipId: Type.Optional(Type.Never()) }, { additionalProperties: false }),
+  Type.Object({ accountId: SelectionId, mode: Type.Literal("ip"), ipId: SelectionId, poolId: Type.Optional(Type.Never()) }, { additionalProperties: false }),
+]);
+export type EspSelection = Static<typeof EspSelection>;
 export const ConfigureSendgridAccountRequest = Type.Object({
-  workspaceId: Id,
+  workspaceId: Id, id: Type.Optional(Id), name: Type.String({ minLength: 1, maxLength: 256 }), provider: Type.Literal("SendGrid"),
   managementApiKey: Type.Optional(Type.String({ minLength: 1, maxLength: 512, writeOnly: true })),
+  apiKey: Type.Optional(Type.String({ minLength: 1, maxLength: 512, writeOnly: true })),
+  username: Type.Optional(Type.String({ maxLength: 64, pattern: "^[a-zA-Z0-9_-]*$" })),
   region: Type.Optional(Type.Union([Type.Literal("global"), Type.Literal("eu")])),
   callbackBaseUrl: Type.Optional(Type.String({ format: "uri", maxLength: 2048 })),
-  allowProviderWrites: Type.Optional(Type.Boolean()),
-  allowIpReassignment: Type.Optional(Type.Boolean()),
-  allowRealSends: Type.Optional(Type.Boolean()),
-  allTrafficControlled: Type.Optional(Type.Boolean()),
-}, { additionalProperties: false });
-export const SendingConnectionRequest = Type.Object({
-  workspaceId: Id,
-  newsletterId: Id,
-  apiKey: Type.Optional(Type.String({ minLength: 1, maxLength: 512, writeOnly: true })),
-  apiKeyId: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
   senderDomains: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 253 }), { maxItems: 100 })),
   senderEmails: Type.Optional(Type.Array(Mailbox, { maxItems: 100 })),
 }, { additionalProperties: false });
 export const ConnectionOperationRequest = Type.Object({ workspaceId: Id, connectionId: Id }, { additionalProperties: false });
-export const ProvisionConnectionRequest = Type.Object({
-  workspaceId: Id, connectionId: Id,
-  domain: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),
-  subdomain: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),
-  configureWebhook: Type.Optional(Type.Boolean()),
-}, { additionalProperties: false });
-export const InspectPublisherSendgridRequest = Type.Object({ workspaceId: Id, username: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })) }, { additionalProperties: false });
+export const InspectSendgridAccountRequest = Type.Object({ workspaceId: Id, accountId: Id }, { additionalProperties: false });
+export const NewsletterDefaultRequest = Type.Object({ workspaceId: Id, newsletterId: Id, selection: Type.Union([EspSelection, Type.Null()]) }, { additionalProperties: false });
+export const SendingOptionsQuery = PublisherQuery;
+export const DeliveryHealthQuery = Type.Object({ workspaceId: Id, accountId: Type.Optional(Id) }, { additionalProperties: false });
 export const SendgridDomainRequest = Type.Object({
   workspaceId: Id, connectionId: Id, domain: Type.String({ minLength: 1, maxLength: 253 }),
   subdomain: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })), validate: Type.Optional(Type.Boolean()),
@@ -101,15 +100,14 @@ export const SendgridSenderRequest = Type.Object({
   sendVerificationEmail: Type.Literal(true),
 }, { additionalProperties: false });
 export const SendingIpRequest = Type.Object({
-  workspaceId: Id, id: Type.Optional(Id), address: Type.String({ minLength: 3, maxLength: 45 }),
+  workspaceId: Id, id: Type.Optional(Id), accountId: Type.Optional(Id), address: Type.String({ minLength: 3, maxLength: 45 }),
   status: Type.Union([Type.Literal("active"), Type.Literal("paused")]),
   hourlyLimit: Type.Integer({ minimum: 1, maximum: 100000000 }), dailyLimit: Type.Integer({ minimum: 1, maximum: 1000000000 }),
-  warmupStartedAt: Type.Optional(Type.String({ format: "date-time" })),
+  warmupStartedAt: Type.Optional(Type.Union([Type.String({ format: "date-time" }), Type.Null()])),
   warmupSchedule: Type.Optional(Type.Array(Type.Object({ afterDays: Type.Integer({ minimum: 0 }), hourlyLimit: Type.Integer({ minimum: 1 }), dailyLimit: Type.Integer({ minimum: 1 }) }, { additionalProperties: false }), { maxItems: 366 })),
 }, { additionalProperties: false });
-export const SendingPoolRequest = Type.Object({ workspaceId: Id, id: Type.Optional(Id), name: Type.String({ minLength: 1, maxLength: 64 }), ipIds: Type.Array(Id, { minItems: 1, maxItems: 100, uniqueItems: true }) }, { additionalProperties: false });
+export const SendingPoolRequest = Type.Object({ workspaceId: Id, id: Type.Optional(Id), accountId: Type.Optional(Id), name: Type.String({ minLength: 1, maxLength: 64 }), providerPoolName: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })), ipIds: Type.Array(Id, { maxItems: 100, uniqueItems: true }) }, { additionalProperties: false });
 export const PoolBindingRequest = Type.Object({ workspaceId: Id, connectionId: Id, poolId: Id, providerPoolName: Type.String({ minLength: 1, maxLength: 64 }) }, { additionalProperties: false });
-export const NewsletterRouteRequest = Type.Object({ workspaceId: Id, newsletterId: Id, connectionId: Id, poolId: Id }, { additionalProperties: false });
 export const ReassignSendgridIpsRequest = Type.Object({ workspaceId: Id, connectionId: Id, ipIds: Type.Array(Id, { minItems: 1, maxItems: 100, uniqueItems: true }), confirm: Type.Literal(true) }, { additionalProperties: false });
 export const PublisherSuppressionRequest = Type.Object({
   workspaceId: Id, email: Mailbox,
@@ -122,7 +120,7 @@ export const PublicationAutomationRequest = Type.Object({
   sourceNewsletterId: Id, destinationNewsletterId: Id, enabled: Type.Boolean(), definition: PublicationAutomationDefinition,
 }, { additionalProperties: false });
 export const DeletePublicationAutomationRequest = Type.Object({ workspaceId: Id, id: Id }, { additionalProperties: false });
-export const PublicationHistoryQuery = Type.Object({ workspaceId: Id, newsletterId: Type.Optional(Id), ruleId: Type.Optional(Id), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 25 })), offset: Type.Optional(Type.Integer({ minimum: 0, maximum: 10000, default: 0 })) }, { additionalProperties: false });
+export const PublicationHistoryQuery = Type.Object({ workspaceId: Id, newsletterId: Type.Optional(Id), accountId: Type.Optional(Id), ruleId: Type.Optional(Id), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 25 })), offset: Type.Optional(Type.Integer({ minimum: 0, maximum: 10000, default: 0 })) }, { additionalProperties: false });
 
 export const NewsletterTrackingQuery = Type.Object({
   workspaceId: Id, newsletterId: Type.Optional(Id),

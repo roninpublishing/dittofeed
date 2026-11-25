@@ -2,12 +2,18 @@ import {
   WorkflowExecutionAlreadyStartedError,
   WorkflowNotFoundError,
 } from "@temporalio/common";
+import { and, eq } from "drizzle-orm";
+import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
+import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 
 import { markBroadcastStatus } from "../broadcasts";
 import config from "../config";
+import { db } from "../db";
+import { broadcast as dbBroadcast } from "../db/schema";
 import logger from "../logger";
+import { confirmEmailSelection } from "../messaging";
 import connectWorkflowClient from "../temporal/connectWorkflowClient";
-import { DBWorkspaceOccupantType } from "../types";
+import { BroadcastV2Config, ChannelType, DBWorkspaceOccupantType, EspSelection } from "../types";
 import {
   broadcastWorkflowV2,
   generateBroadcastWorkflowV2Id,
@@ -64,12 +70,45 @@ export async function startBroadcastWorkflow({
   broadcastId,
   workspaceOccupantId,
   workspaceOccupantType,
+  espSelection,
 }: {
   workspaceId: string;
   broadcastId: string;
   workspaceOccupantId?: string;
   workspaceOccupantType?: DBWorkspaceOccupantType;
+  espSelection?: EspSelection;
 }) {
+  const confirmedMessage = await db().transaction(async (tx) => {
+    const [broadcast] = await tx.select().from(dbBroadcast).where(and(
+      eq(dbBroadcast.id, broadcastId),
+      eq(dbBroadcast.workspaceId, workspaceId),
+    )).for("update");
+    if (!broadcast) throw new Error("Broadcast not found");
+    if (broadcast.statusV2 !== "Draft") return null;
+    const confirmedConfig = unwrap(schemaValidateWithErr(broadcast.config, BroadcastV2Config));
+    if (broadcast.triggeredAt) return confirmedConfig.message;
+    if (confirmedConfig.message.type === ChannelType.Email) {
+      confirmedConfig.message = {
+        ...confirmedConfig.message,
+        espSelection: await confirmEmailSelection({
+          workspaceId,
+          providerOverride: confirmedConfig.message.providerOverride,
+          espSelection: espSelection ?? confirmedConfig.message.espSelection,
+        }),
+      };
+    } else if (espSelection) {
+      throw new Error("ESP selection requires an email broadcast");
+    }
+    await tx.update(dbBroadcast).set({
+      config: confirmedConfig,
+      triggeredAt: new Date(),
+    }).where(and(
+      eq(dbBroadcast.id, broadcastId),
+      eq(dbBroadcast.workspaceId, workspaceId),
+    ));
+    return confirmedConfig.message;
+  });
+  if (!confirmedMessage) return;
   const client = await connectWorkflowClient();
   try {
     logger().info(
@@ -92,6 +131,7 @@ export async function startBroadcastWorkflow({
           broadcastId,
           workspaceOccupantId,
           workspaceOccupantType,
+          confirmedMessage,
         },
       ],
       taskQueue: config().computedPropertiesTaskQueue,

@@ -28,12 +28,14 @@ import {
   BroadcastStepKeys,
   BroadcastV2Config,
   ChannelType,
+  CompletionStatus,
   EmailProviderType,
   EmailProviderTypeSchema,
 } from "isomorphic-lib/src/types";
 import { useCallback, useMemo, useState } from "react";
 
 // Internal application imports
+import { useAppStorePick } from "../../lib/appStore";
 import { isChannelVisible } from "../../lib/channelVisibility";
 import { useBroadcastMutation } from "../../lib/useBroadcastMutation";
 import { useBroadcastQuery } from "../../lib/useBroadcastQuery";
@@ -45,6 +47,7 @@ import { GreyButton, greyButtonStyle } from "../greyButtonStyle";
 import InfoTooltip from "../infoTooltip";
 import { TimeField } from "../timeField";
 import { TimezoneAutocomplete } from "../timezoneAutocomplete";
+import { NativeSendSelection } from "../workspace/sendSelection";
 import {
   BroadcastState,
   BroadcastStateUpdater,
@@ -107,6 +110,10 @@ export default function Configuration({
   state: BroadcastState;
   updateState: BroadcastStateUpdater;
 }) {
+  const { workspace } = useAppStorePick(["workspace"]);
+  const isNewsletter =
+    workspace.type === CompletionStatus.Successful &&
+    Boolean(workspace.value.parentWorkspaceId);
   const { data: broadcast } = useBroadcastQuery(state.id);
   const [isGmailAuthorized, setIsGmailAuthorized] = useState(false);
   const { mutate: startBroadcast, isPending } = useStartBroadcastMutation();
@@ -441,7 +448,28 @@ export default function Configuration({
         </Stack>
       )}
 
-      {!state.configuration?.hideOverrideSelect && (
+      {channel === ChannelType.Email &&
+        broadcast.config.message.type === ChannelType.Email &&
+        isNewsletter && (
+          <NativeSendSelection
+            selection={broadcast.config.message.espSelection}
+            disabled={disabled}
+            onChange={(selection) => {
+              if (broadcast.config.message.type !== ChannelType.Email) return;
+              updateBroadcast({
+                config: {
+                  ...broadcast.config,
+                  message: {
+                    ...broadcast.config.message,
+                    espSelection: selection,
+                    providerOverride: undefined,
+                  },
+                },
+              });
+            }}
+          />
+        )}
+      {!isNewsletter && !state.configuration?.hideOverrideSelect && (
         <Autocomplete
           options={availableProviderOverrides}
           disabled={disabled}

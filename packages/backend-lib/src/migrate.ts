@@ -1,11 +1,13 @@
-import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { readMigrationFiles } from "drizzle-orm/migrator";
+import { PgDialect } from "drizzle-orm/pg-core";
+import { NodePgSession } from "drizzle-orm/node-postgres";
 import fs from "fs/promises";
 import path from "path";
 import { Client } from "pg";
 import { PostgresError } from "pg-error-enum";
 
 import config, { databaseUrlWithoutName } from "./config";
-import { db } from "./db";
+import { pool } from "./db";
 import logger from "./logger";
 
 async function checkDirectory(p: string) {
@@ -67,9 +69,21 @@ export async function publicDrizzleMigrate() {
   const migrationsFolder = await findDrizzleFolder(__dirname);
 
   logger().info({ migrationsFolder }, "Running migrations");
-  await migrate(db(), {
-    migrationsFolder,
-  });
+  const migrations = readMigrationFiles({ migrationsFolder });
+  for (const migration of migrations) {
+    const first = migration.sql[0];
+    const lastIndex = migration.sql.length - 1;
+    const last = migration.sql[lastIndex];
+    // Historical 0002 owns BEGIN/COMMIT. Preserve its recorded hash while keeping
+    // execution inside Drizzle's transaction, including later registry migrations.
+    if (first && last && /^\s*BEGIN;/.test(first) && /COMMIT;\s*$/.test(last)) {
+      migration.sql[0] = first.replace(/^\s*BEGIN;\s*/, "");
+      migration.sql[lastIndex] = migration.sql[lastIndex]!.replace(/\s*COMMIT;\s*$/, "");
+    }
+  }
+  const dialect = new PgDialect();
+  const session = new NodePgSession<Record<string, never>, Record<string, never>>(pool(), dialect, undefined);
+  await dialect.migrate(migrations, session, { migrationsFolder });
 }
 
 export async function drizzleMigrate() {

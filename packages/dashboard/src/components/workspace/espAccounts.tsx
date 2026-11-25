@@ -6,6 +6,7 @@ import {
   Stack,
   Tab,
   Tabs,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
@@ -24,7 +25,6 @@ import type { AccountOperation } from "./accountOperations";
 import {
   DataTable,
   date,
-  DnsRecords,
   InfrastructureProps,
   Readiness,
   strings,
@@ -37,13 +37,7 @@ const AccountEditor = dynamic(() => import("./accountEditor"));
 const AccountOperations = dynamic(() => import("./accountOperations"));
 const AccountActivity = dynamic(() => import("./accountActivity"));
 
-type Section =
-  | "overview"
-  | "configuration"
-  | "domains"
-  | "ips"
-  | "pools"
-  | "activity";
+type Section = "overview" | "configuration" | "ips" | "pools" | "activity";
 
 function AccountDetails({
   account,
@@ -54,8 +48,7 @@ function AccountDetails({
   const [section, setSection] = useState<Section>("overview");
   const [editing, setEditing] = useState(false);
   const [operation, setOperation] = useState<{
-    kind: AccountOperation;
-    domain?: RecordValue;
+    kind: Exclude<AccountOperation, "domain">;
   } | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +57,6 @@ function AccountDetails({
     report: RecordValue;
   } | null>(null);
   const [invalidated, setInvalidated] = useState(false);
-  const [domainResults, setDomainResults] = useState<RecordValue[]>([]);
   const provisioning = record(account.provisioning);
   const report =
     checked && checked.revision === account.updatedAt
@@ -78,19 +70,6 @@ function AccountDetails({
   const hasPools =
     capabilities.pool === true ||
     (capabilities.pool === undefined && supported);
-  const domains = invalidated ? [] : [...rows(report.domains)];
-  domainResults.forEach((domain) => {
-    const index = domains.findIndex(
-      (item) =>
-        item.domain === domain.domain && item.subdomain === domain.subdomain,
-    );
-    if (index >= 0) domains[index] = domain;
-    else domains.push(domain);
-  });
-  strings(account.senderDomains).forEach((domain) => {
-    if (!domains.some((item) => item.domain === domain))
-      domains.push({ domain });
-  });
   const findings = invalidated
     ? ["Connection check required"]
     : strings(report.findings ?? provisioning.findings);
@@ -101,14 +80,12 @@ function AccountDetails({
   const tabs: { id: Section; label: string }[] = [
     { id: "overview", label: "Overview" },
     { id: "configuration", label: "Configuration" },
-    ...(supported ? [{ id: "domains" as const, label: "Domains" }] : []),
     ...(hasIps ? [{ id: "ips" as const, label: "Dedicated IPs" }] : []),
     ...(hasPools ? [{ id: "pools" as const, label: "Shared IPs" }] : []),
     { id: "activity", label: "Activity" },
   ];
   const invalidate = () => {
     setChecked(null);
-    setDomainResults([]);
     setInvalidated(true);
   };
   const inspect = async () => {
@@ -122,7 +99,6 @@ function AccountDetails({
       const result = record(record(response.data).data);
       setChecked({ revision: account.updatedAt, report: result });
       setInvalidated(false);
-      setDomainResults([]);
       await onComplete();
     } catch (failure) {
       setError(errorText(failure));
@@ -280,6 +256,18 @@ function AccountDetails({
                   render: (item) => value(item.delivered),
                 },
                 {
+                  label: "Deliverability (30d)",
+                  render: (item) => (
+                    <Tooltip title="Delivered ÷ resolved delivery outcomes over 30 days.">
+                      <span>
+                        {typeof item.deliverabilityRate === "number"
+                          ? `${item.deliverabilityRate.toFixed(1)}%`
+                          : "—"}
+                      </span>
+                    </Tooltip>
+                  ),
+                },
+                {
                   label: "Bounced (30d)",
                   render: (item) => value(item.bounced),
                 },
@@ -385,37 +373,6 @@ function AccountDetails({
             )}
           </Stack>
         )}
-        {section === "domains" && (
-          <Stack spacing={2}>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <Typography variant="h6">Sender domains</Typography>
-              <Button
-                disabled={!providerAllowed}
-                onClick={() => setOperation({ kind: "domain" })}
-              >
-                Authenticate domain…
-              </Button>
-            </Stack>
-            <DnsRecords domains={domains} />
-            {domains.length > 0 && (
-              <Stack direction="row" useFlexGap flexWrap="wrap" spacing={1}>
-                {domains.map((domain) => (
-                  <Button
-                    key={`${text(domain.domain)}-${text(domain.subdomain)}`}
-                    disabled={!providerAllowed}
-                    onClick={() => setOperation({ kind: "domain", domain })}
-                  >
-                    Verify {text(domain.domain)}…
-                  </Button>
-                ))}
-              </Stack>
-            )}
-          </Stack>
-        )}
         {section === "ips" && (
           <IpResources {...props} accountId={text(account.id)} kind="ips" />
         )}
@@ -448,22 +405,10 @@ function AccountDetails({
           apiBase={apiBase}
           account={account}
           operation={operation.kind}
-          domain={operation.domain}
           onClose={() => setOperation(null)}
-          onDomain={(domain) =>
-            setDomainResults((current) => [
-              ...current.filter(
-                (item) =>
-                  item.domain !== domain.domain ||
-                  item.subdomain !== domain.subdomain,
-              ),
-              domain,
-            ])
-          }
           onComplete={async () => {
             setChecked(null);
             setInvalidated(true);
-            if (operation.kind !== "domain") setDomainResults([]);
             await onComplete();
           }}
         />
@@ -557,6 +502,19 @@ function EspAccountsContent(props: InfrastructureProps) {
             label: "Delivered (30d)",
             render: (account) =>
               value(summaries.get(text(account.id))?.delivered),
+          },
+          {
+            label: "Deliverability (30d)",
+            render: (account) => {
+              const rate = summaries.get(text(account.id))?.deliverabilityRate;
+              return (
+                <Tooltip title="Delivered ÷ resolved delivery outcomes over 30 days.">
+                  <span>
+                    {typeof rate === "number" ? `${rate.toFixed(1)}%` : "—"}
+                  </span>
+                </Tooltip>
+              );
+            },
           },
           {
             label: "Bounced (30d)",

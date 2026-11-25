@@ -20,6 +20,7 @@ import {
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 
+import { WorkspaceDomain } from "../../lib/workspaceDomains";
 import {
   WorkspaceObject,
   workspaceTopology,
@@ -42,6 +43,7 @@ const kindLabels = {
   ip: "Dedicated IP",
   pool: "Shared IPs",
   group: "Section",
+  domain: "Domain",
 };
 
 export default function Overview({
@@ -49,11 +51,13 @@ export default function Overview({
   workspaceName,
   infrastructure,
   newsletters,
+  domains,
 }: {
   workspaceId: string;
   workspaceName: string;
   infrastructure: RecordValue;
   newsletters: unknown;
+  domains?: WorkspaceDomain[];
 }) {
   const [view, setView] = useState<"map" | "list">("map");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -64,8 +68,9 @@ export default function Overview({
         workspaceName,
         infrastructure,
         newsletters,
+        domains,
       ),
-    [infrastructure, newsletters, workspaceId, workspaceName],
+    [domains, infrastructure, newsletters, workspaceId, workspaceName],
   );
   const selected = topology.objects.find((object) => object.id === selectedId);
   const select = (object: WorkspaceObject) => setSelectedId(object.id);
@@ -79,7 +84,7 @@ export default function Overview({
           display: "grid",
           gridTemplateColumns: {
             xs: "repeat(2,minmax(0,1fr))",
-            md: "repeat(4,minmax(0,1fr))",
+            md: "repeat(5,minmax(0,1fr))",
           },
           gap: 1.5,
         }}
@@ -102,6 +107,7 @@ export default function Overview({
               rows(infrastructure.pools).length,
               "/workspace/ip-pools",
             ],
+            ["Domains", domains?.length ?? 0, "/workspace/domains"],
           ] as const
         ).map(([label, value, href]) => (
           <Paper
@@ -166,7 +172,7 @@ export default function Overview({
                     <TableRow>
                       <TableCell>Name</TableCell>
                       <TableCell>Type</TableCell>
-                      <TableCell>ESP account</TableCell>
+                      <TableCell>Owner</TableCell>
                       <TableCell>Status</TableCell>
                       <TableCell />
                     </TableRow>

@@ -3,9 +3,9 @@ import {
   Autocomplete,
   Avatar,
   Box,
-  Button,
   ButtonBase,
   CardContent,
+  CircularProgress,
   ClickAwayListener,
   Grid,
   Paper,
@@ -16,14 +16,13 @@ import {
 } from "@mui/material";
 // material-ui
 import { useTheme } from "@mui/material/styles";
-import axios from "axios";
 import { CompletionStatus } from "isomorphic-lib/src/types";
 import { useRouter } from "next/router";
-import { enqueueSnackbar } from "notistack";
 import React, { useEffect, useId, useRef, useState } from "react";
 
 import { useAppStorePick } from "../../../../lib/appStore";
 import isNode from "../../../../lib/isNode";
+import useWorkspaceSwitch from "../../../../lib/useWorkspaceSwitch";
 import { workspaceSelection } from "../../../../lib/workspaceSelection";
 // project import
 import MainCard from "../../../mainCard";
@@ -44,7 +43,7 @@ function Profile() {
     path.events.on("routeChangeStart", closeOnNavigation);
     return () => path.events.off("routeChangeStart", closeOnNavigation);
   }, [path.events]);
-  const [switchingWorkspace, setSwitchingWorkspace] = useState(false);
+  const { switchWorkspace, switchingWorkspace } = useWorkspaceSwitch();
   const handleToggle = () => {
     setOpen((prevOpen) => !prevOpen);
   };
@@ -58,18 +57,11 @@ function Profile() {
 
   const iconBackColorOpen = "grey.300";
   const {
-    apiBase,
     authMode,
     member,
     memberRoles,
     workspace: workspaceResult,
-  } = useAppStorePick([
-    "apiBase",
-    "authMode",
-    "member",
-    "memberRoles",
-    "workspace",
-  ]);
+  } = useAppStorePick(["authMode", "member", "memberRoles", "workspace"]);
   const workspace =
     workspaceResult.type === CompletionStatus.Successful
       ? workspaceResult.value
@@ -83,30 +75,8 @@ function Profile() {
     () => workspaceSelection(memberRoles, workspace),
     [memberRoles, workspace],
   );
-  const changeWorkspace = async (
-    workspaceId: string,
-    destination = "/home",
-  ) => {
-    if (switchingWorkspace) return;
-    setSwitchingWorkspace(true);
-    try {
-      if (authMode === "google") {
-        await axios.post(`${apiBase}/api/account/workspace`, { workspaceId });
-        window.location.assign(`${path.basePath}${destination}`);
-      } else if (authMode === "single-tenant" || authMode === "anonymous") {
-        await axios.post(`${apiBase}/api/public/single-tenant/workspace`, {
-          workspaceId,
-        });
-        window.location.assign(`${path.basePath}${destination}`);
-      } else {
-        await path.push(`/select-workspace?workspaceId=${workspaceId}`);
-      }
-      setOpen(false);
-    } catch {
-      enqueueSnackbar("Unable to switch workspace.", { variant: "error" });
-    } finally {
-      setSwitchingWorkspace(false);
-    }
+  const changeWorkspace = async (workspaceId: string, destination: string) => {
+    if (await switchWorkspace(workspaceId, destination)) setOpen(false);
   };
 
   return (
@@ -264,47 +234,35 @@ function Profile() {
                             left.id === right.id
                           }
                           disabled={switchingWorkspace}
+                          loading={switchingWorkspace}
                           size="small"
                           onChange={(_event, value) => {
-                            if (value) void changeWorkspace(value.id);
+                            if (value && value.id !== workspace?.id)
+                              void changeWorkspace(value.id, "/workspace");
                           }}
                           renderInput={(params) => (
-                            <TextField {...params} label="Workspace" />
+                            <TextField
+                              {...params}
+                              label="Workspace"
+                              InputProps={{
+                                ...params.InputProps,
+                                endAdornment: (
+                                  <>
+                                    {switchingWorkspace && (
+                                      <CircularProgress size={16} />
+                                    )}
+                                    {params.InputProps.endAdornment}
+                                  </>
+                                ),
+                              }}
+                            />
                           )}
                         />
                       )}
-                      {workspace?.parentWorkspaceId &&
-                        selection.currentWorkspace && (
-                          <Stack spacing={0.5} sx={{ mt: 1.5, px: 1 }}>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              Newsletter
-                            </Typography>
-                            <Typography variant="body2">
-                              {workspace.name}
-                            </Typography>
-                            <Button
-                              size="small"
-                              disabled={switchingWorkspace}
-                              onClick={() => {
-                                if (selection.currentWorkspace)
-                                  void changeWorkspace(
-                                    selection.currentWorkspace.id,
-                                    "/workspace/newsletters",
-                                  );
-                              }}
-                              sx={{ alignSelf: "flex-start" }}
-                            >
-                              All newsletters
-                            </Button>
-                          </Stack>
-                        )}
-                      {selection.otherNewsletters.length > 0 && (
+                      {selection.newsletters.length > 0 && (
                         <Autocomplete
                           value={selection.currentNewsletter ?? null}
-                          options={selection.otherNewsletters}
+                          options={selection.newsletters}
                           disableClearable={Boolean(
                             selection.currentNewsletter,
                           )}
@@ -312,19 +270,28 @@ function Profile() {
                             left.id === right.id
                           }
                           disabled={switchingWorkspace}
+                          loading={switchingWorkspace}
                           size="small"
                           sx={{ mt: selection.workspaces.length ? 1.5 : 0 }}
                           onChange={(_event, value) => {
-                            if (value) void changeWorkspace(value.id);
+                            if (value && value.id !== workspace?.id)
+                              void changeWorkspace(value.id, "/home");
                           }}
                           renderInput={(params) => (
                             <TextField
                               {...params}
-                              label={
-                                selection.currentWorkspace
-                                  ? "Other newsletters"
-                                  : "Newsletter"
-                              }
+                              label="Newsletter"
+                              InputProps={{
+                                ...params.InputProps,
+                                endAdornment: (
+                                  <>
+                                    {switchingWorkspace && (
+                                      <CircularProgress size={16} />
+                                    )}
+                                    {params.InputProps.endAdornment}
+                                  </>
+                                ),
+                              }}
                             />
                           )}
                         />

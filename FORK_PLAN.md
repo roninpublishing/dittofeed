@@ -807,9 +807,12 @@ SendGrid is the first managed-account adapter; native non-newsletter providers r
 | Overview | `/dashboard/workspace` | Organizational map with Map/List toggle and selected-object panel |
 | Newsletters | `/dashboard/workspace/newsletters` | Independent newsletter list, creation and Open |
 | ESP accounts | `/dashboard/workspace/esp-accounts` | All account instances, provider/status, connected date, volume and observed health |
-| Dedicated IPs | `/dashboard/workspace/ips` | Workspace-wide inventory across accounts, with owning account, status, limits, warm-up and usage |
+| Domains | `/dashboard/workspace/domains` | Sending and newsletter-owned tracking hosts, DNS and explicit configuration |
+| Dedicated IPs | `/dashboard/workspace/ips` | Readable address/account/status inventory; operational policies stay behind the scenes |
 | Shared IPs | `/dashboard/workspace/ip-pools` | Account-owned pools and their dedicated-IP members; not a provider-shared IP service |
 | Subscribers | `/dashboard/workspace/subscribers` | Existing scoped cross-newsletter search |
+| Automations | `/dashboard/workspace/automations` | Independent workspace trigger/condition/action builder and execution history |
+| Tracking | `/dashboard/workspace/tracking` | Intentionally blank at Carson's request |
 | Reports | `/dashboard/workspace/reports` | Existing workspace reporting plus account/IP filters where data exists |
 | Settings | `/dashboard/workspace/settings` | Workspace configuration, access and existing administration |
 
@@ -817,18 +820,18 @@ SendGrid is the first managed-account adapter; native non-newsletter providers r
   ownership rules: IPs/pools still belong to their verified ESP account. The
   workspace inventory and account detail use the same records and edit flows.
 - Account detail uses `/dashboard/workspace/esp-accounts/:accountId` with focused
-  Overview, Configuration, Domains, Dedicated IPs, Shared IPs and Activity sections. Provider-
+  Overview, Configuration, Dedicated IPs, Shared IPs and Activity sections. Provider-
   unsupported sections are omitted. Configuration holds credentials and signed
   webhook setup; account activity shows observed sends and delivery outcomes.
 - IP and pool details support direct links under their workspace sections, account
   breadcrumbs and the same configuration panel opened from the map. Do not require
   going through newsletter settings to find or edit infrastructure.
-- Existing tracking, automations, suppressions, activity and advanced repair tools
-  remain reachable during the navigation migration; this does not silently remove
-  existing features or change newsletter tracking-domain ownership.
-- Top-right workspace selection scopes every page, graph, query and mutation.
-  Opening a newsletter enters its existing native environment; returning restores
-  the workspace dashboard. Preserve newsletter-only membership restrictions.
+- Domains owns sending-domain and newsletter tracking-host management. Automations
+  has its own section, separate from native user journeys. Settings retains access,
+  suppression, activity and advanced repair tools.
+- The top-left brand returns to the authorized workspace dashboard. Matching
+  searchable Workspace and Newsletter selectors switch the real server context;
+  newsletter-only memberships never gain parent/sibling access.
 - Workspace views use nested routes under `/dashboard/workspace`; the former
   `?view=` navigation and obsolete combined sending/IP editors are removed.
 - Overview provides a lazy-loaded, top-down organizational map and a List
@@ -905,7 +908,7 @@ Local implementation verification:
   layouts were checked. Temporary development accounts/IPs/pools/defaults were removed;
   newsletter/contact records were untouched and no send records were created.
 - Current combined local preview: `http://localhost:3000/dashboard/workspace`,
-  dashboard build `dist/workspace-refined-final-preview`. Neon, ClickHouse and Temporal
+  dashboard build `dist/workspace-expanded-final-preview`. Neon, ClickHouse and Temporal
   target development; workers, bootstrap, capture and provisioning remain off.
   No production deployment, provider mutations or real email sends were performed.
 - Workspace UI refinements: compact top-down columns keep every newsletter, ESP
@@ -915,13 +918,39 @@ Local implementation verification:
 - Intentionally retained local demo records: `Demo · Morning Brief`, `Demo · Weekly
   Digest`, `Demo · SendGrid Primary` and `Demo · SendGrid Secondary`; six paused
   documentation-range IPs (`192.0.2.10–12`, `198.51.100.10–12`) and four shared-IP
-  pools. No provider credentials, provider verification or send history was faked;
-  provider-write/reassignment/send gates remain closed.
+  pools. Provider credentials and verification remain absent; operational gates stay
+  closed. Additional explicitly requested synthetic subscriber/delivery data is
+  documented below; none represents an actual provider transmission.
 - Real headed-browser navigation measured 1,024–1,622ms before and 30–128ms after
   across five workspace sections. Each former transition fetched Next server-page
   data; the new transitions fetched none. Guarded same-workspace links avoid Pages
   Router hover prefetch; query keys share infrastructure/newsletter/health results.
   Server authentication and real workspace/newsletter changes are not cached.
+- Workspace expansion: deliverability appears immediately after Delivered (30d)
+  and uses the latest resolved delivered/bounced/dropped outcome per send, not
+  acceptance attempts or inbox-placement claims. Domains owns sending-domain and
+  tracking-host configuration and appears in the ownership graph. Dedicated/shared
+  IP screens are simple inventories; metadata-only edits preserve admission policies.
+- Separate workspace Automations provides native-event triggers, typed conditions,
+  field mappings, subscription actions, optional existing welcome journeys and
+  execution history. Rules start paused. Scheduled resource, warm-up and cap actions
+  remain planned adapters, not selectable no-ops. Tracking is intentionally blank.
+- The entire brand opens the containing workspace; matching searchable Workspace
+  and Newsletter controls replace the redundant All newsletters shortcut. Real
+  Google-session browser checks switched between both demo newsletters and returned
+  to the parent workspace through the brand.
+- The guarded development seeder retains 120 synthetic subscriber records across
+  three newsletters, 80 synthetic historical attempts, two paused automations and
+  labeled synthetic execution examples. Two sending domains remain not checked;
+  three tracking hosts remain pending. Example-domain evidence is not verification.
+  No credentials, provider calls or real transmissions are created by the seeder.
+- Verification: 106 focused isolated tests passed, including real ClickHouse
+  outcome aggregation and API authorization. Lite and optimized dashboard builds
+  passed. Real local browser controls verified creation/retirement of a paused
+  automation, labeled execution history, domain details, neutral row links and
+  blank Tracking. Six workspace transitions made zero Next server-page requests.
+  Dashboard feature-file scoped lint passed; broader backend/API lint still reports
+  findings. Production and worker enablement are unchanged.
 - Thirty-six focused navigation/topology tests passed; the final compact-layout
   regression rerun passed all five topology cases. Optimized dashboard build and
   scoped lint passed (warnings only). Browser proof covered all 18 graph nodes

@@ -100,8 +100,8 @@ the corresponding tooling actually changes.
   permanent newsletter lock. The overview graph must not invent binding edges.
   SendGrid is the first managed-account adapter. See `FORK_PLAN.md` for acceptance.
 - The organization-wide UI belongs at `/dashboard/workspace`, with left-sidebar
-  sections for Overview, Newsletters, ESP accounts, Dedicated IPs, Shared IPs,
-  Subscribers, Reports and Settings. Infrastructure inventories span the workspace
+  sections for Overview, Newsletters, ESP accounts, Domains, Dedicated IPs, Shared
+  IPs, Subscribers, Automations, Tracking, Reports and Settings. Inventories span the workspace
   while preserving ESP-account ownership. Do not put this system inside newsletter
   settings or rename backend `/api/publications` contracts as part of the UI move.
   The overview is top-down and fits all assets. "Shared IPs" labels account-owned
@@ -109,6 +109,22 @@ the corresponding tooling actually changes.
   Use the guarded workspace navigation helper for internal workspace links.
   Real workspace/newsletter changes still require server-authorized navigation;
   never cache identity or membership checks to speed up page switching.
+- Treat query cost and interaction latency as product requirements. Share scoped
+  query keys, aggregate reporting in the database, avoid per-row requests and eager
+  detail/history fetches, and preserve fast in-workspace navigation. Never trade
+  authorization freshness or tenant isolation for caching.
+- Dedicated/shared IP screens are inventory-first. Do not expose admission budgets,
+  warm-up schedules, reassignment or repair controls as everyday configuration.
+  Preserve existing policies on edits; unconfigured IPs are paused, not unlimited.
+  Operational automation/warm-up actions require a separate approved design.
+- Domains are managed at workspace level while preserving ESP/newsletter ownership.
+  Workspace Automations are separate from user journeys; their current action
+  adapter coordinates newsletter contacts. Tracking is intentionally blank until
+  Carson specifies its features; domain management is not hidden there.
+- The top-left brand returns to the authorized workspace dashboard. Workspace and
+  newsletter selectors use the same searchable interaction; actual tenant changes
+  use server-authorized switching and a full context load, never shallow routing.
+  Do not duplicate the home link in the account menu.
 
 - Default to no explanatory copy. Each section/area may have at most one
   extremely concise sentence, only when it adds necessary information.

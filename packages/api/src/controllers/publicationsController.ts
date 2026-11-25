@@ -45,6 +45,7 @@ import {
 import {
   deletePublicationAutomation,
   listPublicationAutomationActions,
+  listPublicationAutomationOptions,
   listPublicationAutomations,
   upsertPublicationAutomation,
 } from "backend-lib/src/publicationAutomations";
@@ -108,12 +109,12 @@ async function trackingPublisher(
 ) {
   const { requestContext }: Partial<Pick<FastifyRequest, "requestContext">> =
     request;
-  const context = requestContext?.get("workspace");
+  const context = requestContext.get("workspace");
   if (context && context.id !== workspaceId)
     throw new NewsletterTrackingError(403, "publisher_access_required");
   // Bearer callers pass the shared workspace/scopes preHandler; browser sessions
   // additionally carry member roles from the authenticated request context.
-  if (mutation && requestContext?.get("member")) {
+  if (mutation && requestContext.get("member")) {
     const roles = requestContext.get("memberRoles") ?? [];
     if (
       !roles.some(
@@ -731,6 +732,23 @@ export default async function publicationsController(fastify: FastifyInstance) {
     async (request, reply) =>
       respond(reply, async () =>
         listPublicationAutomations(await publisher(request.query.workspaceId)),
+      ),
+  );
+  f.get(
+    "/automations/options",
+    {
+      schema: {
+        ...base,
+        description:
+          "Read eligible native welcome journeys for owned newsletter automation actions.",
+        querystring: contracts.PublisherQuery,
+      },
+    },
+    async (request, reply) =>
+      respond(reply, async () =>
+        listPublicationAutomationOptions(
+          await publisher(request.query.workspaceId),
+        ),
       ),
   );
   f.put(

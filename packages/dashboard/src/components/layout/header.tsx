@@ -1,15 +1,28 @@
 // material-ui
 // assets
 import { MenuOpenOutlined, MenuOutlined } from "@mui/icons-material";
-import { AppBar, Box, IconButton, Toolbar, Typography } from "@mui/material";
+import {
+  AppBar,
+  Box,
+  ButtonBase,
+  IconButton,
+  Toolbar,
+  Typography,
+} from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
-import { WhiteLabelFeatureConfig } from "isomorphic-lib/src/types";
+import {
+  CompletionStatus,
+  WhiteLabelFeatureConfig,
+} from "isomorphic-lib/src/types";
 import { useMemo } from "react";
 
 // project import
 import { useAppStorePick } from "../../lib/appStore";
+import useWorkspaceSwitch from "../../lib/useWorkspaceSwitch";
+import { workspaceSelection } from "../../lib/workspaceSelection";
 import { drawerWidth } from "../config";
+import WorkspaceLink from "../workspace/navigation";
 import HeaderContent from "./header/headerContent";
 
 // ==============================|| MAIN LAYOUT - HEADER ||============================== //
@@ -22,7 +35,25 @@ function Header({
   handleDrawerToggle: () => void;
 }) {
   const theme = useTheme();
-  const { features } = useAppStorePick(["features"]);
+  const {
+    features,
+    workspace: workspaceResult,
+    memberRoles,
+  } = useAppStorePick(["features", "workspace", "memberRoles"]);
+  const workspace =
+    workspaceResult.type === CompletionStatus.Successful
+      ? workspaceResult.value
+      : null;
+  const selection = useMemo(
+    () => workspaceSelection(memberRoles, workspace),
+    [memberRoles, workspace],
+  );
+  const { switchWorkspace, switchingWorkspace } = useWorkspaceSwitch();
+  const parentWorkspaceId = workspace?.parentWorkspaceId
+    ? selection.currentWorkspace?.id
+    : undefined;
+  const brandDestination =
+    !workspace?.parentWorkspaceId || parentWorkspaceId ? "/workspace" : "/home";
   const whiteLabelConfig = useMemo(() => {
     if (!features.WhiteLabel) {
       return null;
@@ -59,12 +90,37 @@ function Header({
           }}
         >
           {!whiteLabelConfig ? (
-            <Box
+            <ButtonBase
+              {...(parentWorkspaceId
+                ? {
+                    onClick: () => {
+                      void switchWorkspace(parentWorkspaceId, "/workspace");
+                    },
+                    disabled: switchingWorkspace,
+                  }
+                : {
+                    component: WorkspaceLink,
+                    href: brandDestination,
+                    prefetch: false,
+                  })}
+              aria-label={
+                parentWorkspaceId
+                  ? "Open workspace dashboard"
+                  : "Open dashboard"
+              }
+              aria-busy={switchingWorkspace}
               sx={{
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
                 minWidth: 0,
+                textAlign: "left",
+                borderRadius: 1,
+                color: "text.primary",
+                "&.Mui-focusVisible": {
+                  outline: "2px solid",
+                  outlineColor: "primary.main",
+                },
               }}
             >
               <Box
@@ -88,7 +144,7 @@ function Header({
               >
                 DITTO Email Client
               </Typography>
-            </Box>
+            </ButtonBase>
           ) : null}
           <IconButton
             aria-label={open ? "Close navigation" : "Open navigation"}

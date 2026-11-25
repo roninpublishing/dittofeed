@@ -17,6 +17,18 @@ and Settings. Shared IPs are account-owned pools of dedicated IPs, not a provide
 shared service. The top-down map fits all assets; dragging changes layout only,
 never newsletter ownership or sending choices.
 
+**Domains** centralizes account sending domains and newsletter-owned tracking
+hosts. **Automations** provides workspace rules and history independently of user
+journeys; the first action adapter coordinates newsletter contacts. Infrastructure
+actions such as warm-up/cap adjustment remain separately planned. **Tracking** is
+intentionally blank. The brand returns to the workspace dashboard; matching
+workspace/newsletter selectors perform authorized context switches.
+
+Dedicated/shared IP pages are inventories, not operational control panels.
+Registration does not require a capacity policy; unconfigured IPs remain paused
+with zero admission. Edits preserve existing policies. Warm-up, reassignment and
+provider reconciliation remain backend-controlled rather than everyday UI fields.
+
 ```mermaid
 flowchart TD
   W[Workspace] --> A[Newsletter A]
@@ -153,7 +165,15 @@ Signed callbacks use `/api/public/webhooks/sendgrid/connections/{connectionId}`.
 
 Native per-send/contact observed opens/clicks, signed subscription links, current explicit RoninConv-compatible Liquid URL tokens/field/hash rendering, and owned open evidence remain intact. Literal URLs are not automatically rewritten. Opens/scanner clicks remain unqualified observations. Contact erasure removes encrypted send/source evidence and retains hash-only/opaque retry barriers; do not silently resurrect erased subscribers through late callbacks or automation replay.
 
-Delivery health distinguishes acceptance, delivery, bounce, complaint and observed engagement. Account **Attempts (30d)** counts durable sends created in the window; delivery/bounce/complaint counts deduplicate correlated sends with observations occurring in that window, not cohort rates. Unavailable analytics stays unknown, not zero. Missing historical account/IP attribution is never inferred from today's default or ownership. Provider-wide history and provider account age are not fabricated.
+Delivery health distinguishes acceptance, delivery, bounce, complaint and observed
+engagement. **Attempts (30d)** counts durable records created in the window.
+**Delivered/Bounced/Dropped (30d)** resolve each native send to its latest terminal
+outcome observed in that window; timestamp ties prefer dropped, then bounced, then
+delivered. **Deliverability (30d)** is delivered divided by those resolved outcomes,
+not attempts, acceptance or inbox placement. Empty cohorts/unavailable analytics
+show no percentage. Native send identity is required; missing historical ownership
+is never inferred from today's configuration. Complaints remain independently
+deduplicated observations.
 
 ## AI Stock News release preflight
 

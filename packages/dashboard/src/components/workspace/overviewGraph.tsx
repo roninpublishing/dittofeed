@@ -35,6 +35,7 @@ const objectIcons = {
   account: HubOutlined,
   ip: SettingsEthernetOutlined,
   pool: DnsOutlined,
+  domain: DnsOutlined,
 };
 const kindLabels = {
   workspace: "Workspace",
@@ -43,6 +44,7 @@ const kindLabels = {
   account: "ESP account",
   ip: "Dedicated IP",
   pool: "Shared IPs",
+  domain: "Domain",
 };
 const fitViewOptions = { padding: 0.12, minZoom: 0.01, maxZoom: 1 };
 
@@ -69,7 +71,9 @@ export default function OverviewGraph({
         id: object.id,
         position: positions.get(object.id)!,
         sourcePosition: Position.Bottom,
-        targetPosition: ["newsletter", "ip", "pool"].includes(object.kind)
+        targetPosition: ["newsletter", "ip", "pool", "domain"].includes(
+          object.kind,
+        )
           ? Position.Left
           : Position.Top,
         ariaLabel: `${kindLabels[object.kind]} ${object.name}`,

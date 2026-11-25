@@ -2,10 +2,9 @@ import { ArrowBackOutlined, ArrowForwardOutlined } from "@mui/icons-material";
 import { Alert, Button, Paper, Stack, Typography } from "@mui/material";
 import axios from "axios";
 import { EspSelection } from "isomorphic-lib/src/publications";
-import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
 
-import { useAppStorePick } from "../../lib/appStore";
+import useWorkspaceSwitch from "../../lib/useWorkspaceSwitch";
 import {
   errorText,
   RecordValue,
@@ -33,11 +32,9 @@ export default function NewsletterDefaults({
   const newsletter = rows(newsletters).find(
     (item) => item.workspaceId === newsletterId,
   );
-  const { authMode } = useAppStorePick(["authMode"]);
-  const router = useRouter();
+  const { switchWorkspace, switchingWorkspace: opening } = useWorkspaceSwitch();
   const [selection, setSelection] = useState<EspSelection | null | undefined>();
   const [saving, setSaving] = useState(false);
-  const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const options = useMemo(() => {
@@ -69,25 +66,12 @@ export default function NewsletterDefaults({
   }
   if (!newsletter) return <Alert severity="error">Newsletter not found.</Alert>;
   const openNewsletter = async () => {
-    setOpening(true);
+    if (opening) return;
     setError(null);
     try {
-      if (authMode === "google")
-        await axios.post(`${apiBase}/api/account/workspace`, {
-          workspaceId: newsletterId,
-        });
-      else if (authMode === "single-tenant" || authMode === "anonymous")
-        await axios.post(`${apiBase}/api/public/single-tenant/workspace`, {
-          workspaceId: newsletterId,
-        });
-      else {
-        await router.push(`/select-workspace?workspaceId=${newsletterId}`);
-        return;
-      }
-      window.location.assign(`${router.basePath}/home`);
+      await switchWorkspace(newsletterId);
     } catch (failure) {
       setError(errorText(failure));
-      setOpening(false);
     }
   };
   return (

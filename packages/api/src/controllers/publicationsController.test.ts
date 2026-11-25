@@ -3,8 +3,9 @@ import { createAdminApiKey } from "backend-lib/src/adminApiKeys";
 import config from "backend-lib/src/config";
 import { db } from "backend-lib/src/db";
 import { publisherSendgridAccount } from "backend-lib/src/db/publisherSchema";
-import { workspace } from "backend-lib/src/db/schema";
+import { journey, workspace } from "backend-lib/src/db/schema";
 import { createNewsletter, createPublisher } from "backend-lib/src/newsletters";
+import { JourneyNodeType } from "backend-lib/src/types";
 import { randomUUID } from "crypto";
 import { eq, inArray } from "drizzle-orm";
 import fastify, { FastifyInstance } from "fastify";
@@ -249,11 +250,10 @@ describe("publication management API", () => {
       });
     const unconfigured = await choices();
     expect(unconfigured.statusCode).toBe(200);
-    const { data: unconfiguredData } = unconfigured.json<{
-      data: { selection: unknown; accounts: unknown[] };
-    }>();
-    expect(unconfiguredData.selection).toBeNull();
-    expect(unconfiguredData.accounts).toEqual(expect.any(Array));
+    expect(
+      unconfigured.json<{ data: { selection: unknown; accounts: unknown[] } }>()
+        .data,
+    ).toMatchObject({ selection: null, accounts: expect.any(Array) });
     expect(unconfigured.body).not.toMatch(
       /fixture_secret|allowRealSends|hasManagementKey|encrypted|callbackBaseUrl/,
     );
@@ -294,21 +294,22 @@ describe("publication management API", () => {
     expect(data.accounts).toHaveLength(2);
     expect(data).not.toHaveProperty("account");
     expect(data).not.toHaveProperty("routes");
-    const removedRoutes = await Promise.all(
-      [
-        "/infrastructure/account",
-        "/infrastructure/routes",
-        "/infrastructure/connections",
-      ].map((path) =>
-        app.inject({
-          method: "PUT",
-          url: `/api/admin/publications${path}`,
-          headers: headers(apiKey),
-          payload: { workspaceId: publisherId },
-        }),
-      ),
-    );
-    removedRoutes.forEach((response) => expect(response.statusCode).toBe(404));
+    for (const path of [
+      "/infrastructure/account",
+      "/infrastructure/routes",
+      "/infrastructure/connections",
+    ]) {
+      expect(
+        (
+          await app.inject({
+            method: "PUT",
+            url: `/api/admin/publications${path}`,
+            headers: headers(apiKey),
+            payload: { workspaceId: publisherId },
+          })
+        ).statusCode,
+      ).toBe(404);
+    }
     const closedGates = await app.inject({
       method: "PUT",
       url: "/api/admin/publications/infrastructure/accounts",
@@ -511,5 +512,91 @@ describe("publication management API", () => {
         })
       ).statusCode,
     ).toBe(403);
+  });
+  it("lists only eligible welcome journeys inside the authorized workspace", async () => {
+    const own = await createNewsletter({
+      publisherId,
+      name: "Welcome destination",
+      slug: "welcome-destination",
+    });
+    workspaceIds.push(own.workspaceId);
+    const foreign = await createPublisher({
+      name: `foreign-welcome-${randomUUID()}`,
+    });
+    workspaceIds.push(foreign.id);
+    const sibling = await createNewsletter({
+      publisherId: foreign.id,
+      name: "Foreign",
+      slug: "foreign",
+    });
+    workspaceIds.push(sibling.workspaceId);
+    const eligibleId = randomUUID();
+    const definition = {
+      entryNode: {
+        type: JourneyNodeType.EventEntryNode,
+        event: "Welcome",
+        child: JourneyNodeType.ExitNode,
+      },
+      nodes: [],
+      exitNode: { type: JourneyNodeType.ExitNode },
+    };
+    await db()
+      .insert(journey)
+      .values([
+        {
+          id: eligibleId,
+          workspaceId: own.workspaceId,
+          name: "Eligible welcome",
+          status: "Running",
+          definition,
+        },
+        {
+          workspaceId: own.workspaceId,
+          name: "Draft welcome",
+          status: "NotStarted",
+          definition,
+        },
+        {
+          workspaceId: own.workspaceId,
+          name: "Keyed welcome",
+          status: "Running",
+          definition: {
+            ...definition,
+            entryNode: { ...definition.entryNode, key: "properties.key" },
+          },
+        },
+        {
+          workspaceId: own.workspaceId,
+          name: "Wildcard welcome",
+          status: "Running",
+          definition: {
+            ...definition,
+            entryNode: { ...definition.entryNode, event: "Welcome*" },
+          },
+        },
+        {
+          workspaceId: sibling.workspaceId,
+          name: "Foreign welcome",
+          status: "Running",
+          definition,
+        },
+      ]);
+    const result = await app.inject({
+      method: "GET",
+      url: `/api/admin/publications/automations/options?workspaceId=${publisherId}`,
+      headers: headers(await key(["read"])),
+    });
+    expect(result.statusCode).toBe(200);
+    expect(result.json()).toEqual({
+      data: {
+        welcomeJourneys: [
+          {
+            id: eligibleId,
+            name: "Eligible welcome",
+            newsletterId: own.workspaceId,
+          },
+        ],
+      },
+    });
   });
 });

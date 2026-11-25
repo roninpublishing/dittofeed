@@ -1,12 +1,15 @@
 import {
+  AccountTreeOutlined,
   BarChartOutlined,
   BookOutlined,
   DnsOutlined,
   HubOutlined,
+  LanguageOutlined,
   PeopleOutlined,
   SchemaOutlined,
   SettingsEthernetOutlined,
   SettingsOutlined,
+  TrackChangesOutlined,
 } from "@mui/icons-material";
 
 import { MenuItemGroup } from "./types";
@@ -42,6 +45,14 @@ const publisherMenuItems: MenuItemGroup[] = [
         description: "Manage sending accounts",
       },
       {
+        id: "workspace-domains",
+        title: "Domains",
+        type: "item",
+        url: "/workspace/domains",
+        icon: LanguageOutlined,
+        description: "Manage domains",
+      },
+      {
         id: "workspace-ips",
         title: "Dedicated IPs",
         type: "item",
@@ -64,6 +75,22 @@ const publisherMenuItems: MenuItemGroup[] = [
         url: "/workspace/subscribers",
         icon: PeopleOutlined,
         description: "Find subscriber records across your newsletters.",
+      },
+      {
+        id: "workspace-automations",
+        title: "Automations",
+        type: "item",
+        url: "/workspace/automations",
+        icon: AccountTreeOutlined,
+        description: "Workspace automations",
+      },
+      {
+        id: "workspace-tracking",
+        title: "Tracking",
+        type: "item",
+        url: "/workspace/tracking",
+        icon: TrackChangesOutlined,
+        description: "Tracking",
       },
       {
         id: "publisher-reports",

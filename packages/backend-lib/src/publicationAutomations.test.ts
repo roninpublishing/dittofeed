@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
+import { installNewsletterSecretFixture } from "../test/newsletterSecretFixture";
 
 import config, { Config } from "./config";
 import { db } from "./db";
@@ -58,10 +59,12 @@ describe("publication automation native actions", () => {
   let mailbox: string;
   let retargetedIds: string[];
   let previousWriteMode: Config["writeMode"];
+  let restoreSecret: () => void;
   const startWorkflow = jest.fn().mockResolvedValue({});
   let definition: PublicationAutomationDefinition;
 
   beforeEach(async () => {
+    restoreSecret = installNewsletterSecretFixture();
     previousWriteMode = config().writeMode;
     retargetedIds = [];
     config().writeMode = "ch-sync";
@@ -171,6 +174,7 @@ describe("publication automation native actions", () => {
   });
 
   afterEach(async () => {
+    restoreSecret();
     config().writeMode = previousWriteMode;
     await db()
       .delete(workspace)

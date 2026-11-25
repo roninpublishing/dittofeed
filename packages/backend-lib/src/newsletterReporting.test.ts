@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { inArray } from "drizzle-orm";
+import { installNewsletterSecretFixture } from "../test/newsletterSecretFixture";
 
 import { submitBatch } from "./apps/batch";
 import { db } from "./db";
@@ -7,6 +8,10 @@ import { workspace } from "./db/schema";
 import { getPublisherDeliveryHealth } from "./newsletterReporting";
 import { createNewsletter, createPublisher } from "./newsletters";
 import { BatchTrackData, EventType, InternalEventType } from "./types";
+
+let restoreSecret: () => void;
+beforeEach(() => { restoreSecret = installNewsletterSecretFixture(); });
+afterEach(() => { restoreSecret(); });
 
 it("deduplicates observations, isolates publishers, and never guesses historical IP attribution", async () => {
   const first = await createPublisher({ name: `report-${randomUUID()}` });

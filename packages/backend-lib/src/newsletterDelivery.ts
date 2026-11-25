@@ -17,7 +17,7 @@ import { v5 as uuidv5 } from "uuid";
 
 import { submitBatch } from "./apps/batch";
 import { db, Db } from "./db";
-import { broadcast, journey, workspace } from "./db/schema";
+import { broadcast, journey, messageTemplate, workspace } from "./db/schema";
 import {
   publisher,
   newsletter,
@@ -25,6 +25,7 @@ import {
   sendingConnection,
   sendingIp,
   publisherSuppression,
+  newsletterContentSnapshot,
   newsletterSend,
   sendingIpBudget,
   newsletterSuppression,
@@ -39,6 +40,7 @@ import {
   requireAccount,
   verifyPinnedNewsletterSelection,
 } from "./newsletterInfrastructure";
+import { decryptNewsletterSecret } from "./newsletterSecrets";
 import { decrypt, encrypt } from "./secrets";
 import {
   newsletterContactHash,
@@ -108,6 +110,69 @@ function unpack<T>(value: NonNullable<Send["encryptedPayload"]>): T {
   if (!text) throw new NewsletterDeliveryError();
   return JSON.parse(text) as T;
 }
+/** What webhooks still read after acceptance; the full request is no longer kept. */
+type RetainedEnvelope = Pick<Envelope, "tags" | "subscriptionGroupId">;
+function retainedPayload(envelope: RetainedEnvelope) {
+  return encrypt(
+    JSON.stringify({
+      tags: envelope.tags,
+      subscriptionGroupId: envelope.subscriptionGroupId,
+    } satisfies RetainedEnvelope),
+  );
+}
+
+/** Store the template a send was built from once per distinct version, not per recipient. */
+async function contentSnapshotId(
+  tx: Tx,
+  workspaceId: string,
+  templateId: unknown,
+): Promise<string | null> {
+  if (
+    typeof templateId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(templateId)
+  )
+    return null;
+  const [template] = await tx
+    .select({
+      id: messageTemplate.id,
+      name: messageTemplate.name,
+      definition: messageTemplate.definition,
+    })
+    .from(messageTemplate)
+    .where(
+      and(
+        eq(messageTemplate.id, templateId),
+        eq(messageTemplate.workspaceId, workspaceId),
+      ),
+    )
+    .limit(1);
+  if (!template) return null;
+  const content = { name: template.name, definition: template.definition };
+  const contentHash = createHash("sha256")
+    .update(JSON.stringify([template.id, content]))
+    .digest("hex");
+  await tx
+    .insert(newsletterContentSnapshot)
+    .values({ workspaceId, templateId: template.id, contentHash, content })
+    .onConflictDoNothing({
+      target: [
+        newsletterContentSnapshot.workspaceId,
+        newsletterContentSnapshot.contentHash,
+      ],
+    });
+  const [snapshot] = await tx
+    .select({ id: newsletterContentSnapshot.id })
+    .from(newsletterContentSnapshot)
+    .where(
+      and(
+        eq(newsletterContentSnapshot.workspaceId, workspaceId),
+        eq(newsletterContentSnapshot.contentHash, contentHash),
+      ),
+    )
+    .limit(1);
+  return snapshot?.id ?? null;
+}
+
 async function barrier(tx: Tx, workspaceId: string): Promise<void> {
   await tx.execute(
     sql`select pg_advisory_xact_lock_shared(hashtextextended(${workspaceId}, 0))`,
@@ -642,7 +707,11 @@ export async function sendNewsletterEmail(input: {
           mailboxHash: newsletterMailboxHash(input.recipients[0] ?? ""),
           encryptedRecipient: encrypt(JSON.stringify(input.recipients)),
           encryptedPayload: encrypt(payload),
-          encryptedCredential: connection.encryptedApiKey,
+          contentSnapshotId: await contentSnapshotId(
+            tx,
+            input.workspaceId,
+            input.mailData.customArgs?.templateId,
+          ),
           payloadHash: createHash("sha256").update(payload).digest("hex"),
           state: "queued",
           recipientCount: input.recipients.length,
@@ -735,7 +804,7 @@ async function attemptNewsletterSend(id: string): Promise<void> {
         ),
       )
       .for("update", { skipLocked: true });
-    if (!row || !row.encryptedPayload || !row.encryptedCredential) return false;
+    if (!row || !row.encryptedPayload) return false;
     const envelope = unpack<Envelope>(row.encryptedPayload);
     const now = new Date();
     const status = await eligible(row, envelope);
@@ -749,6 +818,8 @@ async function attemptNewsletterSend(id: string): Promise<void> {
         .set({
           state: "suppressed",
           error: row.expiresAt <= now ? "Expired" : "Ineligible or suppressed",
+          // Never submitted, so nothing will read the request again.
+          encryptedPayload: null,
           updatedAt: now,
         })
         .where(eq(newsletterSend.id, id));
@@ -772,6 +843,7 @@ async function attemptNewsletterSend(id: string): Promise<void> {
       !account?.allowRealSends ||
       !account.allTrafficControlled ||
       connection?.status !== "ready" ||
+      !connection.encryptedApiKey ||
       connection.accountId !== row.accountId ||
       connection.publisherId !== row.publisherId
     ) {
@@ -844,7 +916,7 @@ async function attemptNewsletterSend(id: string): Promise<void> {
         and(eq(newsletterSend.id, id), eq(newsletterSend.state, "submitting")),
       )
       .for("update");
-    if (!row || !row.encryptedPayload || !row.encryptedCredential) return;
+    if (!row || !row.encryptedPayload) return;
     const envelope = unpack<Envelope>(row.encryptedPayload);
     const [account] = await tx
       .select()
@@ -863,6 +935,7 @@ async function attemptNewsletterSend(id: string): Promise<void> {
       !account?.allowRealSends ||
       !account.allTrafficControlled ||
       connection?.status !== "ready" ||
+      !connection.encryptedApiKey ||
       connection.accountId !== row.accountId ||
       connection.publisherId !== row.publisherId
     ) {
@@ -886,6 +959,7 @@ async function attemptNewsletterSend(id: string): Promise<void> {
         .set({
           state: "suppressed",
           error: "Ineligible or suppressed",
+          encryptedPayload: null,
           updatedAt: new Date(),
         })
         .where(eq(newsletterSend.id, id));
@@ -917,8 +991,8 @@ async function attemptNewsletterSend(id: string): Promise<void> {
       return;
     }
     try {
-      const key = decrypt(row.encryptedCredential);
-      if (!key) throw new NewsletterDeliveryError();
+      // The pinned revision check above guarantees this is the key the send was queued with.
+      const key = decryptNewsletterSecret(connection.encryptedApiKey);
       const response = await sendMail({
         apiKey: key,
         mailData: envelope.mailData,
@@ -941,16 +1015,14 @@ async function attemptNewsletterSend(id: string): Promise<void> {
           .where(eq(newsletterSend.id, id));
       } else {
         const code = response.error.code;
+        const rejected = code >= 400 && code < 500 && code !== 408 && code !== 429;
         // Only explicit, non-accepting rate-limit responses can be retried.
         await tx
           .update(newsletterSend)
           .set({
-            state:
-              code === 429
-                ? "queued"
-                : code >= 400 && code < 500 && code !== 408
-                  ? "rejected"
-                  : "unknown",
+            state: code === 429 ? "queued" : rejected ? "rejected" : "unknown",
+            // A rejected request is final; nothing reads it again.
+            ...(rejected ? { encryptedPayload: null } : {}),
             nextAttemptAt: new Date(Date.now() + 60_000),
             error: `Provider status ${code}`,
             updatedAt: new Date(),
@@ -1127,6 +1199,9 @@ export async function getNewsletterDeliveryHealth(publisherId: string, accountId
 }
 
 export async function drainNewsletterSends(): Promise<void> {
+  // Only the current hourly and daily windows are ever read.
+  await db().execute(sql`delete from "SendingIpBudget"
+    where "windowStart" + "windowSeconds" * interval '1 second' < now() - interval '1 day'`);
   // A crash between a committed claim and recorded response cannot authorize a
   // resend. Keep its consumed budget and expose it for operator reconciliation.
   await db()
@@ -1217,7 +1292,10 @@ async function projectNewsletterAcceptedSends(): Promise<void> {
       );
       await tx
         .update(newsletterSend)
-        .set({ acceptedEventAt: new Date() })
+        .set({
+          acceptedEventAt: new Date(),
+          encryptedPayload: retainedPayload(envelope),
+        })
         .where(eq(newsletterSend.id, row.id));
     });
   }
@@ -1481,7 +1559,17 @@ export function newsletterSuppressionReason(event: {
     return "invalid_mailbox";
   return null;
 }
+// Receipts only deduplicate provider retries (SendGrid stops after 72 hours) and
+// hold events awaiting correlation (dropped after 7 days); the events themselves
+// live in ClickHouse.
+const WEBHOOK_RECEIPT_RETENTION_DAYS = 30;
+
 export async function drainNewsletterWebhookReceipts(): Promise<void> {
+  await db().execute(sql`delete from "NewsletterWebhookReceipt" where "id" in (
+    select "id" from "NewsletterWebhookReceipt"
+    where "processedAt" < now() - (${WEBHOOK_RECEIPT_RETENTION_DAYS} * interval '1 day')
+    order by "processedAt" limit 1000 for update skip locked
+  )`);
   const candidates = await db()
     .select({
       id: newsletterWebhookReceipt.id,
@@ -1615,7 +1703,7 @@ export async function drainNewsletterWebhookReceipts(): Promise<void> {
             .set({ actualIp })
             .where(eq(newsletterSend.id, row.id));
         }
-        const envelope = unpack<Envelope>(row.encryptedPayload);
+        const envelope = unpack<RetainedEnvelope>(row.encryptedPayload);
         const reason = newsletterSuppressionReason(event);
         if (reason)
           await tx
@@ -1896,7 +1984,6 @@ export async function deleteNewsletterDeliveryData(input: {
             providerSmtpId: null,
             encryptedPayload: null,
             encryptedRecipient: null,
-            encryptedCredential: null,
             state: "suppressed",
             error: "Erased",
             erasedAt: new Date(),

@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { AnyPgColumn, boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 import type { EspSelection } from "isomorphic-lib/src/publications";
-import { broadcast, journey, subscriptionGroup, workspace } from "./schema";
+import { broadcast, journey, messageTemplate, subscriptionGroup, workspace } from "./schema";
 
 export type NewsletterCiphertext = { iv: string; encryptedData: string; authTag: string };
 const createdAt = () => timestamp({ withTimezone: true, mode: "date" }).defaultNow().notNull();
@@ -144,6 +144,17 @@ export const publisherSuppression = pgTable("PublisherSuppression", {
   updatedAt: updatedAt(),
 }, (t) => [unique().on(t.publisherId, t.mailboxHash, t.reason)]);
 
+// One stored copy of what a send was built from (the message template as it was
+// at send time), shared by every recipient instead of a body per send row.
+export const newsletterContentSnapshot = pgTable("NewsletterContentSnapshot", {
+  id: uuid().primaryKey().defaultRandom(),
+  workspaceId: uuid().notNull().references(() => newsletter.workspaceId, { onDelete: "cascade" }),
+  templateId: uuid().references(() => messageTemplate.id, { onDelete: "set null" }),
+  contentHash: text().notNull(),
+  content: jsonb().$type<Record<string, unknown>>().notNull(),
+  createdAt: createdAt(),
+}, (t) => [unique().on(t.workspaceId, t.contentHash)]);
+
 export const newsletterSend = pgTable("NewsletterSend", {
   id: uuid().primaryKey().defaultRandom(),
   publisherId: uuid().notNull().references(() => publisher.workspaceId, { onDelete: "cascade" }),
@@ -164,8 +175,10 @@ export const newsletterSend = pgTable("NewsletterSend", {
   userId: text().notNull(),
   mailboxHash: text().notNull(),
   encryptedRecipient: encrypted(),
+  // Full provider request only while the send can still be submitted; reduced to
+  // the tags/subscription group webhooks need once its accepted event is recorded.
   encryptedPayload: encrypted(),
-  encryptedCredential: encrypted(),
+  contentSnapshotId: uuid().references(() => newsletterContentSnapshot.id),
   payloadHash: text().notNull(),
   state: text().$type<"queued" | "submitting" | "accepted" | "unknown" | "rejected" | "suppressed">().default("queued").notNull(),
   providerMessageId: text(),
@@ -180,7 +193,7 @@ export const newsletterSend = pgTable("NewsletterSend", {
   nextAttemptAt: createdAt(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (t) => [unique().on(t.workspaceId, t.logicalMessageId), index().on(t.state, t.nextAttemptAt), index().on(t.workspaceId, t.userId), index().on(t.connectionId, t.providerMessageId), index().on(t.connectionId, t.providerSmtpId), index().on(t.workspaceId, t.broadcastId, t.state), index().on(t.workspaceId, t.journeyId, t.state)]);
+}, (t) => [unique().on(t.workspaceId, t.logicalMessageId), index().on(t.state, t.nextAttemptAt), index().on(t.workspaceId, t.userId), index().on(t.connectionId, t.providerMessageId), index().on(t.connectionId, t.providerSmtpId), index().on(t.workspaceId, t.broadcastId, t.state), index().on(t.workspaceId, t.journeyId, t.state), index("NewsletterSend_accepted_unprojected_idx").on(t.id).where(sql`${t.state} = 'accepted' and ${t.acceptedEventAt} is null`), index().on(t.contentSnapshotId)]);
 
 export const sendingIpBudget = pgTable("SendingIpBudget", {
   ipId: uuid().notNull().references(() => sendingIp.id, { onDelete: "cascade" }),
@@ -200,7 +213,7 @@ export const newsletterWebhookReceipt = pgTable("NewsletterWebhookReceipt", {
   processedAt: timestamp({ withTimezone: true, mode: "date" }),
   attempts: integer().default(0).notNull(),
   nextAttemptAt: createdAt(),
-}, (t) => [unique().on(t.connectionId, t.eventId), index().on(t.nextAttemptAt), index().on(t.connectionId, t.mailboxHash)]);
+}, (t) => [unique().on(t.connectionId, t.eventId), index("NewsletterWebhookReceipt_pending_idx").on(t.nextAttemptAt).where(sql`${t.processedAt} is null`), index().on(t.processedAt), index().on(t.connectionId, t.mailboxHash)]);
 
 export const publicationAutomation = pgTable("PublicationAutomation", {
   id: uuid().primaryKey().defaultRandom(),
@@ -225,7 +238,7 @@ export const publicationAutomationEvent = pgTable("PublicationAutomationEvent", 
   processedAt: timestamp({ withTimezone: true, mode: "date" }),
   attempts: integer().default(0).notNull(),
   nextAttemptAt: createdAt(),
-}, (t) => [unique().on(t.sourceNewsletterId, t.eventId), index().on(t.nextAttemptAt), index().on(t.sourceNewsletterId, t.sourceUserId)]);
+}, (t) => [unique().on(t.sourceNewsletterId, t.eventId), index("PublicationAutomationEvent_pending_idx").on(t.nextAttemptAt).where(sql`${t.processedAt} is null`), index().on(t.processedAt), index().on(t.sourceNewsletterId, t.sourceUserId)]);
 
 export const publicationAutomationAction = pgTable("PublicationAutomationAction", {
   id: uuid().primaryKey().defaultRandom(),

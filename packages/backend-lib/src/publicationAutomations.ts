@@ -287,6 +287,44 @@ export async function listPublicationAutomationActions(input: {
   );
 }
 
+type RuleSource = PublicationAutomationDefinition["source"] | null;
+
+/** null marks a rule whose definition no longer parses; it matches everything so nothing is lost. */
+async function enabledRuleSources(sourceNewsletterId: string): Promise<RuleSource[]> {
+  const enabled = await db()
+    .select({ definition: rules.definition })
+    .from(rules)
+    .where(
+      and(
+        eq(rules.sourceNewsletterId, sourceNewsletterId),
+        eq(rules.enabled, true),
+        isNull(rules.deletedAt),
+      ),
+    );
+  return enabled.map(({ definition }) => {
+    try {
+      return definitionOf(definition).source;
+    } catch {
+      return null;
+    }
+  });
+}
+
+/** Cheap pre-filter on type and event name; automationMatches decides the rest. */
+function ruleSourceMayMatch(
+  source: RuleSource,
+  payload: { type?: unknown; event?: unknown } | null,
+): boolean {
+  if (!source) return true;
+  return (
+    payload?.type === source.eventType &&
+    (source.event === undefined || payload.event === source.event)
+  );
+}
+
+// Processed rows only guard against re-queuing a retried batch; actions dedupe separately.
+const PROCESSED_AUTOMATION_EVENT_RETENTION_DAYS = 7;
+
 /** Persist BEFORE native write. Workers require the exact source payload to exist in ClickHouse. */
 export async function enqueuePublicationAutomationEvents({
   workspaceId,
@@ -303,15 +341,29 @@ export async function enqueuePublicationAutomationEvents({
     .from(newsletter)
     .where(eq(newsletter.workspaceId, workspaceId));
   if (!source) return;
+  // Only events an enabled rule could act on are queued here; every event is
+  // already stored in ClickHouse. Lineage travels in the event itself, so events
+  // emitted by in-flight steps keep it whether or not they are queued.
+  const sources = await enabledRuleSources(workspaceId);
+  if (!sources.length) return;
+  const captured = userEvents.flatMap((event) => {
+    const raw =
+      typeof event.messageRaw === "string"
+        ? event.messageRaw
+        : JSON.stringify(event.messageRaw);
+    const payload = JSON.parse(raw) as {
+      userId?: unknown;
+      type?: unknown;
+      event?: unknown;
+    } | null;
+    return sources.some((rule) => ruleSourceMayMatch(rule, payload))
+      ? [{ event, raw, payload }]
+      : [];
+  });
+  if (!captured.length) return;
   requireNewsletterSecretKey();
-  // Capture even with no active rules: native events emitted by in-flight steps must retain lineage.
-  for (let offset = 0; offset < userEvents.length; offset += 200) {
-    const batch = userEvents.slice(offset, offset + 200).map((event) => {
-      const raw =
-        typeof event.messageRaw === "string"
-          ? event.messageRaw
-          : JSON.stringify(event.messageRaw);
-      const payload = JSON.parse(raw) as { userId?: unknown } | null;
+  for (let offset = 0; offset < captured.length; offset += 200) {
+    const batch = captured.slice(offset, offset + 200).map(({ event, raw, payload }) => {
       return {
         sourceNewsletterId: workspaceId,
         eventId: event.messageId,
@@ -1033,6 +1085,11 @@ export async function drainPublicationAutomations(): Promise<{
   processed: number;
   retried: number;
 }> {
+  await db().execute(sql`delete from "PublicationAutomationEvent" where "id" in (
+    select "id" from "PublicationAutomationEvent"
+    where "processedAt" < now() - (${PROCESSED_AUTOMATION_EVENT_RETENTION_DAYS} * interval '1 day')
+    order by "processedAt" limit 1000 for update skip locked
+  )`);
   const pending = await db()
     .select()
     .from(outbox)

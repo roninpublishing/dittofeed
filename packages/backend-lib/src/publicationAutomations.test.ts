@@ -300,6 +300,73 @@ describe("publication automation native actions", () => {
     expect((await actionRows())[0]?.disposition).toBe("completed");
   });
 
+  it("queues only events an enabled rule could act on", async () => {
+    const ignoredId = randomUUID();
+    const matchingId = randomUUID();
+    await enqueuePublicationAutomationEvents({
+      workspaceId: sourceId,
+      userEvents: [
+        {
+          messageId: ignoredId,
+          messageRaw: {
+            type: EventType.Identify,
+            userId: sourceUserId,
+            messageId: ignoredId,
+            traits: { plan: "free" },
+          },
+        },
+        {
+          messageId: matchingId,
+          messageRaw: {
+            type: EventType.Track,
+            userId: sourceUserId,
+            messageId: matchingId,
+            event: InternalEventType.EmailClicked,
+            properties: { url: "https://b.example.com/join" },
+          },
+        },
+      ],
+    });
+    const queued = await db()
+      .select({ eventId: publicationAutomationEvent.eventId })
+      .from(publicationAutomationEvent)
+      .where(
+        and(
+          eq(publicationAutomationEvent.sourceNewsletterId, sourceId),
+          inArray(publicationAutomationEvent.eventId, [ignoredId, matchingId]),
+        ),
+      );
+    expect(queued.map((row) => row.eventId)).toEqual([matchingId]);
+  });
+
+  it("deletes queued events 7 days after they are processed", async () => {
+    const day = 86_400_000;
+    const rows = await db()
+      .insert(publicationAutomationEvent)
+      .values(
+        [8, 1].map((age) => ({
+          sourceNewsletterId: sourceId,
+          eventId: randomUUID(),
+          sourceUserId,
+          encryptedEvent: encrypt("{}"),
+          processedAt: new Date(Date.now() - age * day),
+          nextAttemptAt: new Date(Date.now() - age * day),
+        })),
+      )
+      .returning({ id: publicationAutomationEvent.id });
+    await drainPublicationAutomations();
+    const remaining = await db()
+      .select({ id: publicationAutomationEvent.id })
+      .from(publicationAutomationEvent)
+      .where(
+        inArray(
+          publicationAutomationEvent.id,
+          rows.map((row) => row.id),
+        ),
+      );
+    expect(remaining.map((row) => row.id)).toEqual([rows[1]!.id]);
+  });
+
   it("recovers welcome failure without creating a second contact or subscription event", async () => {
     startWorkflow.mockRejectedValueOnce(new Error("Temporal unavailable"));
     const event = await click();

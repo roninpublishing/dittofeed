@@ -337,6 +337,7 @@ describe("durable newsletter sends and signed inbox", () => {
     logicalMessageId: string = randomUUID(),
     copyType: "cc" | "bcc" = "cc",
     espSelection?: EspSelection | null,
+    templateId = "original-template",
   ) {
     const workspaceId = newsletterIds[index]!;
     const userId = `contact-${index}`;
@@ -362,7 +363,7 @@ describe("durable newsletter sends and signed inbox", () => {
         bcc: copyType === "bcc" ? recipients.slice(1) : undefined,
         html,
         subject: "Original subject",
-        customArgs: { templateId: "original-template" },
+        customArgs: { templateId },
       },
       success: {
         type: InternalEventType.MessageSent,
@@ -602,6 +603,108 @@ describe("durable newsletter sends and signed inbox", () => {
     );
     await drainNewsletterSends();
     expect(projection).toHaveBeenCalledTimes(1);
+  });
+
+  it("stores one content snapshot per template version and keeps only webhook tags after acceptance", async () => {
+    const workspaceId = newsletterIds[0]!;
+    const templateId = randomUUID();
+    await db()
+      .insert(messageTemplate)
+      .values({
+        id: templateId,
+        workspaceId,
+        name: randomUUID(),
+        definition: {
+          type: ChannelType.Email,
+          emailContentsType: EmailContentsType.Code,
+          from: "editor@example.com",
+          subject: "Issue {{user.edition}}",
+          body: "<p>Hello {{user.name}}</p>",
+        },
+      });
+    const sends = [
+      await enqueue(0, 1, randomUUID(), "cc", undefined, templateId),
+      await enqueue(0, 1, randomUUID(), "cc", undefined, templateId),
+    ];
+    const snapshots = await db()
+      .select()
+      .from(tables.newsletterContentSnapshot)
+      .where(eq(tables.newsletterContentSnapshot.workspaceId, workspaceId));
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0]).toMatchObject({
+      templateId,
+      content: { definition: { subject: "Issue {{user.edition}}" } },
+    });
+    await drainNewsletterSends();
+    const rows = await db()
+      .select()
+      .from(tables.newsletterSend)
+      .where(
+        inArray(
+          tables.newsletterSend.id,
+          sends.map((send) => send.sendId),
+        ),
+      );
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.contentSnapshotId).toBe(snapshots[0]!.id);
+      expect(row.state).toBe("accepted");
+      expect(row.acceptedEventAt).not.toBeNull();
+      const retained = JSON.parse(decrypt(row.encryptedPayload!)!) as Record<
+        string,
+        unknown
+      >;
+      expect(Object.keys(retained)).toEqual(["tags"]);
+      expect(retained.tags).toMatchObject({ templateId, workspaceId });
+    }
+  });
+
+  it("deletes processed webhook receipts after 30 days and IP budget windows that have ended", async () => {
+    const day = 86_400_000;
+    const [oldReceipt, recentReceipt] = await db()
+      .insert(tables.newsletterWebhookReceipt)
+      .values([
+        {
+          connectionId: connectionIds[0]!,
+          eventId: `old-${randomUUID()}`,
+          receivedAt: new Date(Date.now() - 31 * day),
+          processedAt: new Date(Date.now() - 31 * day),
+        },
+        {
+          connectionId: connectionIds[0]!,
+          eventId: `recent-${randomUUID()}`,
+          receivedAt: new Date(Date.now() - day),
+          processedAt: new Date(Date.now() - day),
+        },
+      ])
+      .returning();
+    const oldWindow = new Date(Date.now() - 3 * day);
+    const currentWindow = new Date(Date.now() - 60_000);
+    await db()
+      .insert(tables.sendingIpBudget)
+      .values([
+        { ipId, windowStart: oldWindow, windowSeconds: 3600, reserved: 1 },
+        { ipId, windowStart: currentWindow, windowSeconds: 3600, reserved: 1 },
+      ]);
+    await drainNewsletterWebhookReceipts();
+    await drainNewsletterSends();
+    const receipts = await db()
+      .select({ id: tables.newsletterWebhookReceipt.id })
+      .from(tables.newsletterWebhookReceipt)
+      .where(
+        inArray(tables.newsletterWebhookReceipt.id, [
+          oldReceipt!.id,
+          recentReceipt!.id,
+        ]),
+      );
+    expect(receipts.map((row) => row.id)).toEqual([recentReceipt!.id]);
+    const budgets = await db()
+      .select({ windowStart: tables.sendingIpBudget.windowStart })
+      .from(tables.sendingIpBudget)
+      .where(eq(tables.sendingIpBudget.ipId, ipId));
+    expect(budgets.map((row) => row.windowStart.getTime())).toEqual([
+      currentWindow.getTime(),
+    ]);
   });
 
   it("uses an explicit account override and deduplicates without retargeting the confirmed attempt", async () => {
@@ -949,7 +1052,8 @@ describe("durable newsletter sends and signed inbox", () => {
     const [row] = await db().select().from(tables.newsletterSend)
       .where(eq(tables.newsletterSend.id, queued.sendId));
     expect(row?.state).toBe("queued");
-    expect(decrypt(row!.encryptedCredential!)).toBe("restricted-key-0");
+    // The key lives only on the connection; a changed revision blocks the send.
+    expect(row).not.toHaveProperty("encryptedCredential");
   });
 
   it("erases one newsletter without discarding sibling receipts on the same account connection", async () => {
@@ -1128,7 +1232,6 @@ describe("durable newsletter sends and signed inbox", () => {
       state: "suppressed",
       encryptedPayload: null,
       encryptedRecipient: null,
-      encryptedCredential: null,
     });
     expect(erased?.userId).not.toBe(queued.userId);
     const receipts = await db()

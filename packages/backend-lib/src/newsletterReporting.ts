@@ -16,6 +16,16 @@ import { requireAccount } from "./newsletterInfrastructure";
 import { listNewsletters } from "./newsletters";
 import { InternalEventType } from "./types";
 
+// Module scope lets TypeScript name this type in exported declarations.
+interface Observation {
+  newsletterId: string;
+  accountId: string | null;
+  ipId: string | null;
+  event: string;
+  sendsWithEvent: number;
+  observedEventCount: number;
+}
+
 /** Native observations retain publication and historical IP attribution; never infer an old IP from today's route. */
 export async function getPublisherDeliveryHealth(
   publisherId: string,
@@ -92,14 +102,6 @@ export async function getPublisherDeliveryHealth(
           ),
       ])
     : [[], []];
-  interface Observation {
-    newsletterId: string;
-    accountId: string | null;
-    ipId: string | null;
-    event: string;
-    sendsWithEvent: number;
-    observedEventCount: number;
-  }
   let observations: Observation[] = [];
   let observationsAvailable = true;
   const outcomes = new Map<

@@ -28,7 +28,10 @@ export const getServerSideProps: GetServerSideProps<Props> = requestContext(
   },
 );
 
-export default function WorkspaceDashboard({ publisherId, isPublisher }: Props) {
+export default function WorkspaceDashboard({
+  publisherId,
+  isPublisher,
+}: Props) {
   return (
     <DashboardContent publisherManagement={isPublisher}>
       <Stack

@@ -1790,6 +1790,16 @@ as the production connection source.
   SSH preflight runs before expensive deployment builds; build-only dispatch
   can verify/publish an image without activating production.
 - Fifteen isolated deployment tests passed, including preflight non-activation
-  and SSH failure propagation; scoped workflow actionlint passed. Actual image
-  build/cache verification is pending. Do not fall back silently to production
-  builds if GitHub refuses dispatch.
+  and SSH failure propagation; scoped workflow actionlint passed.
+- Actual native ARM64 image proof on the local four-CPU Docker VM: cold build
+  401 seconds; changed release SHA 11 seconds; added static public file 33 seconds.
+  Both warm builds reused every installation/compilation layer. These are local
+  measurements, not promises for hosted AMD64 build or registry-transfer duration.
+- The new image booted with networking disabled, inert database endpoints and
+  workers/bootstrap off. Exact-revision API health, public privacy page, sign-in
+  rendering and anonymous team API 401 passed; unused standalone/compiler-cache
+  trees were absent. Temporary fixture and smoke container were removed.
+- Repair commits are pushed to main. Hosted build-only dispatch still returns
+  the fork-level 422; maintainer web re-enablement is the remaining prerequisite
+  for hosted AMD64/cache verification. Production was not rebuilt or restarted.
+  Do not fall back silently to production builds if GitHub refuses dispatch.

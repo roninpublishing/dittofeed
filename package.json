@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "admin": "yarn workspace admin-cli cli \"$@\"",
+    "check:mcp-parity": "yarn workspace emailo build && yarn workspace api check && yarn workspace mcp check && yarn jest --config jest.mcp-parity.config.cjs --runInBand && yarn workspace mcp test",
     "test:file": "./scripts/test-to-file.sh",
     "test:temporal": "jest --selectProjects backend-lib --group=temporal"
   },

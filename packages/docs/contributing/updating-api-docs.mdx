@@ -4,8 +4,8 @@ title: Updating the API and code reference
 
 The checked-in `packages/docs/open-api.json` describes registered HTTP routes.
 Export it from a local application built from the revision being documented,
-using the intended authentication mode. Google account routes are registered
-only in Google mode; they remain human-authenticated APIs, not MCP tools.
+using the intended authentication mode. Browser Google consent/session transport
+and owner-delegated machine account controls have different authentication.
 Never copy the upstream hosted application's schema into this fork.
 
 ## Export the runtime contract
@@ -30,8 +30,8 @@ authoritative for MCP discovery; the checked-in reference does not grant access.
 Use the repository's pinned generator rather than downloading a new release:
 
 ```bash
-yarn exec mintlify-scrape openapi-file packages/docs/open-api.json \
-  --outDir packages/docs/api-reference/auto
+yarn workspace docs exec mintlify-scrape openapi-file open-api.json \
+  --outDir api-reference/auto
 ```
 
 Update the API Reference navigation in `packages/docs/docs.json` with the
@@ -40,6 +40,11 @@ operation, and remove generated pages for retired routes. Public ingestion,
 signed callbacks, human account/session APIs and workspace machine APIs have
 different authentication boundaries; documenting a route does not make it a
 bearer-key or MCP operation.
+
+Every product/control feature must include its authenticated typed MCP operation
+in the same change. Run `yarn check:mcp-parity` before marking the feature complete;
+the isolated route/catalog gate does not touch application databases. Add an
+actual MCP consumer scenario for changed behavior, not only documentation.
 
 ## Refresh the function inventory
 

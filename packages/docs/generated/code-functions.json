@@ -16,11 +16,13 @@
     "packages/api/scripts/startServer.ts",
     "packages/api/src/buildApp/adminAuth.ts",
     "packages/api/src/buildApp/cors.ts",
+    "packages/api/src/buildApp/mcpParity.ts",
     "packages/api/src/buildApp/multipart.ts",
     "packages/api/src/buildApp/requestContext.ts",
     "packages/api/src/buildApp/router.ts",
     "packages/api/src/buildApp.ts",
     "packages/api/src/config.ts",
+    "packages/api/src/controllers/accountController.ts",
     "packages/api/src/controllers/analysisController.ts",
     "packages/api/src/controllers/apiKeyController.ts",
     "packages/api/src/controllers/broadcastsController.ts",
@@ -870,6 +872,7 @@
     "packages/dashboard/src/components/messageTemplateAutocomplete.tsx",
     "packages/dashboard/src/components/permissionsTable.tsx",
     "packages/dashboard/src/components/publications/createNewsletterDialog.tsx",
+    "packages/dashboard/src/components/publications/createWorkspaceForm.tsx",
     "packages/dashboard/src/components/publications/management.tsx",
     "packages/dashboard/src/components/publications/settingsShared.ts",
     "packages/dashboard/src/components/publications/trackingDomains.tsx",
@@ -1253,7 +1256,7 @@
     "packages/worker/src/config.ts",
     "packages/worker/src/openTelemetry.ts"
   ],
-  "functionCount": 184029,
+  "functionCount": 184085,
   "functions": [
     {
       "file": "packages/admin-cli/scripts/cli.ts",
@@ -3860,12 +3863,13 @@
     },
     {
       "file": "packages/api/src/buildApp/adminAuth.ts",
-      "line": 31,
+      "line": 37,
       "column": 1,
       "name": "authenticateAdminApiKeyFull",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "{\n  actualKey,\n  ...identifier\n}: AuthenticateAdminKeyParams"
+        "{ actualKey, ...identifier }: AuthenticateAdminKeyParams",
+        "authorization?: { role: Role; scopes: readonly AdminApiKeyScope[] }"
       ],
       "returnType": "Promise<AuthenticatedAdminApiKey | null>",
       "documentation": null,
@@ -3874,7 +3878,7 @@
     },
     {
       "file": "packages/api/src/buildApp/adminAuth.ts",
-      "line": 237,
+      "line": 267,
       "column": 1,
       "name": "authenticateAdminApiKey",
       "kind": "FunctionDeclaration",
@@ -3888,7 +3892,7 @@
     },
     {
       "file": "packages/api/src/buildApp/adminAuth.ts",
-      "line": 245,
+      "line": 275,
       "column": 22,
       "name": "fp callback[0]",
       "kind": "ArrowFunction",
@@ -3902,7 +3906,7 @@
     },
     {
       "file": "packages/api/src/buildApp/adminAuth.ts",
-      "line": 246,
+      "line": 278,
       "column": 33,
       "name": "fastify.addHook callback[1]",
       "kind": "ArrowFunction",
@@ -3917,7 +3921,7 @@
     },
     {
       "file": "packages/api/src/buildApp/adminAuth.ts",
-      "line": 261,
+      "line": 293,
       "column": 7,
       "name": "[request.body, request.query].some callback[0]",
       "kind": "ArrowFunction",
@@ -3931,7 +3935,7 @@
     },
     {
       "file": "packages/api/src/buildApp/adminAuth.ts",
-      "line": 266,
+      "line": 298,
       "column": 9,
       "name": "[request.body, request.query].some callback[0]",
       "kind": "ArrowFunction",
@@ -3945,7 +3949,7 @@
     },
     {
       "file": "packages/api/src/buildApp/adminAuth.ts",
-      "line": 370,
+      "line": 412,
       "column": 29,
       "name": "requiredScopes.every callback[0]",
       "kind": "ArrowFunction",
@@ -3965,6 +3969,289 @@
       "kind": "ArrowFunction",
       "parameters": [
         "fastify: FastifyInstance"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 64,
+      "column": 1,
+      "name": "record",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: unknown"
+      ],
+      "returnType": "JsonObject | undefined",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 70,
+      "column": 1,
+      "name": "normalizePath",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "path: string"
+      ],
+      "returnType": "string",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 74,
+      "column": 1,
+      "name": "protocolReason",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "operation: string"
+      ],
+      "returnType": "string | undefined",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 83,
+      "column": 1,
+      "name": "machinePath",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "path: string"
+      ],
+      "returnType": "string | undefined",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 103,
+      "column": 1,
+      "name": "consumerSchema",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: unknown",
+        "root = true",
+        "headers = false"
+      ],
+      "returnType": "unknown",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 104,
+      "column": 46,
+      "name": "value.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "child"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 112,
+      "column": 17,
+      "name": "Object.entries(record(child) ?? {}) .filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "[name]"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 113,
+      "column": 14,
+      "name": "Object.entries(record(child) ?? {}) .filter(([name]) => !Object.hasOwn(OPERATOR_FIELDS, name) && !(headers && Object.hasOwn(CREDENTIAL_HEADERS, name.toLowerCase callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "[name, property]"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 115,
+      "column": 38,
+      "name": "child.filter callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "name"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 117,
+      "column": 31,
+      "name": "child.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "branch"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 126,
+      "column": 1,
+      "name": "typedSchema",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "value: unknown"
+      ],
+      "returnType": "boolean",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 128,
+      "column": 88,
+      "name": "[\"type\", \"$ref\", \"anyOf\", \"oneOf\", \"allOf\", \"enum\", \"const\"].some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "key"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 132,
+      "column": 1,
+      "name": "checkMcpRouteParity",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "routes: readonly RegisteredApplicationRoute[]",
+        "document: McpParityDocument"
+      ],
+      "returnType": "RouteParityEntry[]",
+      "documentation": "/** Compare real Fastify registrations to authenticated discovery, not documentation inventories. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 137,
+      "column": 41,
+      "name": "routes.map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "route"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 167,
+      "column": 72,
+      "name": "exposed.security.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "entry: unknown"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 183,
+      "column": 55,
+      "name": "parameters.map(record).find callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "candidate"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 193,
+      "column": 56,
+      "name": "Object.values(content).some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "media"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 197,
+      "column": 59,
+      "name": "Object.entries(responses).some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "[code, schema]"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 205,
+      "column": 58,
+      "name": "Object.values(content).some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "media"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/buildApp/mcpParity.ts",
+      "line": 210,
+      "column": 45,
+      "name": "scopes.every callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "scope"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -4058,7 +4345,7 @@
     },
     {
       "file": "packages/api/src/buildApp/router.ts",
-      "line": 42,
+      "line": 43,
       "column": 1,
       "name": "registerProductControllers",
       "kind": "FunctionDeclaration",
@@ -4073,7 +4360,7 @@
     },
     {
       "file": "packages/api/src/buildApp/router.ts",
-      "line": 84,
+      "line": 85,
       "column": 1,
       "name": "router",
       "kind": "FunctionDeclaration",
@@ -4088,7 +4375,7 @@
     },
     {
       "file": "packages/api/src/buildApp/router.ts",
-      "line": 94,
+      "line": 95,
       "column": 5,
       "name": "fastify.register callback[0]",
       "kind": "ArrowFunction",
@@ -4102,7 +4389,7 @@
     },
     {
       "file": "packages/api/src/buildApp/router.ts",
-      "line": 110,
+      "line": 111,
       "column": 5,
       "name": "fastify.register callback[0]",
       "kind": "ArrowFunction",
@@ -4116,7 +4403,7 @@
     },
     {
       "file": "packages/api/src/buildApp/router.ts",
-      "line": 129,
+      "line": 130,
       "column": 5,
       "name": "fastify.register callback[0]",
       "kind": "ArrowFunction",
@@ -4130,7 +4417,7 @@
     },
     {
       "file": "packages/api/src/buildApp/router.ts",
-      "line": 140,
+      "line": 142,
       "column": 5,
       "name": "fastify.register callback[0]",
       "kind": "ArrowFunction",
@@ -4323,6 +4610,247 @@
       "boundary": "internal implementation; not independently exposed"
     },
     {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 38,
+      "column": 1,
+      "name": "principal",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "request: FastifyRequest"
+      ],
+      "returnType": "ApiKeyAccountPrincipal",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 45,
+      "column": 1,
+      "name": "accountController",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "app: FastifyInstance"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": "/** Account controls use only server-bound machine identity, never ambient cookies. */",
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 49,
+      "column": 31,
+      "name": "routes.addHook callback[1]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "_request",
+        "reply"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 54,
+      "column": 26,
+      "name": "routes.setErrorHandler callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "error",
+        "_request",
+        "reply"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 65,
+      "column": 6,
+      "name": "routes.get callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 69,
+      "column": 6,
+      "name": "routes.patch callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 73,
+      "column": 6,
+      "name": "routes.post callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 80,
+      "column": 6,
+      "name": "routes.get callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 84,
+      "column": 6,
+      "name": "routes.delete callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 91,
+      "column": 6,
+      "name": "routes.post callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 98,
+      "column": 6,
+      "name": "routes.post callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 105,
+      "column": 6,
+      "name": "routes.get callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 109,
+      "column": 6,
+      "name": "routes.post callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 116,
+      "column": 6,
+      "name": "routes.delete callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 123,
+      "column": 6,
+      "name": "routes.patch callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 130,
+      "column": 6,
+      "name": "routes.delete callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/accountController.ts",
+      "line": 137,
+      "column": 6,
+      "name": "routes.post callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
       "file": "packages/api/src/controllers/analysisController.ts",
       "line": 18,
       "column": 1,
@@ -4383,7 +4911,7 @@
     },
     {
       "file": "packages/api/src/controllers/apiKeyController.ts",
-      "line": 20,
+      "line": 21,
       "column": 1,
       "name": "apiKeyController",
       "kind": "FunctionDeclaration",
@@ -4397,7 +4925,7 @@
     },
     {
       "file": "packages/api/src/controllers/apiKeyController.ts",
-      "line": 33,
+      "line": 34,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -4412,7 +4940,7 @@
     },
     {
       "file": "packages/api/src/controllers/apiKeyController.ts",
-      "line": 51,
+      "line": 52,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
       "kind": "ArrowFunction",
@@ -4427,7 +4955,7 @@
     },
     {
       "file": "packages/api/src/controllers/apiKeyController.ts",
-      "line": 72,
+      "line": 76,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().delete callback[2]",
       "kind": "ArrowFunction",
@@ -4442,12 +4970,12 @@
     },
     {
       "file": "packages/api/src/controllers/apiKeyController.ts",
-      "line": 74,
-      "column": 30,
-      "name": "db().transaction callback[0]",
+      "line": 78,
+      "column": 22,
+      "name": "revoke",
       "kind": "ArrowFunction",
       "parameters": [
-        "tx"
+        "tx: Parameters<Parameters<Db[\"transaction\"]>[0]>[0]"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -4456,7 +4984,7 @@
     },
     {
       "file": "packages/api/src/controllers/apiKeyController.ts",
-      "line": 90,
+      "line": 94,
       "column": 29,
       "name": "revoked.map callback[0]",
       "kind": "ArrowFunction",
@@ -4635,7 +5163,7 @@
     },
     {
       "file": "packages/api/src/controllers/broadcastsController.ts",
-      "line": 292,
+      "line": 290,
       "column": 7,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -4650,7 +5178,7 @@
     },
     {
       "file": "packages/api/src/controllers/broadcastsController.ts",
-      "line": 319,
+      "line": 320,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
       "kind": "ArrowFunction",
@@ -5196,7 +5724,7 @@
     },
     {
       "file": "packages/api/src/controllers/eventsController.ts",
-      "line": 21,
+      "line": 22,
       "column": 1,
       "name": "eventsController",
       "kind": "FunctionDeclaration",
@@ -5210,7 +5738,7 @@
     },
     {
       "file": "packages/api/src/controllers/eventsController.ts",
-      "line": 34,
+      "line": 35,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -5225,7 +5753,7 @@
     },
     {
       "file": "packages/api/src/controllers/eventsController.ts",
-      "line": 39,
+      "line": 40,
       "column": 31,
       "name": "request.raw.on callback[1]",
       "kind": "ArrowFunction",
@@ -5237,7 +5765,7 @@
     },
     {
       "file": "packages/api/src/controllers/eventsController.ts",
-      "line": 49,
+      "line": 50,
       "column": 9,
       "name": "eventsRaw.flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -5251,7 +5779,7 @@
     },
     {
       "file": "packages/api/src/controllers/eventsController.ts",
-      "line": 91,
+      "line": 92,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -5266,7 +5794,7 @@
     },
     {
       "file": "packages/api/src/controllers/eventsController.ts",
-      "line": 111,
+      "line": 112,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -5281,7 +5809,7 @@
     },
     {
       "file": "packages/api/src/controllers/eventsController.ts",
-      "line": 132,
+      "line": 133,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -5898,7 +6426,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicAppsController.ts",
-      "line": 206,
+      "line": 210,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
       "kind": "ArrowFunction",
@@ -5913,22 +6441,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicAppsController.ts",
-      "line": 237,
-      "column": 7,
-      "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "request",
-        "reply"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "controller implementation; not independently exposed"
-    },
-    {
-      "file": "packages/api/src/controllers/publicAppsController.ts",
-      "line": 263,
+      "line": 243,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
       "kind": "ArrowFunction",
@@ -6190,7 +6703,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 259,
+      "line": 265,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6205,7 +6718,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 260,
+      "line": 266,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6217,7 +6730,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 274,
+      "line": 280,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6232,7 +6745,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 275,
+      "line": 281,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6244,7 +6757,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 298,
+      "line": 304,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6259,7 +6772,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 299,
+      "line": 305,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6271,7 +6784,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 332,
+      "line": 338,
       "column": 5,
       "name": "f.patch callback[2]",
       "kind": "ArrowFunction",
@@ -6286,7 +6799,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 333,
+      "line": 339,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6298,7 +6811,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 351,
+      "line": 357,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6313,7 +6826,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 352,
+      "line": 358,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6325,7 +6838,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 366,
+      "line": 372,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6340,7 +6853,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 367,
+      "line": 373,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6352,7 +6865,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 385,
+      "line": 391,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6367,7 +6880,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 386,
+      "line": 392,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6379,7 +6892,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 404,
+      "line": 410,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6394,7 +6907,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 405,
+      "line": 411,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6406,7 +6919,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 419,
+      "line": 425,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6421,7 +6934,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 420,
+      "line": 426,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6433,7 +6946,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 434,
+      "line": 440,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -6448,7 +6961,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 435,
+      "line": 441,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6460,7 +6973,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 453,
+      "line": 459,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6475,7 +6988,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 454,
+      "line": 460,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6487,7 +7000,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 472,
+      "line": 478,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6502,7 +7015,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 473,
+      "line": 479,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6514,7 +7027,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 491,
+      "line": 497,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6529,7 +7042,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 492,
+      "line": 498,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6541,7 +7054,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 510,
+      "line": 516,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6556,7 +7069,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 511,
+      "line": 517,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6568,7 +7081,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 529,
+      "line": 535,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6583,7 +7096,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 530,
+      "line": 536,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6595,7 +7108,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 548,
+      "line": 554,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -6610,7 +7123,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 549,
+      "line": 555,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6622,7 +7135,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 567,
+      "line": 573,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -6637,7 +7150,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 568,
+      "line": 574,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6649,7 +7162,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 586,
+      "line": 592,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -6664,7 +7177,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 587,
+      "line": 593,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6676,7 +7189,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 605,
+      "line": 611,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6691,7 +7204,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 606,
+      "line": 612,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6703,7 +7216,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 624,
+      "line": 630,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -6718,7 +7231,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 625,
+      "line": 631,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6730,7 +7243,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 643,
+      "line": 649,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6745,7 +7258,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 644,
+      "line": 650,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6757,7 +7270,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 662,
+      "line": 668,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6772,7 +7285,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 663,
+      "line": 669,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6784,7 +7297,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 678,
+      "line": 684,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6799,7 +7312,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 679,
+      "line": 685,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6811,7 +7324,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 694,
+      "line": 700,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -6826,7 +7339,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 695,
+      "line": 701,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6838,7 +7351,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 713,
+      "line": 719,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6853,7 +7366,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 714,
+      "line": 720,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6865,7 +7378,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 732,
+      "line": 738,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6880,7 +7393,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 733,
+      "line": 739,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6892,7 +7405,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 747,
+      "line": 753,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6907,7 +7420,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 748,
+      "line": 754,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6919,7 +7432,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 764,
+      "line": 770,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -6934,7 +7447,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 765,
+      "line": 771,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6946,7 +7459,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 783,
+      "line": 789,
       "column": 5,
       "name": "f.delete callback[2]",
       "kind": "ArrowFunction",
@@ -6961,7 +7474,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 784,
+      "line": 790,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6973,7 +7486,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 802,
+      "line": 808,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6988,7 +7501,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 803,
+      "line": 809,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7000,7 +7513,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 825,
+      "line": 831,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -7015,7 +7528,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 826,
+      "line": 832,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7027,7 +7540,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 844,
+      "line": 850,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -7042,7 +7555,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 845,
+      "line": 851,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7256,7 +7769,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 106,
+      "line": 109,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
       "kind": "ArrowFunction",
@@ -7271,7 +7784,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 121,
+      "line": 127,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
       "kind": "ArrowFunction",
@@ -7286,7 +7799,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 139,
+      "line": 145,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -7301,7 +7814,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 161,
+      "line": 167,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().put callback[2]",
       "kind": "ArrowFunction",
@@ -7316,7 +7829,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 184,
+      "line": 190,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().patch callback[2]",
       "kind": "ArrowFunction",
@@ -7331,7 +7844,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 219,
+      "line": 225,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().delete callback[2]",
       "kind": "ArrowFunction",
@@ -7346,7 +7859,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 241,
+      "line": 247,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().delete callback[2]",
       "kind": "ArrowFunction",
@@ -7361,7 +7874,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 266,
+      "line": 272,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -7376,7 +7889,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 301,
+      "line": 312,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
       "kind": "ArrowFunction",
@@ -7391,7 +7904,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 318,
+      "line": 329,
       "column": 54,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -7405,7 +7918,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 325,
+      "line": 336,
       "column": 26,
       "name": "csvStream .pipe(csvParser()) .on callback[1]",
       "kind": "ArrowFunction",
@@ -7419,7 +7932,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 331,
+      "line": 342,
       "column": 23,
       "name": "csvStream .pipe(csvParser()) .on(\"headers\", (headers: string[]) => { if (!headers.includes(\"id\")) { resolve(err('csv must have \"id\" header')); csvStream.destroy callback[1]",
       "kind": "ArrowFunction",
@@ -7433,7 +7946,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 360,
+      "line": 371,
       "column": 22,
       "name": "csvStream .pipe(csvParser()) .on(\"headers\", (headers: string[]) => { if (!headers.includes(\"id\")) { resolve(err('csv must have \"id\" header')); csvStream.destroy callback[1]",
       "kind": "ArrowFunction",
@@ -7445,7 +7958,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 370,
+      "line": 381,
       "column": 24,
       "name": "csvStream .pipe(csvParser()) .on(\"headers\", (headers: string[]) => { if (!headers.includes(\"id\")) { resolve(err('csv must have \"id\" header')); csvStream.destroy callback[1]",
       "kind": "ArrowFunction",
@@ -7459,7 +7972,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 431,
+      "line": 442,
       "column": 38,
       "name": "rows.value.map callback[0]",
       "kind": "ArrowFunction",
@@ -7473,7 +7986,7 @@
     },
     {
       "file": "packages/api/src/controllers/segmentsController.ts",
-      "line": 433,
+      "line": 444,
       "column": 53,
       "name": "rows.value.flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -7693,7 +8206,7 @@
     },
     {
       "file": "packages/api/src/controllers/subscriptionGroupsController.ts",
-      "line": 101,
+      "line": 105,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().post callback[2]",
       "kind": "ArrowFunction",
@@ -7708,7 +8221,7 @@
     },
     {
       "file": "packages/api/src/controllers/subscriptionGroupsController.ts",
-      "line": 155,
+      "line": 159,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().delete callback[2]",
       "kind": "ArrowFunction",
@@ -7723,7 +8236,7 @@
     },
     {
       "file": "packages/api/src/controllers/subscriptionGroupsController.ts",
-      "line": 181,
+      "line": 185,
       "column": 5,
       "name": "fastify.withTypeProvider<TypeBoxTypeProvider>().get callback[2]",
       "kind": "ArrowFunction",
@@ -7738,7 +8251,7 @@
     },
     {
       "file": "packages/api/src/controllers/subscriptionGroupsController.ts",
-      "line": 190,
+      "line": 194,
       "column": 59,
       "name": "subscriptionGroups.map callback[0]",
       "kind": "ArrowFunction",
@@ -7752,7 +8265,7 @@
     },
     {
       "file": "packages/api/src/controllers/subscriptionGroupsController.ts",
-      "line": 235,
+      "line": 239,
       "column": 48,
       "name": "subscriptionGroups.map callback[0]",
       "kind": "ArrowFunction",
@@ -8800,7 +9313,7 @@
     },
     {
       "file": "packages/api/src/types.ts",
-      "line": 9,
+      "line": 18,
       "column": 19,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -8814,7 +9327,7 @@
     },
     {
       "file": "packages/api/src/types.ts",
-      "line": 10,
+      "line": 19,
       "column": 28,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -9610,7 +10123,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 47,
+      "line": 67,
       "column": 3,
       "name": "constructor",
       "kind": "Constructor",
@@ -9625,7 +10138,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 71,
+      "line": 91,
       "column": 1,
       "name": "fail",
       "kind": "FunctionDeclaration",
@@ -9640,7 +10153,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 77,
+      "line": 97,
       "column": 1,
       "name": "authTransaction",
       "kind": "FunctionDeclaration",
@@ -9654,7 +10167,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 77,
+      "line": 97,
       "column": 35,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -9668,7 +10181,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 79,
+      "line": 99,
       "column": 5,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -9682,7 +10195,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 89,
+      "line": 109,
       "column": 1,
       "name": "hash",
       "kind": "FunctionDeclaration",
@@ -9696,7 +10209,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 93,
+      "line": 113,
       "column": 1,
       "name": "token",
       "kind": "FunctionDeclaration",
@@ -9708,7 +10221,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 97,
+      "line": 117,
       "column": 1,
       "name": "normalizedEmail",
       "kind": "FunctionDeclaration",
@@ -9722,7 +10235,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 109,
+      "line": 129,
       "column": 1,
       "name": "validRole",
       "kind": "FunctionDeclaration",
@@ -9736,7 +10249,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 113,
+      "line": 133,
       "column": 1,
       "name": "memberResource",
       "kind": "FunctionDeclaration",
@@ -9750,13 +10263,14 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 125,
+      "line": 145,
       "column": 1,
       "name": "authenticated",
       "kind": "FunctionDeclaration",
       "parameters": [
         "tx: Transaction",
-        "principal: GoogleAccountPrincipal"
+        "principal: AccountPrincipal",
+        "requiredScopes: readonly AdminApiKeyScope[] = API_OPERATION_SCOPES"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -9765,7 +10279,21 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 152,
+      "line": 161,
+      "column": 59,
+      "name": "requiredScopes.every callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "scope"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 202,
       "column": 1,
       "name": "effectiveMemberships",
       "kind": "FunctionDeclaration",
@@ -9781,7 +10309,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 179,
+      "line": 229,
       "column": 40,
       "name": "direct.map callback[0]",
       "kind": "ArrowFunction",
@@ -9795,7 +10323,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 186,
+      "line": 236,
       "column": 46,
       "name": "Array.from(effective.values()).sort callback[0]",
       "kind": "ArrowFunction",
@@ -9810,7 +10338,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 189,
+      "line": 239,
       "column": 1,
       "name": "membership",
       "kind": "FunctionDeclaration",
@@ -9826,15 +10354,16 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 199,
+      "line": 249,
       "column": 1,
       "name": "authorized",
       "kind": "FunctionDeclaration",
       "parameters": [
         "tx: Transaction",
-        "principal: GoogleAccountPrincipal",
+        "principal: AccountPrincipal",
         "workspaceId: string",
-        "requiredRole: Role"
+        "requiredRole: Role",
+        "requiredScopes: readonly AdminApiKeyScope[] = API_OPERATION_SCOPES"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -9843,7 +10372,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 212,
+      "line": 264,
       "column": 1,
       "name": "mayManage",
       "kind": "FunctionDeclaration",
@@ -9858,7 +10387,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 225,
+      "line": 277,
       "column": 1,
       "name": "protectWorkspaceAdmin",
       "kind": "FunctionDeclaration",
@@ -9874,7 +10403,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 244,
+      "line": 296,
       "column": 19,
       "name": "admins.some callback[0]",
       "kind": "ArrowFunction",
@@ -9888,7 +10417,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 248,
+      "line": 300,
       "column": 1,
       "name": "invitationResource",
       "kind": "FunctionDeclaration",
@@ -9903,7 +10432,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 268,
+      "line": 320,
       "column": 1,
       "name": "liveInvitation",
       "kind": "FunctionDeclaration",
@@ -9918,7 +10447,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 319,
+      "line": 371,
       "column": 1,
       "name": "createGoogleFlow",
       "kind": "FunctionDeclaration",
@@ -9932,7 +10461,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 327,
+      "line": 379,
       "column": 26,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -9946,7 +10475,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 346,
+      "line": 398,
       "column": 1,
       "name": "consumeGoogleFlow",
       "kind": "FunctionDeclaration",
@@ -9960,7 +10489,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 353,
+      "line": 405,
       "column": 26,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -9974,7 +10503,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 371,
+      "line": 423,
       "column": 1,
       "name": "rejectEmailCollision",
       "kind": "FunctionDeclaration",
@@ -9990,7 +10519,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 399,
+      "line": 451,
       "column": 1,
       "name": "completeGoogleSignIn",
       "kind": "FunctionDeclaration",
@@ -10004,7 +10533,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 414,
+      "line": 466,
       "column": 26,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10018,7 +10547,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 567,
+      "line": 619,
       "column": 1,
       "name": "createAccountSession",
       "kind": "FunctionDeclaration",
@@ -10032,7 +10561,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 574,
+      "line": 626,
       "column": 26,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10046,7 +10575,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 607,
+      "line": 659,
       "column": 1,
       "name": "resolveAccountSession",
       "kind": "FunctionDeclaration",
@@ -10060,12 +10589,12 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 633,
+      "line": 685,
       "column": 1,
       "name": "listAccountSessions",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "principal: GoogleAccountPrincipal"
+        "principal: AccountPrincipal"
       ],
       "returnType": "Promise<AccountSessionResource[]>",
       "documentation": null,
@@ -10074,7 +10603,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 636,
+      "line": 688,
       "column": 26,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10088,7 +10617,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 649,
+      "line": 701,
       "column": 25,
       "name": "sessions.map callback[0]",
       "kind": "ArrowFunction",
@@ -10102,12 +10631,12 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 659,
+      "line": 711,
       "column": 1,
       "name": "revokeAccountSession",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "principal: GoogleAccountPrincipal",
+        "principal: AccountPrincipal",
         "sessionId: string"
       ],
       "returnType": "Promise<void>",
@@ -10117,7 +10646,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 663,
+      "line": 715,
       "column": 25,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10131,12 +10660,12 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 679,
+      "line": 731,
       "column": 1,
       "name": "revokeOtherAccountSessions",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "principal: GoogleAccountPrincipal"
+        "principal: AccountPrincipal"
       ],
       "returnType": "Promise<void>",
       "documentation": null,
@@ -10145,7 +10674,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 682,
+      "line": 734,
       "column": 25,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10159,22 +10688,36 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 697,
+      "line": 749,
       "column": 1,
       "name": "profileInTransaction",
       "kind": "FunctionDeclaration",
       "parameters": [
         "tx: Transaction",
-        "principal: GoogleAccountPrincipal"
+        "principal: AccountPrincipal"
       ],
-      "returnType": "Promise<AccountProfile>",
+      "returnType": "Promise<AccountProfile | MachineAccountProfile>",
       "documentation": null,
       "hasBody": true,
       "boundary": "internal implementation; not independently exposed"
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 726,
+      "line": 755,
+      "column": 87,
+      "name": "(await effectiveMemberships(tx, principal.memberId, principal.workspaceId)).map callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "row"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 785,
       "column": 1,
       "name": "getAccountProfile",
       "kind": "FunctionDeclaration",
@@ -10183,12 +10726,40 @@
       ],
       "returnType": "Promise<AccountProfile>",
       "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 786,
+      "column": 1,
+      "name": "getAccountProfile",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "principal: ApiKeyAccountPrincipal"
+      ],
+      "returnType": "Promise<MachineAccountProfile>",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 787,
+      "column": 1,
+      "name": "getAccountProfile",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "principal: AccountPrincipal"
+      ],
+      "returnType": "Promise<AccountProfile | MachineAccountProfile>",
+      "documentation": null,
       "hasBody": true,
       "boundary": "internal implementation; not independently exposed"
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 729,
+      "line": 790,
       "column": 26,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10202,22 +10773,52 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 732,
+      "line": 793,
       "column": 1,
       "name": "updateAccountProfile",
       "kind": "FunctionDeclaration",
       "parameters": [
         "principal: GoogleAccountPrincipal",
-        "{ name }: { name: string }"
+        "input: { name: string }"
       ],
       "returnType": "Promise<AccountProfile>",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 794,
+      "column": 1,
+      "name": "updateAccountProfile",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "principal: ApiKeyAccountPrincipal",
+        "input: { name: string }"
+      ],
+      "returnType": "Promise<MachineAccountProfile>",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 795,
+      "column": 1,
+      "name": "updateAccountProfile",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "principal: AccountPrincipal",
+        "{ name }: { name: string }"
+      ],
+      "returnType": "Promise<AccountProfile | MachineAccountProfile>",
       "documentation": null,
       "hasBody": true,
       "boundary": "internal implementation; not independently exposed"
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 743,
+      "line": 806,
       "column": 26,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10231,12 +10832,12 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 753,
+      "line": 816,
       "column": 1,
       "name": "getAccountTeam",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "principal: GoogleAccountPrincipal",
+        "principal: AccountPrincipal",
         "workspaceId: string"
       ],
       "returnType": "Promise<AccountTeamResponse>",
@@ -10246,7 +10847,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 757,
+      "line": 820,
       "column": 26,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10260,7 +10861,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 784,
+      "line": 847,
       "column": 25,
       "name": "rows.map callback[0]",
       "kind": "ArrowFunction",
@@ -10274,7 +10875,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 791,
+      "line": 854,
       "column": 36,
       "name": "invitations.map callback[0]",
       "kind": "ArrowFunction",
@@ -10288,12 +10889,12 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 800,
+      "line": 863,
       "column": 1,
       "name": "createWorkspaceInvitation",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "principal: GoogleAccountPrincipal",
+        "principal: AccountPrincipal",
         "input: CreateAccountInvitationRequest"
       ],
       "returnType": "Promise<{ invitation: WorkspaceInvitationResource; token: string }>",
@@ -10303,7 +10904,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 805,
+      "line": 868,
       "column": 26,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10317,7 +10918,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 872,
+      "line": 935,
       "column": 1,
       "name": "previewWorkspaceInvitation",
       "kind": "FunctionDeclaration",
@@ -10331,7 +10932,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 875,
+      "line": 938,
       "column": 26,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10345,12 +10946,12 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 881,
+      "line": 944,
       "column": 1,
       "name": "revokeWorkspaceInvitation",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "principal: GoogleAccountPrincipal",
+        "principal: AccountPrincipal",
         "{ workspaceId, invitationId }: { workspaceId: string; invitationId: string }"
       ],
       "returnType": "Promise<void>",
@@ -10360,7 +10961,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 885,
+      "line": 948,
       "column": 25,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10374,7 +10975,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 911,
+      "line": 974,
       "column": 1,
       "name": "targetRole",
       "kind": "FunctionDeclaration",
@@ -10390,12 +10991,12 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 929,
+      "line": 992,
       "column": 1,
       "name": "updateAccountMemberRole",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "principal: GoogleAccountPrincipal",
+        "principal: AccountPrincipal",
         "{\n    workspaceId,\n    memberId,\n    role,\n  }: { workspaceId: string; memberId: string; role: Role }"
       ],
       "returnType": "Promise<void>",
@@ -10405,7 +11006,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 937,
+      "line": 1000,
       "column": 25,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10419,12 +11020,12 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 961,
+      "line": 1024,
       "column": 1,
       "name": "removeAccountMember",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "principal: GoogleAccountPrincipal",
+        "principal: AccountPrincipal",
         "{ workspaceId, memberId }: { workspaceId: string; memberId: string }"
       ],
       "returnType": "Promise<void>",
@@ -10434,65 +11035,8 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 965,
+      "line": 1028,
       "column": 25,
-      "name": "authTransaction callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "tx"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/backend-lib/src/accounts.ts",
-      "line": 997,
-      "column": 1,
-      "name": "setAccountDisabled",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "principal: GoogleAccountPrincipal",
-        "{ memberId, disabled }: { memberId: string; disabled: boolean }"
-      ],
-      "returnType": "Promise<void>",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/backend-lib/src/accounts.ts",
-      "line": 1001,
-      "column": 25,
-      "name": "authTransaction callback[0]",
-      "kind": "ArrowFunction",
-      "parameters": [
-        "tx"
-      ],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/backend-lib/src/accounts.ts",
-      "line": 1053,
-      "column": 1,
-      "name": "getGoogleRequestContext",
-      "kind": "FunctionDeclaration",
-      "parameters": [
-        "principal: GoogleAccountPrincipal"
-      ],
-      "returnType": "Promise<RequestContextResult>",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/backend-lib/src/accounts.ts",
-      "line": 1057,
-      "column": 56,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -10506,6 +11050,77 @@
     {
       "file": "packages/backend-lib/src/accounts.ts",
       "line": 1060,
+      "column": 1,
+      "name": "setAccountDisabled",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "principal: AccountPrincipal",
+        "{ memberId, disabled }: { memberId: string; disabled: boolean }"
+      ],
+      "returnType": "Promise<void>",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1064,
+      "column": 25,
+      "name": "authTransaction callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "tx"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1072,
+      "column": 39,
+      "name": "roles.some callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "role"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1124,
+      "column": 1,
+      "name": "getGoogleRequestContext",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "principal: GoogleAccountPrincipal"
+      ],
+      "returnType": "Promise<RequestContextResult>",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1128,
+      "column": 56,
+      "name": "authTransaction callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "tx"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1131,
       "column": 36,
       "name": "rows.map callback[0]",
       "kind": "ArrowFunction",
@@ -10519,7 +11134,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 1068,
+      "line": 1139,
       "column": 19,
       "name": "rows.find callback[0]",
       "kind": "ArrowFunction",
@@ -10533,12 +11148,12 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 1095,
+      "line": 1166,
       "column": 1,
       "name": "selectAccountWorkspace",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "principal: GoogleAccountPrincipal",
+        "principal: AccountPrincipal",
         "workspaceId: string"
       ],
       "returnType": "Promise<void>",
@@ -10548,7 +11163,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 1099,
+      "line": 1170,
       "column": 25,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10562,12 +11177,12 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 1109,
+      "line": 1181,
       "column": 1,
       "name": "requireWorkspaceRole",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "principal: GoogleAccountPrincipal",
+        "principal: AccountPrincipal",
         "workspaceId: string",
         "requiredRole: Role"
       ],
@@ -10578,7 +11193,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 1114,
+      "line": 1186,
       "column": 25,
       "name": "authTransaction callback[0]",
       "kind": "ArrowFunction",
@@ -10592,7 +11207,154 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 1119,
+      "line": 1192,
+      "column": 1,
+      "name": "getApiKeyAccountContext",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "principal: ApiKeyAccountPrincipal",
+        "requiredRole: Role",
+        "requiredScopes: readonly AdminApiKeyScope[]"
+      ],
+      "returnType": "Promise<ApiKeyAccountContext>",
+      "documentation": "/** Re-resolve delegation and role from the database for every authenticated operation. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1197,
+      "column": 26,
+      "name": "authTransaction callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "tx"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1220,
+      "column": 1,
+      "name": "withAccountAuthorization",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "principal: AccountPrincipal",
+        "workspaceId: string",
+        "work: (tx: Transaction) => Promise<T>",
+        "requiredRole: Role = \"Admin\""
+      ],
+      "returnType": "Promise<T>",
+      "documentation": "/** Serialize credential changes with owner disablement, demotion and account mutations. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1223,
+      "column": 9,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [
+        "tx: Transaction"
+      ],
+      "returnType": "Promise<T>",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1226,
+      "column": 26,
+      "name": "authTransaction callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "tx"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1233,
+      "column": 1,
+      "name": "withOwnerKeyEnrollment",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "ownerMemberId: string",
+        "workspaceId: string",
+        "work: (tx: Transaction) => Promise<T>"
+      ],
+      "returnType": "Promise<T>",
+      "documentation": "/** Privileged local operator enrollment, never an application request principal. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1236,
+      "column": 9,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [
+        "tx: Transaction"
+      ],
+      "returnType": "Promise<T>",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1238,
+      "column": 26,
+      "name": "authTransaction callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "tx"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1256,
+      "column": 1,
+      "name": "logoutApiKeyAccount",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "principal: ApiKeyAccountPrincipal"
+      ],
+      "returnType": "Promise<void>",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1257,
+      "column": 25,
+      "name": "authTransaction callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "tx"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/accounts.ts",
+      "line": 1266,
       "column": 1,
       "name": "consumeAccountRateLimit",
       "kind": "FunctionDeclaration",
@@ -10606,7 +11368,7 @@
     },
     {
       "file": "packages/backend-lib/src/accounts.ts",
-      "line": 1139,
+      "line": 1286,
       "column": 42,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -10620,12 +11382,13 @@
     },
     {
       "file": "packages/backend-lib/src/adminApiKeys.ts",
-      "line": 29,
+      "line": 30,
       "column": 1,
       "name": "createAdminApiKey",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "data: CreateAdminApiKeyRequest"
+        "data: CreateAdminApiKeyRequest",
+        "principal?: AccountPrincipal"
       ],
       "returnType": "Promise<Result<CreateAdminApiKeyResponse, AdminApiKeyCreateError>>",
       "documentation": null,
@@ -10634,12 +11397,43 @@
     },
     {
       "file": "packages/backend-lib/src/adminApiKeys.ts",
-      "line": 35,
-      "column": 22,
-      "name": "db().transaction callback[0]",
+      "line": 38,
+      "column": 1,
+      "name": "provisionOwnerAdminApiKey",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "data: CreateAdminApiKeyRequest",
+        "ownerMemberId: string"
+      ],
+      "returnType": "Promise<Result<CreateAdminApiKeyResponse, AdminApiKeyCreateError>>",
+      "documentation": "/** Local operator provisioning only. This owner selector is not an HTTP input. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/adminApiKeys.ts",
+      "line": 45,
+      "column": 1,
+      "name": "createKey",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "data: CreateAdminApiKeyRequest",
+        "principal?: AccountPrincipal",
+        "enrollmentOwnerMemberId?: string"
+      ],
+      "returnType": "Promise<Result<CreateAdminApiKeyResponse, AdminApiKeyCreateError>>",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/adminApiKeys.ts",
+      "line": 52,
+      "column": 18,
+      "name": "create",
       "kind": "ArrowFunction",
       "parameters": [
-        "tx"
+        "tx: Parameters<Parameters<Db[\"transaction\"]>[0]>[0]"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -10648,7 +11442,7 @@
     },
     {
       "file": "packages/backend-lib/src/adminApiKeys.ts",
-      "line": 98,
+      "line": 124,
       "column": 1,
       "name": "getAdminApiKeys",
       "kind": "FunctionDeclaration",
@@ -10662,7 +11456,7 @@
     },
     {
       "file": "packages/backend-lib/src/adminApiKeys.ts",
-      "line": 113,
+      "line": 139,
       "column": 19,
       "name": "keys.map callback[0]",
       "kind": "ArrowFunction",
@@ -24122,7 +24916,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 92,
+      "line": 93,
       "column": 1,
       "name": "enrichMessageTemplate",
       "kind": "FunctionDeclaration",
@@ -24136,7 +24930,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 139,
+      "line": 140,
       "column": 1,
       "name": "findMessageTemplate",
       "kind": "FunctionDeclaration",
@@ -24150,7 +24944,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 162,
+      "line": 163,
       "column": 46,
       "name": "enrichMessageTemplate(template).map callback[0]",
       "kind": "ArrowFunction",
@@ -24164,7 +24958,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 168,
+      "line": 169,
       "column": 1,
       "name": "doesRequireDraftReset",
       "kind": "FunctionDeclaration",
@@ -24178,7 +24972,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 188,
+      "line": 189,
       "column": 1,
       "name": "upsertMessageTemplate",
       "kind": "FunctionDeclaration",
@@ -24192,7 +24986,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 226,
+      "line": 230,
       "column": 28,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -24206,7 +25000,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 344,
+      "line": 367,
       "column": 1,
       "name": "findMessageTemplates",
       "kind": "FunctionDeclaration",
@@ -24220,7 +25014,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 358,
+      "line": 381,
       "column": 35,
       "name": "messageTemplates.flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -24234,7 +25028,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 370,
+      "line": 393,
       "column": 1,
       "name": "getSendMessageModels",
       "kind": "FunctionDeclaration",
@@ -24248,7 +25042,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 525,
+      "line": 548,
       "column": 1,
       "name": "renderValues",
       "kind": "FunctionDeclaration",
@@ -24262,7 +25056,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 566,
+      "line": 589,
       "column": 1,
       "name": "confirmEmailSelection",
       "kind": "FunctionDeclaration",
@@ -24276,7 +25070,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 598,
+      "line": 621,
       "column": 1,
       "name": "sendEmail",
       "kind": "FunctionDeclaration",
@@ -24290,7 +25084,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 775,
+      "line": 798,
       "column": 44,
       "name": "unsplitCc?.split(\",\").flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -24304,7 +25098,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 779,
+      "line": 802,
       "column": 46,
       "name": "unsplitBcc?.split(\",\").flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -24318,7 +25112,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 882,
+      "line": 905,
       "column": 9,
       "name": "messageTemplateDefinition.attachmentUserProperties.map callback[0]",
       "kind": "ArrowFunction",
@@ -24332,7 +25126,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 946,
+      "line": 969,
       "column": 44,
       "name": "attachments?.map callback[0]",
       "kind": "ArrowFunction",
@@ -24346,7 +25140,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 965,
+      "line": 988,
       "column": 37,
       "name": "attachments?.map callback[0]",
       "kind": "ArrowFunction",
@@ -24360,7 +25154,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 981,
+      "line": 1004,
       "column": 1,
       "name": "sendWebhook",
       "kind": "FunctionDeclaration",
@@ -24374,7 +25168,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1027,
+      "line": 1050,
       "column": 14,
       "name": "schemaValidateWithErr(secret.configValue, WebhookSecret) .map callback[0]",
       "kind": "ArrowFunction",
@@ -24388,7 +25182,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1028,
+      "line": 1051,
       "column": 17,
       "name": "schemaValidateWithErr(secret.configValue, WebhookSecret) .map((c) => R.omit(c, [\"type\"])) .mapErr callback[0]",
       "kind": "ArrowFunction",
@@ -24402,7 +25196,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1211,
+      "line": 1234,
       "column": 22,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -24416,7 +25210,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1222,
+      "line": 1245,
       "column": 1,
       "name": "sendMessage",
       "kind": "FunctionDeclaration",
@@ -24430,7 +25224,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1226,
+      "line": 1249,
       "column": 44,
       "name": "withSpan callback[1]",
       "kind": "ArrowFunction",
@@ -24444,7 +25238,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1254,
+      "line": 1277,
       "column": 1,
       "name": "testTemplate",
       "kind": "FunctionDeclaration",
@@ -24458,7 +25252,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1343,
+      "line": 1366,
       "column": 1,
       "name": "isNonRetryableError",
       "kind": "FunctionDeclaration",
@@ -24472,7 +25266,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1363,
+      "line": 1386,
       "column": 1,
       "name": "batchMessageUsers",
       "kind": "FunctionDeclaration",
@@ -24486,7 +25280,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1376,
+      "line": 1399,
       "column": 29,
       "name": "users.map callback[0]",
       "kind": "ArrowFunction",
@@ -24500,7 +25294,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1403,
+      "line": 1426,
       "column": 31,
       "name": "subscriptionGroupData.map callback[0]",
       "kind": "ArrowFunction",
@@ -24514,7 +25308,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1411,
+      "line": 1434,
       "column": 33,
       "name": "usersResult.value.users.map callback[0]",
       "kind": "ArrowFunction",
@@ -24528,7 +25322,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1424,
+      "line": 1447,
       "column": 15,
       "name": "users.map callback[0]",
       "kind": "ArrowFunction",
@@ -24542,7 +25336,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1610,
+      "line": 1633,
       "column": 5,
       "name": "messageResults.map callback[0]",
       "kind": "ArrowFunction",
@@ -24556,7 +25350,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1614,
+      "line": 1637,
       "column": 44,
       "name": "users.map callback[0]",
       "kind": "ArrowFunction",
@@ -24570,7 +25364,7 @@
     },
     {
       "file": "packages/backend-lib/src/messaging.ts",
-      "line": 1621,
+      "line": 1644,
       "column": 5,
       "name": "messageResults.flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -27550,13 +28344,14 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 40,
+      "line": 42,
       "column": 3,
       "name": "constructor",
       "kind": "Constructor",
       "parameters": [
         "message: string",
-        "statusCode = 400"
+        "statusCode = 400",
+        "code?: string"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -27565,7 +28360,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 52,
+      "line": 55,
       "column": 1,
       "name": "requireManager",
       "kind": "FunctionDeclaration",
@@ -27581,7 +28376,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 72,
+      "line": 75,
       "column": 1,
       "name": "requirePublisherAccess",
       "kind": "FunctionDeclaration",
@@ -27596,7 +28391,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 85,
+      "line": 88,
       "column": 1,
       "name": "getPublisherForWorkspace",
       "kind": "FunctionDeclaration",
@@ -27610,7 +28405,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 100,
+      "line": 103,
       "column": 1,
       "name": "requireNewsletterAccess",
       "kind": "FunctionDeclaration",
@@ -27625,7 +28420,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 118,
+      "line": 121,
       "column": 1,
       "name": "requireNewsletterCampaignWorkspace",
       "kind": "FunctionDeclaration",
@@ -27639,12 +28434,12 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 132,
+      "line": 135,
       "column": 1,
       "name": "createPublisher",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "{\n  workspaceId,\n  name,\n  memberId,\n}: {\n  workspaceId?: string;\n  name: string;\n  memberId?: string;\n}"
+        "{\n  workspaceId,\n  name,\n  memberId: providedMemberId,\n  createNewWorkspace = false,\n  principal,\n}: {\n  workspaceId?: string;\n  name: string;\n  memberId?: string;\n  createNewWorkspace?: boolean;\n  principal?: AccountPrincipal;\n}"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -27653,12 +28448,12 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 143,
-      "column": 27,
-      "name": "db().transaction callback[0]",
+      "line": 157,
+      "column": 18,
+      "name": "create",
       "kind": "ArrowFunction",
       "parameters": [
-        "tx"
+        "tx: Transaction"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -27667,7 +28462,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 238,
+      "line": 280,
       "column": 1,
       "name": "listNewsletters",
       "kind": "FunctionDeclaration",
@@ -27681,7 +28476,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 258,
+      "line": 300,
       "column": 1,
       "name": "provisionNewsletter",
       "kind": "FunctionDeclaration",
@@ -27696,7 +28491,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 328,
+      "line": 370,
       "column": 1,
       "name": "createNewsletter",
       "kind": "FunctionDeclaration",
@@ -27710,7 +28505,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 344,
+      "line": 386,
       "column": 46,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -27724,7 +28519,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 416,
+      "line": 454,
       "column": 5,
       "name": "(await listNewsletters(publisherId)).find callback[0]",
       "kind": "ArrowFunction",
@@ -27738,7 +28533,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 420,
+      "line": 458,
       "column": 1,
       "name": "adoptNewsletter",
       "kind": "FunctionDeclaration",
@@ -27752,7 +28547,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 435,
+      "line": 473,
       "column": 26,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -27766,7 +28561,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 509,
+      "line": 547,
       "column": 21,
       "name": "groups.find callback[0]",
       "kind": "ArrowFunction",
@@ -27780,7 +28575,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 510,
+      "line": 548,
       "column": 21,
       "name": "groups.find callback[0]",
       "kind": "ArrowFunction",
@@ -27794,7 +28589,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 557,
+      "line": 593,
       "column": 5,
       "name": "(await listNewsletters(publisherId)).find callback[0]",
       "kind": "ArrowFunction",
@@ -27808,7 +28603,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 561,
+      "line": 597,
       "column": 1,
       "name": "updateNewsletter",
       "kind": "FunctionDeclaration",
@@ -27822,7 +28617,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 575,
+      "line": 611,
       "column": 26,
       "name": "db().transaction callback[0]",
       "kind": "ArrowFunction",
@@ -27836,7 +28631,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 613,
+      "line": 649,
       "column": 5,
       "name": "(await listNewsletters(publisherId)).find callback[0]",
       "kind": "ArrowFunction",
@@ -27850,7 +28645,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 617,
+      "line": 653,
       "column": 1,
       "name": "selectedNewsletters",
       "kind": "FunctionDeclaration",
@@ -27865,7 +28660,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 624,
+      "line": 660,
       "column": 26,
       "name": "newsletterIds.some callback[0]",
       "kind": "ArrowFunction",
@@ -27879,7 +28674,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 624,
+      "line": 660,
       "column": 44,
       "name": "all.some callback[0]",
       "kind": "ArrowFunction",
@@ -27893,7 +28688,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 626,
+      "line": 662,
       "column": 21,
       "name": "all.filter callback[0]",
       "kind": "ArrowFunction",
@@ -27907,7 +28702,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 634,
+      "line": 670,
       "column": 1,
       "name": "searchPublicationContacts",
       "kind": "FunctionDeclaration",
@@ -27921,7 +28716,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 666,
+      "line": 702,
       "column": 32,
       "name": "publications.map callback[0]",
       "kind": "ArrowFunction",
@@ -27935,7 +28730,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 679,
+      "line": 715,
       "column": 13,
       "name": "properties .filter callback[0]",
       "kind": "ArrowFunction",
@@ -27949,7 +28744,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 680,
+      "line": 716,
       "column": 10,
       "name": "properties .filter((property) => property.name === \"email\") .map callback[0]",
       "kind": "ArrowFunction",
@@ -27963,7 +28758,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 683,
+      "line": 719,
       "column": 7,
       "name": "segments .filter callback[0]",
       "kind": "ArrowFunction",
@@ -27977,7 +28772,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 688,
+      "line": 724,
       "column": 11,
       "name": "publications.some callback[0]",
       "kind": "ArrowFunction",
@@ -27991,7 +28786,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 693,
+      "line": 729,
       "column": 10,
       "name": "segments .filter( (item) => item.subscriptionGroupId && item.name === getSubscriptionGroupSegmentName(item.subscriptionGroupId) && publications.some( (publicati callback[0]",
       "kind": "ArrowFunction",
@@ -28005,7 +28800,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 695,
+      "line": 731,
       "column": 13,
       "name": "publications .filter callback[0]",
       "kind": "ArrowFunction",
@@ -28019,7 +28814,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 697,
+      "line": 733,
       "column": 9,
       "name": "groups.some callback[0]",
       "kind": "ArrowFunction",
@@ -28033,7 +28828,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 702,
+      "line": 738,
       "column": 10,
       "name": "publications .filter((publication) => groups.some( (group) => group.id === publication.subscriptionGroupId && group.type === \"OptOut\", ), ) .map callback[0]",
       "kind": "ArrowFunction",
@@ -28047,7 +28842,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 749,
+      "line": 785,
       "column": 20,
       "name": "properties.map callback[0]",
       "kind": "ArrowFunction",
@@ -28061,7 +28856,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 751,
+      "line": 787,
       "column": 29,
       "name": "rows.map callback[0]",
       "kind": "ArrowFunction",
@@ -28075,7 +28870,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 758,
+      "line": 794,
       "column": 30,
       "name": "row.properties.flatMap callback[0]",
       "kind": "ArrowFunction",
@@ -28089,7 +28884,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 782,
+      "line": 818,
       "column": 1,
       "name": "operatePublicationContacts",
       "kind": "FunctionDeclaration",
@@ -28103,7 +28898,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 812,
+      "line": 848,
       "column": 22,
       "name": "userIds?.map callback[0]",
       "kind": "ArrowFunction",
@@ -28117,7 +28912,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 818,
+      "line": 854,
       "column": 22,
       "name": "publications.map callback[0]",
       "kind": "ArrowFunction",
@@ -28131,7 +28926,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 832,
+      "line": 868,
       "column": 23,
       "name": "publications.some callback[0]",
       "kind": "ArrowFunction",
@@ -28145,7 +28940,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 839,
+      "line": 875,
       "column": 22,
       "name": "publications.map callback[0]",
       "kind": "ArrowFunction",
@@ -28159,7 +28954,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 841,
+      "line": 877,
       "column": 17,
       "name": "[...unique.values()] .filter callback[0]",
       "kind": "ArrowFunction",
@@ -28173,7 +28968,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 842,
+      "line": 878,
       "column": 14,
       "name": "[...unique.values()] .filter((target) => target.newsletterId === publication.workspaceId) .map callback[0]",
       "kind": "ArrowFunction",
@@ -28187,7 +28982,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 850,
+      "line": 886,
       "column": 55,
       "name": "result.value.users.map callback[0]",
       "kind": "ArrowFunction",
@@ -28201,7 +28996,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 851,
+      "line": 887,
       "column": 25,
       "name": "localIds.some callback[0]",
       "kind": "ArrowFunction",
@@ -28215,7 +29010,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 859,
+      "line": 895,
       "column": 22,
       "name": "publications.map callback[0]",
       "kind": "ArrowFunction",
@@ -28229,7 +29024,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 861,
+      "line": 897,
       "column": 17,
       "name": "[...unique.values()] .filter callback[0]",
       "kind": "ArrowFunction",
@@ -28243,7 +29038,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 862,
+      "line": 898,
       "column": 14,
       "name": "[...unique.values()] .filter((target) => target.newsletterId === publication.workspaceId) .map callback[0]",
       "kind": "ArrowFunction",
@@ -28257,7 +29052,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 873,
+      "line": 909,
       "column": 38,
       "name": "localIds.map callback[0]",
       "kind": "ArrowFunction",
@@ -28271,7 +29066,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 889,
+      "line": 925,
       "column": 37,
       "name": "localIds.map callback[0]",
       "kind": "ArrowFunction",
@@ -28285,7 +29080,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 907,
+      "line": 943,
       "column": 1,
       "name": "getPublisherOverview",
       "kind": "FunctionDeclaration",
@@ -28299,7 +29094,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 922,
+      "line": 958,
       "column": 22,
       "name": "publications.map callback[0]",
       "kind": "ArrowFunction",
@@ -28313,7 +29108,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 942,
+      "line": 978,
       "column": 21,
       "name": "deliveryRows .filter callback[0]",
       "kind": "ArrowFunction",
@@ -28327,7 +29122,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 943,
+      "line": 979,
       "column": 18,
       "name": "deliveryRows .filter((row) => row.workspaceId === publication.workspaceId) .map callback[0]",
       "kind": "ArrowFunction",
@@ -28341,7 +29136,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 952,
+      "line": 988,
       "column": 40,
       "name": "newsletters.reduce callback[0]",
       "kind": "ArrowFunction",
@@ -28356,7 +29151,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletters.ts",
-      "line": 954,
+      "line": 990,
       "column": 9,
       "name": "newsletters.reduce callback[0]",
       "kind": "ArrowFunction",
@@ -2460408,8 +2461203,50 @@
       "boundary": "internal implementation; not independently exposed"
     },
     {
+      "file": "packages/dashboard/src/components/publications/createWorkspaceForm.tsx",
+      "line": 8,
+      "column": 1,
+      "name": "CreateWorkspaceForm",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "{\n  workspaceId,\n  apiBase,\n}: {\n  workspaceId: string;\n  apiBase: string;\n}"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/createWorkspaceForm.tsx",
+      "line": 25,
+      "column": 19,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/publications/createWorkspaceForm.tsx",
+      "line": 55,
+      "column": 21,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "event"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 77,
+      "line": 78,
       "column": 1,
       "name": "optionList",
       "kind": "FunctionDeclaration",
@@ -2460425,7 +2461262,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 78,
+      "line": 79,
       "column": 26,
       "name": "rows(value).map callback[0]",
       "kind": "ArrowFunction",
@@ -2460439,7 +2461276,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 84,
+      "line": 85,
       "column": 1,
       "name": "DataTable",
       "kind": "FunctionDeclaration",
@@ -2460453,7 +2461290,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 102,
+      "line": 103,
       "column": 26,
       "name": "columns.map callback[0]",
       "kind": "ArrowFunction",
@@ -2460467,7 +2461304,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 108,
+      "line": 109,
       "column": 22,
       "name": "items.map callback[0]",
       "kind": "ArrowFunction",
@@ -2460482,7 +2461319,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 112,
+      "line": 113,
       "column": 28,
       "name": "columns.map callback[0]",
       "kind": "ArrowFunction",
@@ -2460496,7 +2461333,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 128,
+      "line": 129,
       "column": 1,
       "name": "ActionForm",
       "kind": "FunctionDeclaration",
@@ -2460510,7 +2461347,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 147,
+      "line": 148,
       "column": 15,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -2460522,7 +2461359,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 169,
+      "line": 170,
       "column": 21,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2460536,7 +2461373,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 194,
+      "line": 195,
       "column": 26,
       "name": "String(value) .split(/[,\\n]/) .map callback[0]",
       "kind": "ArrowFunction",
@@ -2460550,7 +2461387,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 206,
+      "line": 207,
       "column": 25,
       "name": "setValues callback[0]",
       "kind": "ArrowFunction",
@@ -2460564,7 +2461401,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 209,
+      "line": 210,
       "column": 21,
       "name": "Object.entries(current).filter callback[0]",
       "kind": "ArrowFunction",
@@ -2460578,7 +2461415,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 211,
+      "line": 212,
       "column": 25,
       "name": "fields.some callback[0]",
       "kind": "ArrowFunction",
@@ -2460592,7 +2461429,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 229,
+      "line": 230,
       "column": 25,
       "name": "fields.map callback[0]",
       "kind": "ArrowFunction",
@@ -2460606,7 +2461443,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 241,
+      "line": 242,
       "column": 35,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2460620,7 +2461457,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 286,
+      "line": 287,
       "column": 29,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2460634,7 +2461471,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 300,
+      "line": 301,
       "column": 39,
       "name": "field.options?.map callback[0]",
       "kind": "ArrowFunction",
@@ -2460648,7 +2461485,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 336,
+      "line": 337,
       "column": 1,
       "name": "HistoryPages",
       "kind": "FunctionDeclaration",
@@ -2460662,7 +2461499,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 345,
+      "line": 346,
       "column": 11,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -2460676,7 +2461513,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 351,
+      "line": 352,
       "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2460688,7 +2461525,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 358,
+      "line": 359,
       "column": 54,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2460700,7 +2461537,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 365,
+      "line": 366,
       "column": 1,
       "name": "PublicationManagement",
       "kind": "FunctionDeclaration",
@@ -2460714,7 +2461551,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 400,
+      "line": 401,
       "column": 25,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -2460726,7 +2461563,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 420,
+      "line": 421,
       "column": 24,
       "name": "paths.map callback[0]",
       "kind": "ArrowFunction",
@@ -2460740,7 +2461577,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 433,
+      "line": 434,
       "column": 16,
       "name": "queryFn",
       "kind": "ArrowFunction",
@@ -2460754,7 +2461591,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 453,
+      "line": 454,
       "column": 17,
       "name": "paths.map callback[0]",
       "kind": "ArrowFunction",
@@ -2460769,7 +2461606,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 457,
+      "line": 458,
       "column": 48,
       "name": "publicationQueries.find callback[0]",
       "kind": "ArrowFunction",
@@ -2460783,7 +2461620,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 460,
+      "line": 461,
       "column": 51,
       "name": "publicationQueries.some callback[0]",
       "kind": "ArrowFunction",
@@ -2460797,7 +2461634,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 463,
+      "line": 464,
       "column": 5,
       "name": "publicationQueries.find callback[0]",
       "kind": "ArrowFunction",
@@ -2460812,7 +2461649,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 471,
+      "line": 472,
       "column": 31,
       "name": "useCallback callback[0]",
       "kind": "ArrowFunction",
@@ -2460824,7 +2461661,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 485,
+      "line": 486,
       "column": 13,
       "name": "useEffect callback[0]",
       "kind": "ArrowFunction",
@@ -2460836,7 +2461673,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 491,
+      "line": 492,
       "column": 23,
       "name": "historyPage",
       "kind": "ArrowFunction",
@@ -2460851,7 +2461688,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 507,
+      "line": 508,
       "column": 15,
       "name": "setData callback[0]",
       "kind": "ArrowFunction",
@@ -2460865,7 +2461702,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 508,
+      "line": 509,
       "column": 25,
       "name": "setHistoryOffsets callback[0]",
       "kind": "ArrowFunction",
@@ -2460879,7 +2461716,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 515,
+      "line": 516,
       "column": 28,
       "name": "switchNewsletter",
       "kind": "ArrowFunction",
@@ -2460893,7 +2461730,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 528,
+      "line": 529,
       "column": 26,
       "name": "publicationStats.map callback[0]",
       "kind": "ArrowFunction",
@@ -2460907,7 +2461744,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 538,
+      "line": 539,
       "column": 5,
       "name": "rows(record(data.health).observations).filter callback[0]",
       "kind": "ArrowFunction",
@@ -2460921,19 +2461758,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 563,
-      "column": 23,
-      "name": "<anonymous>",
-      "kind": "ArrowFunction",
-      "parameters": [],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 574,
+      "line": 558,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2460945,7 +2461770,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 626,
+      "line": 610,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2460957,7 +2461782,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 634,
+      "line": 618,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2460969,7 +2461794,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 647,
+      "line": 631,
       "column": 46,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2460981,7 +2461806,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 659,
+      "line": 643,
       "column": 20,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2460993,7 +2461818,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 660,
+      "line": 644,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461005,7 +2461830,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 694,
+      "line": 678,
       "column": 49,
       "name": "rows(data.newsletters).map callback[0]",
       "kind": "ArrowFunction",
@@ -2461019,7 +2461844,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 765,
+      "line": 749,
       "column": 38,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461031,7 +2461856,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 778,
+      "line": 762,
       "column": 38,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461043,7 +2461868,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 829,
+      "line": 813,
       "column": 19,
       "name": "( [ [\"subscriptionCount\", \"Newsletter subscriptions\"], [\"contactCount\", \"Contact records\"], [\"matchedMailboxCount\", \"Matched mailboxes\"], ] as const ).map callback[0]",
       "kind": "ArrowFunction",
@@ -2461057,7 +2461882,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 871,
+      "line": 855,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461071,7 +2461896,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 878,
+      "line": 862,
       "column": 65,
       "name": "rows(record(data.infrastructure).accounts).map callback[0]",
       "kind": "ArrowFunction",
@@ -2461085,7 +2461910,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 889,
+      "line": 873,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461099,7 +2461924,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 895,
+      "line": 879,
       "column": 21,
       "name": "rows(record(data.infrastructure).ips) .filter callback[0]",
       "kind": "ArrowFunction",
@@ -2461113,7 +2461938,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 898,
+      "line": 882,
       "column": 24,
       "name": "rows(record(data.infrastructure).ips) .filter( (ip) => !reportAccountId || ip.accountId === reportAccountId, ) .map callback[0]",
       "kind": "ArrowFunction",
@@ -2461127,7 +2461952,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 907,
+      "line": 891,
       "column": 46,
       "name": "reportObservations.map callback[0]",
       "kind": "ArrowFunction",
@@ -2461141,7 +2461966,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 911,
+      "line": 895,
       "column": 23,
       "name": "newsletters.find callback[0]",
       "kind": "ArrowFunction",
@@ -2461155,7 +2461980,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 935,
+      "line": 919,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461169,7 +2461994,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 962,
+      "line": 946,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461183,7 +2462008,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 981,
+      "line": 965,
       "column": 45,
       "name": "rows(searchResults.contacts).map callback[0]",
       "kind": "ArrowFunction",
@@ -2461197,7 +2462022,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 988,
+      "line": 972,
       "column": 69,
       "name": "newsletters.find callback[0]",
       "kind": "ArrowFunction",
@@ -2461211,7 +2462036,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 992,
+      "line": 976,
       "column": 23,
       "name": "selectedContacts.some callback[0]",
       "kind": "ArrowFunction",
@@ -2461225,7 +2462050,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 994,
+      "line": 978,
       "column": 31,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461239,7 +2462064,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 995,
+      "line": 979,
       "column": 43,
       "name": "setSelectedContacts callback[0]",
       "kind": "ArrowFunction",
@@ -2461253,7 +2462078,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 999,
+      "line": 983,
       "column": 31,
       "name": "current.filter callback[0]",
       "kind": "ArrowFunction",
@@ -2461267,7 +2462092,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1014,
+      "line": 998,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461281,7 +2462106,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1017,
+      "line": 1001,
       "column": 51,
       "name": "[\"subscribe\", \"unsubscribe\"].map callback[0]",
       "kind": "ArrowFunction",
@@ -2461295,7 +2462120,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1021,
+      "line": 1005,
       "column": 30,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461307,7 +2462132,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1030,
+      "line": 1014,
       "column": 35,
       "name": "selectedContacts.map callback[0]",
       "kind": "ArrowFunction",
@@ -2461321,7 +2462146,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1034,
+      "line": 1018,
       "column": 60,
       "name": "selectedContacts.map callback[0]",
       "kind": "ArrowFunction",
@@ -2461335,7 +2462160,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1063,
+      "line": 1047,
       "column": 23,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461350,7 +2462175,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1086,
+      "line": 1070,
       "column": 64,
       "name": "[\"draft\", \"active\", \"paused\"].map callback[0]",
       "kind": "ArrowFunction",
@@ -2461364,7 +2462189,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1164,
+      "line": 1148,
       "column": 27,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461378,7 +2462203,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1173,
+      "line": 1157,
       "column": 31,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461392,7 +2462217,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1184,
+      "line": 1168,
       "column": 51,
       "name": "rows(data.suppressions).map callback[0]",
       "kind": "ArrowFunction",
@@ -2461406,7 +2462231,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1188,
+      "line": 1172,
       "column": 23,
       "name": "suppressionReasons.find callback[0]",
       "kind": "ArrowFunction",
@@ -2461420,7 +2462245,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1202,
+      "line": 1186,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2461434,7 +2462259,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1214,
+      "line": 1198,
       "column": 31,
       "name": "rows(data.suppressions) .filter callback[0]",
       "kind": "ArrowFunction",
@@ -2461448,7 +2462273,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1215,
+      "line": 1199,
       "column": 28,
       "name": "rows(data.suppressions) .filter((suppression) => suppression.active === true) .map callback[0]",
       "kind": "ArrowFunction",
@@ -2461462,7 +2462287,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1217,
+      "line": 1201,
       "column": 59,
       "name": "suppressionReasons.find callback[0]",
       "kind": "ArrowFunction",
@@ -2461476,7 +2462301,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1242,
+      "line": 1226,
       "column": 57,
       "name": "rows(record(data.health).ips).map callback[0]",
       "kind": "ArrowFunction",
@@ -2461490,7 +2462315,7 @@
     },
     {
       "file": "packages/dashboard/src/components/publications/management.tsx",
-      "line": 1282,
+      "line": 1266,
       "column": 25,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2483531,7 +2484356,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/overviewOrganization.tsx",
-      "line": 37,
+      "line": 46,
       "column": 1,
       "name": "OverviewOrganization",
       "kind": "FunctionDeclaration",
@@ -2483545,7 +2484370,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/overviewOrganization.tsx",
-      "line": 44,
+      "line": 53,
       "column": 27,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -2483557,7 +2484382,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/overviewOrganization.tsx",
-      "line": 83,
+      "line": 92,
       "column": 30,
       "name": "diagram.edges.map callback[0]",
       "kind": "ArrowFunction",
@@ -2483571,7 +2484396,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/overviewOrganization.tsx",
-      "line": 94,
+      "line": 103,
       "column": 28,
       "name": "diagram.nodes.map callback[0]",
       "kind": "ArrowFunction",
@@ -2492090,7 +2492915,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/auth/google.page.tsx",
-      "line": 24,
+      "line": 25,
       "column": 5,
       "name": "getServerSideProps",
       "kind": "ArrowFunction",
@@ -2492104,7 +2492929,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/auth/google.page.tsx",
-      "line": 30,
+      "line": 31,
       "column": 1,
       "name": "GoogleSignIn",
       "kind": "FunctionDeclaration",
@@ -2492118,7 +2492943,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/auth/google.page.tsx",
-      "line": 34,
+      "line": 35,
       "column": 14,
       "name": "queryFn",
       "kind": "ArrowFunction",
@@ -2492130,7 +2492955,7 @@
     },
     {
       "file": "packages/dashboard/src/pages/auth/google.page.tsx",
-      "line": 58,
+      "line": 59,
       "column": 22,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
@@ -2502432,7 +2503257,7 @@
     },
     {
       "file": "packages/isomorphic-lib/src/accounts.ts",
-      "line": 92,
+      "line": 98,
       "column": 1,
       "name": "googleAuthSensitiveUrl",
       "kind": "FunctionDeclaration",
@@ -2502446,7 +2503271,7 @@
     },
     {
       "file": "packages/isomorphic-lib/src/accounts.ts",
-      "line": 98,
+      "line": 104,
       "column": 1,
       "name": "containsAccountControlCharacters",
       "kind": "FunctionDeclaration",
@@ -2502488,7 +2503313,7 @@
     },
     {
       "file": "packages/isomorphic-lib/src/apiOperations.ts",
-      "line": 28,
+      "line": 29,
       "column": 1,
       "name": "isTrackingDomainAdministration",
       "kind": "FunctionDeclaration",
@@ -2502503,7 +2503328,7 @@
     },
     {
       "file": "packages/isomorphic-lib/src/apiOperations.ts",
-      "line": 51,
+      "line": 52,
       "column": 1,
       "name": "classifyApiOperation",
       "kind": "FunctionDeclaration",
@@ -2502518,7 +2503343,7 @@
     },
     {
       "file": "packages/isomorphic-lib/src/apiOperations.ts",
-      "line": 91,
+      "line": 92,
       "column": 1,
       "name": "requiredApiScopes",
       "kind": "FunctionDeclaration",
@@ -2503523,19 +2504348,7 @@
     {
       "file": "packages/isomorphic-lib/src/publications.ts",
       "line": 31,
-      "column": 1,
-      "name": "automationConditionValue",
-      "kind": "FunctionDeclaration",
-      "parameters": [],
-      "returnType": "inferred from implementation",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/isomorphic-lib/src/publications.ts",
-      "line": 32,
-      "column": 25,
+      "column": 67,
       "name": "Type.Recursive callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
@@ -2503548,7 +2504361,7 @@
     },
     {
       "file": "packages/isomorphic-lib/src/publications.ts",
-      "line": 84,
+      "line": 81,
       "column": 80,
       "name": "[\"identify\", \"track\", \"page\", \"screen\", \"group\"].map callback[0]",
       "kind": "ArrowFunction",
@@ -2504474,7 +2505287,7 @@
     },
     {
       "file": "packages/isomorphic-lib/src/types.ts",
-      "line": 2037,
+      "line": 2048,
       "column": 34,
       "name": "PartialExceptType",
       "kind": "ArrowFunction",
@@ -2504665,7 +2505478,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 56,
+      "line": 58,
       "column": 1,
       "name": "object",
       "kind": "FunctionDeclaration",
@@ -2504679,7 +2505492,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 64,
+      "line": 66,
       "column": 1,
       "name": "loadBridgeConfig",
       "kind": "FunctionDeclaration",
@@ -2504693,7 +2505506,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 77,
+      "line": 79,
       "column": 70,
       "name": "(env.DITTOFEED_MCP_SCOPES ?? \"read\").split(\",\").map callback[0]",
       "kind": "ArrowFunction",
@@ -2504707,7 +2505520,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 78,
+      "line": 80,
       "column": 19,
       "name": "scopes.some callback[0]",
       "kind": "ArrowFunction",
@@ -2504721,7 +2505534,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 86,
+      "line": 88,
       "column": 1,
       "name": "toolSchema",
       "kind": "FunctionDeclaration",
@@ -2504735,7 +2505548,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 103,
+      "line": 105,
       "column": 1,
       "name": "inputContract",
       "kind": "FunctionDeclaration",
@@ -2504750,7 +2505563,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 105,
+      "line": 107,
       "column": 17,
       "name": "visit",
       "kind": "ArrowFunction",
@@ -2504764,7 +2505577,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 126,
+      "line": 128,
       "column": 1,
       "name": "resolve",
       "kind": "FunctionDeclaration",
@@ -2504779,7 +2505592,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 138,
+      "line": 140,
       "column": 1,
       "name": "scopedBodyContract",
       "kind": "FunctionDeclaration",
@@ -2504794,7 +2505607,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 147,
+      "line": 149,
       "column": 84,
       "name": "schema.required.filter callback[0]",
       "kind": "ArrowFunction",
@@ -2504808,7 +2505621,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 152,
+      "line": 154,
       "column": 49,
       "name": "schema[combinator].map callback[0]",
       "kind": "ArrowFunction",
@@ -2504822,7 +2505635,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 161,
+      "line": 163,
       "column": 1,
       "name": "parameterGroup",
       "kind": "FunctionDeclaration",
@@ -2504837,7 +2505650,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 162,
+      "line": 164,
       "column": 38,
       "name": "parameters.filter callback[0]",
       "kind": "ArrowFunction",
@@ -2504851,7 +2505664,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 165,
+      "line": 167,
       "column": 49,
       "name": "selected.map callback[0]",
       "kind": "ArrowFunction",
@@ -2504865,7 +2505678,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 166,
+      "line": 168,
       "column": 31,
       "name": "selected.filter callback[0]",
       "kind": "ArrowFunction",
@@ -2504879,7 +2505692,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 166,
+      "line": 168,
       "column": 70,
       "name": "selected.filter((parameter) => parameter.required).map callback[0]",
       "kind": "ArrowFunction",
@@ -2504893,7 +2505706,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 171,
+      "line": 173,
       "column": 1,
       "name": "createOperations",
       "kind": "FunctionDeclaration",
@@ -2504908,7 +2505721,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 175,
+      "line": 177,
       "column": 89,
       "name": "path.split(\"/\").some callback[0]",
       "kind": "ArrowFunction",
@@ -2504922,7 +2505735,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 180,
+      "line": 183,
       "column": 50,
       "name": "requiredApiScopes(method, path).every callback[0]",
       "kind": "ArrowFunction",
@@ -2504936,7 +2505749,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 183,
+      "line": 186,
       "column": 14,
       "name": "[...(pathValue.parameters as unknown[] ?? []), ...(operation.parameters as unknown[] ?? [])] .map callback[0]",
       "kind": "ArrowFunction",
@@ -2504950,7 +2505763,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 184,
+      "line": 187,
       "column": 17,
       "name": "[...(pathValue.parameters as unknown[] ?? []), ...(operation.parameters as unknown[] ?? [])] .map((value) => resolve(value, document) as Parameter) .filter callback[0]",
       "kind": "ArrowFunction",
@@ -2504964,7 +2505777,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 186,
+      "line": 189,
       "column": 27,
       "name": "parameters.some callback[0]",
       "kind": "ArrowFunction",
@@ -2504978,7 +2505791,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 200,
+      "line": 203,
       "column": 30,
       "name": "parameters.some callback[0]",
       "kind": "ArrowFunction",
@@ -2504992,7 +2505805,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 218,
+      "line": 221,
       "column": 97,
       "name": "[\"application/json\", \"text/plain\", \"application/x-www-form-urlencoded\"].find callback[0]",
       "kind": "ArrowFunction",
@@ -2505006,7 +2505819,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 244,
+      "line": 247,
       "column": 1,
       "name": "responseBytes",
       "kind": "FunctionDeclaration",
@@ -2505020,7 +2505833,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 262,
+      "line": 265,
       "column": 3,
       "name": "constructor",
       "kind": "Constructor",
@@ -2505035,7 +2505848,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 264,
+      "line": 267,
       "column": 3,
       "name": "url",
       "kind": "MethodDeclaration",
@@ -2505049,7 +2505862,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 270,
+      "line": 273,
       "column": 3,
       "name": "send",
       "kind": "MethodDeclaration",
@@ -2505066,7 +2505879,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 284,
+      "line": 287,
       "column": 3,
       "name": "discover",
       "kind": "MethodDeclaration",
@@ -2505080,7 +2505893,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 292,
+      "line": 295,
       "column": 3,
       "name": "invoke",
       "kind": "MethodDeclaration",
@@ -2505096,7 +2505909,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 293,
+      "line": 296,
       "column": 68,
       "name": "requiredApiScopes(operation.method, operation.path).every callback[0]",
       "kind": "ArrowFunction",
@@ -2505110,7 +2505923,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 315,
+      "line": 318,
       "column": 57,
       "name": "operation.parameters.filter callback[0]",
       "kind": "ArrowFunction",
@@ -2505124,7 +2505937,7 @@
     },
     {
       "file": "packages/mcp/src/api.ts",
-      "line": 338,
+      "line": 341,
       "column": 83,
       "name": "operation.parameters.some callback[0]",
       "kind": "ArrowFunction",

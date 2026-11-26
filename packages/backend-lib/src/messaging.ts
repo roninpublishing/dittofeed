@@ -71,6 +71,7 @@ import {
   MessageTemplateResourceDraft,
   MessageTemplateTestRequest,
   MessageWebhookServiceFailure,
+  MissingMessageTemplateContentError,
   MessageWebhookSuccess,
   MobilePushProviderType,
   NonRetryableMessageSendFailure,
@@ -222,7 +223,10 @@ export async function upsertMessageTemplate(
     }
   }
 
-  const txResult: Result<MessageTemplate, TxQueryError> =
+  const txResult: Result<
+    MessageTemplate,
+    TxQueryError | MissingMessageTemplateContentError
+  > =
     await db().transaction(async (tx) => {
       const findFirstConditions: SQL[] = [
         eq(dbMessageTemplate.workspaceId, data.workspaceId),
@@ -235,6 +239,19 @@ export async function upsertMessageTemplate(
       const existingTemplate = await tx.query.messageTemplate.findFirst({
         where: and(...findFirstConditions),
       });
+      // Undefined preserves stored content; null explicitly clears a draft.
+      const finalDefinition =
+        data.definition === undefined
+          ? existingTemplate?.definition
+          : data.definition;
+      const finalDraft =
+        data.draft === undefined ? existingTemplate?.draft : data.draft;
+      if (!finalDefinition && !finalDraft) {
+        return err<never, MissingMessageTemplateContentError>({
+          type: UpsertMessageTemplateValidationErrorType.MissingContent,
+          message: "A template requires a definition or draft.",
+        });
+      }
       if (!existingTemplate) {
         const createResult = await txQueryResult(
           tx
@@ -265,10 +282,12 @@ export async function upsertMessageTemplate(
         }
         return ok(createdTemplate);
       }
-      const existingDefinition = schemaValidateWithErr(
-        existingTemplate.definition,
-        MessageTemplateResourceDefinition,
-      );
+      const existingDefinition = existingTemplate.definition
+        ? schemaValidateWithErr(
+            existingTemplate.definition,
+            MessageTemplateResourceDefinition,
+          )
+        : ok(undefined);
       if (existingDefinition.isErr()) {
         logger().error(
           {
@@ -282,6 +301,7 @@ export async function upsertMessageTemplate(
       }
       const requiresDraftReset =
         data.definition !== undefined &&
+        existingDefinition.value !== undefined &&
         doesRequireDraftReset({
           priorDefinition: existingDefinition.value,
           newDefinition: data.definition,
@@ -315,6 +335,9 @@ export async function upsertMessageTemplate(
       return ok(updatedTemplate);
     });
   if (txResult.isErr()) {
+    if ("type" in txResult.error) {
+      return err(txResult.error);
+    }
     if (
       txResult.error.code === PostgresError.UNIQUE_VIOLATION ||
       txResult.error.code === PostgresError.FOREIGN_KEY_VIOLATION

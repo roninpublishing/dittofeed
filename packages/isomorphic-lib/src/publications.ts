@@ -27,14 +27,11 @@ export const PublicationAutomationConditionOperatorLabels: Record<PublicationAut
   before: "Before", after: "After",
 };
 
-// Each inline occurrence needs its own recursive $id for HTTP/AJV compilation.
-function automationConditionValue() {
-  return Type.Recursive((Self) => Type.Union([
-    Type.Null(), Type.Boolean(), Type.Number(), Type.String(),
-    Type.Array(Self), Type.Record(Type.String(), Self),
-  ]));
-}
-export const PublicationAutomationConditionValue = automationConditionValue();
+// Register one recursive schema for HTTP, OpenAPI and shared value validation.
+export const PublicationAutomationConditionValue = Type.Recursive((Self) => Type.Union([
+  Type.Null(), Type.Boolean(), Type.Number(), Type.String(),
+  Type.Array(Self), Type.Record(Type.String(), Self),
+]), { $id: "PublicationAutomationConditionValue" });
 const ConditionField = { source: FieldSource, path: FieldPath };
 // No coercion: string containment is literal/case-sensitive; array containment and
 // membership use structural JSON equality (object key order ignored, array order significant).
@@ -42,18 +39,18 @@ export const PublicationAutomationCondition = Type.Union([
   Type.Object({
     ...ConditionField,
     operator: Type.Union([Type.Literal("equals"), Type.Literal("notEquals")]),
-    value: automationConditionValue(),
+    value: Type.Ref(PublicationAutomationConditionValue),
   }, { additionalProperties: false }),
   Type.Object({
     ...ConditionField,
     operator: Type.Union([Type.Literal("exists"), Type.Literal("notExists")]),
     // Historical exists definitions may carry an ignored JSON value.
-    value: Type.Optional(automationConditionValue()),
+    value: Type.Optional(Type.Ref(PublicationAutomationConditionValue)),
   }, { additionalProperties: false }),
   Type.Object({
     ...ConditionField,
     operator: Type.Union([Type.Literal("contains"), Type.Literal("notContains")]),
-    value: automationConditionValue(),
+    value: Type.Ref(PublicationAutomationConditionValue),
   }, { additionalProperties: false }),
   Type.Object({
     ...ConditionField,
@@ -63,7 +60,7 @@ export const PublicationAutomationCondition = Type.Union([
   Type.Object({
     ...ConditionField,
     operator: Type.Union([Type.Literal("in"), Type.Literal("notIn")]),
-    value: Type.Array(automationConditionValue(), { minItems: 1, maxItems: 100 }),
+    value: Type.Array(Type.Ref(PublicationAutomationConditionValue), { minItems: 1, maxItems: 100 }),
   }, { additionalProperties: false }),
   Type.Object({
     ...ConditionField,

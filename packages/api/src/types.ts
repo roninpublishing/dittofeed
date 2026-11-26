@@ -1,3 +1,12 @@
+import type { ApiKeyAccountPrincipal } from "backend-lib/src/accounts";
+
+declare module "fastify" {
+  interface FastifyRequest {
+    apiKeyAccountPrincipal?: ApiKeyAccountPrincipal;
+    adminApiKeyId?: string;
+  }
+}
+
 import {
   DittofeedFastifyInstance,
   UserUploadRow,

@@ -125,6 +125,23 @@ Unchecked items are planned work; checked items must reflect verified changes.
 Keep the plan's status accurate as work lands. Preserve the commands below until
 the corresponding tooling actually changes.
 
+## MCP-first feature contract
+
+- Every application feature must be controllable through authenticated MCP, not
+  just the browser. This includes templates, workspace/newsletter management,
+  configuration, reporting, lifecycle actions and authorized account/team controls.
+- Before implementing a feature, define its machine API inputs, outputs, tenant
+  scope, permissions and consequential actions. Deliver its typed MCP operations
+  in the same change; UI-only features are incomplete.
+- Reuse shared controllers and live OpenAPI discovery. The mandatory MCP parity
+  check must pass, and changed operations require a real MCP consumer scenario.
+  Do not hide a product gap behind a `human_only` exception or a placeholder tool.
+- Preserve authorization, credential protection and explicit approval for sends,
+  provider changes and destructive actions. Google consent/login callbacks and
+  signed public protocols remain protocols, never authentication bypass tools.
+- MCP account controls use explicitly owner-delegated keys, not fabricated browser
+  sessions, cookies or an arbitrary fallback administrator.
+
 ## UI and copy
 
 - Product hierarchy is **Workspace → Newsletters**. Use "Workspace" for the

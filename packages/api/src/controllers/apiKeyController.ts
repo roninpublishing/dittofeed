@@ -1,10 +1,11 @@
 import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { Type } from "@sinclair/typebox";
+import { withAccountAuthorization } from "backend-lib/src/accounts";
 import {
   createAdminApiKey,
   getAdminApiKeys,
 } from "backend-lib/src/adminApiKeys";
-import { db } from "backend-lib/src/db";
+import { Db, db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import { DittofeedFastifyInstance } from "backend-lib/src/types";
 import { and, eq, inArray } from "drizzle-orm";
@@ -49,7 +50,10 @@ export default async function apiKeyController(
       },
     },
     async (request, reply) => {
-      const adminApiKey = await createAdminApiKey(request.body);
+      const adminApiKey = await createAdminApiKey(
+        request.body,
+        request.adminApiKeyId ? request.apiKeyAccountPrincipal : request.googleAccountPrincipal,
+      );
       if (adminApiKey.isErr()) {
         return reply.status(409).send();
       }
@@ -71,7 +75,7 @@ export default async function apiKeyController(
     },
     async (request, reply) => {
       const { id, workspaceId }: DeleteAdminApiKeyRequest = request.query;
-      await db().transaction(async (tx) => {
+      const revoke = async (tx: Parameters<Parameters<Db["transaction"]>[0]>[0]) => {
         const revoked = await tx
           .delete(schema.adminApiKey)
           .where(
@@ -92,7 +96,10 @@ export default async function apiKeyController(
             ),
           );
         }
-      });
+      };
+      const principal = request.adminApiKeyId ? request.apiKeyAccountPrincipal : request.googleAccountPrincipal;
+      if (principal) await withAccountAuthorization(principal, workspaceId, revoke);
+      else await db().transaction(revoke);
 
       return reply.status(204).send();
     },

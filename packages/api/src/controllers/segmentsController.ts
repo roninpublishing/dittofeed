@@ -101,6 +101,9 @@ export default async function segmentsController(fastify: FastifyInstance) {
         description: "Update a manual segment.",
         tags: ["Segments"],
         body: UpdateManualSegmentUsersRequest,
+        response: {
+          200: EmptyResponse,
+        },
       },
     },
     async (request, reply) => {
@@ -116,6 +119,9 @@ export default async function segmentsController(fastify: FastifyInstance) {
         description: "Clear a manual segment.",
         tags: ["Segments"],
         body: ClearManualSegmentRequest,
+        response: {
+          200: EmptyResponse,
+        },
       },
     },
     async (request, reply) => {
@@ -256,9 +262,9 @@ export default async function segmentsController(fastify: FastifyInstance) {
         querystring: Type.Object({
           workspaceId: Type.String(),
         }),
-        200: {
-          type: "string",
-          format: "binary",
+        produces: ["text/csv"],
+        response: {
+          200: Type.String({ format: "binary" }),
         },
       },
     },
@@ -296,6 +302,11 @@ export default async function segmentsController(fastify: FastifyInstance) {
           },
         },
         headers: ManualSegmentUploadCsvHeaders,
+        response: {
+          200: EmptyResponse,
+          400: CsvUploadValidationError,
+          404: BaseMessageResponse,
+        },
       },
     },
     async (request, reply) => {

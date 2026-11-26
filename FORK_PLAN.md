@@ -756,11 +756,38 @@ callbacks before real use. Setup details: `packages/docs/integrations/channels/t
 
 ## Workspace API and MCP: implemented and locally verified
 
-Carson approved exposing supported workspace product operations, not arbitrary
-internal function execution. Login/OAuth, personal profiles/sessions, team
-invitations/roles/account disabling remain human-authenticated HTTP operations.
-Legacy permissions and Gmail authorization status are also excluded from the
-machine surface. No synthetic member identity or browser-cookie bypass was added.
+The original workspace API intentionally excluded account/team controls.
+On 2026-11-26 Carson superseded that product boundary: **every application feature
+must have authenticated MCP control**, including template authoring and authorized
+account/team administration. New features must define and ship their machine
+contract in the same change, with an enforced parity check. Private implementation
+helpers are not arbitrary tools; Google consent/login callbacks and signed public
+protocols keep their own authentication rather than becoming bypass endpoints.
+
+### MCP-first full control: implemented and locally verified
+
+- [x] Bind new delegated API keys to their authenticated owner, preserving scopes,
+  fresh roles, revocation, tenant isolation and last-administrator protections.
+- [x] Expose account/profile/session/team/workspace controls and close browser-only
+  product gaps without fake identities, no-op tools or credential escalation.
+- [x] Enable template create/edit/read/render through the configured development
+  MCP using a new dedicated full-control key; preserve the existing reader key.
+- [x] Enforce route/OpenAPI/MCP parity in normal verification and CI.
+- [x] Prove actual template mutations and account-control authorization without
+  sending email, changing providers or touching unrelated user data.
+
+Verification: `yarn check:mcp-parity` passed actual registration/discovery across
+all four authentication modes, strict grant subsets and 12 stdio consumer tests.
+The installed launcher exposed all 148 live machine operations on the combined
+development Lite app at `localhost:3005`, using a dedicated owner-delegated key.
+It created, edited, read and rendered a stored Liquid/MJML template, then deleted
+only that proof template. The original reader still received HTTP 403 on account
+controls. Focused account, template-content and recursive automation validation
+tests passed; the runtime OpenAPI, endpoint pages and source inventory were
+regenerated. Existing browser preview and production were not redeployed.
+Existing OMP sessions require `/mcp reload` to adopt the changed launcher.
+
+### Initial workspace API implementation
 
 - [x] Share product controller registration across browser and workspace bearer
   APIs; add missing machine operations and native identify/track/page/screen/

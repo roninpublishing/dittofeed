@@ -1,4 +1,5 @@
 import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
+import { Type } from "@sinclair/typebox";
 import {
   DownloadEventsRequest,
   GetEventsRequest,
@@ -123,9 +124,9 @@ export default async function eventsController(fastify: FastifyInstance) {
         description: "Download a csv containing events.",
         tags: ["Events"],
         querystring: DownloadEventsRequest,
-        200: {
-          type: "string",
-          format: "binary",
+        produces: ["text/csv"],
+        response: {
+          200: Type.String({ format: "binary" }),
         },
       },
     },

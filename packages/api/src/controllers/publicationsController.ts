@@ -250,7 +250,8 @@ export default async function publicationsController(fastify: FastifyInstance) {
       respond(reply, () =>
         createPublisher({
           ...request.body,
-          memberId: request.requestContext.get("member")?.id,
+          memberId: request.apiKeyAccountPrincipal?.ownerMemberId ?? request.requestContext.get("member")?.id,
+          principal: request.adminApiKeyId ? request.apiKeyAccountPrincipal : request.googleAccountPrincipal,
         }),
       ),
   );

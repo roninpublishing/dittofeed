@@ -23,20 +23,42 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '20.20.2'
+          # Match packages/lite/Dockerfile, not the retired Node 20 runtime.
+          node-version: '24.21.0'
       - name: Enable pinned Yarn
         run: corepack enable
+      - name: Cache Yarn downloads
+        uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: yarn-${{ runner.os }}-node24-yarn4.1.1-${{ hashFiles('yarn.lock', '.yarnrc.yml', '.yarn/releases/yarn-4.1.1.cjs') }}
       - name: Install dependencies
         run: yarn install --immutable
       - name: Build Emailo dependency
         run: yarn workspace emailo build
-      - name: Lint and typecheck
+      # Formatting remains available locally; it must not mask build failures.
+      - name: Typecheck application packages
         run: |
           set -euo pipefail
-          for package in admin-cli api dashboard isomorphic-lib worker; do
-            yarn workspace "$package" lint
+          for package in admin-cli api dashboard isomorphic-lib worker lite tracking-worker mcp; do
             yarn workspace "$package" check
           done
+      - name: Build application as shipped
+        env:
+          NEXT_STANDALONE: 'false'
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: |
+          set -euo pipefail
+          yarn workspace api build
+          yarn workspace worker build
+          yarn workspace admin-cli build
+          yarn workspace dashboard build
+          yarn workspace lite build
+      - name: Test MCP and tracking Worker
+        run: |
+          set -euo pipefail
+          yarn workspace mcp test
+          yarn workspace tracking-worker test
 
   test:
     name: Test
@@ -67,13 +89,24 @@ jobs:
           - 8123:8123
           - 9000:9000
           - 9009:9009
+        options: >-
+          --health-cmd "clickhouse-client --user dittofeed --password password --query 'SELECT 1'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '20.20.2'
+          # Match packages/lite/Dockerfile, not the retired Node 20 runtime.
+          node-version: '24.21.0'
       - name: Enable pinned Yarn
         run: corepack enable
+      - name: Cache Yarn downloads
+        uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: yarn-${{ runner.os }}-node24-yarn4.1.1-${{ hashFiles('yarn.lock', '.yarnrc.yml', '.yarn/releases/yarn-4.1.1.cjs') }}
       - name: Install dependencies
         run: yarn install --immutable
       - name: Build Emailo dependency
@@ -118,13 +151,24 @@ jobs:
           - 8123:8123
           - 9000:9000
           - 9009:9009
+        options: >-
+          --health-cmd "clickhouse-client --user dittofeed --password password --query 'SELECT 1'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '20.20.2'
+          # Match packages/lite/Dockerfile, not the retired Node 20 runtime.
+          node-version: '24.21.0'
       - name: Enable pinned Yarn
         run: corepack enable
+      - name: Cache Yarn downloads
+        uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: yarn-${{ runner.os }}-node24-yarn4.1.1-${{ hashFiles('yarn.lock', '.yarnrc.yml', '.yarn/releases/yarn-4.1.1.cjs') }}
       - name: Install dependencies
         run: yarn install --immutable
       - name: Build Emailo dependency

@@ -182,6 +182,20 @@ class ClientTests(unittest.TestCase):
         with patch.dict(os.environ, env), patch.object(m.subprocess, 'run', side_effect=run):
             m.main()
 
+    def test_preflight_never_submits_a_release_or_requires_registry_credentials(self):
+        m = load('client')
+        env = {'DEPLOY_SSH_KEY': 'fixture-private-key', 'DEPLOY_KNOWN_HOSTS': 'fixture-pinned-host'}
+        with patch.dict(os.environ, env, clear=True), patch.object(m.subprocess, 'run') as run:
+            m.main(['--check'])
+        self.assertEqual(json.loads(run.call_args.kwargs['input']), {'check': True})
+
+    def test_preflight_failure_stops_the_command(self):
+        m = load('client')
+        env = {'DEPLOY_SSH_KEY': 'fixture-private-key', 'DEPLOY_KNOWN_HOSTS': 'fixture-pinned-host'}
+        with patch.dict(os.environ, env, clear=True), patch.object(m.subprocess, 'run', side_effect=subprocess.CalledProcessError(255, ['ssh'])):
+            with self.assertRaises(subprocess.CalledProcessError):
+                m.main(['--check'])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -2,15 +2,42 @@
 
 GitHub Actions: **Deploy Dittofeed**, `.github/workflows/deploy.yaml`.
 Select **Run workflow** on `main`; optional `revision` is a fork ref or full SHA
-(default `main`). This is a real production deployment button, not a dry run.
+(default `main`). **Deploy** defaults to enabled; disable it for a build-only
+verification that publishes the image without activating production.
 Pushes and releases do not trigger this workflow. No environment approval gate is
 configured. One concurrency group serializes app deployments without cancellation.
 
-The runner tests these scripts, builds **only** `packages/lite/Dockerfile` for
-linux/amd64 with `APP_VERSION=<resolved SHA>`, labels its source SHA, pushes
+For a deployment, the runner checks restricted SSH access before starting the
+expensive build. It builds **only** `packages/lite/Dockerfile` for linux/amd64
+with `APP_VERSION=<resolved SHA>`, labels its source SHA, pushes
 `ghcr.io/roninpublishing/dittofeed-lite:sha-<SHA>`, and deploys the returned immutable
 **digest**, never a moving tag. SHA tags are discovery aliases; the digest is the
 authoritative immutable image identity. Existing upstream publishing is untouched.
+
+Builds run on GitHub-hosted runners, not the production droplet. A persistent
+GitHub Actions layer cache (`lite-amd64`, `mode=max`) retains intermediate builds.
+Release metadata is applied after compilation; changing the source SHA alone does
+not reinstall or recompile everything. Backend builds precede dashboard inputs;
+static public files are copied after all compilation. Lite uses embedded Next,
+so its image omits unused standalone output and Next's compiler cache.
+
+The first optimized build seeds the cache and remains a cold build. Subsequent
+builds reuse layers only when their actual inputs match; changing shared code,
+dependencies or build configuration legitimately rebuilds dependent layers.
+
+## Fork-level Actions pause
+
+GitHub can pause fork workflows for usage volume while the permissions API still
+reports `enabled: true` and individual workflows report `active`. On the Actions
+page this appears as “Workflows are not currently being run on this fork due to
+the scale of GitHub Actions usage.” A signed-in repository maintainer must use
+the re-enable control on that page; the ordinary enable APIs may not clear it.
+Do not change billing, visibility or fork relationships to work around this.
+If the pause returns, retain the banner/API evidence for GitHub Support.
+
+If dispatch is rejected, report that blocker immediately. Do not silently start
+a full build on the production droplet. Production activation still uses the
+restricted endpoint below; its image comes from the hosted build.
 
 ## Access and preserved state
 

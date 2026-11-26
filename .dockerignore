@@ -1,5 +1,6 @@
 # Ignore node modules
 node_modules
+**/node_modules
 npm-debug.log
 
 # Ignore git and other VCS files
@@ -12,6 +13,38 @@ Thumbs.db
 
 # Ignore typescript build
 dist
+**/dist
+**/*.tsbuildinfo
+
+# Local build output and caches
+**/.next*
+**/.cache
+**/.turbo
+**/.eslintcache
+**/coverage
+**/playwright-report
+**/test-results
+**/*.log
+**/.tmp
+.omp
+.playwright-mcp
+
+# Local environment and credentials (keep checked-in environment examples)
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+!**/.env.sample
+!**/.env.*.sample
+**/.secrets
+**/secrets
+**/.ssh
+**/.aws
+**/.kube
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
 
 # Yarn
 .pnp.*

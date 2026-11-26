@@ -1774,3 +1774,22 @@ as the production connection source.
   settings. Built the committed source with the existing 4 GiB / two-CPU bounded
   builder, then activated the immutable local image under the deployment lock.
   No migration, credential rotation, worker enablement or email send occurred.
+
+## Deployment process repair: 2026-11-26
+
+- GitHub's Actions page exposes a fork-level usage pause, despite repository
+  `enabled: true` and an `active` deployment workflow. Reapplying both enable
+  APIs did not clear the banner. Maintainer web confirmation is required;
+  this is not evidence of missing deploy credentials or a billing failure.
+- Deployment now imports/exports persistent `lite-amd64` BuildKit layers.
+  Release-only version arguments no longer invalidate installation/compilation.
+  Backend compilation precedes dashboard inputs, and public assets follow all
+  compilation. Lite no longer generates unused standalone Next output.
+- Hosted builds use the standard runner's four CPUs with the existing 6 GiB
+  builder limit. No production resource limits, credentials or services changed.
+  SSH preflight runs before expensive deployment builds; build-only dispatch
+  can verify/publish an image without activating production.
+- Fifteen isolated deployment tests passed, including preflight non-activation
+  and SSH failure propagation; scoped workflow actionlint passed. Actual image
+  build/cache verification is pending. Do not fall back silently to production
+  builds if GitHub refuses dispatch.

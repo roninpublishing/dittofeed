@@ -199,6 +199,18 @@ the corresponding tooling actually changes.
 - Preserve the compact layout and existing palette. Do not initiate a production
   deployment for UI edits unless explicitly requested.
 
+## Deployment
+
+- Use `.github/workflows/deploy.yaml` and the restricted app-only activation
+  endpoint. Build on GitHub-hosted runners, not the production droplet.
+- Always pass `--repo roninpublishing/dittofeed` to `gh workflow`/`gh run`
+  commands; an unqualified command can select the upstream fork parent.
+- If GitHub pauses the fork, report the maintainer re-enable action immediately.
+  Enabled API settings do not prove the platform pause is cleared. Do not
+  silently replace a blocked hosted deployment with a production-host build.
+- Use build-only dispatch for image/cache verification without activating the app.
+  Preserve runtime configuration, workers/bootstrap state, logging and data.
+
 ## Commands
 
 The following are useful commands for the agents:

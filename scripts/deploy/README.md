@@ -7,6 +7,15 @@ verification that publishes the image without activating production.
 Pushes and releases do not trigger this workflow. No environment approval gate is
 configured. One concurrency group serializes app deployments without cancellation.
 
+CLI (always name the fork explicitly; `gh` can otherwise select upstream):
+
+```bash
+# Build/publish and activate the selected commit.
+gh workflow run deploy.yaml --repo roninpublishing/dittofeed --ref main -f revision=<full-SHA> -f deploy=true
+# Build/publish without touching the running application.
+gh workflow run deploy.yaml --repo roninpublishing/dittofeed --ref main -f revision=<full-SHA> -f deploy=false
+```
+
 For a deployment, the runner checks restricted SSH access before starting the
 expensive build. It builds **only** `packages/lite/Dockerfile` for linux/amd64
 with `APP_VERSION=<resolved SHA>`, labels its source SHA, pushes

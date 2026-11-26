@@ -8,7 +8,7 @@ import {
   SettingsEthernetOutlined,
 } from "@mui/icons-material";
 import { Box, Paper, Typography } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
+import { alpha, lighten, useTheme } from "@mui/material/styles";
 import { useId, useMemo } from "react";
 
 import { organizationDiagram } from "../../lib/organizationDiagram";
@@ -32,6 +32,15 @@ const kindLabels = {
   ip: "Dedicated IP",
   pool: "Shared IPs",
   domain: "Domain",
+};
+const kindAccents = {
+  workspace: "#374151",
+  group: "#374151",
+  newsletter: "#4f795d",
+  account: "#786294",
+  ip: "#4e7398",
+  pool: "#987744",
+  domain: "#438184",
 };
 
 export default function OverviewOrganization({
@@ -95,6 +104,10 @@ export default function OverviewOrganization({
           const Icon = objectIcons[node.object.kind];
           const organizational =
             node.object.kind === "workspace" || node.object.kind === "group";
+          const accent =
+            theme.palette.mode === "dark"
+              ? lighten(kindAccents[node.object.kind], 0.45)
+              : kindAccents[node.object.kind];
           let kind = kindLabels[node.object.kind];
           if (node.object.domainKind === "sending") kind = "Sending domain";
           if (node.object.domainKind === "tracking") kind = "Tracking domain";
@@ -123,15 +136,17 @@ export default function OverviewOrganization({
                 py: organizational ? 0.5 : 1.25,
                 boxSizing: "border-box",
                 border: 1,
-                borderColor: organizational ? "text.primary" : "divider",
+                borderColor: organizational
+                  ? "text.primary"
+                  : alpha(accent, 0.3),
                 borderRadius: 1.5,
-                bgcolor: organizational ? "text.primary" : "background.paper",
+                bgcolor: organizational ? "text.primary" : alpha(accent, 0.06),
                 color: organizational ? "background.paper" : "text.primary",
                 textDecoration: "none",
                 ...(!organizational && {
                   "&:hover": {
-                    bgcolor: "action.hover",
-                    borderColor: "text.secondary",
+                    bgcolor: alpha(accent, 0.12),
+                    borderColor: alpha(accent, 0.6),
                   },
                   "&:focus-visible": {
                     outline: "2px solid",
@@ -152,8 +167,8 @@ export default function OverviewOrganization({
                   alignItems: "center",
                   justifyContent: "center",
                   borderRadius: 1,
-                  bgcolor: organizational ? "transparent" : "action.hover",
-                  color: organizational ? "inherit" : "text.secondary",
+                  bgcolor: organizational ? "transparent" : alpha(accent, 0.12),
+                  color: organizational ? "inherit" : accent,
                 }}
               >
                 <Icon sx={{ fontSize: 18 }} />

@@ -1803,3 +1803,16 @@ as the production connection source.
   the fork-level 422; maintainer web re-enablement is the remaining prerequisite
   for hosted AMD64/cache verification. Production was not rebuilt or restarted.
   Do not fall back silently to production builds if GitHub refuses dispatch.
+
+## Overview resource colors
+
+- Added restrained type-specific card/border/icon tints: green newsletters,
+  violet ESP accounts, blue dedicated IPs, amber shared IPs and teal domains.
+  Organizational nodes stay dark; labels remain neutral and icons retain their
+  distinct shapes. Layout, navigation and queries are unchanged.
+- Optimized dashboard build and the real authenticated local overview passed.
+  Computed contrast across all 22 resource cards, including a shared-IP hover,
+  exceeded 4.5:1 for text and 3:1 for icons.
+- Combined Lite now serves `dist/overview-type-colors-preview` on loopback with
+  guarded development Neon/ClickHouse/Temporal, Google auth and disabled workers,
+  bootstrap and open capture. No `.env` rewrite or production deployment.

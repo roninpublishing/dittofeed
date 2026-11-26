@@ -26,6 +26,7 @@ import fastify, {
 import { API_OPERATION_SCOPES } from "isomorphic-lib/src/apiOperations";
 import { SecretNames, WORKSPACE_ID_HEADER } from "isomorphic-lib/src/constants";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
+import { TYPE_REFS } from "isomorphic-lib/src/typeRefs";
 import {
   AdminApiKeyPermission,
   AdminApiKeyType,
@@ -89,6 +90,7 @@ beforeEach(async () => {
     RawReplyDefaultExpression,
     Logger
   >().withTypeProvider<TypeBoxTypeProvider>();
+  TYPE_REFS.forEach((definition) => app.addSchema(definition));
   await app.register(fastifyRequestContext);
   await app.register(secureSession, googleSessionPluginOptions(settings));
   await registerGoogleAccounts(app);

@@ -18,6 +18,7 @@ import { API_OPERATION_SCOPES } from "isomorphic-lib/src/apiOperations";
 import { WORKSPACE_ID_HEADER } from "isomorphic-lib/src/constants";
 import { NewsletterTrackingResponse } from "isomorphic-lib/src/publications";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
+import { TYPE_REFS } from "isomorphic-lib/src/typeRefs";
 
 // This fixture constructs Fastify directly; retain the real app's context types.
 import type {} from "../buildApp";
@@ -48,6 +49,7 @@ beforeEach(async () => {
   publisherId = parent.id;
   workspaceIds.push(parent.id);
   app = fastify();
+  TYPE_REFS.forEach((definition) => app.addSchema(definition));
   await app.register(fastifyRequestContext);
   await app.register(adminAuth);
   await app.register(publicationsController, {

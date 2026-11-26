@@ -67,7 +67,7 @@ Local Lite now runs on `http://localhost:3000` with `AUTH_MODE=google`. The live
 
 **Dedicated-client acceptance verified on 2026-11-24.** A real Google account-selection/consent flow displayed **DITTO Email Client**, returned through the exact local callback, and signed the existing owner into the application without re-bootstrap or duplicate accounts. Actual browser controls verified Account/session listing, Team & access showing the existing RONIN Admin and instance-administrator authority, newsletter/publisher workspace switching, current-session revocation, and a fresh Google login. PostgreSQL confirmed one Google account, one enabled instance administrator, and the revoked proof session; the owner's older browser session was left active. No cookies were copied or injected.
 
-Carson selected **External** audience and explicitly chose to finish local development in **Testing** mode. The owner is the only configured Google test user. Add intended testers to Google's test-user list before their acceptance checks. Production consent publication remains gated on valid public app-homepage/privacy-policy URLs and production callback/HTTPS configuration. A second controlled Google account was not supplied, so real invitation redemption, wrong-account recovery and second-account role/disable acceptance remain unverified.
+On 2026-11-24, Carson selected **External** audience and chose to finish local development in **Testing** mode with the owner as the only Google test user. That historical restriction was removed by publication on 2026-11-26, recorded below. A second controlled Google account was not supplied, so real invitation redemption, wrong-account recovery and second-account role/disable acceptance remain unverified.
 
 The existing combined Lite preview was restarted with Google mode preserved and process overrides `ENABLE_WORKER=false`, `BOOTSTRAP_WORKER=false`, `BOOTSTRAP=false`, `BOOTSTRAP_EVENTS=false`, `ENABLE_OPEN_TRACKING=false`, and `LOG_CONFIG=false`. These overrides do not rewrite the corresponding `.env` defaults; retain them when restarting an infrastructure-only preview. No email or provider operation was performed.
 
@@ -81,11 +81,11 @@ For a deployment/release, complete the following checklist:
 6. Hand a private invitation to a second real Google account. Verify correct-account admission, wrong-account recovery, role restrictions, workspace switching, revocation, and disable behavior.
 7. Remove bootstrap settings after successful owner provisioning. Review production HTTPS, audience/test-user settings, and recovery access before release.
 
-Public Google consent publication and authenticated team/second-account acceptance remain operator release items. Owner production acceptance is recorded below. Never inject cookies or simulate a provider result to claim a real sign-in.
+Public Google consent publication is completed below. Second-account acceptance remains unverified. Never inject cookies or simulate a provider result to claim a real sign-in.
 
 ### 4. Production owner activation — verified
 
-`https://email.roninpublishing.com` now runs revision `3b8a361a51269139fb279ad0d073edb326f02014` in Google mode with secure HTTPS cookies and a separate `DITTO Email Client — Production` web client. Its exact redirect URI is:
+The initial production activation at `https://email.roninpublishing.com` used revision `3b8a361a51269139fb279ad0d073edb326f02014` in Google mode with secure HTTPS cookies and a separate `DITTO Email Client — Production` web client. Its exact redirect URI is:
 
 ```text
 https://email.roninpublishing.com/api/public/auth/google/callback
@@ -93,7 +93,16 @@ https://email.roninpublishing.com/api/public/auth/google/callback
 
 A real Google owner sign-in provisioned Admin membership and instance-administrator authority in the preserved production `Default` workspace. The live Users page displayed its two existing contacts. The three one-time bootstrap settings were removed afterward; the private application signing key and Google session storage were preserved. The PostgreSQL backup and all 18 migrations are recorded in `FORK_PLAN.md`.
 
-Google remains External/Testing, owner-only. This is not public consent publication or second-account acceptance. Local OAuth credentials were not changed. Production credentials live only in protected host runtime/backup files, never in Git or the development `.env`. Workers, bootstrap events and tracking remain off; no email was sent.
+At that initial activation, Google remained External/Testing, owner-only; workers, bootstrap events and tracking were off. This was not public consent publication or second-account acceptance. Production credentials remain only in protected host runtime/backup files, never in Git or development `.env`.
+
+### 5. Google publication — verified 2026-11-26
+
+The dedicated project `caramel-vim-515718-j5` now persists **External / In production** after a real Google Console confirmation and reload. Both OAuth clients retain their existing credentials and callbacks. Only `openid`, `userinfo.email` and `userinfo.profile` are configured; Google confirms data-access verification is not required. Custom consent branding remains unverified and is not yet shown.
+
+The approved public notice is live at `https://email.roninpublishing.com/dashboard/privacy.html`, linked from the sign-in homepage. Production revision `dd3ea8245de67374cac4e4a4bc55bd9015fe800d` was activated under the deployment lock, preserving runtime configuration and logging; no workers or bootstrap were enabled.
+
+Manage application access through **profile → Team & access**: create an invitation for a verified Google email, select its workspace role and hand off the private link. Google no longer needs a corresponding test-user entry. Publication does not grant workspace access by itself. The owner's real team-management screen was verified; anonymous team access returned 401. No second-account acceptance is claimed.
+
 
 ## Operations and safety
 

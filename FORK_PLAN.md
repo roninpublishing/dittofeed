@@ -1745,20 +1745,32 @@ as the production connection source.
 ## Google OAuth publication
 
 - On 2026-11-26, Google Auth Platform confirmed the dedicated DITTO project
-  `caramel-vim-515718-j5` is External/Testing. Publication requires the missing
+  `caramel-vim-515718-j5` was External/Testing. Publication required the missing
   public homepage and privacy-policy URLs. Its configured scopes are only
   `openid`, `userinfo.email` and `userinfo.profile`; sensitive/restricted lists
   are empty.
 - Carson approved the public privacy notice now stored at
   `packages/dashboard/public/privacy.html`. It requires no authentication or
   JavaScript and is linked from the minimal sign-in page.
-- Intended homepage:
+- Published homepage:
   `https://email.roninpublishing.com/dashboard/auth/google`.
-  Intended privacy URL:
+  Public privacy URL:
   `https://email.roninpublishing.com/dashboard/privacy.html`.
-  Local desktop/mobile browser checks rendered the approved notice without
-  horizontal overflow. Production deployment and actual Google publication
-  remain to be verified before declaring the app published.
+  Local desktop/mobile and live anonymous browser checks rendered the notice.
+  Production revision `dd3ea8245de67374cac4e4a4bc55bd9015fe800d` is healthy;
+  activation preserved runtime bytes, environment except version, and logging.
+  Google Audience now persists **External / In production** after reload.
 - Publishing applies to both local and production OAuth clients in this project;
   application invitations, workspace roles and account/session controls remain
   unchanged. No additional Google data scopes or credential rotation is requested.
+- Google Verification Center confirms data-access verification is not required
+  for these basic scopes. Custom Google consent branding is not yet verified
+  or shown; publication must not be described as branding verification.
+- Team & access renders the production administrator, invitation form and member
+  controls. Anonymous team API access returns 401. New users still require an
+  application invitation; Google test-user maintenance is no longer required.
+  Second-account invitation redemption remains unverified.
+- GitHub workflow dispatch returned 422 despite enabled repository/workflow
+  settings. Built the committed source with the existing 4 GiB / two-CPU bounded
+  builder, then activated the immutable local image under the deployment lock.
+  No migration, credential rotation, worker enablement or email send occurred.

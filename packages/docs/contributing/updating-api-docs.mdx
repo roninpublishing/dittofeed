@@ -14,12 +14,13 @@ From the repository root, with the combined local application running:
 
 ```bash
 curl --fail --silent --show-error http://localhost:3000/documentation/json \
-  | jq "." > packages/docs/open-api.json
+  | jq 'del(.paths["/{wildcard}"])' > packages/docs/open-api.json
 ```
 
 Use your own loopback port when verifying an isolated instance. This endpoint
 returns schemas, not workspace records. Review the output before committing;
 never include real credentials or request evidence as examples.
+Exclude the combined app's catch-all UI renderer from the API reference.
 
 For the machine-only contract, use authenticated `GET /api/admin/openapi.json`.
 `GET /api/admin/operations` lists the required grants. That live contract is

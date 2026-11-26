@@ -1256,7 +1256,7 @@
     "packages/worker/src/config.ts",
     "packages/worker/src/openTelemetry.ts"
   ],
-  "functionCount": 184085,
+  "functionCount": 184102,
   "functions": [
     {
       "file": "packages/admin-cli/scripts/cli.ts",
@@ -6456,7 +6456,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 55,
+      "line": 58,
       "column": 1,
       "name": "respond",
       "kind": "FunctionDeclaration",
@@ -6471,7 +6471,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 55,
+      "line": 58,
       "column": 53,
       "name": "<anonymous>",
       "kind": "FunctionType",
@@ -6483,7 +6483,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 100,
+      "line": 103,
       "column": 1,
       "name": "publisher",
       "kind": "FunctionDeclaration",
@@ -6497,7 +6497,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 105,
+      "line": 108,
       "column": 1,
       "name": "trackingPublisher",
       "kind": "FunctionDeclaration",
@@ -6513,7 +6513,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 121,
+      "line": 124,
       "column": 9,
       "name": "roles.some callback[0]",
       "kind": "ArrowFunction",
@@ -6527,7 +6527,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 135,
+      "line": 138,
       "column": 1,
       "name": "publicationsController",
       "kind": "FunctionDeclaration",
@@ -6541,7 +6541,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 147,
+      "line": 150,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6556,7 +6556,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 148,
+      "line": 151,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6568,7 +6568,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 171,
+      "line": 174,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6583,7 +6583,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 172,
+      "line": 175,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6595,7 +6595,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 189,
+      "line": 192,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -6610,7 +6610,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 190,
+      "line": 193,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6622,7 +6622,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 208,
+      "line": 211,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6637,7 +6637,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 209,
+      "line": 212,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6649,7 +6649,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 227,
+      "line": 230,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6664,7 +6664,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 228,
+      "line": 231,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6676,7 +6676,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 246,
+      "line": 249,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6691,7 +6691,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 247,
+      "line": 250,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6703,7 +6703,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 265,
+      "line": 268,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6718,7 +6718,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 266,
+      "line": 269,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6730,7 +6730,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 280,
+      "line": 283,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6745,7 +6745,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 281,
+      "line": 284,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6757,7 +6757,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 304,
+      "line": 307,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6772,7 +6772,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 305,
+      "line": 308,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6784,7 +6784,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 338,
+      "line": 341,
       "column": 5,
       "name": "f.patch callback[2]",
       "kind": "ArrowFunction",
@@ -6799,7 +6799,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 339,
+      "line": 342,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6811,7 +6811,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 357,
+      "line": 360,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6826,7 +6826,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 358,
+      "line": 361,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6838,7 +6838,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 372,
+      "line": 375,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6853,7 +6853,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 373,
+      "line": 376,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6865,7 +6865,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 391,
+      "line": 394,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6880,7 +6880,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 392,
+      "line": 395,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6892,7 +6892,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 410,
+      "line": 413,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6907,7 +6907,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 411,
+      "line": 414,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6919,7 +6919,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 425,
+      "line": 428,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -6934,7 +6934,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 426,
+      "line": 429,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6946,7 +6946,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 440,
+      "line": 443,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -6961,7 +6961,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 441,
+      "line": 444,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -6973,7 +6973,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 459,
+      "line": 462,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -6988,7 +6988,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 460,
+      "line": 463,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7000,7 +7000,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 478,
+      "line": 481,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -7015,7 +7015,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 479,
+      "line": 482,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7027,7 +7027,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 497,
+      "line": 500,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -7042,7 +7042,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 498,
+      "line": 501,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7054,7 +7054,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 516,
+      "line": 519,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -7069,7 +7069,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 517,
+      "line": 520,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7081,7 +7081,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 535,
+      "line": 538,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -7096,7 +7096,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 536,
+      "line": 539,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7108,7 +7108,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 554,
+      "line": 557,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -7123,7 +7123,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 555,
+      "line": 558,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7135,7 +7135,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 573,
+      "line": 576,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -7150,7 +7150,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 574,
+      "line": 577,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7162,7 +7162,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 592,
+      "line": 595,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -7177,7 +7177,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 593,
+      "line": 596,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7189,7 +7189,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 611,
+      "line": 614,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -7204,7 +7204,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 612,
+      "line": 615,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7216,7 +7216,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 630,
+      "line": 633,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -7231,7 +7231,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 631,
+      "line": 634,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7243,7 +7243,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 649,
+      "line": 652,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -7258,7 +7258,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 650,
+      "line": 653,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7270,7 +7270,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 668,
+      "line": 671,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -7285,7 +7285,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 669,
+      "line": 672,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7297,7 +7297,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 684,
+      "line": 687,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -7312,7 +7312,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 685,
+      "line": 688,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7324,7 +7324,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 700,
+      "line": 703,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -7339,7 +7339,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 701,
+      "line": 704,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7351,7 +7351,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 719,
+      "line": 722,
       "column": 5,
       "name": "f.post callback[2]",
       "kind": "ArrowFunction",
@@ -7366,7 +7366,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 720,
+      "line": 723,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7378,7 +7378,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 738,
+      "line": 741,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -7393,7 +7393,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 739,
+      "line": 742,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7405,7 +7405,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 753,
+      "line": 756,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -7420,7 +7420,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 754,
+      "line": 757,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7432,7 +7432,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 770,
+      "line": 773,
       "column": 5,
       "name": "f.put callback[2]",
       "kind": "ArrowFunction",
@@ -7447,7 +7447,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 771,
+      "line": 774,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7459,7 +7459,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 789,
+      "line": 792,
       "column": 5,
       "name": "f.delete callback[2]",
       "kind": "ArrowFunction",
@@ -7474,7 +7474,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 790,
+      "line": 793,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7486,7 +7486,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 808,
+      "line": 811,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -7501,7 +7501,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 809,
+      "line": 812,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7513,7 +7513,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 831,
+      "line": 834,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -7528,7 +7528,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 832,
+      "line": 835,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -7540,7 +7540,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 850,
+      "line": 853,
       "column": 5,
       "name": "f.get callback[2]",
       "kind": "ArrowFunction",
@@ -7555,7 +7555,34 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 851,
+      "line": 854,
+      "column": 22,
+      "name": "respond callback[1]",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/publicationsController.ts",
+      "line": 868,
+      "column": 5,
+      "name": "f.get callback[2]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "request",
+        "reply"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "controller implementation; not independently exposed"
+    },
+    {
+      "file": "packages/api/src/controllers/publicationsController.ts",
+      "line": 869,
       "column": 22,
       "name": "respond callback[1]",
       "kind": "ArrowFunction",
@@ -28062,6 +28089,33 @@
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
       "line": 30,
+      "column": 22,
+      "name": "emptyOutcome",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "Outcome",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 45,
+      "column": 1,
+      "name": "summarizeDelivery",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "sends: number",
+        "outcome: Outcome | null"
+      ],
+      "returnType": "DeliveryMetricSummary",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 82,
       "column": 1,
       "name": "getPublisherDeliveryHealth",
       "kind": "FunctionDeclaration",
@@ -28076,7 +28130,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 84,
+      "line": 136,
       "column": 44,
       "name": "ips.map callback[0]",
       "kind": "ArrowFunction",
@@ -28090,19 +28144,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 120,
-      "column": 24,
-      "name": "emptyOutcome",
-      "kind": "ArrowFunction",
-      "parameters": [],
-      "returnType": "Outcome",
-      "documentation": null,
-      "hasBody": true,
-      "boundary": "internal implementation; not independently exposed"
-    },
-    {
-      "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 126,
+      "line": 172,
       "column": 21,
       "name": "cohortKey",
       "kind": "ArrowFunction",
@@ -28117,7 +28159,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 135,
+      "line": 181,
       "column": 22,
       "name": "addOutcome",
       "kind": "ArrowFunction",
@@ -28133,7 +28175,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 141,
+      "line": 187,
       "column": 43,
       "name": "accounts.map callback[0]",
       "kind": "ArrowFunction",
@@ -28147,7 +28189,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 164,
+      "line": 205,
       "column": 30,
       "name": "publications.map callback[0]",
       "kind": "ArrowFunction",
@@ -28161,7 +28203,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 268,
+      "line": 309,
       "column": 21,
       "name": "summarize",
       "kind": "ArrowFunction",
@@ -28176,7 +28218,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 327,
+      "line": 356,
       "column": 42,
       "name": "[...outcomes.entries()].map callback[0]",
       "kind": "ArrowFunction",
@@ -28190,7 +28232,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 332,
+      "line": 361,
       "column": 46,
       "name": "[...ipOutcomes.entries()].map callback[0]",
       "kind": "ArrowFunction",
@@ -28204,7 +28246,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 338,
+      "line": 367,
       "column": 44,
       "name": "[...poolOutcomes.entries()].map callback[0]",
       "kind": "ArrowFunction",
@@ -28218,7 +28260,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 343,
+      "line": 372,
       "column": 28,
       "name": "accounts.map callback[0]",
       "kind": "ArrowFunction",
@@ -28232,7 +28274,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 347,
+      "line": 376,
       "column": 18,
       "name": "ips.map callback[0]",
       "kind": "ArrowFunction",
@@ -28246,7 +28288,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 349,
+      "line": 378,
       "column": 14,
       "name": "peers .map callback[0]",
       "kind": "ArrowFunction",
@@ -28260,7 +28302,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 350,
+      "line": 379,
       "column": 17,
       "name": "peers .map(({ ip: peer }) => peer) .filter callback[0]",
       "kind": "ArrowFunction",
@@ -28274,7 +28316,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 351,
+      "line": 380,
       "column": 33,
       "name": "shared.map callback[0]",
       "kind": "ArrowFunction",
@@ -28288,7 +28330,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 363,
+      "line": 392,
       "column": 46,
       "name": "limits.map callback[0]",
       "kind": "ArrowFunction",
@@ -28302,7 +28344,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 364,
+      "line": 393,
       "column": 45,
       "name": "limits.map callback[0]",
       "kind": "ArrowFunction",
@@ -28316,7 +28358,7 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 367,
+      "line": 396,
       "column": 33,
       "name": "budgets.filter callback[0]",
       "kind": "ArrowFunction",
@@ -28330,13 +28372,151 @@
     },
     {
       "file": "packages/backend-lib/src/newsletterReporting.ts",
-      "line": 372,
+      "line": 401,
       "column": 22,
       "name": "accounts.every callback[0]",
       "kind": "ArrowFunction",
       "parameters": [
         "account"
       ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 425,
+      "column": 1,
+      "name": "summaryOutcomes",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "workspaceIds: string[]",
+        "periodStart: Date",
+        "periodEnd: Date",
+        "signal: AbortSignal"
+      ],
+      "returnType": "Promise<Outcome | null>",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 476,
+      "column": 1,
+      "name": "loadDeliverySummary",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "publisherId: string",
+        "workspaceIds: string[]"
+      ],
+      "returnType": "Promise<DeliverySummary>",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 482,
+      "column": 33,
+      "name": "setTimeout callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 486,
+      "column": 24,
+      "name": "db().transaction callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "tx"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 497,
+      "column": 13,
+      "name": "Promise.all([ db().transaction(async (tx) => { await tx.execute(sql`SET LOCAL statement_timeout = '5s'`); const [row] = await tx.select({ sends: count() }).from callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "[sends, outcome]"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 504,
+      "column": 13,
+      "name": "delay(SUMMARY_DEADLINE_MS, undefined, { signal: deadlineController.signal }) .then callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 517,
+      "column": 1,
+      "name": "getPublisherDeliverySummary",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "publisherId: string"
+      ],
+      "returnType": "Promise<DeliverySummary>",
+      "documentation": "/** Overview-only metrics. Request authorization is never stored in this cache. */",
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 525,
+      "column": 38,
+      "name": "scope.flatMap callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "row"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 531,
+      "column": 71,
+      "name": "loadDeliverySummary(publisherId, workspaceIds).then callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "value"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/backend-lib/src/newsletterReporting.ts",
+      "line": 537,
+      "column": 14,
+      "name": "loadDeliverySummary(publisherId, workspaceIds).then((value) => { if (value.observationsAvailable) { entry.value = value; entry.expiresAt = Date.now() + SUMMARY_ callback[0]",
+      "kind": "ArrowFunction",
+      "parameters": [],
       "returnType": "inferred from implementation",
       "documentation": null,
       "hasBody": true,
@@ -2481322,8 +2481502,20 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/dashboard.tsx",
-      "line": 175,
+      "line": 180,
       "column": 44,
+      "name": "<anonymous>",
+      "kind": "ArrowFunction",
+      "parameters": [],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/workspace/dashboard.tsx",
+      "line": 259,
+      "column": 18,
       "name": "<anonymous>",
       "kind": "ArrowFunction",
       "parameters": [],
@@ -2481365,6 +2481557,35 @@
       "file": "packages/dashboard/src/components/workspace/deliveryMetrics.tsx",
       "line": 23,
       "column": 1,
+      "name": "useDeliverySummary",
+      "kind": "FunctionDeclaration",
+      "parameters": [
+        "apiBase: string",
+        "workspaceId: string"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/workspace/deliveryMetrics.tsx",
+      "line": 29,
+      "column": 14,
+      "name": "queryFn",
+      "kind": "ArrowFunction",
+      "parameters": [
+        "{ signal }"
+      ],
+      "returnType": "inferred from implementation",
+      "documentation": null,
+      "hasBody": true,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/workspace/deliveryMetrics.tsx",
+      "line": 39,
+      "column": 1,
       "name": "deliveryMetricValue",
       "kind": "FunctionDeclaration",
       "parameters": [
@@ -2481379,7 +2481600,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/deliveryMetrics.tsx",
-      "line": 40,
+      "line": 56,
       "column": 1,
       "name": "domainDeliverySummary",
       "kind": "FunctionDeclaration",
@@ -2481394,7 +2481615,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/deliveryMetrics.tsx",
-      "line": 52,
+      "line": 68,
       "column": 5,
       "name": "cohorts.find callback[0]",
       "kind": "ArrowFunction",
@@ -2481408,7 +2481629,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/deliveryMetrics.tsx",
-      "line": 61,
+      "line": 77,
       "column": 5,
       "name": "cohorts.some callback[0]",
       "kind": "ArrowFunction",
@@ -2481422,7 +2481643,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/deliveryMetrics.tsx",
-      "line": 65,
+      "line": 81,
       "column": 9,
       "name": "[item.sends, item.resolvedOutcomes, item.complaints].some callback[0]",
       "kind": "ArrowFunction",
@@ -2481436,7 +2481657,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/deliveryMetrics.tsx",
-      "line": 78,
+      "line": 94,
       "column": 1,
       "name": "DeliveryMetricCards",
       "kind": "FunctionDeclaration",
@@ -2481450,7 +2481671,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/deliveryMetrics.tsx",
-      "line": 102,
+      "line": 118,
       "column": 13,
       "name": "[ [\"Attempts (30d)\", \"sends\"], [\"Delivered\", \"delivered\"], [\"Deliverability\", \"deliverabilityRate\"], [\"Bounced\", \"bounced\"], [\"Complaints\", \"complaints\"], ].map callback[0]",
       "kind": "ArrowFunction",
@@ -2484302,12 +2484523,12 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/overview.tsx",
-      "line": 11,
+      "line": 19,
       "column": 1,
       "name": "Overview",
       "kind": "FunctionDeclaration",
       "parameters": [
-        "{\n  workspaceId,\n  apiBase,\n  workspaceName,\n  infrastructure,\n  newsletters,\n  domains,\n}: {\n  workspaceId: string;\n  apiBase: string;\n  workspaceName: string;\n  infrastructure: RecordValue;\n  newsletters: unknown;\n  domains?: WorkspaceDomain[];\n}"
+        "{\n  workspaceId,\n  apiBase,\n  workspaceName,\n  infrastructure,\n  newsletters,\n  domains,\n  topologyState = \"ready\",\n  onRetry,\n}: {\n  workspaceId: string;\n  apiBase: string;\n  workspaceName: string;\n  infrastructure: RecordValue;\n  newsletters: unknown;\n  domains?: WorkspaceDomain[];\n  topologyState?: \"loading\" | \"unavailable\" | \"ready\";\n  onRetry?: () => void;\n}"
       ],
       "returnType": "inferred from implementation",
       "documentation": null,
@@ -2484316,7 +2484537,19 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/overview.tsx",
-      "line": 31,
+      "line": 36,
+      "column": 13,
+      "name": "<anonymous>",
+      "kind": "FunctionType",
+      "parameters": [],
+      "returnType": "void",
+      "documentation": null,
+      "hasBody": false,
+      "boundary": "internal implementation; not independently exposed"
+    },
+    {
+      "file": "packages/dashboard/src/components/workspace/overview.tsx",
+      "line": 43,
       "column": 5,
       "name": "useMemo callback[0]",
       "kind": "ArrowFunction",
@@ -2484328,7 +2484561,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/overview.tsx",
-      "line": 67,
+      "line": 79,
       "column": 39,
       "name": "topology.objects.filter callback[0]",
       "kind": "ArrowFunction",
@@ -2484342,7 +2484575,7 @@
     },
     {
       "file": "packages/dashboard/src/components/workspace/overview.tsx",
-      "line": 77,
+      "line": 89,
       "column": 15,
       "name": "( [ [\"Newsletters\", rows(newsletters).length, \"/workspace/newsletters\"], [ \"ESP accounts\", rows(infrastructure.accounts).length, \"/workspace/esp-accounts\", ], [ callback[0]",
       "kind": "ArrowFunction",

@@ -778,14 +778,16 @@ protocols keep their own authentication rather than becoming bypass endpoints.
 
 Verification: `yarn check:mcp-parity` passed actual registration/discovery across
 all four authentication modes, strict grant subsets and 12 stdio consumer tests.
-The installed launcher exposed all 148 live machine operations on the combined
-development Lite app at `localhost:3005`, using a dedicated owner-delegated key.
-It created, edited, read and rendered a stored Liquid/MJML template, then deleted
-only that proof template. The original reader still received HTTP 403 on account
-controls. Focused account, template-content and recursive automation validation
-tests passed; the runtime OpenAPI, endpoint pages and source inventory were
-regenerated. Existing browser preview and production were not redeployed.
-Existing OMP sessions require `/mcp reload` to adopt the changed launcher.
+The installed current-app launcher exposed all 149 live machine operations on
+the combined development app at `localhost:3000`, using its dedicated
+owner-delegated key and the same checkout as the browser UI. It created, edited,
+read and rendered a stored Liquid/MJML template, then deleted only that proof
+template. The original reader still received HTTP 403 on account controls.
+Focused account, template-content and recursive automation validation tests
+passed; the runtime OpenAPI, endpoint pages and source inventory were refreshed
+after preserving the newer workspace caching changes. The temporary port 3005
+preview was stopped. Only the current local app was restarted; production was
+not deployed. Existing OMP sessions require `/mcp reload` to adopt the launcher.
 
 ### Initial workspace API implementation
 
@@ -825,8 +827,9 @@ The original 2026-11-20 local `RONIN` setup used the read-only key
 completed MCP initialization, discovered 33 read-only tools/95 API operations,
 and read the live manifest; direct probes denied writes, raw evidence and a
 foreign workspace. It performed no campaign/contact mutation. The development
-preview now uses the single root `.env` and `local-development-readonly` key,
-as described under [Initialized Neon development preview](#initialized-neon-development-preview).
+preview now uses the single root `.env` and a dedicated owner-delegated
+full-control key; `local-development-readonly` remains unchanged.
+See [Initialized Neon development preview](#initialized-neon-development-preview).
 
 This is a local-process MCP transport, not a public remote `/mcp` listener or OAuth
 authorization server. Production deployment and credential provisioning were not

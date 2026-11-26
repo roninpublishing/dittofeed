@@ -591,6 +591,7 @@
               "api-reference/auto/publications/get-apipublicationsautomationsactions",
               "api-reference/auto/publications/get-apipublicationssends",
               "api-reference/auto/publications/get-apipublicationsdelivery-health",
+              "api-reference/auto/publications/get-apipublicationsdelivery-summary",
               "api-reference/auto/publications/get-apiadminpublicationscontext",
               "api-reference/auto/publications/get-apiadminpublicationssending-options",
               "api-reference/auto/publications/get-apiadminpublicationstracking-domains",
@@ -633,6 +634,7 @@
               "api-reference/auto/publications/delete-apiadminpublicationsautomations",
               "api-reference/auto/publications/get-apiadminpublicationsautomationsactions",
               "api-reference/auto/publications/get-apiadminpublicationssends",
+              "api-reference/auto/publications/get-apiadminpublicationsdelivery-summary",
               "api-reference/auto/publications/get-apiadminpublicationsdelivery-health"
             ]
           },

@@ -886,7 +886,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 137,
+      "line": 140,
       "method": "GET",
       "localPath": "/context",
       "pathExpression": "\"/context\"",
@@ -894,7 +894,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 161,
+      "line": 164,
       "method": "GET",
       "localPath": "/tracking-domains",
       "pathExpression": "\"/tracking-domains\"",
@@ -902,7 +902,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 179,
+      "line": 182,
       "method": "PUT",
       "localPath": "/tracking-domains",
       "pathExpression": "\"/tracking-domains\"",
@@ -910,7 +910,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 198,
+      "line": 201,
       "method": "POST",
       "localPath": "/tracking-domains/provision",
       "pathExpression": "\"/tracking-domains/provision\"",
@@ -918,7 +918,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 217,
+      "line": 220,
       "method": "POST",
       "localPath": "/tracking-domains/verify",
       "pathExpression": "\"/tracking-domains/verify\"",
@@ -926,7 +926,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 236,
+      "line": 239,
       "method": "POST",
       "localPath": "/publisher",
       "pathExpression": "\"/publisher\"",
@@ -934,7 +934,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 255,
+      "line": 258,
       "method": "GET",
       "localPath": "/",
       "pathExpression": "\"/\"",
@@ -942,7 +942,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 270,
+      "line": 273,
       "method": "POST",
       "localPath": "/",
       "pathExpression": "\"/\"",
@@ -950,7 +950,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 289,
+      "line": 292,
       "method": "POST",
       "localPath": "/adopt",
       "pathExpression": "\"/adopt\"",
@@ -958,7 +958,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 314,
+      "line": 317,
       "method": "PATCH",
       "localPath": "/",
       "pathExpression": "\"/\"",
@@ -966,7 +966,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 347,
+      "line": 350,
       "method": "GET",
       "localPath": "/overview",
       "pathExpression": "\"/overview\"",
@@ -974,7 +974,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 362,
+      "line": 365,
       "method": "POST",
       "localPath": "/contacts/search",
       "pathExpression": "\"/contacts/search\"",
@@ -982,7 +982,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 381,
+      "line": 384,
       "method": "POST",
       "localPath": "/contacts/operations",
       "pathExpression": "\"/contacts/operations\"",
@@ -990,7 +990,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 400,
+      "line": 403,
       "method": "GET",
       "localPath": "/sending-options",
       "pathExpression": "\"/sending-options\"",
@@ -998,7 +998,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 415,
+      "line": 418,
       "method": "GET",
       "localPath": "/infrastructure",
       "pathExpression": "\"/infrastructure\"",
@@ -1006,7 +1006,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 430,
+      "line": 433,
       "method": "PUT",
       "localPath": "/infrastructure/accounts",
       "pathExpression": "\"/infrastructure/accounts\"",
@@ -1014,7 +1014,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 449,
+      "line": 452,
       "method": "POST",
       "localPath": "/infrastructure/accounts/inspect",
       "pathExpression": "\"/infrastructure/accounts/inspect\"",
@@ -1022,7 +1022,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 468,
+      "line": 471,
       "method": "POST",
       "localPath": "/infrastructure/connections/inspect",
       "pathExpression": "\"/infrastructure/connections/inspect\"",
@@ -1030,7 +1030,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 487,
+      "line": 490,
       "method": "POST",
       "localPath": "/infrastructure/domains",
       "pathExpression": "\"/infrastructure/domains\"",
@@ -1038,7 +1038,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 506,
+      "line": 509,
       "method": "POST",
       "localPath": "/infrastructure/senders",
       "pathExpression": "\"/infrastructure/senders\"",
@@ -1046,7 +1046,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 525,
+      "line": 528,
       "method": "POST",
       "localPath": "/infrastructure/webhooks",
       "pathExpression": "\"/infrastructure/webhooks\"",
@@ -1054,7 +1054,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 544,
+      "line": 547,
       "method": "PUT",
       "localPath": "/infrastructure/ips",
       "pathExpression": "\"/infrastructure/ips\"",
@@ -1062,7 +1062,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 563,
+      "line": 566,
       "method": "PUT",
       "localPath": "/infrastructure/pools",
       "pathExpression": "\"/infrastructure/pools\"",
@@ -1070,7 +1070,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 582,
+      "line": 585,
       "method": "PUT",
       "localPath": "/infrastructure/pool-bindings",
       "pathExpression": "\"/infrastructure/pool-bindings\"",
@@ -1078,7 +1078,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 601,
+      "line": 604,
       "method": "POST",
       "localPath": "/infrastructure/pool-bindings/reconcile",
       "pathExpression": "\"/infrastructure/pool-bindings/reconcile\"",
@@ -1086,7 +1086,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 620,
+      "line": 623,
       "method": "PUT",
       "localPath": "/infrastructure/defaults",
       "pathExpression": "\"/infrastructure/defaults\"",
@@ -1094,7 +1094,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 639,
+      "line": 642,
       "method": "POST",
       "localPath": "/infrastructure/ip-reassignment",
       "pathExpression": "\"/infrastructure/ip-reassignment\"",
@@ -1102,7 +1102,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 658,
+      "line": 661,
       "method": "GET",
       "localPath": "/suppressions",
       "pathExpression": "\"/suppressions\"",
@@ -1110,7 +1110,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 674,
+      "line": 677,
       "method": "POST",
       "localPath": "/suppressions/search",
       "pathExpression": "\"/suppressions/search\"",
@@ -1118,7 +1118,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 690,
+      "line": 693,
       "method": "PUT",
       "localPath": "/suppressions",
       "pathExpression": "\"/suppressions\"",
@@ -1126,7 +1126,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 709,
+      "line": 712,
       "method": "POST",
       "localPath": "/suppressions/deactivate",
       "pathExpression": "\"/suppressions/deactivate\"",
@@ -1134,7 +1134,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 728,
+      "line": 731,
       "method": "GET",
       "localPath": "/automations",
       "pathExpression": "\"/automations\"",
@@ -1142,7 +1142,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 743,
+      "line": 746,
       "method": "GET",
       "localPath": "/automations/options",
       "pathExpression": "\"/automations/options\"",
@@ -1150,7 +1150,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 760,
+      "line": 763,
       "method": "PUT",
       "localPath": "/automations",
       "pathExpression": "\"/automations\"",
@@ -1158,7 +1158,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 779,
+      "line": 782,
       "method": "DELETE",
       "localPath": "/automations",
       "pathExpression": "\"/automations\"",
@@ -1166,7 +1166,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 798,
+      "line": 801,
       "method": "GET",
       "localPath": "/automations/actions",
       "pathExpression": "\"/automations/actions\"",
@@ -1174,7 +1174,7 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 821,
+      "line": 824,
       "method": "GET",
       "localPath": "/sends",
       "pathExpression": "\"/sends\"",
@@ -1182,7 +1182,15 @@
     },
     {
       "file": "packages/api/src/controllers/publicationsController.ts",
-      "line": 840,
+      "line": 843,
+      "method": "GET",
+      "localPath": "/delivery-summary",
+      "pathExpression": "\"/delivery-summary\"",
+      "boundary": "source declaration; registration/auth mode determines reachability"
+    },
+    {
+      "file": "packages/api/src/controllers/publicationsController.ts",
+      "line": 858,
       "method": "GET",
       "localPath": "/delivery-health",
       "pathExpression": "\"/delivery-health\"",

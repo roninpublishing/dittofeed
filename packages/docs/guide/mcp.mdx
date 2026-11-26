@@ -19,13 +19,21 @@ lists methods, paths and required scopes. See [Application API coverage](/guide/
 for source ownership and the complete generated function inventory. A function
 inventory is a code map, not permission to execute every implementation helper.
 
-**Explicit identity boundary:** login/OAuth, personal profiles, personal sessions,
-team invitations, role changes and account disabling remain human-authenticated
-HTTP APIs. They are deliberately not machine tools. A workspace key cannot
-impersonate a Google account. Provider callbacks, public pixels, signed recipient
-links, debug endpoints, migrations and worker primitives are also excluded.
-Machine-native ingestion covers identify, track, page, screen, group and batch;
-the inherited unimplemented alias endpoint is not advertised as a capability.
+Every application feature must have a typed, authenticated MCP operation in the
+same change as its browser controls. This includes template authoring and
+authorized account/profile/session/team administration. Routine route parity
+verification rejects browser-only or hidden product controls.
+
+Account controls use explicit owner-delegated API keys with fresh role and
+credential checks, not a fabricated browser session or an arbitrary administrator.
+Legacy unowned keys keep their product permissions but cannot acquire personal
+account identity. Google login/consent callbacks, provider signatures, public
+pixels and signed recipient links retain their protocol authentication; MCP
+provides equivalent administrative controls, not bypasses. Debugging, migrations,
+raw SQL and private worker primitives are not application features or tools.
+Native ingestion covers identify, track, page, screen, group and batch. The
+inherited unimplemented alias route has been removed rather than exposed as a
+placeholder.
 
 ## Create a dedicated key
 
@@ -65,16 +73,47 @@ does not authorize its parent or a sibling.
 | `destructive` | Deletes, cancellations and explicit destructive operations. |
 | `sensitive` | Explicit sensitive data such as owned raw tracking evidence. |
 
-Credential, key and access administration requires **all four scopes**, not
-`sensitive` alone, because returning write keys or creating credentials could
-otherwise escalate a scoped caller. `/api/admin/operations` is authoritative
-for each route. All grants are enforced on HTTP requests, not just MCP tool
-visibility. These grants are coarse workspace capabilities, not per-contact or
-per-segment ACLs. Read access can export contact PII.
+Credential, key, account and access administration requires **all four scopes**,
+not `sensitive` alone. Owner delegation is server-owned: authenticated key creation
+binds its creator or inherits the invoking key's owner; request data cannot choose
+another identity. Revocation, disabled owners and current workspace roles are
+rechecked, including inside account mutations. Last-administrator protections and
+tenant boundaries remain intact.
+
+`/api/admin/operations` is authoritative for each route. Grants are enforced on
+HTTP requests, not just tool visibility. These are coarse workspace capabilities:
+`write` includes template edits and sending. Read access can export contact PII.
+Tool access is not permission to send, provision providers or delete user data.
 
 Startup discovery requires the API key's `read` grant even when the process will
 perform writes. Provision `read,write` for a normal mutation-capable integration;
 the grants remain independently enforced.
+
+### Account controls
+
+The `/api/admin/account` family supports owner profile changes, authorized
+workspace preference, browser-session inspection/revocation, team invitations,
+roles/removal and permitted account disabling. A key cannot widen its workspace
+binding or choose another account. Creating a workspace does not automatically
+grant that workspace to the invoking credential.
+
+Machine profiles identify `currentKeyId`, never a fabricated current browser
+session. **Logout revokes the invoking API key.** **Revoke others revokes all of
+the owner's browser sessions**, because a machine key has no current browser
+session. Existing browser controls retain their browser-session semantics.
+
+### Required feature check
+
+Run `yarn check:mcp-parity` for every feature change. It inventories actual
+registered routes and authenticated OpenAPI across supported authentication modes,
+checks typed machine inputs and scope enforcement, and exercises the stdio
+consumer. Hidden routes and new browser-only controls fail the check; only exact
+authentication/signed-protocol exceptions have reasons.
+
+The parity harness has no database lifecycle hooks and denies network/database
+access. It must be safe to run from a checkout with a real development `.env`.
+Add a real MCP consumer scenario for new or changed behavior; route parity alone
+does not establish correct business semantics.
 
 ## Build and connect
 
@@ -119,15 +158,19 @@ Use separate processes and keys for read-only research and outbound campaigns.
 
 ### Configured local OMP client
 
-The `RONIN Development` publisher uses a dedicated `read` credential named
-`local-development-readonly`. All development connection settings are in the
-existing root `.env`, including `DITTOFEED_API_URL`, `DITTOFEED_WORKSPACE_ID`,
-`DITTOFEED_API_KEY` and `DITTOFEED_MCP_SCOPES=read`. Do not create a second secret
-file. The root `.env` is ignored by Git and has owner-only `0600` permissions.
-OMP discovers the ignored project configuration at `.omp/mcp.json`; its absolute
-Node command launches the compiled server with an explicit `--env-file` pointing
-at that root `.env`. The client JSON contains no API key. This launch requires
-Node.js 20.6 or later.
+The `RONIN Development` workspace uses a dedicated owner-delegated credential
+with `read,write,destructive,sensitive`. The original
+`local-development-readonly` key remains unchanged. The active connection settings
+live in the existing ignored root `.env`, protected by owner-only `0600` permissions:
+`DITTOFEED_API_URL`, `DITTOFEED_WORKSPACE_ID`, `DITTOFEED_API_KEY` and
+`DITTOFEED_MCP_SCOPES`. Never commit them.
+
+The full-control feature preview runs the combined Lite app on
+`http://localhost:3005`, sharing development data while leaving the existing
+browser preview on port 3000 untouched. The ignored `.omp/mcp.json` launches the
+matching compiled bridge from the feature checkout with an explicit
+`--env-file` pointing to the original root `.env`; the client JSON contains no
+API key. This launch requires Node.js 20.6 or later.
 
 After changing the project launcher, run `/mcp reload` in the existing OMP
 session so it rediscovers the configuration; editing the file or restarting only
@@ -136,14 +179,14 @@ After rotating a key in `.env`, run `/mcp reconnect ronin-dittofeed` to restart
 the server with the current credential. `/mcp test ronin-dittofeed` checks the
 registered connection against the live server. A fresh standalone stdio process
 does not prove an already-mounted session is using the same configuration.
-The API must be running at `http://localhost:3000`; neither the MCP process nor
-its client configuration starts infrastructure or changes browser authentication.
+The configured API must be running. Neither the MCP process nor its client
+configuration starts infrastructure or changes browser authentication.
 
 The root `.env` is plaintext protected by filesystem permissions: protect
 backups and never paste its contents into a prompt or commit it. Revocation uses
 Settings → Admin API Keys or the authenticated key-deletion API; rotate by issuing
-a new dedicated key and privately replacing the local credential. Do not turn up
-the scopes of this reader as a substitute for a separate write-enabled client.
+a new dedicated key and privately replacing the local credential. Keep read-only
+research on the separate reader key instead of widening that credential.
 
 
 ## Tools and resources

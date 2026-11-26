@@ -1809,6 +1809,7 @@ export enum UpsertMessageTemplateValidationErrorType {
   IdError = "IdError",
   UniqueConstraintViolation = "UniqueConstraintViolation",
   InvalidIdentifierKey = "InvalidIdentifierKey",
+  MissingContent = "MissingContent",
 }
 
 export const UniqueConstraintViolationError = Type.Object({
@@ -1839,10 +1840,20 @@ export type InvalidIdentifierKeyError = Static<
   typeof InvalidIdentifierKeyError
 >;
 
+export const MissingMessageTemplateContentError = Type.Object({
+  type: Type.Literal(UpsertMessageTemplateValidationErrorType.MissingContent),
+  message: Type.String(),
+});
+
+export type MissingMessageTemplateContentError = Static<
+  typeof MissingMessageTemplateContentError
+>;
+
 export const UpsertMessageTemplateValidationError = Type.Union([
   UniqueConstraintViolationError,
   IdErrorMessageTemplateViolation,
   InvalidIdentifierKeyError,
+  MissingMessageTemplateContentError,
 ]);
 
 export type UpsertMessageTemplateValidationError = Static<
@@ -4670,6 +4681,8 @@ export type AdminApiKeyScope = Static<typeof AdminApiKeyScope>;
 export const AdminApiKeyDefinition = Type.Intersect([
   Type.Object({
     type: Type.Literal(AdminApiKeyType.AdminApiKey),
+    // Server-derived delegation; never accepted by the key creation request.
+    ownerMemberId: Type.Optional(Type.String({ format: "uuid" })),
     permissions: Type.Array(
       Type.Union([Type.Literal(AdminApiKeyPermission.Admin)]),
     ),

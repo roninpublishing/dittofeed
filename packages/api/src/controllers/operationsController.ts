@@ -110,7 +110,7 @@ export function adminOpenApi(document: OpenAPI.Document) {
       securitySchemes: {
         ...document.components?.securitySchemes,
         bearerAuth: {
-          type: "http",
+          type: "http" as const,
           scheme: "bearer",
           description:
             "Workspace admin API key with the required operation scopes.",

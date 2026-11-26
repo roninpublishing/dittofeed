@@ -713,3 +713,30 @@ test("scoped bearer keys cannot use generic secrets to acquire credential admini
     }),
   );
 });
+
+test("browser key creation binds only its authenticated owner, and legacy bearer calls never borrow cookies", async () => {
+  await db().update(schema.workspaceMemberRole).set({ role: "Admin" }).where(and(
+    eq(schema.workspaceMemberRole.workspaceId, workspaceId),
+    eq(schema.workspaceMemberRole.workspaceMemberId, memberId),
+  ));
+  const browserKey = await app.inject({
+    method: "POST", url: "/api/admin-keys", cookies, headers: { origin },
+    payload: { workspaceId, name: randomUUID(), scopes: [...API_OPERATION_SCOPES], ownerMemberId: randomUUID() },
+  });
+  expect(browserKey.statusCode).toBe(200);
+  const browserStored = await db().query.adminApiKey.findFirst({ where: eq(schema.adminApiKey.id, browserKey.json().id) });
+  if (!browserStored) throw new Error("Browser key was not persisted");
+  const browserSecret = await db().query.secret.findFirst({ where: eq(schema.secret.id, browserStored.secretId) });
+  expect(browserSecret?.configValue).toMatchObject({ ownerMemberId: memberId });
+  const legacy = unwrap(await createAdminApiKey({ workspaceId, name: randomUUID(), scopes: [...API_OPERATION_SCOPES] }));
+  const inherited = await app.inject({
+    method: "POST", url: "/api/admin/admin-keys", cookies,
+    headers: { authorization: `Bearer ${legacy.apiKey}`, [WORKSPACE_ID_HEADER]: workspaceId },
+    payload: { workspaceId, name: randomUUID(), scopes: [...API_OPERATION_SCOPES], ownerMemberId: memberId },
+  });
+  expect(inherited.statusCode).toBe(200);
+  const childStored = await db().query.adminApiKey.findFirst({ where: eq(schema.adminApiKey.id, inherited.json().id) });
+  if (!childStored) throw new Error("Inherited key was not persisted");
+  const childSecret = await db().query.secret.findFirst({ where: eq(schema.secret.id, childStored.secretId) });
+  expect(childSecret?.configValue).not.toHaveProperty("ownerMemberId");
+});

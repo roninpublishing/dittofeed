@@ -20,7 +20,8 @@ function normalizeApiPath(path: string): string {
 /** Credential administration can issue credentials or change authorization. */
 export function isApiCredentialAdministration(path: string): boolean {
   const normalized = normalizeApiPath(path);
-  return /^\/api\/(admin-keys|secrets|settings|integrations|permissions|oauth)(?:\/|$)/.test(normalized) ||
+  return /^\/api\/(account|admin-keys|secrets|settings|integrations|permissions|oauth)(?:\/|$)/.test(normalized) ||
+    normalized === "/api/broadcasts/gmail-authorization" ||
     /^\/api\/publications\/(?:publisher|adopt)$/.test(normalized) ||
     /^\/api\/publications\/infrastructure\/(?:accounts|domains|senders|webhooks|pool-bindings\/reconcile|ip-reassignment)$/.test(normalized);
 }

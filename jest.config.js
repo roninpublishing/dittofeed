@@ -81,6 +81,10 @@ const config = {
       ...BASE_CONFIG,
       displayName: "api",
       roots: ["<rootDir>/packages/api/src"],
+      // The pure gate has its own no-database harness; never run it with these hooks.
+      testPathIgnorePatterns: [
+        "<rootDir>/packages/api/src/buildApp/mcpParity.test.ts",
+      ],
       globalTeardown: "<rootDir>/packages/backend-lib/test/globalTeardown.ts",
       globalSetup: "<rootDir>/packages/backend-lib/test/globalSetup.ts",
       setupFilesAfterEnv: [

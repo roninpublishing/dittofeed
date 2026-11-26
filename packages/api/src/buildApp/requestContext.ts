@@ -161,6 +161,13 @@ export function getOccupantFromRequest(request: FastifyRequest): {
   workspaceOccupantId: string;
   workspaceOccupantType: DBWorkspaceOccupantType;
 } | null {
+  const delegated = request.apiKeyAccountPrincipal;
+  if (delegated) {
+    return {
+      workspaceOccupantId: delegated.ownerMemberId,
+      workspaceOccupantType: "WorkspaceMember",
+    };
+  }
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   const { embeddedSession } = request.raw as {
     embeddedSession?: EmbeddedSession;

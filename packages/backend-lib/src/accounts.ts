@@ -6,9 +6,12 @@ import {
   AccountTeamResponse,
   containsAccountControlCharacters,
   CreateAccountInvitationRequest,
+  MachineAccountProfile,
   WorkspaceInvitationResource,
 } from "isomorphic-lib/src/accounts";
-import { Role, WorkspaceMemberResource } from "isomorphic-lib/src/types";
+import { AdminApiKeyDefinition, AdminApiKeyScope, DFRequestContext, Role, WorkspaceMemberResource } from "isomorphic-lib/src/types";
+import { API_OPERATION_SCOPES } from "isomorphic-lib/src/apiOperations";
+import { schemaValidate } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import { err, ok } from "neverthrow";
 
 import config from "./config";
@@ -16,6 +19,8 @@ import { Db, db } from "./db";
 import {
   accountRateLimit,
   accountSession,
+  adminApiKey,
+  secret,
   googleAccount,
   googleOAuthFlow,
   workspace,
@@ -32,6 +37,21 @@ export interface GoogleAccountPrincipal {
   memberId: string;
   sessionId: string;
   isInstanceAdmin: boolean;
+}
+
+/** A delegated identity is a machine credential, never a browser session. */
+export interface ApiKeyAccountPrincipal {
+  kind: "apiKey";
+  keyId: string;
+  ownerMemberId: string;
+  memberId: string;
+  workspaceId: string;
+}
+
+export type AccountPrincipal = GoogleAccountPrincipal | ApiKeyAccountPrincipal;
+
+export interface ApiKeyAccountContext extends DFRequestContext {
+  principal: ApiKeyAccountPrincipal;
 }
 
 export interface VerifiedGoogleProfile {
@@ -124,8 +144,38 @@ function memberResource(member: Member): WorkspaceMemberResource {
 
 async function authenticated(
   tx: Transaction,
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
+  requiredScopes: readonly AdminApiKeyScope[] = API_OPERATION_SCOPES,
 ) {
+  if ("keyId" in principal) {
+    if (principal.memberId !== principal.ownerMemberId) fail("not_authenticated", 401);
+    const [key] = await tx.select({ configValue: secret.configValue, workspaceId: adminApiKey.workspaceId })
+      .from(adminApiKey)
+      .innerJoin(secret, and(eq(adminApiKey.secretId, secret.id), eq(adminApiKey.workspaceId, secret.workspaceId)))
+      .where(eq(adminApiKey.id, principal.keyId));
+    if (!key) fail("not_authenticated", 401);
+    const definition = schemaValidate(key.configValue, AdminApiKeyDefinition);
+    if (definition.isErr() || definition.value.ownerMemberId !== principal.ownerMemberId)
+      fail("not_authenticated", 401);
+    // Owned keys always carry explicit scopes; an unscoped legacy key cannot delegate.
+    if (!definition.value.scopes || !requiredScopes.every((scope) => definition.value.scopes?.includes(scope)))
+      fail("forbidden");
+    const [scope] = await tx.select().from(workspace).where(and(
+      eq(workspace.id, principal.workspaceId), eq(workspace.status, "Active"),
+    ));
+    const [origin] = await tx.select().from(workspace).where(and(
+      eq(workspace.id, key.workspaceId), eq(workspace.status, "Active"),
+    ));
+    if (!scope || !origin || (scope.id !== origin.id && scope.parentWorkspaceId !== origin.id))
+      fail("no_access");
+    const [identity] = await tx.select({ account: googleAccount, member: workspaceMember })
+      .from(googleAccount)
+      .innerJoin(workspaceMember, eq(googleAccount.memberId, workspaceMember.id))
+      .where(and(eq(googleAccount.memberId, principal.ownerMemberId), isNull(googleAccount.disabledAt)));
+    if (!identity) fail("not_authenticated", 401);
+    await membership(tx, principal.ownerMemberId, principal.workspaceId);
+    return identity;
+  }
   const [row] = await tx
     .select({ account: googleAccount, member: workspaceMember })
     .from(accountSession)
@@ -198,12 +248,14 @@ async function membership(
 
 async function authorized(
   tx: Transaction,
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
   workspaceId: string,
   requiredRole: Role,
+  requiredScopes: readonly AdminApiKeyScope[] = API_OPERATION_SCOPES,
 ) {
   validRole(requiredRole);
-  const identity = await authenticated(tx, principal);
+  if ("keyId" in principal && workspaceId !== principal.workspaceId) fail("no_access");
+  const identity = await authenticated(tx, principal, requiredScopes);
   const access = await membership(tx, principal.memberId, workspaceId);
   if (ROLE_RANK[access.role] < ROLE_RANK[requiredRole]) fail("forbidden");
   return { ...identity, ...access };
@@ -631,7 +683,7 @@ export async function resolveAccountSession(
 }
 
 export async function listAccountSessions(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
 ): Promise<AccountSessionResource[]> {
   return authTransaction(async (tx) => {
     await authenticated(tx, principal);
@@ -650,14 +702,14 @@ export async function listAccountSessions(
       id: session.id,
       createdAt: session.createdAt.toISOString(),
       expiresAt: session.expiresAt.toISOString(),
-      current: session.id === principal.sessionId,
+      current: !("keyId" in principal) && session.id === principal.sessionId,
       userAgent: session.userAgent ?? undefined,
     }));
   });
 }
 
 export async function revokeAccountSession(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
   sessionId: string,
 ): Promise<void> {
   await authTransaction(async (tx) => {
@@ -677,7 +729,7 @@ export async function revokeAccountSession(
 }
 
 export async function revokeOtherAccountSessions(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
 ): Promise<void> {
   await authTransaction(async (tx) => {
     await authenticated(tx, principal);
@@ -687,7 +739,7 @@ export async function revokeOtherAccountSessions(
       .where(
         and(
           eq(accountSession.memberId, principal.memberId),
-          ne(accountSession.id, principal.sessionId),
+          "keyId" in principal ? undefined : ne(accountSession.id, principal.sessionId),
           isNull(accountSession.revokedAt),
         ),
       );
@@ -696,10 +748,17 @@ export async function revokeOtherAccountSessions(
 
 async function profileInTransaction(
   tx: Transaction,
-  principal: GoogleAccountPrincipal,
-): Promise<AccountProfile> {
+  principal: AccountPrincipal,
+): Promise<AccountProfile | MachineAccountProfile> {
   const { member, account } = await authenticated(tx, principal);
-  const memberships = await tx
+  const memberships = "keyId" in principal
+    ? (await effectiveMemberships(tx, principal.memberId, principal.workspaceId)).map((row) => ({
+        workspaceId: row.workspace.id,
+        workspaceName: row.workspace.name,
+        workspaceMemberId: principal.memberId,
+        role: row.role,
+      }))
+    : await tx
     .select({
       workspaceId: workspace.id,
       workspaceName: workspace.name,
@@ -719,20 +778,24 @@ async function profileInTransaction(
     member: memberResource(member),
     isInstanceAdmin: account.isInstanceAdmin,
     memberships,
-    currentSessionId: principal.sessionId,
+    ...("keyId" in principal ? { currentKeyId: principal.keyId } : { currentSessionId: principal.sessionId }),
   };
 }
 
+export function getAccountProfile(principal: GoogleAccountPrincipal): Promise<AccountProfile>;
+export function getAccountProfile(principal: ApiKeyAccountPrincipal): Promise<MachineAccountProfile>;
 export async function getAccountProfile(
-  principal: GoogleAccountPrincipal,
-): Promise<AccountProfile> {
+  principal: AccountPrincipal,
+): Promise<AccountProfile | MachineAccountProfile> {
   return authTransaction((tx) => profileInTransaction(tx, principal));
 }
 
+export function updateAccountProfile(principal: GoogleAccountPrincipal, input: { name: string }): Promise<AccountProfile>;
+export function updateAccountProfile(principal: ApiKeyAccountPrincipal, input: { name: string }): Promise<MachineAccountProfile>;
 export async function updateAccountProfile(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
   { name }: { name: string },
-): Promise<AccountProfile> {
+): Promise<AccountProfile | MachineAccountProfile> {
   const normalizedName = name.trim();
   if (
     !normalizedName ||
@@ -751,7 +814,7 @@ export async function updateAccountProfile(
 }
 
 export async function getAccountTeam(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
   workspaceId: string,
 ): Promise<AccountTeamResponse> {
   return authTransaction(async (tx) => {
@@ -798,7 +861,7 @@ export async function getAccountTeam(
 }
 
 export async function createWorkspaceInvitation(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
   input: CreateAccountInvitationRequest,
 ): Promise<{ invitation: WorkspaceInvitationResource; token: string }> {
   const email = normalizedEmail(input.email);
@@ -879,7 +942,7 @@ export async function previewWorkspaceInvitation(
 }
 
 export async function revokeWorkspaceInvitation(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
   { workspaceId, invitationId }: { workspaceId: string; invitationId: string },
 ): Promise<void> {
   await authTransaction(async (tx) => {
@@ -927,7 +990,7 @@ async function targetRole(
 }
 
 export async function updateAccountMemberRole(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
   {
     workspaceId,
     memberId,
@@ -959,7 +1022,7 @@ export async function updateAccountMemberRole(
 }
 
 export async function removeAccountMember(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
   { workspaceId, memberId }: { workspaceId: string; memberId: string },
 ): Promise<void> {
   await authTransaction(async (tx) => {
@@ -995,12 +1058,20 @@ export async function removeAccountMember(
 }
 
 export async function setAccountDisabled(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
   { memberId, disabled }: { memberId: string; disabled: boolean },
 ): Promise<void> {
   await authTransaction(async (tx) => {
     const actor = await authenticated(tx, principal);
     if (!actor.account.isInstanceAdmin) fail("forbidden");
+    if ("keyId" in principal) {
+      await authorized(tx, principal, principal.workspaceId, "Admin");
+      const roles = await tx.select().from(workspaceMemberRole)
+        .where(eq(workspaceMemberRole.workspaceMemberId, memberId));
+      // Disablement is global. A workspace-bound key cannot change a shared or foreign identity.
+      if (!roles.length || roles.some((role) => role.workspaceId !== principal.workspaceId))
+        fail("no_access");
+    }
     const [target] = await tx
       .select()
       .from(googleAccount)
@@ -1093,10 +1164,11 @@ export async function getGoogleRequestContext(
 }
 
 export async function selectAccountWorkspace(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
   workspaceId: string,
 ): Promise<void> {
   await authTransaction(async (tx) => {
+    if ("keyId" in principal && workspaceId !== principal.workspaceId) fail("no_access");
     await authenticated(tx, principal);
     await membership(tx, principal.memberId, workspaceId);
     await tx
@@ -1107,12 +1179,87 @@ export async function selectAccountWorkspace(
 }
 
 export async function requireWorkspaceRole(
-  principal: GoogleAccountPrincipal,
+  principal: AccountPrincipal,
   workspaceId: string,
   requiredRole: Role,
 ): Promise<void> {
   await authTransaction(async (tx) => {
+    await authorized(tx, principal, workspaceId, requiredRole, []);
+  });
+}
+
+/** Re-resolve delegation and role from the database for every authenticated operation. */
+export async function getApiKeyAccountContext(
+  principal: ApiKeyAccountPrincipal,
+  requiredRole: Role,
+  requiredScopes: readonly AdminApiKeyScope[],
+): Promise<ApiKeyAccountContext> {
+  return authTransaction(async (tx) => {
+    const actor = await authorized(tx, principal, principal.workspaceId, requiredRole, requiredScopes);
+    return {
+      principal,
+      member: memberResource(actor.member),
+      workspace: {
+        id: actor.workspace.id,
+        name: actor.workspace.name,
+        type: actor.workspace.type,
+        parentWorkspaceId: actor.workspace.parentWorkspaceId ?? undefined,
+      },
+      memberRoles: [{
+        workspaceId: actor.workspace.id,
+        workspaceName: actor.workspace.name,
+        parentWorkspaceId: actor.workspace.parentWorkspaceId,
+        workspaceMemberId: principal.memberId,
+        role: actor.role,
+      }],
+    };
+  });
+}
+
+/** Serialize credential changes with owner disablement, demotion and account mutations. */
+export function withAccountAuthorization<T>(
+  principal: AccountPrincipal,
+  workspaceId: string,
+  work: (tx: Transaction) => Promise<T>,
+  requiredRole: Role = "Admin",
+): Promise<T> {
+  return authTransaction(async (tx) => {
     await authorized(tx, principal, workspaceId, requiredRole);
+    return work(tx);
+  });
+}
+
+/** Privileged local operator enrollment, never an application request principal. */
+export function withOwnerKeyEnrollment<T>(
+  ownerMemberId: string,
+  workspaceId: string,
+  work: (tx: Transaction) => Promise<T>,
+): Promise<T> {
+  return authTransaction(async (tx) => {
+    const [owner] = await tx.select({ memberId: googleAccount.memberId })
+      .from(googleAccount)
+      .innerJoin(workspaceMemberRole, eq(googleAccount.memberId, workspaceMemberRole.workspaceMemberId))
+      .innerJoin(workspace, eq(workspaceMemberRole.workspaceId, workspace.id))
+      .where(and(
+        eq(googleAccount.memberId, ownerMemberId),
+        isNull(googleAccount.disabledAt),
+        eq(googleAccount.isInstanceAdmin, true),
+        eq(workspaceMemberRole.workspaceId, workspaceId),
+        eq(workspaceMemberRole.role, "Admin"),
+        eq(workspace.status, "Active"),
+      ));
+    if (!owner) fail("forbidden");
+    return work(tx);
+  });
+}
+
+export async function logoutApiKeyAccount(principal: ApiKeyAccountPrincipal): Promise<void> {
+  await authTransaction(async (tx) => {
+    await authenticated(tx, principal);
+    const [key] = await tx.delete(adminApiKey).where(eq(adminApiKey.id, principal.keyId))
+      .returning({ secretId: adminApiKey.secretId });
+    if (!key) fail("not_authenticated", 401);
+    await tx.delete(secret).where(eq(secret.id, key.secretId));
   });
 }
 

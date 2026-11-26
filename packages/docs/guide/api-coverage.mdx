@@ -55,6 +55,7 @@ to `/api/admin`; source files are under `packages/api/src/controllers/`.
 | `/integrations` | Retained integration configuration | `integrationsController.ts` |
 | `/secrets` | Existing secret-resource configuration APIs, not arbitrary decryption | `secretsController.ts` |
 | `/admin-keys` | Scoped API key creation/revocation | `apiKeyController.ts` |
+| `/account` | Owner-delegated profile, workspace preference, sessions/key logout, team/invitations/roles and authorized account disabling | `accountController.ts` |
 | `/apps` | Native identify, track, page, screen, group and batch ingestion | `publicAppsController.ts` |
 | `/operations`, `/openapi.json` | Live operation manifest and schemas | `operationsController.ts` |
 
@@ -75,8 +76,8 @@ header, query and body must agree. The original
 `/api/public/apps/{identify,track,page,screen,group,batch}` routes continue to
 validate their existing `Authorization` public-write-key encoding and determine
 the workspace from that credential. A public write key is not an admin credential.
-The inherited `/alias` endpoint is unimplemented and is **not** advertised or
-registered as a supported machine operation.
+The inherited `/alias` stub has been removed; unsupported identity merging is
+neither a public endpoint nor a placeholder machine capability.
 
 ### Authorization and scope boundaries
 
@@ -98,19 +99,19 @@ User-property index creation likewise requires the property to belong to the
 authorized workspace; foreign or missing properties return 404 before index
 configuration or backfill.
 
-## Deliberate human-only and public protocol surfaces
+## Account controls and protocol boundaries
 
-The approved `human_only` boundary preserves existing human-authenticated APIs
-for login/OAuth, profile editing, workspace/session selection, session listing/
-revocation/logout, team invitations, member roles/removal and account disabling.
-Google account operations live in `packages/api/src/googleAccounts.ts` and the
-corresponding `backend-lib/src/accounts*` modules; an API key is not a member or
-session principal. No service-principal impersonation or cookie bypass is added.
-Legacy `/api/permissions` role management also stays browser-only and is not
-registered under `/api/admin` in any authentication mode.
-The Gmail authorization-status route belongs to the current browser member and
-is not registered under `/api/admin`; use the browser OAuth prerequisite.
-Configured-provider machine sends remain available through product operations.
+Account/profile/session/team controls are no longer human-only product
+exceptions. Owner-delegated keys expose `/api/admin/account` operations with all
+four scopes and the same fresh roles, last-administrator and tenant protections.
+The principal is an API key bound to its authenticated owner, not a synthetic
+Google/browser session. Unowned legacy keys cannot acquire that identity.
+
+Legacy permission management is machine-accessible only in authentication modes
+where that role model is supported; Google mode uses delegated account/team
+controls instead. Gmail authorization status resolves the explicitly delegated
+owner, not an ambient browser cookie. Google authorization still requires its
+real consent protocol. Configured-provider sends retain their existing gates.
 
 Recipient subscription links/pages, view-in-browser links, owned tracking pixels,
 and signed provider callbacks remain their existing public protocols with their
@@ -123,6 +124,19 @@ not added to the machine catalog.
 Removed SMS, Segment.io, Postmark, Mailchimp/Mandrill and Resend surfaces remain
 removed. Push and HubSpot implementations remain retained but hidden in the UI;
 this API work does not restore their UI entry points or retired providers.
+
+## Mandatory feature parity
+
+Before implementing a feature, define its machine inputs, outputs, authorization
+and lifecycle actions. Deliver usable MCP controls in the same change as the UI.
+`yarn check:mcp-parity` compares actual Fastify registrations with authenticated
+OpenAPI and MCP schemas across supported authentication modes. Missing/hidden
+controls, lost business parameters and unsafe account grants fail; a new product
+route cannot evade coverage by declaring itself `human_only`.
+
+The dedicated gate never runs destructive database setup/teardown and rejects
+network/PostgreSQL access. New operation behavior also needs a real MCP consumer
+scenario; a schema alone is not proof that a handler works.
 
 ## Reproducible function-level code inventory
 

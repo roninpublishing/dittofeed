@@ -10,6 +10,12 @@ export const AccountProfile = Type.Object({
 });
 export type AccountProfile = Static<typeof AccountProfile>;
 
+export const MachineAccountProfile = Type.Composite([
+  Type.Omit(AccountProfile, ["currentSessionId"]),
+  Type.Object({ currentKeyId: Type.String() }),
+]);
+export type MachineAccountProfile = Static<typeof MachineAccountProfile>;
+
 export const AccountSessionResource = Type.Object({
   id: Type.String(),
   createdAt: Type.String(),

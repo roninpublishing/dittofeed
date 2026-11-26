@@ -5,7 +5,8 @@ import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaV
 import { err, ok, Result } from "neverthrow";
 import { PostgresError } from "pg-error-enum";
 
-import { db, queryResult } from "./db";
+import { AccountPrincipal, withAccountAuthorization, withOwnerKeyEnrollment } from "./accounts";
+import { Db, db, queryResult } from "./db";
 import { adminApiKey as dbAdminApiKey, secret as dbSecret } from "./db/schema";
 import {
   AdminApiKeyDefinition,
@@ -26,18 +27,37 @@ export interface AdminApiKeyCreateConflictError {
 
 export type AdminApiKeyCreateError = AdminApiKeyCreateConflictError;
 
-export async function createAdminApiKey(
+export function createAdminApiKey(
   data: CreateAdminApiKeyRequest,
+  principal?: AccountPrincipal,
+): Promise<Result<CreateAdminApiKeyResponse, AdminApiKeyCreateError>> {
+  return createKey(data, principal);
+}
+
+/** Local operator provisioning only. This owner selector is not an HTTP input. */
+export function provisionOwnerAdminApiKey(
+  data: CreateAdminApiKeyRequest,
+  ownerMemberId: string,
+): Promise<Result<CreateAdminApiKeyResponse, AdminApiKeyCreateError>> {
+  return createKey(data, undefined, ownerMemberId);
+}
+
+async function createKey(
+  data: CreateAdminApiKeyRequest,
+  principal?: AccountPrincipal,
+  enrollmentOwnerMemberId?: string,
 ): Promise<Result<CreateAdminApiKeyResponse, AdminApiKeyCreateError>> {
   const newKey = randomBytes(32).toString("hex");
 
-  const result = await queryResult(
-    db().transaction(async (tx) => {
+  const create = async (tx: Parameters<Parameters<Db["transaction"]>[0]>[0]) => {
       const configValue: AdminApiKeyDefinition = {
         type: AdminApiKeyType.AdminApiKey,
         keyHash: createHash("sha256").update(newKey).digest("hex"),
         permissions: [AdminApiKeyPermission.Admin],
         scopes: data.scopes ?? ["read"],
+        ...((principal || enrollmentOwnerMemberId)
+          ? { ownerMemberId: principal?.memberId ?? enrollmentOwnerMemberId }
+          : {}),
       };
       // Rotate orphaned secrets left by older revocation code. A conflicting
       // live key rolls back this transaction instead of disclosing its secret.
@@ -68,7 +88,13 @@ export async function createAdminApiKey(
         throw new Error("Failed to create admin API key");
       }
       return { adminApiKey, secret };
-    }),
+  };
+  const result = await queryResult(
+    principal
+      ? withAccountAuthorization(principal, data.workspaceId, create)
+      : enrollmentOwnerMemberId
+        ? withOwnerKeyEnrollment(enrollmentOwnerMemberId, data.workspaceId, create)
+        : db().transaction(create),
   );
   if (result.isErr()) {
     if (

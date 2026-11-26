@@ -4,6 +4,7 @@ import { DittofeedFastifyInstance } from "backend-lib/src/types";
 import { FastifyInstance, FastifyRegister } from "fastify";
 
 import analysisController from "../controllers/analysisController";
+import accountController from "../controllers/accountController";
 import apiKeyController from "../controllers/apiKeyController";
 import broadcastsController from "../controllers/broadcastsController";
 import componentConfigurationsController from "../controllers/componentConfigurationsController";
@@ -52,7 +53,7 @@ async function registerProductControllers(
     f.register(segmentsController, { prefix: "/segments" }),
     f.register(settingsController, { prefix: "/settings" }),
     f.register(integrationsController, { prefix: "/integrations" }),
-    admin || backendConfig().authMode === "google"
+    backendConfig().authMode === "google"
       ? null
       : f.register(permissionsController, { prefix: "/permissions" }),
     f.register(subscriptionGroupsController, {
@@ -132,6 +133,7 @@ export default async function router(
       await registerProductControllers(f, true);
       await f.register(publicAppsController, { prefix: "/apps", admin: true });
       await f.register(operationsController);
+      await f.register(accountController, { prefix: "/account" });
     },
     { prefix: "/api/admin" },
   );

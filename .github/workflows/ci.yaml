@@ -78,6 +78,8 @@ jobs:
         run: yarn install --immutable
       - name: Build Emailo dependency
         run: yarn workspace emailo build
+      - name: Enforce database-free application and MCP parity
+        run: yarn check:mcp-parity
       - name: Typecheck and test
         run: |
           set -euo pipefail

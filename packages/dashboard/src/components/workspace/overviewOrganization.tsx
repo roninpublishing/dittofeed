@@ -36,11 +36,11 @@ const kindLabels = {
 const kindAccents = {
   workspace: "#374151",
   group: "#374151",
-  newsletter: "#4f795d",
-  account: "#786294",
-  ip: "#4e7398",
-  pool: "#987744",
-  domain: "#438184",
+  newsletter: "#39704e",
+  account: "#735397",
+  ip: "#386b9d",
+  pool: "#8a611f",
+  domain: "#267a7b",
 };
 
 export default function OverviewOrganization({
@@ -138,14 +138,15 @@ export default function OverviewOrganization({
                 border: 1,
                 borderColor: organizational
                   ? "text.primary"
-                  : alpha(accent, 0.3),
+                  : alpha(accent, 0.45),
                 borderRadius: 1.5,
-                bgcolor: organizational ? "text.primary" : alpha(accent, 0.06),
+                bgcolor: organizational ? "text.primary" : alpha(accent, 0.16),
+                boxShadow: organizational ? "none" : `inset 3px 0 0 ${accent}`,
                 color: organizational ? "background.paper" : "text.primary",
                 textDecoration: "none",
                 ...(!organizational && {
                   "&:hover": {
-                    bgcolor: alpha(accent, 0.12),
+                    bgcolor: alpha(accent, 0.24),
                     borderColor: alpha(accent, 0.6),
                   },
                   "&:focus-visible": {

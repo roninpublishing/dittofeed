@@ -1808,11 +1808,12 @@ as the production connection source.
 
 - Added restrained type-specific card/border/icon tints: green newsletters,
   violet ESP accounts, blue dedicated IPs, amber shared IPs and teal domains.
+  Fills are visibly pastel, with deeper icon colors and a 3px colored inset edge.
   Organizational nodes stay dark; labels remain neutral and icons retain their
   distinct shapes. Layout, navigation and queries are unchanged.
 - Optimized dashboard build and the real authenticated local overview passed.
   Computed contrast across all 22 resource cards, including a shared-IP hover,
   exceeded 4.5:1 for text and 3:1 for icons.
-- Combined Lite now serves `dist/overview-type-colors-preview` on loopback with
+- Combined Lite now serves `dist/overview-visible-colors-preview` on loopback with
   guarded development Neon/ClickHouse/Temporal, Google auth and disabled workers,
   bootstrap and open capture. No `.env` rewrite or production deployment.

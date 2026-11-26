@@ -3,12 +3,12 @@ import config, { Config } from "backend-lib/src/config";
 import { db } from "backend-lib/src/db";
 import { newsletterSend } from "backend-lib/src/db/publisherSchema";
 import { getDeliveryOpens } from "backend-lib/src/deliveries";
-import { installNewsletterSecretFixture } from "backend-lib/test/newsletterSecretFixture";
 import * as development from "backend-lib/src/messaging/developmentOpenTracking";
 import * as tracking from "backend-lib/src/messaging/openTracking";
 import * as events from "backend-lib/src/messaging/openTrackingEvents";
 import * as domains from "backend-lib/src/newsletterTracking";
 import { DittofeedFastifyInstance } from "backend-lib/src/types";
+import { installNewsletterSecretFixture } from "backend-lib/test/newsletterSecretFixture";
 import {
   createTrackedSendFixture,
   createTrackingNewsletterFixture,

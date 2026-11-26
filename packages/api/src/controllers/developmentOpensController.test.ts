@@ -196,6 +196,17 @@ describe("authorized development open evidence review", () => {
       messageId: send.messageId,
     });
     expect(response.statusCode).toBe(200);
+    const headersMatcher: unknown = expect.objectContaining({
+      "x-custom-observation": "retained",
+    });
+    const requestMatcher: unknown = expect.objectContaining({
+      properties: first.evidence.request.properties,
+      headers: headersMatcher,
+    });
+    const evidenceMatcher: unknown = expect.objectContaining({
+      request: requestMatcher,
+      cloudflare: first.evidence.cloudflare,
+    });
     expect(response.json<DevelopmentPixelEventsPage>().events).toEqual([
       expect.objectContaining({
         eventId: first.eventId,
@@ -203,15 +214,7 @@ describe("authorized development open evidence review", () => {
         userId: send.userId,
         messageId: send.messageId,
         status: "matched",
-        evidence: expect.objectContaining({
-          request: expect.objectContaining({
-            properties: first.evidence.request.properties,
-            headers: expect.objectContaining({
-              "x-custom-observation": "retained",
-            }) as unknown,
-          }) as unknown,
-          cloudflare: first.evidence.cloudflare,
-        }) as unknown,
+        evidence: evidenceMatcher,
       }),
     ]);
     expect(response.payload).not.toContain(send.token);

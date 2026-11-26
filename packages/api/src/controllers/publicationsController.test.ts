@@ -92,10 +92,11 @@ describe("publication management API", () => {
     const body = result.json<{
       data: { periodStart: string; periodEnd: string };
     }>();
+    const stringMatcher: unknown = expect.any(String);
     expect(body).toEqual({
       data: {
-        periodStart: expect.any(String) as unknown,
-        periodEnd: expect.any(String) as unknown,
+        periodStart: stringMatcher,
+        periodEnd: stringMatcher,
         observationsAvailable: true,
         summary: {
           sends: 0,

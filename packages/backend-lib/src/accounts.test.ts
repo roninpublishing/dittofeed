@@ -4,6 +4,9 @@ import { Role } from "isomorphic-lib/src/types";
 
 import {
   AccountError,
+  ApiKeyAccountPrincipal,
+  getApiKeyAccountContext,
+  logoutApiKeyAccount,
   completeGoogleSignIn,
   consumeAccountRateLimit,
   consumeGoogleFlow,
@@ -28,7 +31,11 @@ import {
   updateAccountProfile,
   VerifiedGoogleProfile,
 } from "./accounts";
+import { createAdminApiKey, provisionOwnerAdminApiKey } from "./adminApiKeys";
+import { API_OPERATION_SCOPES } from "isomorphic-lib/src/apiOperations";
+import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import config from "./config";
+import { createPublisher } from "./newsletters";
 import { db } from "./db";
 import {
   accountRateLimit,
@@ -1053,5 +1060,174 @@ describe("database account rate limiting", () => {
       .where(inArray(accountRateLimit.key, stale));
     expect(remaining.length).toBeGreaterThanOrEqual(105);
     expect(remaining.length).toBeLessThan(205);
+  });
+});
+
+describe("owner-delegated machine accounts", () => {
+  let workspaceId: string;
+  let owner: AccountFixture;
+  let viewer: AccountFixture;
+  let machine: ApiKeyAccountPrincipal;
+
+  async function delegated(account: AccountFixture, scopes = [...API_OPERATION_SCOPES]) {
+    const key = unwrap(await createAdminApiKey({ workspaceId, name: randomUUID(), scopes }, account.principal));
+    return {
+      kind: "apiKey" as const,
+      keyId: key.id,
+      memberId: account.memberId,
+      ownerMemberId: account.memberId,
+      workspaceId,
+    };
+  }
+
+  beforeEach(async () => {
+    workspaceId = (await makeWorkspace()).id;
+    owner = await makeAccount(workspaceId, "Admin", true);
+    viewer = await makeAccount(workspaceId, "Viewer");
+    machine = await delegated(owner);
+  });
+
+  it("derives ownership only from authenticated context and inherits it without rebinding", async () => {
+    const request = {
+      workspaceId, name: randomUUID(), scopes: [...API_OPERATION_SCOPES],
+      ownerMemberId: viewer.memberId,
+    };
+    const child = unwrap(await createAdminApiKey(request, machine));
+    const childPrincipal = { ...machine, keyId: child.id };
+    expect(await getAccountProfile(childPrincipal)).toMatchObject({
+      member: { id: owner.memberId }, currentKeyId: child.id,
+    });
+    await expect(getAccountProfile({ ...childPrincipal, ownerMemberId: viewer.memberId, memberId: viewer.memberId }))
+      .rejects.toMatchObject({ code: "not_authenticated" });
+    const unowned = unwrap(await createAdminApiKey({ ...request, name: randomUUID() }));
+    await expect(getAccountProfile({ ...machine, keyId: unowned.id }))
+      .rejects.toMatchObject({ code: "not_authenticated" });
+    await expect(getAccountProfile({ ...machine, memberId: viewer.memberId }))
+      .rejects.toMatchObject({ code: "not_authenticated" });
+  });
+
+  it("allows operator enrollment only for the exact enabled instance-admin workspace owner", async () => {
+    const key = unwrap(await provisionOwnerAdminApiKey({
+      workspaceId, name: randomUUID(), scopes: [...API_OPERATION_SCOPES],
+    }, owner.memberId));
+    expect(await getAccountProfile({ ...machine, keyId: key.id })).toMatchObject({
+      member: { id: owner.memberId },
+    });
+    await expect(provisionOwnerAdminApiKey({ workspaceId, name: randomUUID() }, viewer.memberId))
+      .rejects.toMatchObject({ code: "forbidden" });
+    const foreign = await makeAccount((await makeWorkspace()).id, "Admin", true);
+    await expect(provisionOwnerAdminApiKey({ workspaceId, name: randomUUID() }, foreign.memberId))
+      .rejects.toMatchObject({ code: "forbidden" });
+    await db().update(googleAccount).set({ disabledAt: new Date() }).where(eq(googleAccount.memberId, owner.memberId));
+    await expect(provisionOwnerAdminApiKey({ workspaceId, name: randomUUID() }, owner.memberId))
+      .rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("requires every scope for account controls and rechecks persisted scopes", async () => {
+    for (const missing of API_OPERATION_SCOPES) {
+      const limited = await delegated(owner, API_OPERATION_SCOPES.filter((scope) => scope !== missing));
+      await expect(updateAccountProfile(limited, { name: "Forbidden" }))
+        .rejects.toMatchObject({ code: "forbidden" });
+      await expect(createAdminApiKey({ workspaceId, name: randomUUID() }, limited))
+        .rejects.toMatchObject({ code: "forbidden" });
+    }
+    const read = await delegated(owner, ["read"]);
+    expect(await getApiKeyAccountContext(read, "Viewer", ["read"])).toMatchObject({
+      member: { id: owner.memberId },
+    });
+    await expect(getApiKeyAccountContext(read, "Author", ["write"]))
+      .rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("represents no current browser session and revokes all browser sessions without killing the key", async () => {
+    const second = await createAccountSession({ memberId: owner.memberId });
+    const sessions = await listAccountSessions(machine);
+    expect(sessions).toHaveLength(2);
+    expect(sessions.every((session) => !session.current)).toBe(true);
+    expect(await getAccountProfile(machine)).not.toHaveProperty("currentSessionId");
+    await expect(revokeAccountSession(machine, viewer.principal.sessionId))
+      .rejects.toMatchObject({ code: "forbidden" });
+    await revokeOtherAccountSessions(machine);
+    expect(await resolveAccountSession(owner.token)).toBeNull();
+    expect(await resolveAccountSession(second.token)).toBeNull();
+    expect(await getAccountProfile(machine)).toHaveProperty("currentKeyId", machine.keyId);
+    const browser = await createAccountSession({ memberId: owner.memberId });
+    await logoutApiKeyAccount(machine);
+    await expect(updateAccountProfile(machine, { name: "Revoked" }))
+      .rejects.toMatchObject({ code: "not_authenticated" });
+    expect(await resolveAccountSession(browser.token)).not.toBeNull();
+  });
+
+  it("freshly rejects demoted, removed and disabled owners instead of trusting captured role flags", async () => {
+    const second = await makeAccount(workspaceId, "Admin", true);
+    await updateAccountMemberRole(second.principal, { workspaceId, memberId: owner.memberId, role: "Viewer" });
+    await expect(createWorkspaceInvitation(machine, { workspaceId, email: "denied@example.com", role: "Viewer" }))
+      .rejects.toMatchObject({ code: "forbidden" });
+    await expect(createAdminApiKey({ workspaceId, name: randomUUID() }, machine))
+      .rejects.toMatchObject({ code: "forbidden" });
+    await updateAccountMemberRole(second.principal, { workspaceId, memberId: owner.memberId, role: "Admin" });
+    await setAccountDisabled(second.principal, { memberId: owner.memberId, disabled: true });
+    await expect(getAccountProfile(machine)).rejects.toMatchObject({ code: "not_authenticated" });
+    await setAccountDisabled(second.principal, { memberId: owner.memberId, disabled: false });
+    await removeAccountMember(second.principal, { workspaceId, memberId: owner.memberId });
+    await expect(getAccountProfile(machine)).rejects.toMatchObject({ code: "no_access" });
+  });
+
+  it("keeps scope binding and global disablement from touching foreign or shared accounts", async () => {
+    const foreignWorkspaceId = (await makeWorkspace()).id;
+    const foreign = await makeAccount(foreignWorkspaceId);
+    await db().insert(workspaceMemberRole).values({
+      workspaceId: foreignWorkspaceId, workspaceMemberId: owner.memberId, role: "Admin",
+    });
+    await expect(getAccountTeam(machine, foreignWorkspaceId)).rejects.toMatchObject({ code: "no_access" });
+    await expect(selectAccountWorkspace(machine, foreignWorkspaceId)).rejects.toMatchObject({ code: "no_access" });
+    await expect(updateAccountMemberRole(machine, { workspaceId, memberId: foreign.memberId, role: "Viewer" }))
+      .rejects.toMatchObject({ code: "no_access" });
+    await expect(setAccountDisabled(machine, { memberId: foreign.memberId, disabled: true }))
+      .rejects.toMatchObject({ code: "no_access" });
+    await db().insert(workspaceMemberRole).values({
+      workspaceId, workspaceMemberId: foreign.memberId, role: "Viewer",
+    });
+    await expect(setAccountDisabled(machine, { memberId: foreign.memberId, disabled: false }))
+      .rejects.toMatchObject({ code: "no_access" });
+    const profile = await getAccountProfile(machine);
+    expect(profile.memberships.map((role) => role.workspaceId)).toEqual([workspaceId]);
+    await setAccountDisabled(machine, { memberId: viewer.memberId, disabled: true });
+    expect(await resolveAccountSession(viewer.token)).toBeNull();
+  });
+
+  it("retains last-administrator protection and serializes competing machine demotions", async () => {
+    await expect(updateAccountMemberRole(machine, { workspaceId, memberId: owner.memberId, role: "Viewer" }))
+      .rejects.toMatchObject({ code: "last_administrator" });
+    await expect(removeAccountMember(machine, { workspaceId, memberId: owner.memberId }))
+      .rejects.toMatchObject({ code: "last_administrator" });
+    const second = await makeAccount(workspaceId, "Admin", true);
+    const secondMachine = await delegated(second);
+    const outcomes = await Promise.allSettled([
+      updateAccountMemberRole(machine, { workspaceId, memberId: owner.memberId, role: "Viewer" }),
+      updateAccountMemberRole(secondMachine, { workspaceId, memberId: second.memberId, role: "Viewer" }),
+    ]);
+    expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome.status === "rejected")).toHaveLength(1);
+  });
+});
+
+describe("delegated workspace creation authorization", () => {
+  it("rechecks the owner and current key inside the publisher transaction", async () => {
+    const workspaceId = (await makeWorkspace()).id;
+    const owner = await makeAccount(workspaceId, "Admin", true);
+    const key = unwrap(await provisionOwnerAdminApiKey({
+      workspaceId, name: randomUUID(), scopes: [...API_OPERATION_SCOPES],
+    }, owner.memberId));
+    const principal: ApiKeyAccountPrincipal = {
+      kind: "apiKey", workspaceId, keyId: key.id,
+      memberId: owner.memberId, ownerMemberId: owner.memberId,
+    };
+    const name = `revoked-machine-workspace-${randomUUID()}`;
+    await logoutApiKeyAccount(principal);
+    await expect(createPublisher({
+      workspaceId, name, createNewWorkspace: true, principal,
+    })).rejects.toMatchObject({ code: "not_authenticated" });
+    expect(await db().query.workspace.findFirst({ where: eq(workspace.name, name) })).toBeUndefined();
   });
 });

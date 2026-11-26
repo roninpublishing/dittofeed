@@ -46,7 +46,9 @@ export interface ApiResult {
 }
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 5 * 1024 * 1024;
-const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete", "head"]);
+const HTTP_METHODS: Readonly<Record<string, true>> = {
+  get: true, post: true, put: true, patch: true, delete: true, head: true, options: true,
+};
 const BLOCKED_HEADERS = new Set([
   "authorization", "cookie", "host", "origin", "referer", "connection",
   "content-length", "content-type", "x-workspace-id", "workspace-id",
@@ -176,7 +178,8 @@ export function createOperations(document: ApiDocument, scopes: readonly ApiOper
       throw new Error("Catalog contains a route outside the machine API");
     }
     for (const [method, raw] of Object.entries(pathValue)) {
-      if (!HTTP_METHODS.has(method)) continue;
+      if (method === "trace") throw new Error("TRACE operations cannot be invoked safely by the MCP HTTP transport");
+      if (!Object.hasOwn(HTTP_METHODS, method)) continue;
       if (!requiredApiScopes(method, path).every((scope) => scopes.includes(scope))) continue;
       const operation = object(raw);
       const parameters = [...(pathValue.parameters as unknown[] ?? []), ...(operation.parameters as unknown[] ?? [])]
@@ -187,7 +190,7 @@ export function createOperations(document: ApiDocument, scopes: readonly ApiOper
         throw new Error(`Unsupported parameter location for ${method} ${path}`);
       }
       const properties: ObjectValue = {};
-      const newsletterScoped = !/^\/api\/admin\/publications(?:\/|$)/.test(path);
+      const newsletterScoped = !/^\/api\/admin\/(?:publications|account)(?:\/|$)/.test(path);
       if (newsletterScoped) {
         properties.newsletterId = {
           type: "string",
@@ -299,7 +302,7 @@ export class ApiBridge {
     }
     let workspaceId = this.config.workspaceId;
     if (args.newsletterId !== undefined) {
-      if (!operation.newsletterScoped) throw new Error("Publisher management operations cannot change newsletter scope");
+      if (!operation.newsletterScoped) throw new Error("Operator-bound management operations cannot change newsletter scope");
       const requested = String(args.newsletterId);
       const contextUrl = this.url("/api/admin/publications/context");
       contextUrl.searchParams.set("workspaceId", requested);

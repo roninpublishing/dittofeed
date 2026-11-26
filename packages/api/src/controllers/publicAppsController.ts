@@ -201,6 +201,10 @@ export default async function publicAppsController(
         tags: ["Public Apps"],
         body: GroupData,
         headers,
+        response: {
+          204: EmptyResponse,
+          401: BaseMessageResponse,
+        },
       },
     },
     async (request, reply) => {
@@ -219,30 +223,6 @@ export default async function publicAppsController(
       return reply.status(204).send();
     },
   );
-
-  // The inherited alias endpoint is not implemented and is not a machine tool.
-  if (!opts.admin) {
-    fastify.withTypeProvider<TypeBoxTypeProvider>().post(
-      "/alias",
-      {
-        schema: {
-          security: [
-            {
-              publicWriteKey: [],
-            },
-          ],
-          tags: ["Public Apps"],
-        },
-      },
-      async (request, reply) => {
-        logger().warn("Client is calling unimplemented endpoint /alias");
-
-        return reply.status(400).send({
-          message: "Not yet implemented.",
-        });
-      },
-    );
-  }
 
   fastify.withTypeProvider<TypeBoxTypeProvider>().post(
     "/batch",

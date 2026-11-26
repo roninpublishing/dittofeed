@@ -16,7 +16,7 @@ export function schemaValidate<S extends TSchema>(
   if (Value.Check(schema, TYPE_REFS, val)) {
     return ok(val);
   }
-  const errors = Array.from(Value.Errors(schema, val));
+  const errors = Array.from(Value.Errors(schema, TYPE_REFS, val));
   return err(errors);
 }
 
@@ -27,7 +27,7 @@ export function schemaValidateWithErr<S extends TSchema>(
   if (Value.Check(schema, TYPE_REFS, val)) {
     return ok(val);
   }
-  const errors = Array.from(Value.Errors(schema, val));
+  const errors = Array.from(Value.Errors(schema, TYPE_REFS, val));
   return err(
     new Error(
       `original object:${JSON.stringify(

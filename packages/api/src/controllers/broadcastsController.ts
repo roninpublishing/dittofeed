@@ -275,8 +275,6 @@ export default async function broadcastsController(
     },
   );
 
-  // Gmail authorization belongs to the current browser member, not an API key.
-  if (!opts.admin)
     fastify.withTypeProvider<TypeBoxTypeProvider>().get(
       "/gmail-authorization",
       {
@@ -290,6 +288,9 @@ export default async function broadcastsController(
         },
       },
       async (request, reply) => {
+        if (opts.admin && !request.apiKeyAccountPrincipal) {
+          return reply.status(403).send();
+        }
         const { workspaceId } = request.query;
         const occupant = getOccupantFromRequest(request);
         if (!occupant) {

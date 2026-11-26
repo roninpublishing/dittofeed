@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { v5 as uuidv5 } from "uuid";
 
+import { AccountPrincipal, withAccountAuthorization } from "./accounts";
 import { bootstrapComputeProperties } from "./bootstrap";
 import { provisionBuiltinUserProperties } from "./builtinUserProperties";
 import { ClickHouseQueryBuilder, query as chQuery } from "./clickhouse";
@@ -134,14 +135,17 @@ export async function requireNewsletterCampaignWorkspace(
 export async function createPublisher({
   workspaceId,
   name,
-  memberId,
+  memberId: providedMemberId,
   createNewWorkspace = false,
+  principal,
 }: {
   workspaceId?: string;
   name: string;
   memberId?: string;
   createNewWorkspace?: boolean;
+  principal?: AccountPrincipal;
 }) {
+  const memberId = principal?.memberId ?? providedMemberId;
   const normalizedName = name.trim();
   if (!normalizedName) throw new NewsletterError("Publisher name is required");
   if (createNewWorkspace && (!workspaceId || !memberId))
@@ -150,7 +154,7 @@ export async function createPublisher({
       403,
       "workspace_creation_requires_session",
     );
-  return db().transaction(async (tx) => {
+  const create = async (tx: Transaction) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtextextended(${createNewWorkspace ? normalizedName : workspaceId ?? normalizedName}, 0))`,
     );
@@ -265,7 +269,12 @@ export async function createPublisher({
       name: target.name,
       type: "Parent" as const,
     };
-  });
+  };
+  if (principal) {
+    if (!workspaceId) throw new NewsletterError("Authorized workspace required", 403);
+    return withAccountAuthorization(principal, workspaceId, create, "WorkspaceManager");
+  }
+  return db().transaction(create);
 }
 
 export async function listNewsletters(publisherId: string) {

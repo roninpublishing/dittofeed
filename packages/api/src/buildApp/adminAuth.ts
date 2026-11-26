@@ -1,3 +1,5 @@
+import { requiredGoogleApiRole } from "backend-lib/src/accountAuthorization";
+import { AccountError, ApiKeyAccountContext, getApiKeyAccountContext } from "backend-lib/src/accounts";
 import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import logger from "backend-lib/src/logger";
@@ -12,6 +14,7 @@ import { schemaValidate } from "isomorphic-lib/src/resultHandling/schemaValidati
 import {
   AdminApiKeyDefinition,
   AdminApiKeyScope,
+  Role,
   WorkspaceIdentifier,
 } from "isomorphic-lib/src/types";
 
@@ -24,14 +27,17 @@ export type AuthenticateAdminKeyParams = {
 export interface AuthenticatedAdminApiKey {
   workspaceId: string;
   keyId: string;
+  authorizedWorkspaceId: string;
+  ownerMemberId?: string;
+  accountContext?: ApiKeyAccountContext;
   // Undefined means a persisted legacy administrator key.
   scopes?: AdminApiKeyScope[];
 }
 
-export async function authenticateAdminApiKeyFull({
-  actualKey,
-  ...identifier
-}: AuthenticateAdminKeyParams): Promise<AuthenticatedAdminApiKey | null> {
+export async function authenticateAdminApiKeyFull(
+  { actualKey, ...identifier }: AuthenticateAdminKeyParams,
+  authorization?: { role: Role; scopes: readonly AdminApiKeyScope[] },
+): Promise<AuthenticatedAdminApiKey | null> {
   if (!actualKey) {
     return null;
   }
@@ -217,8 +223,32 @@ export async function authenticateAdminApiKeyFull({
         actualKeyDigestView,
       )
     ) {
+      const target = "workspaceId" in identifier
+        ? identifier.workspaceId
+        : (await db().query.workspace.findFirst({ where: eq(schema.workspace.externalId, identifier.externalId) }))?.id;
+      if (!target) return null;
+      let accountContext: ApiKeyAccountContext | undefined;
+      if (definition.ownerMemberId) {
+        try {
+          accountContext = await getApiKeyAccountContext({
+            kind: "apiKey",
+            keyId: apiKey.id,
+            ownerMemberId: definition.ownerMemberId,
+            memberId: definition.ownerMemberId,
+            workspaceId: target,
+          }, authorization?.role ?? "Viewer", authorization?.scopes ?? []);
+        } catch (error) {
+          if (error instanceof AccountError) {
+            if (!authorization || error.statusCode === 401) return null;
+          }
+          throw error;
+        }
+      }
       return {
         workspaceId: apiKey.workspaceId,
+        authorizedWorkspaceId: target,
+        ownerMemberId: definition.ownerMemberId,
+        accountContext,
         keyId: apiKey.id,
         scopes: definition.scopes,
       };
@@ -243,6 +273,8 @@ export async function authenticateAdminApiKey(
 
 // eslint-disable-next-line @typescript-eslint/require-await
 const adminAuth = fp(async (fastify: FastifyInstance) => {
+  fastify.decorateRequest("apiKeyAccountPrincipal", undefined);
+  fastify.decorateRequest("adminApiKeyId", undefined);
   fastify.addHook("preHandler", async (request, reply) => {
     const routePath =
       request.routeOptions.url ?? request.url.split("?")[0] ?? "/";
@@ -342,10 +374,23 @@ const adminAuth = fp(async (fastify: FastifyInstance) => {
         message: errorMessage,
       });
     }
-    const authenticated = await authenticateAdminApiKeyFull({
-      ...workspaceIdentifier,
-      actualKey,
-    });
+    const requiredScopes = requiredApiScopes(request.method, routePath);
+    const normalizedPath = routePath.replace(/^\/api\/admin(?=\/|$)/, "/api");
+    let authenticated: AuthenticatedAdminApiKey | null;
+    try {
+      authenticated = await authenticateAdminApiKeyFull({
+        ...workspaceIdentifier,
+        actualKey,
+      }, {
+        role: normalizedPath.startsWith("/api/permissions") ? "Admin" : requiredGoogleApiRole(request.method, normalizedPath),
+        scopes: requiredScopes,
+      });
+    } catch (error) {
+      if (error instanceof AccountError) {
+        return reply.code(error.statusCode).send({ code: error.code, message: "Delegated access denied" });
+      }
+      throw error;
+    }
     if (!authenticated) {
       const errorMessage = "API key not valid";
       logger().info(
@@ -360,16 +405,20 @@ const adminAuth = fp(async (fastify: FastifyInstance) => {
         message: errorMessage,
       });
     }
-    const requiredScopes = requiredApiScopes(
-      request.method,
-      request.routeOptions.url ?? request.url,
-    );
+    request.adminApiKeyId = authenticated.keyId;
     const { scopes } = authenticated;
     if (
       scopes !== undefined &&
       !requiredScopes.every((scope) => scopes.includes(scope))
     ) {
       return reply.status(403).send({ message: "API key scope not granted" });
+    }
+    const context = authenticated.accountContext;
+    if (context) {
+      request.apiKeyAccountPrincipal = context.principal;
+      request.requestContext?.set("member", context.member);
+      request.requestContext?.set("workspace", context.workspace);
+      request.requestContext?.set("memberRoles", context.memberRoles);
     }
   });
 });

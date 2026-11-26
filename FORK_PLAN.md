@@ -756,11 +756,40 @@ callbacks before real use. Setup details: `packages/docs/integrations/channels/t
 
 ## Workspace API and MCP: implemented and locally verified
 
-Carson approved exposing supported workspace product operations, not arbitrary
-internal function execution. Login/OAuth, personal profiles/sessions, team
-invitations/roles/account disabling remain human-authenticated HTTP operations.
-Legacy permissions and Gmail authorization status are also excluded from the
-machine surface. No synthetic member identity or browser-cookie bypass was added.
+The original workspace API intentionally excluded account/team controls.
+On 2026-11-26 Carson superseded that product boundary: **every application feature
+must have authenticated MCP control**, including template authoring and authorized
+account/team administration. New features must define and ship their machine
+contract in the same change, with an enforced parity check. Private implementation
+helpers are not arbitrary tools; Google consent/login callbacks and signed public
+protocols keep their own authentication rather than becoming bypass endpoints.
+
+### MCP-first full control: implemented and locally verified
+
+- [x] Bind new delegated API keys to their authenticated owner, preserving scopes,
+  fresh roles, revocation, tenant isolation and last-administrator protections.
+- [x] Expose account/profile/session/team/workspace controls and close browser-only
+  product gaps without fake identities, no-op tools or credential escalation.
+- [x] Enable template create/edit/read/render through the configured development
+  MCP using a new dedicated full-control key; preserve the existing reader key.
+- [x] Enforce route/OpenAPI/MCP parity in normal verification and CI.
+- [x] Prove actual template mutations and account-control authorization without
+  sending email, changing providers or touching unrelated user data.
+
+Verification: `yarn check:mcp-parity` passed actual registration/discovery across
+all four authentication modes, strict grant subsets and 12 stdio consumer tests.
+The installed current-app launcher exposed all 149 live machine operations on
+the combined development app at `localhost:3000`, using its dedicated
+owner-delegated key and the same checkout as the browser UI. It created, edited,
+read and rendered a stored Liquid/MJML template, then deleted only that proof
+template. The original reader still received HTTP 403 on account controls.
+Focused account, template-content and recursive automation validation tests
+passed; the runtime OpenAPI, endpoint pages and source inventory were refreshed
+after preserving the newer workspace caching changes. The temporary port 3005
+preview was stopped. Only the current local app was restarted; production was
+not deployed. Existing OMP sessions require `/mcp reload` to adopt the launcher.
+
+### Initial workspace API implementation
 
 - [x] Share product controller registration across browser and workspace bearer
   APIs; add missing machine operations and native identify/track/page/screen/
@@ -798,8 +827,9 @@ The original 2026-11-20 local `RONIN` setup used the read-only key
 completed MCP initialization, discovered 33 read-only tools/95 API operations,
 and read the live manifest; direct probes denied writes, raw evidence and a
 foreign workspace. It performed no campaign/contact mutation. The development
-preview now uses the single root `.env` and `local-development-readonly` key,
-as described under [Initialized Neon development preview](#initialized-neon-development-preview).
+preview now uses the single root `.env` and a dedicated owner-delegated
+full-control key; `local-development-readonly` remains unchanged.
+See [Initialized Neon development preview](#initialized-neon-development-preview).
 
 This is a local-process MCP transport, not a public remote `/mcp` listener or OAuth
 authorization server. Production deployment and credential provisioning were not
@@ -1855,3 +1885,29 @@ as the production connection source.
 - Local Lite serves `dist/overview-summary-final-preview` with guarded development
   resources and disabled workers/bootstrap/capture/provisioning. No new analytics
   tables, data projection, background jobs, provider changes or production rollout.
+
+## Production overview rollout: 2026-11-26
+
+- Hosted deployment [45907077321](https://github.com/roninpublishing/dittofeed/actions/runs/45907077321)
+  completed successfully in 10m44s. Live application revision:
+  `c4d919016ce305b535a2e7235a5f31e3dbdbef54`.
+  Immutable image:
+  `ghcr.io/roninpublishing/dittofeed-lite@sha256:0862db9881749f0574f3980f4c0ae82115c1b4925fbf332309f026d8df3f664a`.
+  This deploys the stronger chart colors and lightweight parallel overview cards;
+  the preceding local-only status is superseded.
+- Public `/api/` returned the exact revision. The real authenticated production
+  overview and summary returned 200; the current empty Ronin Publishing workspace
+  correctly displays zero counts and unknown deliverability. No demo records
+  were copied into production. Anonymous summary access returned 401.
+- Observed production summary request: 555 ms. Summary, infrastructure,
+  newsletters and tracking-domain requests started within one millisecond of each
+  other; KPI cards rendered independently before the organization finished loading.
+- Production runtime bytes matched the pre-rollout checksum
+  `de5a98c0493854824d6a22789ef2562dec4bc4222f8ae9ab010f6f5a24d6c637`.
+  Sender workers and all bootstrap flags remain false; authorized capture,
+  development-lake/provisioning and OpenTelemetry flags remain true.
+  Bounded `json-file` logging remains 10m × 3. No migrations, provider mutations,
+  email sends or infrastructure cutovers were performed.
+- Read-only cutover preflight passed: zero legacy SMS resources and zero legacy
+  inputs among two running workflows. The protected app-only endpoint retained
+  the previous image/Compose rollback; no production-host build was used.

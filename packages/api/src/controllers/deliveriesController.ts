@@ -269,9 +269,9 @@ export default async function deliveriesController(fastify: FastifyInstance) {
         description: "Download a csv containing deliveries.",
         tags: ["Deliveries"],
         querystring: DownloadDeliveriesRequest,
-        200: {
-          type: "string",
-          format: "binary",
+        produces: ["text/csv"],
+        response: {
+          200: Type.String({ format: "binary" }),
         },
       },
     },

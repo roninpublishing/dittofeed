@@ -96,6 +96,10 @@ export default async function subscriptionGroupsController(
           [WORKSPACE_ID_HEADER]: WorkspaceId,
           [SUBSRIPTION_GROUP_ID_HEADER]: Type.String(),
         }),
+        response: {
+          200: EmptyResponse,
+          400: CsvUploadValidationError,
+        },
       },
     },
     async (request, reply) => {

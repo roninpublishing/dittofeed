@@ -1885,3 +1885,29 @@ as the production connection source.
 - Local Lite serves `dist/overview-summary-final-preview` with guarded development
   resources and disabled workers/bootstrap/capture/provisioning. No new analytics
   tables, data projection, background jobs, provider changes or production rollout.
+
+## Production overview rollout: 2026-11-26
+
+- Hosted deployment [45907077321](https://github.com/roninpublishing/dittofeed/actions/runs/45907077321)
+  completed successfully in 10m44s. Live application revision:
+  `c4d919016ce305b535a2e7235a5f31e3dbdbef54`.
+  Immutable image:
+  `ghcr.io/roninpublishing/dittofeed-lite@sha256:0862db9881749f0574f3980f4c0ae82115c1b4925fbf332309f026d8df3f664a`.
+  This deploys the stronger chart colors and lightweight parallel overview cards;
+  the preceding local-only status is superseded.
+- Public `/api/` returned the exact revision. The real authenticated production
+  overview and summary returned 200; the current empty Ronin Publishing workspace
+  correctly displays zero counts and unknown deliverability. No demo records
+  were copied into production. Anonymous summary access returned 401.
+- Observed production summary request: 555 ms. Summary, infrastructure,
+  newsletters and tracking-domain requests started within one millisecond of each
+  other; KPI cards rendered independently before the organization finished loading.
+- Production runtime bytes matched the pre-rollout checksum
+  `de5a98c0493854824d6a22789ef2562dec4bc4222f8ae9ab010f6f5a24d6c637`.
+  Sender workers and all bootstrap flags remain false; authorized capture,
+  development-lake/provisioning and OpenTelemetry flags remain true.
+  Bounded `json-file` logging remains 10m × 3. No migrations, provider mutations,
+  email sends or infrastructure cutovers were performed.
+- Read-only cutover preflight passed: zero legacy SMS resources and zero legacy
+  inputs among two running workflows. The protected app-only endpoint retained
+  the previous image/Compose rollback; no production-host build was used.

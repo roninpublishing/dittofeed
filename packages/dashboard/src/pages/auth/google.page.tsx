@@ -2,6 +2,7 @@ import {
   Alert,
   Button,
   CircularProgress,
+  Link,
   Stack,
   Typography,
 } from "@mui/material";
@@ -87,6 +88,15 @@ export default function GoogleSignIn({ apiBase }: GoogleSignInProps) {
           Continue with Google
         </Button>
       )}
+      <Link
+        href={`${router.basePath}/privacy.html`}
+        color="text.secondary"
+        variant="caption"
+        underline="hover"
+        sx={{ alignSelf: "center" }}
+      >
+        Privacy
+      </Link>
     </AccountAuthFrame>
   );
 }

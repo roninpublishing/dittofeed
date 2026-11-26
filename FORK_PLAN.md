@@ -1741,3 +1741,24 @@ as the production connection source.
   database: populated-workspace preservation, authenticated ownership, viewer/key
   denial and duplicate-name protection. Typed dashboard lint exhausted its 8 GiB
   heap and is not claimed as passing.
+
+## Google OAuth publication
+
+- On 2026-11-26, Google Auth Platform confirmed the dedicated DITTO project
+  `caramel-vim-515718-j5` is External/Testing. Publication requires the missing
+  public homepage and privacy-policy URLs. Its configured scopes are only
+  `openid`, `userinfo.email` and `userinfo.profile`; sensitive/restricted lists
+  are empty.
+- Carson approved the public privacy notice now stored at
+  `packages/dashboard/public/privacy.html`. It requires no authentication or
+  JavaScript and is linked from the minimal sign-in page.
+- Intended homepage:
+  `https://email.roninpublishing.com/dashboard/auth/google`.
+  Intended privacy URL:
+  `https://email.roninpublishing.com/dashboard/privacy.html`.
+  Local desktop/mobile browser checks rendered the approved notice without
+  horizontal overflow. Production deployment and actual Google publication
+  remain to be verified before declaring the app published.
+- Publishing applies to both local and production OAuth clients in this project;
+  application invitations, workspace roles and account/session controls remain
+  unchanged. No additional Google data scopes or credential rotation is requested.

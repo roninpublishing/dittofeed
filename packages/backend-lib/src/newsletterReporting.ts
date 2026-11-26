@@ -1,9 +1,13 @@
+import { setTimeout as delay } from "node:timers/promises";
+
 import { and, count, eq, gte, inArray, lte, sql } from "drizzle-orm";
 
 import { ClickHouseQueryBuilder, query as chQuery } from "./clickhouse";
 import { db } from "./db";
 import {
+  newsletter,
   newsletterSend,
+  publisher,
   publisherSendgridAccount,
   sendingIp,
   sendingIpBudget,
@@ -13,8 +17,56 @@ import {
   newsletterCapacityLimits,
 } from "./newsletterDelivery";
 import { requireAccount } from "./newsletterInfrastructure";
-import { listNewsletters } from "./newsletters";
+import { listNewsletters, NewsletterError } from "./newsletters";
 import { InternalEventType } from "./types";
+
+type Outcome = {
+  delivered: number;
+  bounced: number;
+  dropped: number;
+  complaints: number;
+};
+
+const emptyOutcome = (): Outcome => ({
+  delivered: 0, bounced: 0, dropped: 0, complaints: 0,
+});
+
+export interface DeliveryMetricSummary {
+  sends: number;
+  delivered: number | null;
+  bounced: number | null;
+  dropped: number | null;
+  resolvedOutcomes: number | null;
+  deliverabilityRate: number | null;
+  complaints: number | null;
+  observationsAvailable: boolean;
+}
+
+function summarizeDelivery(sends: number, outcome: Outcome | null): DeliveryMetricSummary {
+  const resolvedOutcomes = outcome
+    ? outcome.delivered + outcome.bounced + outcome.dropped : null;
+  return {
+    sends,
+    delivered: outcome?.delivered ?? null,
+    bounced: outcome?.bounced ?? null,
+    dropped: outcome?.dropped ?? null,
+    resolvedOutcomes,
+    deliverabilityRate: outcome && resolvedOutcomes
+      ? (100 * outcome.delivered) / resolvedOutcomes : null,
+    complaints: outcome?.complaints ?? null,
+    observationsAvailable: outcome !== null,
+  };
+}
+
+// Both report paths use the same stable identity and terminal tie-breaking.
+const sendIdentityColumns = `
+  JSONExtractString(properties, 'newsletterSendId') AS nativeSendId,
+  JSONExtractString(properties, 'messageId') AS logicalMessageId,
+  nativeSendId != '' OR logicalMessageId != '' AS hasSendIdentity,
+  if(nativeSendId != '',
+    tuple('native', nativeSendId, ''),
+    tuple('message', if(logicalMessageId = '', message_id, logicalMessageId), user_or_anonymous_id)) AS sendIdentity`;
+const terminalPriority = `multiIf(event = '${InternalEventType.EmailDropped}', 3, event = '${InternalEventType.EmailBounced}', 2, 1)`;
 
 // Module scope lets TypeScript name this type in exported declarations.
 interface Observation {
@@ -114,12 +166,6 @@ export async function getPublisherDeliveryHealth(
     : [[], []];
   let observations: Observation[] = [];
   let observationsAvailable = true;
-  type Outcome = {
-    delivered: number; bounced: number; dropped: number; complaints: number;
-  };
-  const emptyOutcome = (): Outcome => ({
-    delivered: 0, bounced: 0, dropped: 0, complaints: 0,
-  });
   const outcomes = new Map<string, {
     accountId: string | null; senderDomain: string | null; outcome: Outcome;
   }>();
@@ -153,12 +199,7 @@ export async function getPublisherDeliveryHealth(
             JSONExtractString(properties, 'sendingPoolId') AS poolId,
             JSONExtractString(properties, 'actualIp') AS actualIp,
             lowerUTF8(replaceRegexpOne(trimBoth(JSONExtractString(properties, 'senderDomain')), '[.]+$', '')) AS senderDomain,
-            JSONExtractString(properties, 'newsletterSendId') AS nativeSendId,
-            JSONExtractString(properties, 'messageId') AS logicalMessageId,
-            nativeSendId != '' OR logicalMessageId != '' AS hasSendIdentity,
-            if(nativeSendId != '',
-              tuple('native', nativeSendId, ''),
-              tuple('message', if(logicalMessageId = '', message_id, logicalMessageId), user_or_anonymous_id)) AS sendIdentity
+            ${sendIdentityColumns}
           FROM user_events_v2
           WHERE workspace_id IN ${qb.addQueryValue(
             publications.map((item) => item.workspaceId),
@@ -170,7 +211,7 @@ export async function getPublisherDeliveryHealth(
         ), resolved_sends AS (
           SELECT workspace_id, sendIdentity,
             argMax(tuple(accountId, event, senderDomain, ipId, poolId, actualIp), tuple(event_time,
-              multiIf(event = '${InternalEventType.EmailDropped}', 3, event = '${InternalEventType.EmailBounced}', 2, 1),
+              ${terminalPriority},
               message_id, accountId, senderDomain, ipId, poolId, actualIp)) AS outcome
           FROM window_events
           WHERE hasSendIdentity AND event IN ${qb.addQueryValue([InternalEventType.EmailDelivered, InternalEventType.EmailBounced, InternalEventType.EmailDropped], "Array(String)")}
@@ -265,20 +306,8 @@ export async function getPublisherDeliveryHealth(
       poolOutcomes.clear();
     }
   }
-  const summarize = (sends: number, outcome: Outcome) => {
-    const resolvedOutcomes = outcome.delivered + outcome.bounced + outcome.dropped;
-    return {
-      sends,
-      delivered: observationsAvailable ? outcome.delivered : null,
-      bounced: observationsAvailable ? outcome.bounced : null,
-      dropped: observationsAvailable ? outcome.dropped : null,
-      resolvedOutcomes: observationsAvailable ? resolvedOutcomes : null,
-      deliverabilityRate: observationsAvailable && resolvedOutcomes > 0
-        ? (100 * outcome.delivered) / resolvedOutcomes : null,
-      complaints: observationsAvailable ? outcome.complaints : null,
-      observationsAvailable,
-    };
-  };
+  const summarize = (sends: number, outcome: Outcome) =>
+    summarizeDelivery(sends, observationsAvailable ? outcome : null);
   const totalOutcome = emptyOutcome();
   const accountOutcomes = new Map<string, Outcome>();
   for (const { accountId: owner, outcome } of outcomes.values()) {
@@ -373,4 +402,145 @@ export async function getPublisherDeliveryHealth(
     interpretation:
       "Attempts count durable send records created in the 30-day window, including queued and uncertain records. Delivery outcomes use the latest terminal event per stable send identity in that window; ties prefer dropped, bounced, delivered, then event ID and attribution. Deliverability is delivered / (delivered + bounced + dropped), never acceptance or inbox placement. Complaints resolve independently per send. Workspace totals include unattributed outcomes; domains use immutable sender attribution, never current account inventory or newsletter defaults. IP cohorts retain pinned dedicated-route IDs separately from provider-reported actual IPs; missing actual IP never resolves from multi-IP candidates or current membership. Pool cohorts use immutable send-time pool IDs only; old missing attribution stays unknown. Null outcomes mean observations unavailable; null rate means no resolved outcomes or unavailable observations. Historical IP observations remain independent.",
   };
+}
+
+export interface DeliverySummary {
+  periodStart: string;
+  periodEnd: string;
+  observationsAvailable: boolean;
+  summary: DeliveryMetricSummary;
+}
+
+const SUMMARY_CACHE_MS = 15_000;
+const SUMMARY_QUERY_MS = 5_000;
+const SUMMARY_DEADLINE_MS = 6_000;
+const SUMMARY_CACHE_LIMIT = 128;
+interface SummaryCacheEntry {
+  expiresAt: number;
+  value?: DeliverySummary;
+  pending?: Promise<DeliverySummary>;
+}
+const summaryCache = new Map<string, SummaryCacheEntry>();
+
+async function summaryOutcomes(
+  workspaceIds: string[], periodStart: Date, periodEnd: Date, signal: AbortSignal,
+): Promise<Outcome | null> {
+  if (!workspaceIds.length) return emptyOutcome();
+  const qb = new ClickHouseQueryBuilder();
+  const terminalEvents = [
+    InternalEventType.EmailDelivered,
+    InternalEventType.EmailBounced,
+    InternalEventType.EmailDropped,
+  ];
+  try {
+    const result = await chQuery({
+      query: `WITH window_events AS (
+        SELECT workspace_id, user_or_anonymous_id, message_id, event_time, event,
+          ${sendIdentityColumns}
+        FROM user_events_v2
+        WHERE workspace_id IN ${qb.addQueryValue(workspaceIds, "Array(String)")}
+          AND event_time >= parseDateTime64BestEffort(${qb.addQueryValue(periodStart.toISOString(), "String")}, 3, 'UTC')
+          AND event_time <= parseDateTime64BestEffort(${qb.addQueryValue(periodEnd.toISOString(), "String")}, 3, 'UTC')
+          AND event IN ${qb.addQueryValue([...terminalEvents, InternalEventType.EmailMarkedSpam], "Array(String)")}
+      ), sends AS (
+        SELECT workspace_id, sendIdentity,
+          argMaxIf(event, tuple(event_time, ${terminalPriority}, message_id),
+            event IN ${qb.addQueryValue(terminalEvents, "Array(String)")}) AS outcome,
+          countIf(event = '${InternalEventType.EmailMarkedSpam}') > 0 AS complained
+        FROM window_events
+        WHERE hasSendIdentity
+        GROUP BY workspace_id, sendIdentity
+      )
+      SELECT
+        countIf(outcome = '${InternalEventType.EmailDelivered}') AS delivered,
+        countIf(outcome = '${InternalEventType.EmailBounced}') AS bounced,
+        countIf(outcome = '${InternalEventType.EmailDropped}') AS dropped,
+        countIf(complained) AS complaints
+      FROM sends`,
+      query_params: qb.getQueries(),
+      abort_signal: signal,
+      clickhouse_settings: { max_execution_time: SUMMARY_QUERY_MS / 1000 },
+      format: "JSONEachRow",
+    });
+    const [row] = await result.json<Record<keyof Outcome, string | number>>();
+    if (!row) throw new Error("Delivery summary returned no row");
+    return {
+      delivered: Number(row.delivered), bounced: Number(row.bounced),
+      dropped: Number(row.dropped), complaints: Number(row.complaints),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function loadDeliverySummary(
+  publisherId: string, workspaceIds: string[],
+): Promise<DeliverySummary> {
+  const periodEnd = new Date();
+  const periodStart = new Date(periodEnd.getTime() - 30 * 86400_000);
+  const controller = new AbortController();
+  const abortTimer = setTimeout(() => controller.abort(), SUMMARY_QUERY_MS);
+  const deadlineController = new AbortController();
+  try {
+    const work = Promise.all([
+      db().transaction(async (tx) => {
+        await tx.execute(sql`SET LOCAL statement_timeout = '5s'`);
+        const [row] = await tx.select({ sends: count() }).from(newsletterSend)
+          .where(and(
+            eq(newsletterSend.publisherId, publisherId),
+            gte(newsletterSend.createdAt, periodStart),
+            lte(newsletterSend.createdAt, periodEnd),
+          ));
+        return row!.sends;
+      }),
+      summaryOutcomes(workspaceIds, periodStart, periodEnd, controller.signal),
+    ]).then(([sends, outcome]) => ({
+      periodStart: periodStart.toISOString(),
+      periodEnd: periodEnd.toISOString(),
+      observationsAvailable: outcome !== null,
+      summary: summarizeDelivery(sends, outcome),
+    }));
+    const deadline = delay(SUMMARY_DEADLINE_MS, undefined, { signal: deadlineController.signal })
+      .then(() => {
+        controller.abort();
+        throw new Error("Delivery summary timed out");
+      });
+    return await Promise.race([work, deadline]);
+  } finally {
+    clearTimeout(abortTimer);
+    deadlineController.abort();
+    controller.abort();
+  }
+}
+
+/** Overview-only metrics. Request authorization is never stored in this cache. */
+export async function getPublisherDeliverySummary(publisherId: string): Promise<DeliverySummary> {
+  // Re-read ownership before every hit, including while sharing an in-flight read.
+  const scope = await db().select({ workspaceId: newsletter.workspaceId })
+    .from(publisher)
+    .leftJoin(newsletter, eq(newsletter.publisherId, publisher.workspaceId))
+    .where(eq(publisher.workspaceId, publisherId))
+    .orderBy(newsletter.workspaceId);
+  if (!scope.length) throw new NewsletterError("Publisher not found", 404);
+  const workspaceIds = scope.flatMap((row) => row.workspaceId ? [row.workspaceId] : []);
+  const key = JSON.stringify([publisherId, workspaceIds]);
+  const cached = summaryCache.get(key);
+  if (cached?.pending) return cached.pending;
+  if (cached?.value && cached.expiresAt > Date.now()) return cached.value;
+  const entry: SummaryCacheEntry = { expiresAt: 0 };
+  entry.pending = loadDeliverySummary(publisherId, workspaceIds).then((value) => {
+    if (value.observationsAvailable) {
+      entry.value = value;
+      entry.expiresAt = Date.now() + SUMMARY_CACHE_MS;
+    }
+    return value;
+  }).finally(() => {
+    entry.pending = undefined;
+    if (!entry.value && summaryCache.get(key) === entry) summaryCache.delete(key);
+  });
+  summaryCache.set(key, entry);
+  if (summaryCache.size > SUMMARY_CACHE_LIMIT) {
+    summaryCache.delete(summaryCache.keys().next().value!);
+  }
+  return entry.pending;
 }

@@ -22,7 +22,10 @@ import {
   upsertSendingIp,
   upsertSendingPool,
 } from "backend-lib/src/newsletterInfrastructure";
-import { getPublisherDeliveryHealth } from "backend-lib/src/newsletterReporting";
+import {
+  getPublisherDeliveryHealth,
+  getPublisherDeliverySummary,
+} from "backend-lib/src/newsletterReporting";
 import {
   adoptNewsletter,
   createNewsletter,
@@ -835,6 +838,21 @@ export default async function publicationsController(fastify: FastifyInstance) {
           publisherId: await publisher(workspaceId),
         });
       }),
+  );
+  f.get(
+    "/delivery-summary",
+    {
+      schema: {
+        ...base,
+        description:
+          "Read lightweight workspace delivery totals without infrastructure or cohort details.",
+        querystring: contracts.PublisherQuery,
+      },
+    },
+    async (request, reply) =>
+      respond(reply, async () =>
+        getPublisherDeliverySummary(request.query.workspaceId),
+      ),
   );
   f.get(
     "/delivery-health",

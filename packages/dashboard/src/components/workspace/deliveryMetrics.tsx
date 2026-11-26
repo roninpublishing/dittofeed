@@ -20,6 +20,22 @@ export function useDeliveryHealth(apiBase: string, workspaceId: string) {
   });
 }
 
+export function useDeliverySummary(apiBase: string, workspaceId: string) {
+  return useQuery({
+    queryKey: ["publication-management", apiBase, workspaceId, "delivery-summary"],
+    enabled: Boolean(workspaceId),
+    staleTime: 15_000,
+    retry: false,
+    queryFn: async ({ signal }) => {
+      const response = await axios.get<{ data: RecordValue }>(
+        `${apiBase}/api/publications/delivery-summary`,
+        { params: { workspaceId }, signal, timeout: 10_000 },
+      );
+      return record(response.data.data);
+    },
+  });
+}
+
 export function deliveryMetricValue(
   summary: RecordValue | undefined,
   key: string,

@@ -1817,3 +1817,41 @@ as the production connection source.
 - Combined Lite now serves `dist/overview-visible-colors-preview` on loopback with
   guarded development Neon/ClickHouse/Temporal, Google auth and disabled workers,
   bootstrap and open capture. No `.env` rewrite or production deployment.
+
+## Lightweight overview delivery summary
+
+- Overview cards now use `/api/publications/delivery-summary`, not the detailed
+  infrastructure/queue/cohort report. One PostgreSQL attempt count runs
+  alongside one ClickHouse terminal-outcome/complaint aggregation. Shared send
+  identity and tie-breaking preserve duplicate, late-event and legacy semantics.
+- Successful summaries share a 15-second, bounded, process-local workspace cache
+  and in-flight work. HTTP authorization remains fresh; each lookup re-reads
+  publisher/newsletter ownership before any cache hit. Failed observations are
+  null/unavailable, never fake zeroes, and failures are not cached.
+- Analytics requests abort after five seconds; PostgreSQL uses a five-second
+  local statement timeout, aggregation has a six-second deadline, and the browser
+  has a ten-second request timeout without automatic retries.
+- KPI fetching starts alongside inventory requests instead of waiting for the
+  organization diagram. Loading/unavailable inventory counts are not shown as
+  zero. Detailed ESP/domain/IP reporting remains unchanged.
+- Eight backend cases and thirteen authenticated API cases passed on disposable
+  local PostgreSQL/ClickHouse, covering report parity, retries/late outcomes,
+  concurrent reads, expiry, changed ownership, outages and warm-cache scope denial.
+  Final changed API assertions passed again. Lite TypeScript and optimized dashboard
+  builds passed; the real Google-authenticated development overview rendered all
+  card values correctly and started all four requests together.
+- Observed local development measurements (not latency guarantees):
+
+  | Measurement | Duration |
+  | --- | --- |
+  | Backend summary, uncached | 534 ms |
+  | Backend summary, cached with fresh ownership lookup | 38 ms |
+  | Authenticated browser summary, initial page request | 2653 ms |
+  | Authenticated browser summary, cached request | 868 ms |
+
+  The summary response transferred 581 bytes. Cloud/network/authentication startup
+  still contributes latency; this change does not claim every dashboard query is
+  optimized.
+- Local Lite serves `dist/overview-summary-final-preview` with guarded development
+  resources and disabled workers/bootstrap/capture/provisioning. No new analytics
+  tables, data projection, background jobs, provider changes or production rollout.

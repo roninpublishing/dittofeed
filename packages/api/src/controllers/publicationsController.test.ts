@@ -19,6 +19,8 @@ import { WORKSPACE_ID_HEADER } from "isomorphic-lib/src/constants";
 import { NewsletterTrackingResponse } from "isomorphic-lib/src/publications";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 
+// This fixture constructs Fastify directly; retain the real app's context types.
+import type {} from "../buildApp";
 import adminAuth from "../buildApp/adminAuth";
 import publicationsController from "./publicationsController";
 
@@ -80,6 +82,71 @@ function headers(apiKey: string, target = publisherId) {
 }
 
 describe("publication management API", () => {
+  it("returns actual delivery summary totals for an empty publisher workspace", async () => {
+    const result = await app.inject({
+      method: "GET",
+      url: `/api/admin/publications/delivery-summary?workspaceId=${publisherId}`,
+      headers: headers(await key(["read"])),
+    });
+    expect(result.statusCode).toBe(200);
+    const body = result.json<{
+      data: { periodStart: string; periodEnd: string };
+    }>();
+    expect(body).toEqual({
+      data: {
+        periodStart: expect.any(String),
+        periodEnd: expect.any(String),
+        observationsAvailable: true,
+        summary: {
+          sends: 0,
+          delivered: 0,
+          bounced: 0,
+          dropped: 0,
+          complaints: 0,
+          resolvedOutcomes: 0,
+          deliverabilityRate: null,
+          observationsAvailable: true,
+        },
+      },
+    });
+    const periodStart = new Date(body.data.periodStart);
+    const periodEnd = new Date(body.data.periodEnd);
+    expect(periodStart.toISOString()).toBe(body.data.periodStart);
+    expect(periodEnd.toISOString()).toBe(body.data.periodEnd);
+    expect(periodEnd.getTime() - periodStart.getTime()).toBe(30 * 86400_000);
+  });
+
+  it("denies foreign credentials and missing read scope after warming the delivery summary cache", async () => {
+    const url = `/api/admin/publications/delivery-summary?workspaceId=${publisherId}`;
+    const warmed = await app.inject({
+      method: "GET",
+      url,
+      headers: headers(await key(["read"])),
+    });
+    expect(warmed.statusCode).toBe(200);
+    expect(warmed.json()).toMatchObject({ data: { summary: { sends: 0 } } });
+
+    const foreign = await createPublisher({
+      name: `foreign-summary-${randomUUID()}`,
+    });
+    workspaceIds.push(foreign.id);
+    const foreignAttempt = await app.inject({
+      method: "GET",
+      url,
+      headers: headers(await key(["read"], foreign.id)),
+    });
+    expect(foreignAttempt.statusCode).toBe(401);
+    expect(foreignAttempt.json()).not.toHaveProperty("data");
+
+    const missingScopeAttempt = await app.inject({
+      method: "GET",
+      url,
+      headers: headers(await key(["write"])),
+    });
+    expect(missingScopeAttempt.statusCode).toBe(403);
+    expect(missingScopeAttempt.json()).not.toHaveProperty("data");
+  });
+
   it("creates a separate workspace with membership for the authenticated manager", async () => {
     const email = `${randomUUID()}@example.test`;
     const [member] = await db()

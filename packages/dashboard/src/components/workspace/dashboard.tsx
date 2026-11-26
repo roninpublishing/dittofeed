@@ -167,7 +167,12 @@ export default function WorkspaceDashboard({
     route.section === "domains";
   const failure =
     infrastructure.error ?? (needsNewsletters ? newsletters.error : null);
-  if (failure)
+  const isOverview = route.section === "overview";
+  const topologyPending =
+    !infrastructure.data ||
+    (needsNewsletters && newsletters.isPending) ||
+    (needsDomains && domainCatalog.isPending);
+  if (failure && !isOverview)
     return (
       <Alert
         severity="error"
@@ -180,11 +185,7 @@ export default function WorkspaceDashboard({
         {errorText(failure)}
       </Alert>
     );
-  if (
-    !infrastructure.data ||
-    (needsNewsletters && newsletters.isPending) ||
-    (needsDomains && domainCatalog.isPending)
-  )
+  if (topologyPending && !isOverview)
     return (
       <Stack alignItems="center" py={4}>
         <CircularProgress size={28} aria-label="Loading workspace" />
@@ -193,7 +194,7 @@ export default function WorkspaceDashboard({
   const common = {
     workspaceId,
     apiBase,
-    infrastructure: infrastructure.data,
+    infrastructure: infrastructure.data ?? {},
     onComplete: refresh,
   };
   if (route.section === "domains")
@@ -249,9 +250,13 @@ export default function WorkspaceDashboard({
             ? workspace.value.name
             : "Workspace"
         }
-        infrastructure={infrastructure.data}
+        infrastructure={infrastructure.data ?? {}}
         newsletters={newsletters.data}
         domains={domains}
+        topologyState={
+          failure ? "unavailable" : topologyPending ? "loading" : "ready"
+        }
+        onRetry={() => void refresh()}
       />
     </Stack>
   );

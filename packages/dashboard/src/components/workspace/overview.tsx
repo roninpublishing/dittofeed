@@ -1,10 +1,18 @@
-import { Box, Paper, Stack, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { useMemo } from "react";
 
 import { WorkspaceDomain } from "../../lib/workspaceDomains";
 import { workspaceTopology } from "../../lib/workspaceTopology";
 import { record, RecordValue, rows } from "../publications/settingsShared";
-import { DeliveryMetricCards, useDeliveryHealth } from "./deliveryMetrics";
+import { DeliveryMetricCards, useDeliverySummary } from "./deliveryMetrics";
 import Link from "./navigation";
 import OverviewOrganization from "./overviewOrganization";
 
@@ -15,6 +23,8 @@ export default function Overview({
   infrastructure,
   newsletters,
   domains,
+  topologyState = "ready",
+  onRetry,
 }: {
   workspaceId: string;
   apiBase: string;
@@ -22,8 +32,10 @@ export default function Overview({
   infrastructure: RecordValue;
   newsletters: unknown;
   domains?: WorkspaceDomain[];
+  topologyState?: "loading" | "unavailable" | "ready";
+  onRetry?: () => void;
 }) {
-  const health = useDeliveryHealth(apiBase, workspaceId);
+  const health = useDeliverySummary(apiBase, workspaceId);
   let metricState: "loading" | "unavailable" | "ready" = "ready";
   if (health.isPending) metricState = "loading";
   if (health.isError) metricState = "unavailable";
@@ -97,12 +109,37 @@ export default function Overview({
               {label}
             </Typography>
             <Typography component="span" fontSize={13} fontWeight={600}>
-              {value}
+              {topologyState === "ready"
+                ? value
+                : topologyState === "loading"
+                  ? "Loading"
+                  : "Unavailable"}
             </Typography>
           </Paper>
         ))}
       </Box>
-      <OverviewOrganization topology={topology} />
+      {topologyState === "ready" && (
+        <OverviewOrganization topology={topology} />
+      )}
+      {topologyState === "loading" && (
+        <Stack alignItems="center" py={4}>
+          <CircularProgress size={28} aria-label="Loading organization" />
+        </Stack>
+      )}
+      {topologyState === "unavailable" && (
+        <Alert
+          severity="error"
+          action={
+            onRetry && (
+              <Button color="inherit" onClick={onRetry}>
+                Retry
+              </Button>
+            )
+          }
+        >
+          Organization unavailable.
+        </Alert>
+      )}
     </Stack>
   );
 }

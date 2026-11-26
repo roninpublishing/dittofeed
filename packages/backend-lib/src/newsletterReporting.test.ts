@@ -14,7 +14,7 @@ import {
 } from "./db/publisherSchema";
 import { workspace } from "./db/schema";
 import { configureSendgridAccount } from "./newsletterInfrastructure";
-import { getPublisherDeliveryHealth } from "./newsletterReporting";
+import { getPublisherDeliveryHealth, getPublisherDeliverySummary } from "./newsletterReporting";
 import { createNewsletter, createPublisher } from "./newsletters";
 import { BatchTrackData, EventType, InternalEventType } from "./types";
 
@@ -101,6 +101,7 @@ it("deduplicates observations, isolates publishers, and never guesses historical
       resolvedOutcomes: 2,
       deliverabilityRate: 100,
     });
+    expect((await getPublisherDeliverySummary(first.id)).summary).toEqual(report.summary);
     expect(report.domains).toEqual([
       expect.objectContaining({ accountId: null, senderDomain: null, delivered: 2 }),
     ]);
@@ -297,6 +298,7 @@ it("resolves event-time terminal outcomes once per native send without changing 
       deliverabilityRate: (100 * 8) / 12,
       complaints: 2,
     });
+    expect((await getPublisherDeliverySummary(parent.id)).summary).toEqual(report.summary);
     expect(report.domains).toEqual(expect.arrayContaining([
       expect.objectContaining({
         accountId: first.id, senderDomain: "secondary.example.test",
@@ -551,6 +553,7 @@ it("reports a known empty workspace without inventing a delivery rate", async ()
       resolvedOutcomes: 0, complaints: 0, deliverabilityRate: null,
       observationsAvailable: true,
     });
+    expect((await getPublisherDeliverySummary(parent.id)).summary).toEqual(report.summary);
     expect(report.domains).toEqual([]);
   } finally {
     await db().delete(workspace).where(inArray(workspace.id, [parent.id]));

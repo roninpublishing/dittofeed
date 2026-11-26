@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import { EmailTemplateResource } from "isomorphic-lib/src/types";
+import { ok } from "neverthrow";
 
 import { submitBatch } from "./apps/batch";
 import { WELCOME_TEMPLATE } from "./bootstrap/messageTemplates";
@@ -10,6 +11,10 @@ import { db } from "./db";
 import { defaultEmailProvider as dbDefaultEmailProvider } from "./db/schema";
 import { sendMessage, upsertMessageTemplate } from "./messaging";
 import { getOrCreateEmailProviders } from "./messaging/email";
+import {
+  getNewsletterEmailContext,
+  sendNewsletterEmail,
+} from "./newsletterDelivery";
 import { generateSubscriptionManagementPage } from "./subscriptionManagementPage";
 import {
   getSubscriptionGroupDetails,
@@ -39,7 +44,24 @@ import {
 } from "./userProperties";
 import { createWorkspace } from "./workspaces";
 
+// Exercise real rendering, signed links and subscription state, but never queue
+// mail or call a provider. Durable delivery has its own integration coverage.
+jest.mock("./newsletterDelivery", () => ({
+  getNewsletterEmailContext: jest.fn(),
+  sendNewsletterEmail: jest.fn(),
+}));
+
 describe("subscriptionManagementEndToEnd", () => {
+  beforeEach(() => {
+    jest
+      .mocked(getNewsletterEmailContext)
+      .mockImplementation(async (workspaceId) => ({
+        publisherId: workspaceId,
+      }));
+    jest
+      .mocked(sendNewsletterEmail)
+      .mockImplementation(async ({ success }) => ok(success));
+  });
   describe("when a user unsubscribes from an opt-out subscription group", () => {
     let workspace: Workspace;
     let subscriptionGroup: SubscriptionGroup;
@@ -154,6 +176,7 @@ describe("subscriptionManagementEndToEnd", () => {
       let sendMessageResult = await sendMessage({
         workspaceId: workspace.id,
         channel: ChannelType.Email,
+        messageTags: { messageId: randomUUID() },
         userId,
         subscriptionGroupDetails: {
           name: subscriptionGroup.name,
@@ -232,6 +255,7 @@ describe("subscriptionManagementEndToEnd", () => {
       sendMessageResult = await sendMessage({
         workspaceId: workspace.id,
         channel: ChannelType.Email,
+        messageTags: { messageId: randomUUID() },
         userId,
         subscriptionGroupDetails: {
           name: subscriptionGroup.name,
@@ -400,6 +424,7 @@ describe("subscriptionManagementEndToEnd", () => {
       let sendMessageResult = await sendMessage({
         workspaceId: workspace.id,
         channel: ChannelType.Email,
+        messageTags: { messageId: randomUUID() },
         userId,
         subscriptionGroupDetails: {
           name: subscriptionGroup.name,
@@ -490,6 +515,7 @@ describe("subscriptionManagementEndToEnd", () => {
       sendMessageResult = await sendMessage({
         workspaceId: workspace.id,
         channel: ChannelType.Email,
+        messageTags: { messageId: randomUUID() },
         userId,
         subscriptionGroupDetails: {
           name: subscriptionGroup.name,

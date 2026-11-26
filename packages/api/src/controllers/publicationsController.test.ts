@@ -94,8 +94,8 @@ describe("publication management API", () => {
     }>();
     expect(body).toEqual({
       data: {
-        periodStart: expect.any(String),
-        periodEnd: expect.any(String),
+        periodStart: expect.any(String) as unknown,
+        periodEnd: expect.any(String) as unknown,
         observationsAvailable: true,
         summary: {
           sends: 0,
@@ -155,13 +155,11 @@ describe("publication management API", () => {
       .returning();
     if (!member) throw new Error("Missing member");
     try {
-      await db()
-        .insert(workspaceMemberRole)
-        .values({
-          workspaceId: publisherId,
-          workspaceMemberId: member.id,
-          role: "Admin",
-        });
+      await db().insert(workspaceMemberRole).values({
+        workspaceId: publisherId,
+        workspaceMemberId: member.id,
+        role: "Admin",
+      });
       app.addHook("onRequest", (request, _reply, done) => {
         request.requestContext.set("member", {
           id: member.id,

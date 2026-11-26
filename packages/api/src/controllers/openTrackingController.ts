@@ -2,12 +2,12 @@ import { Static, Type } from "@sinclair/typebox";
 import config from "backend-lib/src/config";
 import logger from "backend-lib/src/logger";
 import {
-  captureDevelopmentPixelEvents,
   CaptureDevelopmentPixelEventInput,
+  captureDevelopmentPixelEvents,
 } from "backend-lib/src/messaging/developmentOpenTracking";
 import {
-  captureEmailOpenRequests,
   CaptureEmailOpenRequestInput,
+  captureEmailOpenRequests,
 } from "backend-lib/src/messaging/openTracking";
 import { verifyOpenTrackingRelay } from "backend-lib/src/messaging/openTrackingRelay";
 import { getTrackingHostnameNewsletter } from "backend-lib/src/newsletterTracking";
@@ -140,7 +140,9 @@ export default async function openTrackingController(fastify: FastifyInstance) {
           let workspaceId = hosts.get(event.hostname);
           if (!workspaceId) {
             // eslint-disable-next-line no-await-in-loop -- Bound lookups and verify all hosts before writing.
-            const verified = await getTrackingHostnameNewsletter(event.hostname);
+            const verified = await getTrackingHostnameNewsletter(
+              event.hostname,
+            );
             if (!verified) return reply.status(403).send();
             workspaceId = verified;
             hosts.set(event.hostname, workspaceId);
@@ -224,7 +226,9 @@ export default async function openTrackingController(fastify: FastifyInstance) {
           let workspaceId = hosts.get(event.hostname);
           if (!workspaceId) {
             // eslint-disable-next-line no-await-in-loop -- Resolve bounded, distinct hosts before writing.
-            const verified = await getTrackingHostnameNewsletter(event.hostname);
+            const verified = await getTrackingHostnameNewsletter(
+              event.hostname,
+            );
             if (!verified) return reply.status(403).send();
             workspaceId = verified;
             hosts.set(event.hostname, workspaceId);

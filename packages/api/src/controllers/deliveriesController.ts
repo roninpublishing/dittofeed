@@ -29,37 +29,50 @@ import {
 import { FastifyInstance } from "fastify";
 import { DevelopmentPixelEvidenceSchema } from "isomorphic-lib/src/tracking/development";
 
-const DevelopmentOpenRequest = Type.Object({
-  workspaceId: Type.String({ format: "uuid" }),
-  eventId: Type.Optional(Type.String({ format: "uuid" })),
-  userId: Type.Optional(Type.String({ minLength: 1 })),
-  messageId: Type.Optional(Type.String({ minLength: 1 })),
-  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
-  before: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
-}, { additionalProperties: false });
+const DevelopmentOpenRequest = Type.Object(
+  {
+    workspaceId: Type.String({ format: "uuid" }),
+    eventId: Type.Optional(Type.String({ format: "uuid" })),
+    userId: Type.Optional(Type.String({ minLength: 1 })),
+    messageId: Type.Optional(Type.String({ minLength: 1 })),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+    before: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
+  },
+  { additionalProperties: false },
+);
 
-const DevelopmentOpenResponse = Type.Object({
-  events: Type.Array(Type.Object({
-    eventId: Type.String(),
-    workspaceId: Type.String(),
-    hostname: Type.String(),
-    sendId: Type.Union([Type.String(), Type.Null()]),
-    userId: Type.Union([Type.String(), Type.Null()]),
-    messageId: Type.Union([Type.String(), Type.Null()]),
-    status: Type.Union([
-      Type.Literal("matched"), Type.Literal("unmatched"), Type.Literal("invalid"),
-    ]),
-    method: Type.String(),
-    occurredAt: Type.String(),
-    receivedAt: Type.String(),
-    rawExpiresAt: Type.String(),
-    ip: Type.Union([Type.String(), Type.Null()]),
-    userAgent: Type.Union([Type.String(), Type.Null()]),
-    requestHash: Type.String(),
-    evidence: Type.Union([DevelopmentPixelEvidenceSchema, Type.Null()]),
-  }, { additionalProperties: false })),
-  nextCursor: Type.Optional(Type.String()),
-}, { additionalProperties: false });
+const DevelopmentOpenResponse = Type.Object(
+  {
+    events: Type.Array(
+      Type.Object(
+        {
+          eventId: Type.String(),
+          workspaceId: Type.String(),
+          hostname: Type.String(),
+          sendId: Type.Union([Type.String(), Type.Null()]),
+          userId: Type.Union([Type.String(), Type.Null()]),
+          messageId: Type.Union([Type.String(), Type.Null()]),
+          status: Type.Union([
+            Type.Literal("matched"),
+            Type.Literal("unmatched"),
+            Type.Literal("invalid"),
+          ]),
+          method: Type.String(),
+          occurredAt: Type.String(),
+          receivedAt: Type.String(),
+          rawExpiresAt: Type.String(),
+          ip: Type.Union([Type.String(), Type.Null()]),
+          userAgent: Type.Union([Type.String(), Type.Null()]),
+          requestHash: Type.String(),
+          evidence: Type.Union([DevelopmentPixelEvidenceSchema, Type.Null()]),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+    nextCursor: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+);
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export default async function deliveriesController(fastify: FastifyInstance) {
@@ -159,12 +172,21 @@ export default async function deliveriesController(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       try {
-        return reply.status(200).send(await findDevelopmentPixelEvents(request.body));
+        return reply
+          .status(200)
+          .send(await findDevelopmentPixelEvents(request.body));
       } catch (error) {
-        if (error instanceof DevelopmentOpenTrackingError && error.status === 400)
-          return reply.status(400).send({ message: "Invalid development evidence query" });
+        if (
+          error instanceof DevelopmentOpenTrackingError &&
+          error.status === 400
+        )
+          return reply
+            .status(400)
+            .send({ message: "Invalid development evidence query" });
         logger().error("Unable to read development open evidence");
-        return reply.status(503).send({ message: "Development evidence unavailable" });
+        return reply
+          .status(503)
+          .send({ message: "Development evidence unavailable" });
       }
     },
   );

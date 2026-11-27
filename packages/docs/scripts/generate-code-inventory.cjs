@@ -11,7 +11,7 @@ function walk(directory) {
     if (entry.isSymbolicLink()) continue;
     const absolute = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (!excludedDirectories.has(entry.name)) walk(absolute);
+      if (!excludedDirectories.has(entry.name) && !entry.name.startsWith(".next-")) walk(absolute);
     } else if (/\.(?:[cm]?[jt]s|[jt]sx)$/.test(entry.name) && !/\.(?:test|spec)\.[^.]+$/.test(entry.name)) {
       sources.push(absolute);
     }

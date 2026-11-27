@@ -1911,3 +1911,15 @@ as the production connection source.
 - Read-only cutover preflight passed: zero legacy SMS resources and zero legacy
   inputs among two running workflows. The protected app-only endpoint retained
   the previous image/Compose rollback; no production-host build was used.
+
+## Source inventory cleanup: 2026-11-26
+
+- The documentation generator now skips named `.next-*` build directories as
+  well as canonical `.next` output. Generated preview/server/chunk functions no
+  longer appear as application source or inflate the checked-in inventory.
+- Regenerated inventory: 728 source files, 7,264 functions and 3,234,234 bytes.
+  The previously included preview bundles accounted for 176,838 extra entries.
+  No history rewrite or Git LFS migration was performed.
+- The isolated filesystem regression covers canonical and named Next.js builds
+  alongside genuine source; it passed. Regeneration and `--check` passed, and
+  the resulting source list contains no canonical or named Next.js build paths.

@@ -143,6 +143,7 @@ scenario; a schema alone is not proof that a handler works.
 From the repository root, with dependencies installed:
 
 ```bash
+node --test packages/docs/scripts/generate-code-inventory.test.cjs
 node packages/docs/scripts/generate-code-inventory.cjs
 # In CI, compare the committed artifacts without rewriting them:
 node packages/docs/scripts/generate-code-inventory.cjs --check
@@ -159,9 +160,9 @@ implementation; the generator does not invent behavioral documentation.
 Anonymous functions remain explicitly
 anonymous or have their call argument/assignment context; names are not invented
 API operation identifiers. Artifacts are sorted deterministically and contain no
-generation timestamp. Dependencies, compiled output, tests/mocks, generated output
-and historical Drizzle migration directories are excluded. Generator exclusions
-and scope are recorded in the artifact itself.
+generation timestamp. Dependencies, compiled output (including named `.next-*`
+preview builds), tests/mocks, generated output and historical Drizzle migrations
+are excluded. Generator exclusions and scope are recorded in the artifact itself.
 
 This is implementation documentation, **not one API per function**. Controller
 functions and anonymous request handlers implement operations; backend helpers,

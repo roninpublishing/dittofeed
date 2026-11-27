@@ -18,6 +18,7 @@ import { API_OPERATION_SCOPES } from "isomorphic-lib/src/apiOperations";
 import { WORKSPACE_ID_HEADER } from "isomorphic-lib/src/constants";
 import { NewsletterTrackingResponse } from "isomorphic-lib/src/publications";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
+import { TYPE_REFS } from "isomorphic-lib/src/typeRefs";
 
 // This fixture constructs Fastify directly; retain the real app's context types.
 import type {} from "../buildApp";
@@ -48,6 +49,7 @@ beforeEach(async () => {
   publisherId = parent.id;
   workspaceIds.push(parent.id);
   app = fastify();
+  TYPE_REFS.forEach((definition) => app.addSchema(definition));
   await app.register(fastifyRequestContext);
   await app.register(adminAuth);
   await app.register(publicationsController, {
@@ -92,10 +94,11 @@ describe("publication management API", () => {
     const body = result.json<{
       data: { periodStart: string; periodEnd: string };
     }>();
+    const stringMatcher: unknown = expect.any(String);
     expect(body).toEqual({
       data: {
-        periodStart: expect.any(String),
-        periodEnd: expect.any(String),
+        periodStart: stringMatcher,
+        periodEnd: stringMatcher,
         observationsAvailable: true,
         summary: {
           sends: 0,
@@ -155,13 +158,11 @@ describe("publication management API", () => {
       .returning();
     if (!member) throw new Error("Missing member");
     try {
-      await db()
-        .insert(workspaceMemberRole)
-        .values({
-          workspaceId: publisherId,
-          workspaceMemberId: member.id,
-          role: "Admin",
-        });
+      await db().insert(workspaceMemberRole).values({
+        workspaceId: publisherId,
+        workspaceMemberId: member.id,
+        role: "Admin",
+      });
       app.addHook("onRequest", (request, _reply, done) => {
         request.requestContext.set("member", {
           id: member.id,

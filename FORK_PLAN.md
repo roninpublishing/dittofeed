@@ -1923,3 +1923,16 @@ as the production connection source.
 - The isolated filesystem regression covers canonical and named Next.js builds
   alongside genuine source; it passed. Regeneration and `--check` passed, and
   the resulting source list contains no canonical or named Next.js build paths.
+- Hosted redeploy [45915878709](https://github.com/roninpublishing/dittofeed/actions/runs/45915878709)
+  completed successfully in 15m41s. Production serves
+  `2bab5aca113b599871a7940e7c85c8f61bd1d8a0` from immutable image
+  `ghcr.io/roninpublishing/dittofeed-lite@sha256:9170d73c633f4b3d2db5792dd35cdae8eb70d1e7fdc850bfe16331ae30ff5acc`.
+  The public API returned the exact revision and the real Google-authenticated
+  owner's workspace DOM rendered its expected counts and unknown deliverability.
+  Screenshot capture failed because the browser renderer stopped drawing.
+- Runtime checksum, existing capture/observability flags and bounded `json-file`
+  logging matched the pre-rollout baseline; sender workers and bootstrap remain
+  disabled. No sends, migrations or provider changes were performed.
+- Read-only preflight passed with zero legacy resources and zero legacy workflows
+  among two running workflows. Production has no `ts-node`; invoke its compiled
+  entrypoint with `node packages/backend-lib/dist/scripts/smsCutoverPreflight.js`.
